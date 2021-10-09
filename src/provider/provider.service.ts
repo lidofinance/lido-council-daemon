@@ -1,0 +1,36 @@
+import { Inject, Injectable, LoggerService } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { StaticJsonRpcProvider } from '@ethersproject/providers';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+
+@Injectable()
+export class ProviderService {
+  constructor(
+    @Inject(WINSTON_MODULE_NEST_PROVIDER)
+    private readonly logger: LoggerService,
+    private readonly configService: ConfigService,
+  ) {}
+
+  private cachedProvider: StaticJsonRpcProvider | null = null;
+
+  public get rpcUrl(): string {
+    return this.configService.get<string>('RPC_URL');
+  }
+
+  private getProvider(): StaticJsonRpcProvider {
+    if (!this.cachedProvider) {
+      this.cachedProvider = new StaticJsonRpcProvider(this.rpcUrl);
+    }
+
+    return this.cachedProvider;
+  }
+
+  public get provider(): StaticJsonRpcProvider {
+    return this.getProvider();
+  }
+
+  public async getChainId(): Promise<number> {
+    const { chainId } = await this.provider.getNetwork();
+    return chainId;
+  }
+}

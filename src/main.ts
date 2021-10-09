@@ -1,6 +1,5 @@
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
-import * as Sentry from '@sentry/node';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import {
   FastifyAdapter,
@@ -8,7 +7,7 @@ import {
 } from '@nestjs/platform-fastify';
 import { SWAGGER_URL } from 'common/swagger';
 import { AppModule } from 'app.module';
-import { APP_DESCRIPTION, APP_NAME, APP_VERSION } from 'app.constants';
+import { APP_DESCRIPTION, APP_VERSION } from 'app.constants';
 import { VersioningType } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
@@ -20,21 +19,11 @@ async function bootstrap() {
   );
 
   const configService = app.get(ConfigService);
-  const environment = configService.get<string>('NODE_ENV');
   const appPort = configService.get<number>('PORT');
   const corsWhitelist = configService.get<string>('CORS_WHITELIST_REGEXP');
-  const sentryDsn = configService.get<string>('SENTRY_DSN');
 
   app.enableVersioning({ type: VersioningType.URI });
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
-
-  const release = `${APP_NAME}@${APP_VERSION}`;
-
-  Sentry.init({
-    dsn: sentryDsn,
-    release,
-    environment,
-  });
 
   if (corsWhitelist !== '') {
     const whitelistRegexp = new RegExp(corsWhitelist);
