@@ -1,7 +1,7 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { TransportInterface } from './transport.interface';
 import { ConfigService } from '@nestjs/config';
-import { Transport } from './transport';
+import { KafkaTransport } from './kafka-transport';
 import { ConfigModule } from '../common/config';
 
 @Module({})
@@ -14,7 +14,7 @@ export class TransportModule {
         {
           provide: TransportInterface,
           useFactory: async (configService: ConfigService) => {
-            return new Transport(configService);
+            return new KafkaTransport(configService);
           },
           inject: [ConfigService],
         },
