@@ -10,6 +10,7 @@ import { ConfigModule } from 'common/config';
 import { CacheModule } from 'common/cache';
 import { SentryInterceptor } from 'common/sentry';
 import { StatisticModule } from 'statistic';
+import { TransportModule } from './transport';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { StatisticModule } from 'statistic';
     CacheModule,
     ThrottlerModule,
     ConfigModule,
+    TransportModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerBehindProxyGuard },
