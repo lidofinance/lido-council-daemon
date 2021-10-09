@@ -20,24 +20,9 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const appPort = configService.get<number>('PORT');
-  const corsWhitelist = configService.get<string>('CORS_WHITELIST_REGEXP');
 
   app.enableVersioning({ type: VersioningType.URI });
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
-
-  if (corsWhitelist !== '') {
-    const whitelistRegexp = new RegExp(corsWhitelist);
-
-    app.enableCors({
-      origin(origin, callback) {
-        if (!origin || whitelistRegexp.test(origin)) {
-          callback(null, true);
-        } else {
-          callback(new Error('Not allowed by CORS'));
-        }
-      },
-    });
-  }
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle(APP_DESCRIPTION)

@@ -63,14 +63,18 @@ export class DepositService {
 
     const fetchTimeStart = performance.now();
     const eventGroup = { ...initialCache };
+    const firstNotCachedBlock = initialCache.endBlock + 1;
 
     for (
-      let block = initialCache.endBlock;
+      let block = firstNotCachedBlock;
       block <= currentBlock;
       block += DEPOSIT_EVENTS_STEP
     ) {
       const chunkStartBlock = block;
-      const chunkToBlock = Math.min(currentBlock, block + DEPOSIT_EVENTS_STEP);
+      const chunkToBlock = Math.min(
+        currentBlock,
+        block + DEPOSIT_EVENTS_STEP - 1,
+      );
 
       const chunkEventGroup = await this.getEventsRecursive(
         chunkStartBlock,
@@ -102,15 +106,10 @@ export class DepositService {
   }
 
   private formatEvent(rawEvent: DepositEventEvent): DepositEvent {
-    const {
-      withdrawal_credentials: wc,
-      pubkey,
-      amount,
-      signature,
-      index,
-    } = rawEvent.args;
+    const { args, transactionHash: tx, blockNumber } = rawEvent;
+    const { withdrawal_credentials: wc, pubkey, amount, signature } = args;
 
-    return { pubkey, wc, amount, signature, index };
+    return { pubkey, wc, amount, signature, tx, blockNumber };
   }
 
   private async getDeploymentBlockByNetwork(): Promise<number> {
@@ -157,7 +156,7 @@ export class DepositService {
 
         const center = Math.ceil((endBlock + startBlock) / 2);
         const [first, second] = await Promise.all([
-          this.getEventsRecursive(startBlock, center),
+          this.getEventsRecursive(startBlock, center - 1),
           this.getEventsRecursive(center, endBlock),
         ]);
 

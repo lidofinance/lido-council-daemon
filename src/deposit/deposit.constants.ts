@@ -4,7 +4,7 @@ export const DEPLOYMENT_BLOCK_NETWORK: {
   [key in CHAINS]?: number;
 } = {
   [CHAINS.Mainnet]: 11052984,
-  [CHAINS.Goerli]: 0,
+  [CHAINS.Goerli]: 4367322,
 };
 
 export const getDeploymentBlockByNetwork = (chainId: CHAINS): number => {

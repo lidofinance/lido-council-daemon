@@ -16,6 +16,7 @@ export class RegistryService {
   ) {}
 
   private cachedContract: RegistryAbi | null = null;
+  private cachedPubKeyLength: number | null = null;
 
   private async getContract(): Promise<RegistryAbi> {
     if (!this.cachedContract) {
@@ -27,20 +28,28 @@ export class RegistryService {
     return this.cachedContract;
   }
 
-  private async splitPubKeys(hexString: string) {
-    const contract = await this.getContract();
-    const pubkeyLength = await contract.PUBKEY_LENGTH();
+  private async getPubkeyLength(): Promise<number> {
+    if (!this.cachedPubKeyLength) {
+      const contract = await this.getContract();
+      const keyLength = await contract.PUBKEY_LENGTH();
+      this.cachedPubKeyLength = keyLength.toNumber();
+    }
 
-    return splitHex(hexString, pubkeyLength.toNumber());
+    return this.cachedPubKeyLength;
+  }
+
+  private async splitPubKeys(hexString: string) {
+    const pubkeyLength = await this.getPubkeyLength();
+    return splitHex(hexString, pubkeyLength);
   }
 
   public async getNextKeys() {
     const contract = await this.getContract();
+    const overrides = { from: this.lidoService.getLidoAddress() };
     const [pubKeys] = await contract.callStatic.assignNextSigningKeys(
       REGISTRY_KEYS_NUMBER,
-      { from: this.lidoService.getLidoAddress() },
+      overrides,
     );
-
     return this.splitPubKeys(pubKeys);
   }
 

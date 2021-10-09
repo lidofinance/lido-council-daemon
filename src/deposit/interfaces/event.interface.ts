@@ -3,7 +3,8 @@ export interface DepositEvent {
   wc: string;
   amount: string;
   signature: string;
-  index: string;
+  tx: string;
+  blockNumber: number;
 }
 
 export interface DepositEventGroup {
