@@ -19,7 +19,7 @@ import { TransportModule } from './transport';
     CacheModule,
     ThrottlerModule,
     ConfigModule,
-    TransportModule,
+    TransportModule.forRoot(),
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerBehindProxyGuard },

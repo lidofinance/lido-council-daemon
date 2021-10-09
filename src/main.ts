@@ -35,7 +35,7 @@ async function bootstrap() {
     console.log(msg);
   });
 
-  //await transport.publish('test', { hello: 'world' });
+  await transport.publish('test', { hello: 'world' });
 
   const release = `${APP_NAME}@${APP_VERSION}`;
 
