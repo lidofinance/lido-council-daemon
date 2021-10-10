@@ -21,7 +21,7 @@ export class LoggerMiddleware implements NestMiddleware {
       const { statusCode } = reply;
       const log = { method, originalUrl, statusCode, userAgent, ip };
 
-      this.logger.log(JSON.stringify(log));
+      this.logger.log('HTTP', log);
     });
 
     next();
