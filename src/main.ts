@@ -11,6 +11,7 @@ import { AppModule } from 'app.module';
 import { APP_DESCRIPTION, APP_NAME, APP_VERSION } from 'app.constants';
 import { VersioningType } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { TransportInterface } from './transport';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -27,6 +28,18 @@ async function bootstrap() {
 
   app.enableVersioning({ type: VersioningType.URI });
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
+
+  const transport = app.get(TransportInterface);
+
+  await transport.subscribe('test', (msg) => {
+    console.log(msg);
+  });
+  await transport.subscribe('test2', (msg) => {
+    console.log(msg);
+  });
+
+  await transport.publish('test', { hello: 'world' });
+  await transport.publish('test2', { hello: 'world2' });
 
   const release = `${APP_NAME}@${APP_VERSION}`;
 
