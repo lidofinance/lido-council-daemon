@@ -7,9 +7,8 @@ import { LidoAbi, LidoAbi__factory } from 'generated';
 @Injectable()
 export class LidoService {
   constructor(
-    @Inject(WINSTON_MODULE_NEST_PROVIDER)
-    private readonly logger: LoggerService,
-    private readonly providerService: ProviderService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
+    private providerService: ProviderService,
   ) {}
 
   private cachedContract: LidoAbi | null = null;

@@ -4,33 +4,45 @@ import { DepositService } from 'deposit';
 import { RegistryService } from 'registry';
 import { LidoService } from 'lido';
 import { ProviderService } from 'provider';
+import { TransportInterface } from 'transport';
 import { DefenderState } from './interfaces';
+import { getMessageTopic } from './defender.constants';
 
 @Injectable()
 export class DefenderService {
   constructor(
-    @Inject(WINSTON_MODULE_NEST_PROVIDER)
-    private readonly logger: LoggerService,
-    private readonly registryService: RegistryService,
-    private readonly depositService: DepositService,
-    private readonly lidoService: LidoService,
-    private readonly providerService: ProviderService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
+    private registryService: RegistryService,
+    private depositService: DepositService,
+    private lidoService: LidoService,
+    private providerService: ProviderService,
+    private transportService: TransportInterface,
   ) {
     this.init();
   }
 
   public async init(): Promise<void> {
     this.logger.debug('Init defender');
+    this.subscribeToTransportEvents();
 
     await this.depositService.initProcessEvents();
-    this.subscribeToUpdates();
+    this.subscribeToEthereumUpdates();
   }
 
-  private async subscribeToUpdates() {
+  private async subscribeToTransportEvents() {
+    const topic = await this.getMessageTopic();
+    await this.transportService.subscribe(topic, async (message) => {
+      this.logger.debug('Transport event', message);
+    });
+
+    this.logger.log('The defender subscribed to the Transport events');
+  }
+
+  private async subscribeToEthereumUpdates() {
     const provider = this.providerService.provider;
 
     provider.on('block', () => this.protectPubKeys());
-    this.logger.debug('The defender subscribed to the events');
+    this.logger.log('The defender subscribed to the Ethereum events');
   }
 
   private matchPubKeys = (
@@ -79,8 +91,14 @@ export class DefenderService {
     }
   }
 
+  private async getMessageTopic(): Promise<string> {
+    const chainId = await this.providerService.getChainId();
+    return getMessageTopic(chainId);
+  }
+
   private async sendMessage(message: unknown): Promise<void> {
-    message; // TODO
+    const topic = await this.getMessageTopic();
+    await this.transportService.publish(topic, message);
   }
 
   private async handleCorrectCase(depositRoot: string, keysOpIndex: number) {

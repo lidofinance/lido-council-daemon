@@ -1,26 +1,16 @@
-import { DynamicModule, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
+import { ConfigModule } from 'common/config';
 import { TransportInterface } from './transport.interface';
-import { ConfigService } from '@nestjs/config';
-import { KafkaTransport } from './kafka-transport';
-import { ConfigModule } from '../common/config';
+import { KafkaTransport } from './kafka.transport';
 
-@Module({})
-export class TransportModule {
-  static forRoot(): DynamicModule {
-    return {
-      module: TransportModule,
-      global: true,
-      providers: [
-        {
-          provide: TransportInterface,
-          useFactory: async (configService: ConfigService) => {
-            return new KafkaTransport(configService);
-          },
-          inject: [ConfigService],
-        },
-      ],
-      imports: [ConfigModule],
-      exports: [TransportInterface],
-    };
-  }
-}
+@Module({
+  imports: [ConfigModule],
+  exports: [TransportInterface],
+  providers: [
+    {
+      provide: TransportInterface,
+      useClass: KafkaTransport,
+    },
+  ],
+})
+export class TransportModule {}

@@ -4,4 +4,6 @@ export interface EnvironmentVariables {
   LOG_LEVEL: string;
   LOG_FORMAT: string;
   RPC_URL: string;
+  COUNCIL_ID: string;
+  KAFKA_BROKER_1: string;
 }

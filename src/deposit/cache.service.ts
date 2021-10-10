@@ -1,5 +1,4 @@
-import { Inject, Injectable, LoggerService } from '@nestjs/common';
-import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { Injectable } from '@nestjs/common';
 import { DepositEventGroup, DepositEventsCache } from './interfaces';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
@@ -12,11 +11,7 @@ import { ProviderService } from 'provider';
 
 @Injectable()
 export class DepositCacheService {
-  constructor(
-    @Inject(WINSTON_MODULE_NEST_PROVIDER)
-    private readonly logger: LoggerService,
-    private readonly providerService: ProviderService,
-  ) {}
+  constructor(private providerService: ProviderService) {}
 
   private cache: DepositEventsCache | null = null;
 

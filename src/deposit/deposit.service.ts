@@ -16,11 +16,10 @@ import { DepositEventEvent } from 'generated/DepositAbi';
 @Injectable()
 export class DepositService {
   constructor(
-    @Inject(WINSTON_MODULE_NEST_PROVIDER)
-    private readonly logger: LoggerService,
-    private readonly providerService: ProviderService,
-    private readonly lidoService: LidoService,
-    private readonly cacheService: DepositCacheService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
+    private providerService: ProviderService,
+    private lidoService: LidoService,
+    private cacheService: DepositCacheService,
   ) {}
 
   private cachedContract: DepositAbi | null = null;
@@ -52,11 +51,9 @@ export class DepositService {
     const { newEvents, totalEvents } = await this.processEvents();
 
     const fetchTimeEnd = performance.now();
-    const fetchTime = fetchTimeEnd - fetchTimeStart;
+    const fetchTime = Math.ceil(fetchTimeEnd - fetchTimeStart) / 1000;
 
-    this.logger.log(
-      `Cache updated. Total events: ${totalEvents}, new events: ${newEvents}, time: ${fetchTime}`,
-    );
+    this.logger.log('Cache updated', { totalEvents, newEvents, fetchTime });
   }
 
   public async processEvents(): Promise<{

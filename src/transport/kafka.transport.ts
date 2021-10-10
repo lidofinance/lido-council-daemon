@@ -1,22 +1,31 @@
 import { TransportInterface } from './transport.interface';
-import { Kafka, Producer, Consumer } from 'kafkajs';
-import { Injectable, Logger } from '@nestjs/common';
+import { Kafka, Producer, Consumer, logLevel } from 'kafkajs';
+import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { KAFKA_LOG_PREFIX } from './kafka.constants';
 
 @Injectable()
 export class KafkaTransport implements TransportInterface {
-  private readonly logger = new Logger(KafkaTransport.name);
-
   protected kafka: Kafka;
   protected consumers: { [topic: string]: Consumer } = {};
   protected producer: Producer;
 
-  public constructor(config: ConfigService) {
+  public constructor(
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
+    private configService: ConfigService,
+  ) {
     this.kafka = new Kafka({
-      clientId: config.get<string>('COUNCIL_ID'),
-      brokers: [config.get<string>('KAFKA_BROKER_1')],
+      clientId: this.configService.get<string>('COUNCIL_ID'),
+      brokers: [this.configService.get<string>('KAFKA_BROKER_1')],
       logCreator: () => {
-        return (logEntry) => this.logger.log(logEntry);
+        return ({ log, level }) => {
+          const prefix = KAFKA_LOG_PREFIX;
+          if (level === logLevel.ERROR) this.logger.error(prefix, log);
+          if (level === logLevel.WARN) this.logger.warn(prefix, log);
+          if (level === logLevel.INFO) this.logger.log(prefix, log);
+          if (level === logLevel.DEBUG) this.logger.debug(prefix, log);
+        };
       },
     });
 

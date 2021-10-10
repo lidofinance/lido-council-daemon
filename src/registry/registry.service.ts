@@ -9,10 +9,9 @@ import { splitHex } from 'utils';
 @Injectable()
 export class RegistryService {
   constructor(
-    @Inject(WINSTON_MODULE_NEST_PROVIDER)
-    private readonly logger: LoggerService,
-    private readonly providerService: ProviderService,
-    private readonly lidoService: LidoService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
+    private providerService: ProviderService,
+    private lidoService: LidoService,
   ) {}
 
   private cachedContract: RegistryAbi | null = null;
@@ -60,6 +59,6 @@ export class RegistryService {
 
   public async getKeysOpIndex(): Promise<number> {
     // TODO
-    return 1;
+    return Math.random();
   }
 }
