@@ -1,10 +1,10 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
+import { arrayify, hexlify } from '@ethersproject/bytes';
 import { RegistryAbi, RegistryAbi__factory } from 'generated';
 import { ProviderService } from 'provider';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { getRegistryAddress, REGISTRY_KEYS_NUMBER } from './registry.constants';
 import { LidoService } from 'lido';
-import { splitHex } from 'utils';
 
 @Injectable()
 export class RegistryService {
@@ -27,7 +27,7 @@ export class RegistryService {
     return this.cachedContract;
   }
 
-  private async getPubkeyLength(): Promise<number> {
+  public async getPubkeyLength(): Promise<number> {
     if (!this.cachedPubKeyLength) {
       const contract = await this.getContract();
       const keyLength = await contract.PUBKEY_LENGTH();
@@ -37,9 +37,28 @@ export class RegistryService {
     return this.cachedPubKeyLength;
   }
 
-  private async splitPubKeys(hexString: string) {
+  public async splitPubKeys(hexString: string) {
     const pubkeyLength = await this.getPubkeyLength();
-    return splitHex(hexString, pubkeyLength);
+    const byteArray = arrayify(hexString);
+    const splittedKeys = this.splitPubKeysArray(byteArray, pubkeyLength).map(
+      (array) => hexlify(array),
+    );
+
+    return splittedKeys;
+  }
+
+  public splitPubKeysArray(array: Uint8Array, keyLength: number): Uint8Array[] {
+    const keysNumber = array.length / keyLength;
+
+    if (keyLength <= 0) throw new Error('Invalid key length size');
+    if (keysNumber % 1 > 0) throw new Error('Invalid array length');
+
+    const result: Uint8Array[] = [];
+    for (let i = 0; i < array.length; i += keyLength) {
+      result.push(array.slice(i, i + keyLength));
+    }
+
+    return result;
   }
 
   public async getRegistryAddress(): Promise<string> {
@@ -54,7 +73,8 @@ export class RegistryService {
       REGISTRY_KEYS_NUMBER,
       overrides,
     );
-    return this.splitPubKeys(pubKeys);
+    const splittedKeys = this.splitPubKeys(pubKeys);
+    return splittedKeys;
   }
 
   public async getKeysOpIndex(): Promise<number> {

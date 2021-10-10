@@ -45,7 +45,7 @@
   "devDependencies": {
     "@nestjs/cli": "^8.0.0",
     "@nestjs/schematics": "^8.0.0",
-    "@nestjs/testing": "^8.0.0",
+    "@nestjs/testing": "^8.0.11",
     "@typechain/ethers-v5": "^7.1.2",
     "@types/jest": "^27.0.1",
     "@types/kafkajs": "^1.9.0",
@@ -79,6 +79,10 @@
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
+    ],
+    "moduleDirectories": [
+      "node_modules",
+      "src"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
