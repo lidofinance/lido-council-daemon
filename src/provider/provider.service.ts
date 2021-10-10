@@ -1,15 +1,10 @@
-import { Inject, Injectable, LoggerService } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { StaticJsonRpcProvider } from '@ethersproject/providers';
-import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 @Injectable()
 export class ProviderService {
-  constructor(
-    @Inject(WINSTON_MODULE_NEST_PROVIDER)
-    private readonly logger: LoggerService,
-    private readonly configService: ConfigService,
-  ) {}
+  constructor(private configService: ConfigService) {}
 
   private cachedProvider: StaticJsonRpcProvider | null = null;
 

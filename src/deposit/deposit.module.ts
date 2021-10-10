@@ -1,21 +1,13 @@
 import { Module } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { LoggerModule } from 'common/logger';
-import { DepositCacheService } from 'deposit';
-import { LidoService } from 'lido';
-import { ProviderService } from 'provider';
-import { RegistryService } from 'registry';
+import { LidoModule } from 'lido';
+import { ProviderModule } from 'provider';
 import { DepositService } from './deposit.service';
+import { DepositCacheService } from './cache.service';
 
 @Module({
-  imports: [LoggerModule],
-  providers: [
-    DepositService,
-    ProviderService,
-    ConfigService,
-    LidoService,
-    RegistryService,
-    DepositCacheService,
-  ],
+  imports: [LoggerModule, LidoModule, ProviderModule],
+  providers: [DepositService, DepositCacheService],
+  exports: [DepositService],
 })
 export class DepositModule {}

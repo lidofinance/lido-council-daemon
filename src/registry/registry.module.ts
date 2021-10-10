@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { LoggerModule } from 'common/logger';
-import { LidoService } from 'lido';
-import { ProviderModule, ProviderService } from 'provider';
+import { LidoModule } from 'lido';
+import { ProviderModule } from 'provider';
 import { RegistryService } from './registry.service';
 
 @Module({
-  imports: [LoggerModule, ProviderModule],
-  providers: [RegistryService, LidoService, ProviderService, ConfigService],
+  imports: [LoggerModule, LidoModule, ProviderModule],
+  providers: [RegistryService],
+  exports: [RegistryService],
 })
 export class RegistryModule {}

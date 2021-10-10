@@ -3,7 +3,6 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LidoService } from 'lido';
 import { ProviderService } from 'provider';
 import { DepositAbi, DepositAbi__factory } from 'generated';
-import { RegistryService } from 'registry';
 import { ERROR_LIMIT_EXCEEDED } from 'provider';
 import {
   DEPOSIT_EVENTS_STEP,
@@ -21,11 +20,8 @@ export class DepositService {
     private readonly logger: LoggerService,
     private readonly providerService: ProviderService,
     private readonly lidoService: LidoService,
-    private readonly registryService: RegistryService,
     private readonly cacheService: DepositCacheService,
-  ) {
-    this.init();
-  }
+  ) {}
 
   private cachedContract: DepositAbi | null = null;
 
@@ -39,7 +35,7 @@ export class DepositService {
     return this.cachedContract;
   }
 
-  private async getCurrentBlock() {
+  private async getCurrentBlock(): Promise<number> {
     const provider = this.providerService.provider;
     const currentBlock = await provider.getBlockNumber();
 
@@ -50,18 +46,28 @@ export class DepositService {
     return await this.lidoService.getDepositContractAddress();
   }
 
-  private async init(): Promise<void> {
-    await this.fillCache();
-    this.subscribeToDepositEvent();
+  public async initProcessEvents(): Promise<void> {
+    const fetchTimeStart = performance.now();
+
+    const { newEvents, totalEvents } = await this.processEvents();
+
+    const fetchTimeEnd = performance.now();
+    const fetchTime = fetchTimeEnd - fetchTimeStart;
+
+    this.logger.log(
+      `Cache updated. Total events: ${totalEvents}, new events: ${newEvents}, time: ${fetchTime}`,
+    );
   }
 
-  private async fillCache(): Promise<void> {
+  public async processEvents(): Promise<{
+    newEvents: number;
+    totalEvents: number;
+  }> {
     const [currentBlock, initialCache] = await Promise.all([
       this.getCurrentBlock(),
       this.getCachedEvents(),
     ]);
 
-    const fetchTimeStart = performance.now();
     const eventGroup = { ...initialCache };
     const firstNotCachedBlock = initialCache.endBlock + 1;
 
@@ -88,21 +94,10 @@ export class DepositService {
     }
 
     const cachedEventGroup = await this.getCachedEvents();
-    const fetchTimeEnd = performance.now();
-    const fetchTime = fetchTimeEnd - fetchTimeStart;
     const totalEvents = cachedEventGroup.events.length;
+    const newEvents = totalEvents - initialCache.events.length;
 
-    this.logger.log(
-      `Cache updated. Total events: ${totalEvents}, time: ${fetchTime}`,
-    );
-  }
-
-  private async subscribeToDepositEvent(): Promise<void> {
-    const provider = this.providerService.provider;
-    const contract = await this.getContract();
-
-    const depositEvent = contract.filters.DepositEvent();
-    provider.on(depositEvent, () => this.fillCache());
+    return { newEvents, totalEvents };
   }
 
   private formatEvent(rawEvent: DepositEventEvent): DepositEvent {
@@ -189,7 +184,7 @@ export class DepositService {
     return eventGroup;
   }
 
-  public async getPubKeys() {
+  public async getPubKeys(): Promise<Set<string>> {
     const [cachedEvents, freshEvents] = await Promise.all([
       this.getCachedEvents(),
       this.getFreshEvents(),
@@ -204,5 +199,11 @@ export class DepositService {
     const mergedPubKeys = cachedPubKeys.concat(freshPubKeys);
 
     return new Set(mergedPubKeys);
+  }
+
+  public async getDepositRoot(): Promise<string> {
+    const contract = await this.getContract();
+    const depositRoot = await contract.get_deposit_root();
+    return depositRoot;
   }
 }

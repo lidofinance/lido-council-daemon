@@ -43,6 +43,11 @@ export class RegistryService {
     return splitHex(hexString, pubkeyLength);
   }
 
+  public async getRegistryAddress(): Promise<string> {
+    const chainId = await this.providerService.getChainId();
+    return getRegistryAddress(chainId);
+  }
+
   public async getNextKeys() {
     const contract = await this.getContract();
     const overrides = { from: this.lidoService.getLidoAddress() };
@@ -53,8 +58,8 @@ export class RegistryService {
     return this.splitPubKeys(pubKeys);
   }
 
-  public async getRegistryAddress(): Promise<string> {
-    const chainId = await this.providerService.getChainId();
-    return getRegistryAddress(chainId);
+  public async getKeysOpIndex(): Promise<number> {
+    // TODO
+    return 1;
   }
 }

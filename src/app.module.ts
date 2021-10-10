@@ -5,11 +5,10 @@ import { PROMETHEUS_METRICS_URL } from 'common/prometheus';
 import { LoggerMiddleware, MetricsMiddleware } from 'common/middleware';
 import { PrometheusModule, PrometheusQueryProvider } from 'common/prometheus';
 import { ConfigModule } from 'common/config';
-import { RegistryModule } from 'registry';
-import { DepositModule } from 'deposit';
+import { DefenderModule } from 'defender';
 
 @Module({
-  imports: [RegistryModule, DepositModule, PrometheusModule, ConfigModule],
+  imports: [DefenderModule, PrometheusModule, ConfigModule],
   providers: [PrometheusQueryProvider],
 })
 export class AppModule {
