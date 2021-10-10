@@ -18,14 +18,13 @@ export class DefenderService {
     private providerService: ProviderService,
     private transportService: TransportInterface,
   ) {
-    this.init();
+    this.initialize();
   }
 
-  public async init(): Promise<void> {
-    this.logger.debug('Init defender');
+  public async initialize(): Promise<void> {
     this.subscribeToTransportEvents();
 
-    await this.depositService.initProcessEvents();
+    await this.depositService.initialize();
     this.subscribeToEthereumUpdates();
   }
 
@@ -35,14 +34,14 @@ export class DefenderService {
       this.logger.debug('Transport event', message);
     });
 
-    this.logger.log('The defender subscribed to the Transport events');
+    this.logger.log('DefenderService subscribed to Transport events');
   }
 
   private async subscribeToEthereumUpdates() {
     const provider = this.providerService.provider;
 
     provider.on('block', () => this.protectPubKeys());
-    this.logger.log('The defender subscribed to the Ethereum events');
+    this.logger.log('DefenderService subscribed to Ethereum events');
   }
 
   private matchPubKeys = (
@@ -70,7 +69,7 @@ export class DefenderService {
       await Promise.all([
         this.registryService.getNextKeys(),
         this.registryService.getKeysOpIndex(),
-        this.depositService.getPubKeys(),
+        this.depositService.getAllPubKeys(),
         this.depositService.getDepositRoot(),
       ]);
 

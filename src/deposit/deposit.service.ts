@@ -1,17 +1,19 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { ProviderService, ERROR_LIMIT_EXCEEDED } from 'provider';
 import { LidoService } from 'lido';
-import { ProviderService } from 'provider';
 import { DepositAbi, DepositAbi__factory } from 'generated';
-import { ERROR_LIMIT_EXCEEDED } from 'provider';
+import { DepositEventEvent } from 'generated/DepositAbi';
 import {
   DEPOSIT_EVENTS_STEP,
-  DEPOSIT_FRESH_EVENTS_AMOUNT,
+  DEPOSIT_EVENTS_FRESH_NUMBER,
+  DEPOSIT_EVENTS_RETRY_TIMEOUT_MS,
   getDeploymentBlockByNetwork,
+  DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE,
 } from './deposit.constants';
 import { DepositCacheService } from './cache.service';
 import { DepositEvent, DepositEventGroup } from './interfaces';
-import { DepositEventEvent } from 'generated/DepositAbi';
+import { sleep } from 'utils';
 
 @Injectable()
 export class DepositService {
@@ -23,6 +25,7 @@ export class DepositService {
   ) {}
 
   private cachedContract: DepositAbi | null = null;
+  private isCollectingEvents = false;
 
   private async getContract(): Promise<DepositAbi> {
     if (!this.cachedContract) {
@@ -45,56 +48,86 @@ export class DepositService {
     return await this.lidoService.getDepositContractAddress();
   }
 
-  public async initProcessEvents(): Promise<void> {
-    const fetchTimeStart = performance.now();
+  public async initialize(): Promise<void> {
+    await this.collectEventsWithDetails();
+    this.subscribeToEthereumUpdates();
+  }
 
-    const { newEvents, totalEvents } = await this.processEvents();
+  public async collectEventsWithDetails(): Promise<void> {
+    const fetchTimeStart = performance.now();
+    const result = await this.collectNewEvents();
 
     const fetchTimeEnd = performance.now();
     const fetchTime = Math.ceil(fetchTimeEnd - fetchTimeStart) / 1000;
 
-    this.logger.log('Cache updated', { totalEvents, newEvents, fetchTime });
+    if (result) {
+      this.logger.log('Cache is updated', { ...result, fetchTime });
+    } else {
+      this.logger.warn('Cache update problem', { ...result, fetchTime });
+    }
   }
 
-  public async processEvents(): Promise<{
+  public async collectNewEvents(): Promise<{
     newEvents: number;
     totalEvents: number;
-  }> {
-    const [currentBlock, initialCache] = await Promise.all([
-      this.getCurrentBlock(),
-      this.getCachedEvents(),
-    ]);
-
-    const eventGroup = { ...initialCache };
-    const firstNotCachedBlock = initialCache.endBlock + 1;
-
-    for (
-      let block = firstNotCachedBlock;
-      block <= currentBlock;
-      block += DEPOSIT_EVENTS_STEP
-    ) {
-      const chunkStartBlock = block;
-      const chunkToBlock = Math.min(
-        currentBlock,
-        block + DEPOSIT_EVENTS_STEP - 1,
-      );
-
-      const chunkEventGroup = await this.getEventsRecursive(
-        chunkStartBlock,
-        chunkToBlock,
-      );
-
-      eventGroup.endBlock = chunkEventGroup.endBlock;
-      eventGroup.events = eventGroup.events.concat(chunkEventGroup.events);
-
-      await this.setCachedEvents(eventGroup);
+  } | void> {
+    if (this.isCollectingEvents) {
+      return;
     }
 
-    const cachedEventGroup = await this.getCachedEvents();
-    const totalEvents = cachedEventGroup.events.length;
-    const newEvents = totalEvents - initialCache.events.length;
+    try {
+      this.isCollectingEvents = true;
 
-    return { newEvents, totalEvents };
+      const [currentBlock, initialCache] = await Promise.all([
+        this.getCurrentBlock(),
+        this.getCachedEvents(),
+      ]);
+
+      const eventGroup = { ...initialCache };
+      const firstNotCachedBlock = initialCache.endBlock + 1;
+
+      for (
+        let block = firstNotCachedBlock;
+        block <= currentBlock;
+        block += DEPOSIT_EVENTS_STEP
+      ) {
+        const chunkStartBlock = block;
+        const chunkToBlock = Math.min(
+          currentBlock,
+          block + DEPOSIT_EVENTS_STEP - 1,
+        );
+
+        const chunkEventGroup = await this.fetchEventsRecursive(
+          chunkStartBlock,
+          chunkToBlock,
+        );
+
+        eventGroup.endBlock = chunkEventGroup.endBlock;
+        eventGroup.events = eventGroup.events.concat(chunkEventGroup.events);
+
+        await this.setCachedEvents(eventGroup);
+      }
+
+      const totalEvents = eventGroup.events.length;
+      const newEvents = totalEvents - initialCache.events.length;
+
+      return { newEvents, totalEvents };
+    } catch (error) {
+      this.logger.error(error);
+    } finally {
+      this.isCollectingEvents = false;
+    }
+  }
+
+  private async subscribeToEthereumUpdates() {
+    const provider = this.providerService.provider;
+
+    provider.on('block', async (blockNumber) => {
+      if (blockNumber % DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE !== 0) return;
+      await this.collectEventsWithDetails();
+    });
+
+    this.logger.log('DepositService subscribed to Ethereum events');
   }
 
   private formatEvent(rawEvent: DepositEventEvent): DepositEvent {
@@ -124,15 +157,15 @@ export class DepositService {
     return await this.cacheService.setCache(eventGroup);
   }
 
-  private async getEventsRecursive(
+  private async fetchEventsRecursive(
     startBlock: number,
     endBlock: number,
   ): Promise<DepositEventGroup> {
     try {
-      const eventGroup = await this.getEvents(startBlock, endBlock);
-      this.logger.debug(
-        `fetched ${startBlock}-${endBlock} | events ${eventGroup.events.length}`,
-      );
+      const eventGroup = await this.fetchEvents(startBlock, endBlock);
+      const events = eventGroup.events.length;
+      this.logger.debug('fetched', { startBlock, endBlock, events });
+
       return eventGroup;
     } catch (error) {
       const isLimitExceeded = error?.error?.code === ERROR_LIMIT_EXCEEDED;
@@ -142,26 +175,30 @@ export class DepositService {
       const isPartitionable = endBlock - startBlock > 1;
 
       if (isPartitionable && isPartitionRequired) {
-        this.logger.debug(
-          `limit exceeded ${startBlock}-${endBlock}, try to split the chunk`,
-        );
+        this.logger.debug(`limit exceeded, try to split the chunk`, {
+          startBlock,
+          endBlock,
+        });
 
         const center = Math.ceil((endBlock + startBlock) / 2);
         const [first, second] = await Promise.all([
-          this.getEventsRecursive(startBlock, center - 1),
-          this.getEventsRecursive(center, endBlock),
+          this.fetchEventsRecursive(startBlock, center - 1),
+          this.fetchEventsRecursive(center, endBlock),
         ]);
 
         const events = first.events.concat(second.events);
 
         return { events, startBlock, endBlock };
       } else {
-        throw error;
+        this.logger.warn('Fetch error. Retry', error);
+
+        await sleep(DEPOSIT_EVENTS_RETRY_TIMEOUT_MS);
+        return await this.fetchEventsRecursive(startBlock, endBlock);
       }
     }
   }
 
-  private async getEvents(
+  private async fetchEvents(
     startBlock: number,
     endBlock: number,
   ): Promise<DepositEventGroup> {
@@ -175,13 +212,13 @@ export class DepositService {
 
   private async getFreshEvents(): Promise<DepositEventGroup> {
     const endBlock = await this.getCurrentBlock();
-    const startBlock = endBlock - DEPOSIT_FRESH_EVENTS_AMOUNT;
-    const eventGroup = await this.getEvents(startBlock, endBlock);
+    const startBlock = endBlock - DEPOSIT_EVENTS_FRESH_NUMBER;
+    const eventGroup = await this.fetchEvents(startBlock, endBlock);
 
     return eventGroup;
   }
 
-  public async getPubKeys(): Promise<Set<string>> {
+  public async getAllPubKeys(): Promise<Set<string>> {
     const [cachedEvents, freshEvents] = await Promise.all([
       this.getCachedEvents(),
       this.getFreshEvents(),
