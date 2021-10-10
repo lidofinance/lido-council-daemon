@@ -6,9 +6,15 @@ import { LoggerMiddleware, MetricsMiddleware } from 'common/middleware';
 import { PrometheusModule, PrometheusQueryProvider } from 'common/prometheus';
 import { ConfigModule } from 'common/config';
 import { DefenderModule } from 'defender';
+import { TransportModule } from 'transport';
 
 @Module({
-  imports: [DefenderModule, PrometheusModule, ConfigModule],
+  imports: [
+    DefenderModule,
+    PrometheusModule,
+    ConfigModule,
+    TransportModule.forRoot(),
+  ],
   providers: [PrometheusQueryProvider],
 })
 export class AppModule {
