@@ -27,6 +27,13 @@ export class DepositService {
   private cachedContract: DepositAbi | null = null;
   private isCollectingEvents = false;
 
+  private formatEvent(rawEvent: DepositEventEvent): DepositEvent {
+    const { args, transactionHash: tx, blockNumber } = rawEvent;
+    const { withdrawal_credentials: wc, pubkey, amount, signature } = args;
+
+    return { pubkey, wc, amount, signature, tx, blockNumber };
+  }
+
   private async getContract(): Promise<DepositAbi> {
     if (!this.cachedContract) {
       const address = await this.getDepositAddress();
@@ -42,99 +49,6 @@ export class DepositService {
     const currentBlock = await provider.getBlockNumber();
 
     return currentBlock;
-  }
-
-  public async getDepositAddress(): Promise<string> {
-    return await this.lidoService.getDepositContractAddress();
-  }
-
-  public async initialize(): Promise<void> {
-    await this.collectEventsWithDetails();
-    this.subscribeToEthereumUpdates();
-  }
-
-  public async collectEventsWithDetails(): Promise<void> {
-    const fetchTimeStart = performance.now();
-    const result = await this.collectNewEvents();
-
-    const fetchTimeEnd = performance.now();
-    const fetchTime = Math.ceil(fetchTimeEnd - fetchTimeStart) / 1000;
-
-    if (result) {
-      this.logger.log('Cache is updated', { ...result, fetchTime });
-    } else {
-      this.logger.warn('Cache update problem', { ...result, fetchTime });
-    }
-  }
-
-  public async collectNewEvents(): Promise<{
-    newEvents: number;
-    totalEvents: number;
-  } | void> {
-    if (this.isCollectingEvents) {
-      return;
-    }
-
-    try {
-      this.isCollectingEvents = true;
-
-      const [currentBlock, initialCache] = await Promise.all([
-        this.getCurrentBlock(),
-        this.getCachedEvents(),
-      ]);
-
-      const eventGroup = { ...initialCache };
-      const firstNotCachedBlock = initialCache.endBlock + 1;
-
-      for (
-        let block = firstNotCachedBlock;
-        block <= currentBlock;
-        block += DEPOSIT_EVENTS_STEP
-      ) {
-        const chunkStartBlock = block;
-        const chunkToBlock = Math.min(
-          currentBlock,
-          block + DEPOSIT_EVENTS_STEP - 1,
-        );
-
-        const chunkEventGroup = await this.fetchEventsRecursive(
-          chunkStartBlock,
-          chunkToBlock,
-        );
-
-        eventGroup.endBlock = chunkEventGroup.endBlock;
-        eventGroup.events = eventGroup.events.concat(chunkEventGroup.events);
-
-        await this.setCachedEvents(eventGroup);
-      }
-
-      const totalEvents = eventGroup.events.length;
-      const newEvents = totalEvents - initialCache.events.length;
-
-      return { newEvents, totalEvents };
-    } catch (error) {
-      this.logger.error(error);
-    } finally {
-      this.isCollectingEvents = false;
-    }
-  }
-
-  private async subscribeToEthereumUpdates() {
-    const provider = this.providerService.provider;
-
-    provider.on('block', async (blockNumber) => {
-      if (blockNumber % DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE !== 0) return;
-      await this.collectEventsWithDetails();
-    });
-
-    this.logger.log('DepositService subscribed to Ethereum events');
-  }
-
-  private formatEvent(rawEvent: DepositEventEvent): DepositEvent {
-    const { args, transactionHash: tx, blockNumber } = rawEvent;
-    const { withdrawal_credentials: wc, pubkey, amount, signature } = args;
-
-    return { pubkey, wc, amount, signature, tx, blockNumber };
   }
 
   private async getDeploymentBlockByNetwork(): Promise<number> {
@@ -216,6 +130,94 @@ export class DepositService {
     const eventGroup = await this.fetchEvents(startBlock, endBlock);
 
     return eventGroup;
+  }
+
+  private async subscribeToEthereumUpdates() {
+    const provider = this.providerService.provider;
+
+    provider.on('block', async (blockNumber) => {
+      if (blockNumber % DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE !== 0) return;
+      await this.collectEventsWithDetails();
+    });
+
+    this.logger.log('DepositService subscribed to Ethereum events');
+  }
+
+  /* Public methods */
+
+  public async getDepositAddress(): Promise<string> {
+    return await this.lidoService.getDepositContractAddress();
+  }
+
+  public async initialize(): Promise<void> {
+    await this.collectEventsWithDetails();
+    this.subscribeToEthereumUpdates();
+  }
+
+  public async collectEventsWithDetails(): Promise<void> {
+    const fetchTimeStart = performance.now();
+    const result = await this.collectNewEvents();
+
+    const fetchTimeEnd = performance.now();
+    const fetchTime = Math.ceil(fetchTimeEnd - fetchTimeStart) / 1000;
+
+    if (result) {
+      this.logger.log('Cache is updated', { ...result, fetchTime });
+    } else {
+      this.logger.warn('Cache update problem', { ...result, fetchTime });
+    }
+  }
+
+  public async collectNewEvents(): Promise<{
+    newEvents: number;
+    totalEvents: number;
+  } | void> {
+    if (this.isCollectingEvents) {
+      return;
+    }
+
+    try {
+      this.isCollectingEvents = true;
+
+      const [currentBlock, initialCache] = await Promise.all([
+        this.getCurrentBlock(),
+        this.getCachedEvents(),
+      ]);
+
+      const eventGroup = { ...initialCache };
+      const firstNotCachedBlock = initialCache.endBlock + 1;
+
+      for (
+        let block = firstNotCachedBlock;
+        block <= currentBlock;
+        block += DEPOSIT_EVENTS_STEP
+      ) {
+        const chunkStartBlock = block;
+        const chunkToBlock = Math.min(
+          currentBlock,
+          block + DEPOSIT_EVENTS_STEP - 1,
+        );
+
+        const chunkEventGroup = await this.fetchEventsRecursive(
+          chunkStartBlock,
+          chunkToBlock,
+        );
+
+        eventGroup.endBlock = chunkEventGroup.endBlock;
+        eventGroup.events = eventGroup.events.concat(chunkEventGroup.events);
+
+        await this.setCachedEvents(eventGroup);
+      }
+
+      const totalEvents = eventGroup.events.length;
+      const newEvents = totalEvents - initialCache.events.length;
+
+      return { newEvents, totalEvents };
+    } catch (error) {
+      this.logger.error(error);
+    } finally {
+      this.isCollectingEvents = false;
+    }
   }
 
   public async getAllPubKeys(): Promise<Set<string>> {

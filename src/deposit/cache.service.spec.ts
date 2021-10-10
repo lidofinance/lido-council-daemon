@@ -11,7 +11,6 @@ describe('DepositCacheService', () => {
     const moduleRef = await Test.createTestingModule({
       imports: [ProviderModule],
       providers: [DepositCacheService],
-      exports: [DepositCacheService],
     }).compile();
 
     providerService = moduleRef.get(ProviderService);

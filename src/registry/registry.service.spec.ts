@@ -16,7 +16,6 @@ describe('RegistryService', () => {
     const moduleRef = await Test.createTestingModule({
       imports: [LoggerModule, LidoModule, ProviderModule],
       providers: [RegistryService],
-      exports: [RegistryService],
     }).compile();
 
     providerService = moduleRef.get(ProviderService);
@@ -53,12 +52,12 @@ describe('RegistryService', () => {
   });
 
   describe('getNextKeys', () => {
-    const lidoAddress = '0x0000000000000000000000000000000000000000';
+    const lidoAddress = '0x' + '0'.repeat(40);
     const keyLength = 2;
     const pubkeys = '0x12345678';
     const expected = ['0x1234', '0x5678'];
 
-    beforeEach(async () => {
+    it('should return splitted pubkeys', async () => {
       jest
         .spyOn(lidoService, 'getLidoAddress')
         .mockImplementation(async () => lidoAddress);
@@ -67,7 +66,7 @@ describe('RegistryService', () => {
         .spyOn(registryService, 'getPubkeyLength')
         .mockImplementation(async () => keyLength);
 
-      jest
+      const providerCall = jest
         .spyOn(providerService.provider, 'call')
         .mockImplementation(async () => {
           const iface = new Interface(RegistryAbi__factory.abi);
@@ -75,15 +74,14 @@ describe('RegistryService', () => {
 
           return iface.encodeFunctionResult('assignNextSigningKeys', result);
         });
-    });
 
-    it('should return splitted pubkeys', async () => {
       const result = await registryService.getNextKeys();
+
       expect(result).toEqual(expected);
+      expect(providerCall).toHaveBeenCalledTimes(1);
     });
   });
 
-  // TODO
   describe('getKeysOpIndex', () => {
     it.todo('should return keys operation index');
   });
