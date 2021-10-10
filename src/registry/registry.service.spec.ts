@@ -1,4 +1,5 @@
 import { Interface } from '@ethersproject/abi';
+import { CHAINS } from '@lido-sdk/constants';
 import { Test } from '@nestjs/testing';
 import { LoggerModule } from 'common/logger';
 import { RegistryAbi__factory } from 'generated';
@@ -21,6 +22,10 @@ describe('RegistryService', () => {
     providerService = moduleRef.get(ProviderService);
     lidoService = moduleRef.get(LidoService);
     registryService = moduleRef.get(RegistryService);
+
+    jest
+      .spyOn(providerService, 'getChainId')
+      .mockImplementation(async () => CHAINS.Goerli);
   });
 
   describe('getPubkeyLength', () => {

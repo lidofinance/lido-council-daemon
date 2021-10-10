@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DepositEventGroup, DepositEventsCache } from './interfaces';
-import { readFile, writeFile, mkdir } from 'fs/promises';
+import { readFile, writeFile, unlink, mkdir } from 'fs/promises';
 import { join } from 'path';
 import {
   DEPOSIT_CACHE_DEFAULT,
@@ -26,6 +26,10 @@ export class DepositCacheService {
   public async setCache(cache: DepositEventsCache): Promise<void> {
     this.cache = cache;
     return await this.saveCacheToFile();
+  }
+
+  public async deleteCache(): Promise<void> {
+    return await this.deleteCacheFile();
   }
 
   private async getCacheDirPath(): Promise<string> {
@@ -56,5 +60,11 @@ export class DepositCacheService {
     await mkdir(dirPath, { recursive: true });
 
     return await writeFile(filePath, JSON.stringify(this.cache));
+  }
+
+  private async deleteCacheFile(): Promise<void> {
+    const filePath = await this.getCacheFilePath();
+
+    return await unlink(filePath);
   }
 }

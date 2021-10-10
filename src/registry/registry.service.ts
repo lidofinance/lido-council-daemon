@@ -1,15 +1,13 @@
-import { Inject, Injectable, LoggerService } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { arrayify, hexlify } from '@ethersproject/bytes';
 import { RegistryAbi, RegistryAbi__factory } from 'generated';
 import { ProviderService } from 'provider';
-import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { getRegistryAddress, REGISTRY_KEYS_NUMBER } from './registry.constants';
 import { LidoService } from 'lido';
 
 @Injectable()
 export class RegistryService {
   constructor(
-    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
     private lidoService: LidoService,
   ) {}
