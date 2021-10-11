@@ -2,8 +2,8 @@ import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { DepositService } from 'deposit';
 import { RegistryService } from 'registry';
-import { LidoService } from 'lido';
 import { ProviderService } from 'provider';
+import { SecurityService } from 'security';
 import { TransportInterface } from 'transport';
 import { DefenderState } from './interfaces';
 import { getMessageTopic } from './defender.constants';
@@ -14,7 +14,7 @@ export class DefenderService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private registryService: RegistryService,
     private depositService: DepositService,
-    private lidoService: LidoService,
+    private securityService: SecurityService,
     private providerService: ProviderService,
     private transportService: TransportInterface,
   ) {
@@ -101,18 +101,26 @@ export class DefenderService {
   }
 
   private async handleCorrectCase(depositRoot: string, keysOpIndex: number) {
-    const message = { depositRoot, keysOpIndex }; // TODO
-    this.logger.debug('Correct case', message);
+    const depositData = await this.securityService.getDepositData(
+      depositRoot,
+      keysOpIndex,
+    );
+    const { guardianIndex, signature } = depositData;
+    const message = { depositRoot, keysOpIndex, guardianIndex, signature };
 
+    this.logger.debug('Correct case', message);
     this.sendMessage(message);
   }
 
   private async handleSuspiciousCase() {
-    const message = {}; // TODO
+    const pauseData = await this.securityService.getPauseDepositData();
+    const { blockHeight, guardianIndex, signature } = pauseData;
+    const message = { blockHeight, signature };
+
     this.logger.debug('Suspicious case', message);
 
     await Promise.all([
-      this.lidoService.stopProtocol(),
+      this.securityService.pauseDeposits(blockHeight, guardianIndex, signature),
       this.sendMessage(message),
     ]);
   }

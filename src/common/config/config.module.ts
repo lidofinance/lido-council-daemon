@@ -14,6 +14,7 @@ const LOG_FORMAT = Joi.string().valid('simple', 'json').default('json');
 const RPC_URL = Joi.string();
 const COUNCIL_ID = Joi.string();
 const KAFKA_BROKER_1 = Joi.string();
+const WALLET_PRIVATE_KEY = Joi.string();
 
 const validationSchema = Joi.object<EnvironmentVariables>({
   NODE_ENV,
@@ -23,6 +24,7 @@ const validationSchema = Joi.object<EnvironmentVariables>({
   RPC_URL,
   COUNCIL_ID,
   KAFKA_BROKER_1,
+  WALLET_PRIVATE_KEY,
 });
 
 export const ConfigModule = ConfigModuleSource.forRoot({ validationSchema });

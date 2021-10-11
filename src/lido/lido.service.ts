@@ -34,9 +34,4 @@ export class LidoService {
 
     return address;
   }
-
-  public async stopProtocol() {
-    // TODO: stop protocol if it's not stopped
-    this.logger.warn('Try to stop protocol');
-  }
 }

@@ -12,7 +12,7 @@ export class ProviderService {
     return this.configService.get<string>('RPC_URL');
   }
 
-  private getProvider(): StaticJsonRpcProvider {
+  public get provider(): StaticJsonRpcProvider {
     if (!this.cachedProvider) {
       this.cachedProvider = new StaticJsonRpcProvider(this.rpcUrl);
     }
@@ -20,12 +20,12 @@ export class ProviderService {
     return this.cachedProvider;
   }
 
-  public get provider(): StaticJsonRpcProvider {
-    return this.getProvider();
-  }
-
   public async getChainId(): Promise<number> {
     const { chainId } = await this.provider.getNetwork();
     return chainId;
+  }
+
+  public async getBlockNumber() {
+    return await this.provider.getBlockNumber();
   }
 }

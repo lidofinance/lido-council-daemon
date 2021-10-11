@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { DepositModule } from 'deposit';
-import { LidoModule } from 'lido';
 import { ProviderModule } from 'provider';
 import { RegistryModule } from 'registry';
+import { SecurityModule } from 'security';
 import { TransportModule } from 'transport';
 import { DefenderService } from './defender.service';
 
@@ -10,7 +10,7 @@ import { DefenderService } from './defender.service';
   imports: [
     RegistryModule,
     DepositModule,
-    LidoModule,
+    SecurityModule,
     ProviderModule,
     TransportModule,
   ],
