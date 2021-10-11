@@ -18,6 +18,11 @@ export class KafkaTransport implements TransportInterface {
     this.kafka = new Kafka({
       clientId: this.configService.get<string>('COUNCIL_ID'),
       brokers: [this.configService.get<string>('KAFKA_BROKER_1')],
+      sasl: {
+        mechanism: 'plain',
+        username: configService.get('KAFKA_USERNAME'),
+        password: configService.get('KAFKA_PASSWORD'),
+      },
       logCreator: () => {
         return ({ log, level }) => {
           const prefix = KAFKA_LOG_PREFIX;
