@@ -11,11 +11,11 @@ import { TransportModule } from 'transport';
 
 @Module({
   imports: [
+    ConfigModule.forRoot(),
     DefenderModule,
     TransportModule,
     LoggerModule,
     PrometheusModule,
-    ConfigModule,
   ],
   providers: [PrometheusQueryProvider],
 })

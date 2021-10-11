@@ -1,28 +1,38 @@
-import * as Joi from 'joi';
-import { ConfigModule as ConfigModuleSource } from '@nestjs/config';
-import { EnvironmentVariables } from './interfaces';
+import { DynamicModule, LoggerService, Module } from '@nestjs/common';
+import { InMemoryConfiguration } from './in-memory-configuration';
+import { Configuration } from './configuration';
+import { validateOrReject } from 'class-validator';
+import { plainToClass } from 'class-transformer';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
-const NODE_ENV = Joi.string()
-  .valid('development', 'production', 'test')
-  .default('development');
-
-const PORT = Joi.number().empty('').default(3000);
-const LOG_LEVEL = Joi.string()
-  .valid('error', 'warning', 'notice', 'info', 'debug')
-  .default('info');
-const LOG_FORMAT = Joi.string().valid('simple', 'json').default('json');
-const RPC_URL = Joi.string();
-const COUNCIL_ID = Joi.string();
-const KAFKA_BROKER_1 = Joi.string();
-
-const validationSchema = Joi.object<EnvironmentVariables>({
-  NODE_ENV,
-  PORT,
-  LOG_LEVEL,
-  LOG_FORMAT,
-  RPC_URL,
-  COUNCIL_ID,
-  KAFKA_BROKER_1,
-});
-
-export const ConfigModule = ConfigModuleSource.forRoot({ validationSchema });
+@Module({})
+export class ConfigModule {
+  static forRoot(): DynamicModule {
+    return {
+      module: ConfigModule,
+      global: true,
+      providers: [
+        {
+          provide: Configuration,
+          useFactory: async (logger: LoggerService) => {
+            const config = plainToClass(InMemoryConfiguration, process.env);
+            try {
+              await validateOrReject(config, {
+                validationError: { target: false, value: false },
+              });
+              return config;
+            } catch (validationErrors) {
+              // eslint-disable-next-line @typescript-eslint/ban-types
+              validationErrors.forEach((error: object) =>
+                logger.error(`Bad environment variable(s): %o`, error),
+              );
+              process.exit(1);
+            }
+          },
+          inject: [WINSTON_MODULE_NEST_PROVIDER],
+        },
+      ],
+      exports: [Configuration],
+    };
+  }
+}
