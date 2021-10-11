@@ -18,19 +18,20 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "typechain": "typechain --target=ethers-v5 --out-dir ./src/generated ./src/abi/*.json",
+    "postinstall": "yarn typechain"
   },
   "dependencies": {
+    "@ethersproject/providers": "^5.4.5",
+    "@lido-sdk/constants": "^1.2.0",
     "@nestjs/common": "^8.0.0",
     "@nestjs/config": "^1.0.1",
     "@nestjs/core": "^8.0.0",
     "@nestjs/platform-fastify": "^8.0.9",
     "@nestjs/swagger": "^5.1.0",
-    "@nestjs/throttler": "^2.0.0",
-    "@sentry/node": "^6.13.2",
-    "@types/cache-manager": "^3.4.2",
     "@willsoto/nestjs-prometheus": "^4.0.0",
-    "cache-manager": "^3.4.4",
+    "ethers": "^5.4.7",
     "fastify-swagger": "^4.12.3",
     "joi": "^17.4.2",
     "kafkajs": "^1.15.0",
@@ -44,7 +45,8 @@
   "devDependencies": {
     "@nestjs/cli": "^8.0.0",
     "@nestjs/schematics": "^8.0.0",
-    "@nestjs/testing": "^8.0.0",
+    "@nestjs/testing": "^8.0.11",
+    "@typechain/ethers-v5": "^7.1.2",
     "@types/jest": "^27.0.1",
     "@types/kafkajs": "^1.9.0",
     "@types/node": "^16.0.0",
@@ -61,6 +63,7 @@
     "ts-loader": "^9.2.3",
     "ts-node": "^10.0.0",
     "tsconfig-paths": "^3.10.1",
+    "typechain": "^5.1.2",
     "typescript": "^4.3.5"
   },
   "jest": {
@@ -76,6 +79,10 @@
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
+    ],
+    "moduleDirectories": [
+      "node_modules",
+      "src"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"

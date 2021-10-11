@@ -1,4 +1,4 @@
-import { createInterface } from '../common/di/functions/createInterface';
+import { createInterface } from 'common/di/functions/createInterface';
 
 export const TransportInterface =
   createInterface<TransportInterface>('TransportInterface');

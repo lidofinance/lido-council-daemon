@@ -10,8 +10,7 @@ import { Request, Reply } from './interfaces';
 @Injectable()
 export class LoggerMiddleware implements NestMiddleware {
   constructor(
-    @Inject(WINSTON_MODULE_NEST_PROVIDER)
-    private readonly logger: LoggerService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
   ) {}
 
   use(request: Request, reply: Reply, next: () => void) {
@@ -22,7 +21,7 @@ export class LoggerMiddleware implements NestMiddleware {
       const { statusCode } = reply;
       const log = { method, originalUrl, statusCode, userAgent, ip };
 
-      this.logger.log(JSON.stringify(log));
+      this.logger.log('HTTP', log);
     });
 
     next();

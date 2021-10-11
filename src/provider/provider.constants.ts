@@ -1,0 +1,1 @@
+export const ERROR_LIMIT_EXCEEDED = -32005;
