@@ -1,11 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LoggerModule } from '../common/logger';
 import { KafkaTransport } from './kafka.transport';
-import { Kafka, logLevel } from 'kafkajs';
+import { Kafka } from 'kafkajs';
 
 describe('KafkaTransport', () => {
   let transport: KafkaTransport;
-  let kafka: Kafka;
   let moduleRef: TestingModule;
 
   beforeEach(async () => {
@@ -56,6 +55,3 @@ describe('KafkaTransport', () => {
     });
   });
 });
-
-//
-//
