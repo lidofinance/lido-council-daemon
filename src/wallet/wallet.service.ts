@@ -36,7 +36,7 @@ export class WalletService {
     const encoded = this.encodeDepositData(prefix, depositRoot, keysOpIndex);
     const hash = keccak256(encoded);
 
-    return this.signMessage(hash);
+    return await this.signMessage(hash);
   }
 
   public encodeDepositData(

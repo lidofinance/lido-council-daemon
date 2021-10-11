@@ -85,15 +85,17 @@ export class SecurityService {
     depositRoot: string,
     keysOpIndex: number,
   ): Promise<{
+    blockNumber: number;
     guardianIndex: number;
     signature: string;
   }> {
-    const [guardianIndex, signature] = await Promise.all([
+    const [blockNumber, guardianIndex, signature] = await Promise.all([
+      this.providerService.getBlockNumber(),
       this.getGuardianIndex(),
       this.signDepositData(depositRoot, keysOpIndex),
     ]);
 
-    return { guardianIndex, signature };
+    return { blockNumber, guardianIndex, signature };
   }
 
   public async signPauseData(blockHeight: number): Promise<string> {
@@ -102,26 +104,24 @@ export class SecurityService {
   }
 
   public async getPauseDepositData(): Promise<{
-    blockHeight: number;
+    blockNumber: number;
     guardianIndex: number;
     signature: string;
   }> {
-    const [blockHeight, guardianIndex] = await Promise.all([
+    const [blockNumber, guardianIndex] = await Promise.all([
       this.providerService.getBlockNumber(),
       this.getGuardianIndex(),
     ]);
-    const signature = await this.signPauseData(blockHeight);
+    const signature = await this.signPauseData(blockNumber);
 
-    return { blockHeight, guardianIndex, signature };
+    return { blockNumber, guardianIndex, signature };
   }
 
-  public async pauseDeposits(
-    blockHeight: number,
-    guardianIndex: number,
-    signature: string,
-  ) {
-    const { v, r, s } = splitSignature(signature);
-    const { wallet } = this.walletService;
+  public async pauseDeposits(blockHeight: number, signature: string) {
+    const { r, _vs: vs } = splitSignature(signature);
+    const wallet = this.walletService.wallet.connect(
+      this.providerService.provider,
+    );
 
     const contract = (await this.getContract()).connect(wallet);
     const isPaused = await contract.isPaused();
@@ -131,6 +131,6 @@ export class SecurityService {
       return;
     }
 
-    return await contract.pauseDeposits(blockHeight, guardianIndex, v, r, s);
+    return await contract.pauseDeposits(blockHeight, { r, vs });
   }
 }

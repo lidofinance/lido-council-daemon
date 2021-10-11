@@ -77,6 +77,7 @@ export class RegistryService {
 
   public async getKeysOpIndex(): Promise<number> {
     // TODO
-    return Math.random();
+    const block = await this.providerService.getBlockNumber();
+    return Math.ceil(block / 10);
   }
 }

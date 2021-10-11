@@ -84,9 +84,9 @@ export class DefenderService {
 
     if (alreadyDepositedPubKeys.length) {
       this.logger.warn({ alreadyDepositedPubKeys });
-      this.handleSuspiciousCase();
+      await this.handleSuspiciousCase();
     } else {
-      this.handleCorrectCase(depositRoot, keysOpIndex);
+      await this.handleCorrectCase(depositRoot, keysOpIndex);
     }
   }
 
@@ -105,8 +105,7 @@ export class DefenderService {
       depositRoot,
       keysOpIndex,
     );
-    const { guardianIndex, signature } = depositData;
-    const message = { depositRoot, keysOpIndex, guardianIndex, signature };
+    const message = { depositRoot, keysOpIndex, ...depositData };
 
     this.logger.debug('Correct case', message);
     this.sendMessage(message);
@@ -114,13 +113,13 @@ export class DefenderService {
 
   private async handleSuspiciousCase() {
     const pauseData = await this.securityService.getPauseDepositData();
-    const { blockHeight, guardianIndex, signature } = pauseData;
-    const message = { blockHeight, signature };
+    const { blockNumber, signature } = pauseData;
+    const message = pauseData;
 
-    this.logger.debug('Suspicious case', message);
+    this.logger.debug('Suspicious case', pauseData);
 
     await Promise.all([
-      this.securityService.pauseDeposits(blockHeight, guardianIndex, signature),
+      this.securityService.pauseDeposits(blockNumber, signature),
       this.sendMessage(message),
     ]);
   }
