@@ -1,6 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { WinstonModule } from 'nest-winston';
-import { ConfigModule } from 'common/config';
+import { ConfigModule } from '../config';
 import * as winston from 'winston';
 
 export const LoggerModule = WinstonModule.forRootAsync({

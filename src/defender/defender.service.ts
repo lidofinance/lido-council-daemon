@@ -104,7 +104,7 @@ export class DefenderService {
     const message = { depositRoot, keysOpIndex }; // TODO
     this.logger.debug('Correct case', message);
 
-    this.sendMessage(message);
+    await this.sendMessage(message);
   }
 
   private async handleSuspiciousCase() {

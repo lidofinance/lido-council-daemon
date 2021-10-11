@@ -13,6 +13,10 @@ const LOG_LEVEL = Joi.string()
 const LOG_FORMAT = Joi.string().valid('simple', 'json').default('json');
 const RPC_URL = Joi.string();
 const COUNCIL_ID = Joi.string();
+const KAFKA_SASL_MECHANISM = Joi.string().default('scram-sha-256');
+const KAFKA_SSL = Joi.boolean().default(true);
+const KAFKA_USERNAME = Joi.string().empty('');
+const KAFKA_PASSWORD = Joi.string().empty('');
 const KAFKA_BROKER_1 = Joi.string();
 
 const validationSchema = Joi.object<EnvironmentVariables>({
@@ -22,6 +26,10 @@ const validationSchema = Joi.object<EnvironmentVariables>({
   LOG_FORMAT,
   RPC_URL,
   COUNCIL_ID,
+  KAFKA_SSL,
+  KAFKA_SASL_MECHANISM,
+  KAFKA_USERNAME,
+  KAFKA_PASSWORD,
   KAFKA_BROKER_1,
 });
 

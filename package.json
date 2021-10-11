@@ -35,6 +35,7 @@
     "fastify-swagger": "^4.12.3",
     "joi": "^17.4.2",
     "kafkajs": "^1.15.0",
+    "libp2p": "^0.33.0",
     "nest-winston": "^1.6.1",
     "prom-client": "^14.0.0",
     "reflect-metadata": "^0.1.13",

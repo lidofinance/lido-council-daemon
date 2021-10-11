@@ -1,39 +1,17 @@
 import { TransportInterface } from './transport.interface';
-import { Kafka, Producer, Consumer, logLevel } from 'kafkajs';
+import { Kafka, Producer, Consumer } from 'kafkajs';
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { KAFKA_LOG_PREFIX } from './kafka.constants';
 
 @Injectable()
 export class KafkaTransport implements TransportInterface {
-  protected kafka: Kafka;
   protected consumers: { [topic: string]: Consumer } = {};
   protected producer: Producer;
 
   public constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-    private configService: ConfigService,
+    private kafka: Kafka,
   ) {
-    this.kafka = new Kafka({
-      clientId: this.configService.get<string>('COUNCIL_ID'),
-      brokers: [this.configService.get<string>('KAFKA_BROKER_1')],
-      sasl: {
-        mechanism: 'plain',
-        username: configService.get('KAFKA_USERNAME'),
-        password: configService.get('KAFKA_PASSWORD'),
-      },
-      logCreator: () => {
-        return ({ log, level }) => {
-          const prefix = KAFKA_LOG_PREFIX;
-          if (level === logLevel.ERROR) this.logger.error(prefix, log);
-          if (level === logLevel.WARN) this.logger.warn(prefix, log);
-          if (level === logLevel.INFO) this.logger.log(prefix, log);
-          if (level === logLevel.DEBUG) this.logger.debug(prefix, log);
-        };
-      },
-    });
-
     this.producer = this.kafka.producer();
   }
 
@@ -71,6 +49,15 @@ export class KafkaTransport implements TransportInterface {
         },
       });
     }
+  }
+
+  public async disconnect() {
+    await this.producer.disconnect();
+    await Promise.all(
+      Object.keys(this.consumers).map((consumerKey) =>
+        this.consumers[consumerKey].disconnect(),
+      ),
+    );
   }
 
   protected safeJsonParse(str: string): any | void {
