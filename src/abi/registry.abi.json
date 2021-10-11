@@ -516,5 +516,18 @@
     ],
     "name": "SigningKeyRemoved",
     "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "getKeysOpIndex",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "index",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   }
 ]
