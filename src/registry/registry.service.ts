@@ -2,14 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { arrayify, hexlify } from '@ethersproject/bytes';
 import { RegistryAbi, RegistryAbi__factory } from 'generated';
 import { ProviderService } from 'provider';
-import { getRegistryAddress, REGISTRY_KEYS_NUMBER } from './registry.constants';
+import { getRegistryAddress } from './registry.constants';
 import { LidoService } from 'lido';
+import { SecurityService } from 'security';
 
 @Injectable()
 export class RegistryService {
   constructor(
     private providerService: ProviderService,
     private lidoService: LidoService,
+    private securityService: SecurityService,
   ) {}
 
   private cachedContract: RegistryAbi | null = null;
@@ -65,12 +67,18 @@ export class RegistryService {
   }
 
   public async getNextKeys() {
-    const contract = await this.getContract();
-    const overrides = { from: this.lidoService.getLidoAddress() };
+    const [contract, maxDepositKeys, lidoAddress] = await Promise.all([
+      this.getContract(),
+      this.securityService.getMaxDeposits(),
+      this.lidoService.getLidoAddress(),
+    ]);
+
+    const overrides = { from: lidoAddress };
     const [pubKeys] = await contract.callStatic.assignNextSigningKeys(
-      REGISTRY_KEYS_NUMBER,
+      maxDepositKeys,
       overrides,
     );
+
     const splittedKeys = this.splitPubKeys(pubKeys);
     return splittedKeys;
   }

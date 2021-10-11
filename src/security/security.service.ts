@@ -54,6 +54,13 @@ export class SecurityService {
     return this.cachedPauseMessagePrefix;
   }
 
+  public async getMaxDeposits(): Promise<number> {
+    const contract = await this.getContract();
+    const maxDeposits = await contract.getMaxDeposits();
+
+    return maxDeposits.toNumber();
+  }
+
   public async getGuardians(): Promise<string[]> {
     const contract = await this.getContract();
     const guardians = await contract.getGuardians();

@@ -127,7 +127,11 @@ export class DepositService {
     const eventGroup = await this.fetchEventsRecursive(startBlock, endBlock);
 
     const events = eventGroup.events.length;
-    this.logger.log('Fetched fresh events', { startBlock, endBlock, events });
+    this.logger.log('Fresh events are fetched', {
+      startBlock,
+      endBlock,
+      events,
+    });
 
     return eventGroup;
   }
@@ -207,7 +211,7 @@ export class DepositService {
         eventGroup.endBlock = chunkEventGroup.endBlock;
         eventGroup.events = eventGroup.events.concat(chunkEventGroup.events);
 
-        this.logger.log('Fetched historical events', {
+        this.logger.log('Historical events are fetched', {
           startBlock: chunkStartBlock,
           endBlock: chunkToBlock,
           events: eventGroup.events.length,
