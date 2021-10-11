@@ -56,16 +56,16 @@ export class SecurityService {
 
   public async getGuardians(): Promise<string[]> {
     const contract = await this.getContract();
-    const guardians = contract.getGuardians();
+    const guardians = await contract.getGuardians();
 
     return guardians;
   }
 
   public async getGuardianIndex(): Promise<number> {
     const guardians = await this.getGuardians();
-    const publicKey = this.walletService.publicKey;
+    const address = this.walletService.address;
 
-    return guardians.indexOf(publicKey);
+    return guardians.indexOf(address);
   }
 
   public async signDepositData(

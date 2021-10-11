@@ -20,8 +20,8 @@ export class WalletService {
     return this.cachedWallet;
   }
 
-  public get publicKey(): string {
-    return this.wallet.publicKey;
+  public get address(): string {
+    return this.wallet.address;
   }
 
   public async signMessage(message: string): Promise<string> {
