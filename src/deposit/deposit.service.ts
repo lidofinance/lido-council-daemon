@@ -6,10 +6,11 @@ import { DepositAbi, DepositAbi__factory } from 'generated';
 import { DepositEventEvent } from 'generated/DepositAbi';
 import {
   DEPOSIT_EVENTS_STEP,
-  DEPOSIT_EVENTS_FRESH_NUMBER,
+  DEPOSIT_EVENTS_FRESH_BLOCKS,
   DEPOSIT_EVENTS_RETRY_TIMEOUT_MS,
   getDeploymentBlockByNetwork,
   DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE,
+  DEPOSIT_EVENTS_CACHE_LAG_BLOCKS,
 } from './deposit.constants';
 import { DepositCacheService } from './cache.service';
 import { DepositEvent, DepositEventGroup } from './interfaces';
@@ -76,11 +77,7 @@ export class DepositService {
     endBlock: number,
   ): Promise<DepositEventGroup> {
     try {
-      const eventGroup = await this.fetchEvents(startBlock, endBlock);
-      const events = eventGroup.events.length;
-      this.logger.debug('fetched', { startBlock, endBlock, events });
-
-      return eventGroup;
+      return await this.fetchEvents(startBlock, endBlock);
     } catch (error) {
       const isLimitExceeded = error?.error?.code === ERROR_LIMIT_EXCEEDED;
       const isTimeout = error?.code === 'TIMEOUT';
@@ -126,8 +123,11 @@ export class DepositService {
 
   private async getFreshEvents(): Promise<DepositEventGroup> {
     const endBlock = await this.getCurrentBlock();
-    const startBlock = endBlock - DEPOSIT_EVENTS_FRESH_NUMBER;
-    const eventGroup = await this.fetchEvents(startBlock, endBlock);
+    const startBlock = endBlock - DEPOSIT_EVENTS_FRESH_BLOCKS;
+    const eventGroup = await this.fetchEventsRecursive(startBlock, endBlock);
+
+    const events = eventGroup.events.length;
+    this.logger.log('Fetched fresh events', { startBlock, endBlock, events });
 
     return eventGroup;
   }
@@ -137,7 +137,7 @@ export class DepositService {
 
     provider.on('block', async (blockNumber) => {
       if (blockNumber % DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE !== 0) return;
-      await this.collectEventsWithDetails();
+      await this.cacheEventsWrapped();
     });
 
     this.logger.log('DepositService subscribed to Ethereum events');
@@ -150,13 +150,13 @@ export class DepositService {
   }
 
   public async initialize(): Promise<void> {
-    await this.collectEventsWithDetails();
+    await this.cacheEventsWrapped();
     this.subscribeToEthereumUpdates();
   }
 
-  public async collectEventsWithDetails(): Promise<void> {
+  public async cacheEventsWrapped(): Promise<void> {
     const fetchTimeStart = performance.now();
-    const result = await this.collectNewEvents();
+    const result = await this.cacheEvents();
 
     const fetchTimeEnd = performance.now();
     const fetchTime = Math.ceil(fetchTimeEnd - fetchTimeStart) / 1000;
@@ -168,7 +168,7 @@ export class DepositService {
     }
   }
 
-  public async collectNewEvents(): Promise<{
+  public async cacheEvents(): Promise<{
     newEvents: number;
     totalEvents: number;
   } | void> {
@@ -186,10 +186,11 @@ export class DepositService {
 
       const eventGroup = { ...initialCache };
       const firstNotCachedBlock = initialCache.endBlock + 1;
+      const toBlock = currentBlock - DEPOSIT_EVENTS_CACHE_LAG_BLOCKS;
 
       for (
         let block = firstNotCachedBlock;
-        block <= currentBlock;
+        block <= toBlock;
         block += DEPOSIT_EVENTS_STEP
       ) {
         const chunkStartBlock = block;
@@ -205,6 +206,12 @@ export class DepositService {
 
         eventGroup.endBlock = chunkEventGroup.endBlock;
         eventGroup.events = eventGroup.events.concat(chunkEventGroup.events);
+
+        this.logger.log('Fetched historical events', {
+          startBlock: chunkStartBlock,
+          endBlock: chunkToBlock,
+          events: eventGroup.events.length,
+        });
 
         await this.setCachedEvents(eventGroup);
       }
