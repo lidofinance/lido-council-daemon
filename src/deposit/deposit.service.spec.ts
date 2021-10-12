@@ -9,6 +9,7 @@ import { Interface } from '@ethersproject/abi';
 import { DepositAbi__factory } from 'generated';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
+import { ConfigModule } from 'common/config';
 
 describe('DepositService', () => {
   let providerService: ProviderService;
@@ -21,7 +22,12 @@ describe('DepositService', () => {
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [LoggerModule, LidoModule, ProviderModule],
+      imports: [
+        ConfigModule.forRoot(),
+        LoggerModule,
+        LidoModule,
+        ProviderModule,
+      ],
       providers: [DepositService, DepositCacheService],
     }).compile();
 

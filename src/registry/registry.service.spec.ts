@@ -1,6 +1,7 @@
 import { Interface } from '@ethersproject/abi';
 import { CHAINS } from '@lido-sdk/constants';
 import { Test } from '@nestjs/testing';
+import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { RegistryAbi__factory } from 'generated';
 import { LidoModule, LidoService } from 'lido';
@@ -16,7 +17,13 @@ describe('RegistryService', () => {
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [LoggerModule, LidoModule, ProviderModule, SecurityModule],
+      imports: [
+        ConfigModule.forRoot(),
+        LoggerModule,
+        LidoModule,
+        ProviderModule,
+        SecurityModule,
+      ],
       providers: [RegistryService],
     }).compile();
 

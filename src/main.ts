@@ -1,11 +1,11 @@
 import { NestFactory } from '@nestjs/core';
-import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { SWAGGER_URL } from 'common/swagger';
+import { Configuration } from 'common/config';
 import { AppModule } from 'app.module';
 import { APP_DESCRIPTION, APP_VERSION } from 'app.constants';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
@@ -17,8 +17,8 @@ async function bootstrap() {
     { bufferLogs: true },
   );
 
-  const configService = app.get(ConfigService);
-  const appPort = configService.get<number>('PORT');
+  const config = app.get<Configuration>(Configuration);
+  const appPort = config.PORT;
 
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
 

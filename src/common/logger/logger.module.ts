@@ -1,17 +1,17 @@
-import { ConfigService } from '@nestjs/config';
 import { WinstonModule } from 'nest-winston';
-import { ConfigModule } from 'common/config';
+import { ConfigModule } from '../config';
 import * as winston from 'winston';
+import { Configuration } from '../config/configuration';
 
 export const LoggerModule = WinstonModule.forRootAsync({
   imports: [ConfigModule],
-  inject: [ConfigService],
-  useFactory: async (configService: ConfigService) => ({
-    level: configService.get<string>('LOG_LEVEL'),
+  inject: [Configuration],
+  useFactory: async (config: Configuration) => ({
+    level: config.LOG_LEVEL,
     transports: [
       new winston.transports.Console({
         format:
-          configService.get<string>('LOG_FORMAT') === 'json'
+          config.LOG_FORMAT === 'json'
             ? winston.format.json()
             : winston.format.combine(
                 winston.format.colorize(),

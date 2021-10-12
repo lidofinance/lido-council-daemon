@@ -1,8 +1,7 @@
 import { keccak256 } from '@ethersproject/keccak256';
 import { verifyMessage, Wallet } from '@ethersproject/wallet';
-import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
-import { ConfigModule } from 'common/config';
+import { ConfigModule, Configuration } from 'common/config';
 import { WalletService } from './wallet.service';
 
 const unit256Length = 128;
@@ -12,20 +11,20 @@ describe('WalletService', () => {
   const wallet = Wallet.createRandom();
 
   let walletService: WalletService;
-  let configService: ConfigService;
+  let config: Configuration;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [ConfigModule],
+      imports: [ConfigModule.forRoot()],
       providers: [WalletService],
     }).compile();
 
     walletService = moduleRef.get(WalletService);
-    configService = moduleRef.get(ConfigService);
+    config = moduleRef.get(Configuration);
 
-    jest
-      .spyOn(configService, 'get')
-      .mockImplementation(() => wallet.privateKey);
+    Object.defineProperty(config, 'WALLET_PRIVATE_KEY', {
+      value: wallet.privateKey,
+    });
   });
 
   describe('wallet', () => {

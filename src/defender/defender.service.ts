@@ -119,7 +119,7 @@ export class DefenderService {
     );
 
     this.logger.debug('Correct case', depositData);
-    this.sendMessage(depositData);
+    await this.sendMessage(depositData);
   }
 
   private async handleSuspiciousCase() {

@@ -1,30 +1,47 @@
-import * as Joi from 'joi';
-import { ConfigModule as ConfigModuleSource } from '@nestjs/config';
-import { EnvironmentVariables } from './interfaces';
+import * as appRoot from 'app-root-path';
+import * as dotenv from 'dotenv';
+import { resolve } from 'path';
+import { DynamicModule, Module } from '@nestjs/common';
+import { InMemoryConfiguration } from './in-memory-configuration';
+import { Configuration } from './configuration';
+import { validateOrReject } from 'class-validator';
+import { plainToClass } from 'class-transformer';
 
-const NODE_ENV = Joi.string()
-  .valid('development', 'production', 'test')
-  .default('development');
+dotenv.config({ path: resolve(appRoot.path, '.env') });
 
-const PORT = Joi.number().empty('').default(3000);
-const LOG_LEVEL = Joi.string()
-  .valid('error', 'warning', 'notice', 'info', 'debug')
-  .default('info');
-const LOG_FORMAT = Joi.string().valid('simple', 'json').default('json');
-const RPC_URL = Joi.string();
-const COUNCIL_ID = Joi.string();
-const KAFKA_BROKER_1 = Joi.string();
-const WALLET_PRIVATE_KEY = Joi.string();
-
-const validationSchema = Joi.object<EnvironmentVariables>({
-  NODE_ENV,
-  PORT,
-  LOG_LEVEL,
-  LOG_FORMAT,
-  RPC_URL,
-  COUNCIL_ID,
-  KAFKA_BROKER_1,
-  WALLET_PRIVATE_KEY,
-});
-
-export const ConfigModule = ConfigModuleSource.forRoot({ validationSchema });
+@Module({})
+export class ConfigModule {
+  static forRoot(): DynamicModule {
+    return {
+      module: ConfigModule,
+      global: true,
+      providers: [
+        {
+          provide: Configuration,
+          useFactory: async () => {
+            const config = plainToClass(InMemoryConfiguration, process.env);
+            try {
+              await validateOrReject(config, {
+                validationError: { target: false, value: false },
+              });
+              return config;
+            } catch (validationErrors) {
+              validationErrors.forEach((error: Record<string, unknown>) => {
+                const jsonError = JSON.stringify({
+                  context: 'ConfigModule',
+                  message: 'Bad environment variable(s): %o`',
+                  level: 'error',
+                  error,
+                });
+                console.error(jsonError);
+              });
+              process.exit(1);
+            }
+          },
+          inject: [],
+        },
+      ],
+      exports: [Configuration],
+    };
+  }
+}
