@@ -1,10 +1,8 @@
 import { WinstonModule } from 'nest-winston';
-import { ConfigModule } from '../config';
 import * as winston from 'winston';
-import { Configuration } from '../config/configuration';
+import { Configuration } from 'common/config';
 
 export const LoggerModule = WinstonModule.forRootAsync({
-  imports: [ConfigModule],
   inject: [Configuration],
   useFactory: async (config: Configuration) => ({
     level: config.LOG_LEVEL,

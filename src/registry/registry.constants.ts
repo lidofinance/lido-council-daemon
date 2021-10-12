@@ -11,4 +11,4 @@ export const getRegistryAddress = (chainId: CHAINS): string => {
   return REGISTRY_BY_NETWORK[chainId];
 };
 
-export const REGISTRY_KEYS_NUMBER = 150;
+export const REGISTRY_DATA_UPDATE_FREQUENCY = 50;

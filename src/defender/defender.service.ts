@@ -2,8 +2,8 @@ import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { DepositService } from 'deposit';
 import { RegistryService } from 'registry';
-import { LidoService } from 'lido';
 import { ProviderService } from 'provider';
+import { SecurityService } from 'security';
 import { TransportInterface } from 'transport';
 import { DefenderState } from './interfaces';
 import { getMessageTopic } from './defender.constants';
@@ -14,7 +14,7 @@ export class DefenderService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private registryService: RegistryService,
     private depositService: DepositService,
-    private lidoService: LidoService,
+    private securityService: SecurityService,
     private providerService: ProviderService,
     private transportService: TransportInterface,
   ) {
@@ -22,19 +22,8 @@ export class DefenderService {
   }
 
   public async initialize(): Promise<void> {
-    this.subscribeToTransportEvents();
-
     await this.depositService.initialize();
     this.subscribeToEthereumUpdates();
-  }
-
-  private async subscribeToTransportEvents() {
-    const topic = await this.getMessageTopic();
-    await this.transportService.subscribe(topic, async (message) => {
-      this.logger.debug('Transport event', message);
-    });
-
-    this.logger.log('DefenderService subscribed to Transport events');
   }
 
   private async subscribeToEthereumUpdates() {
@@ -53,40 +42,56 @@ export class DefenderService {
 
   private state: DefenderState | null = null;
 
-  private isSameState(keysOpIndex: number, depositRoot: string): boolean {
+  private isSameState(
+    actualStateIndex: number,
+    keysOpIndex: number,
+    depositRoot: string,
+  ): boolean {
     const previousState = this.state;
-    this.state = { keysOpIndex, depositRoot };
+    this.state = { actualStateIndex, keysOpIndex, depositRoot };
 
     if (!previousState) return false;
     const isSameKeysInRegistry = previousState.keysOpIndex === keysOpIndex;
     const isSameKeysInDeposit = previousState.depositRoot === depositRoot;
+    const isSameActualIndex =
+      previousState.actualStateIndex === actualStateIndex;
 
-    return isSameKeysInRegistry && isSameKeysInDeposit;
+    return isSameActualIndex && isSameKeysInRegistry && isSameKeysInDeposit;
   }
 
   private async protectPubKeys() {
-    const [nextPubKeys, keysOpIndex, depositedPubKeys, depositRoot] =
-      await Promise.all([
+    try {
+      const [
+        nextPubKeys,
+        keysOpIndex,
+        actualStateIndex,
+        depositedPubKeys,
+        depositRoot,
+      ] = await Promise.all([
         this.registryService.getNextKeys(),
         this.registryService.getKeysOpIndex(),
+        this.registryService.getActualStateIndex(),
         this.depositService.getAllPubKeys(),
         this.depositService.getDepositRoot(),
       ]);
 
-    if (this.isSameState(keysOpIndex, depositRoot)) {
-      return;
-    }
+      if (this.isSameState(actualStateIndex, keysOpIndex, depositRoot)) {
+        return;
+      }
 
-    const alreadyDepositedPubKeys = this.matchPubKeys(
-      nextPubKeys,
-      depositedPubKeys,
-    );
+      const alreadyDepositedPubKeys = this.matchPubKeys(
+        nextPubKeys,
+        depositedPubKeys,
+      );
 
-    if (alreadyDepositedPubKeys.length) {
-      this.logger.warn({ alreadyDepositedPubKeys });
-      this.handleSuspiciousCase();
-    } else {
-      this.handleCorrectCase(depositRoot, keysOpIndex);
+      if (alreadyDepositedPubKeys.length) {
+        this.logger.warn({ alreadyDepositedPubKeys });
+        await this.handleSuspiciousCase();
+      } else {
+        await this.handleCorrectCase(depositRoot, keysOpIndex);
+      }
+    } catch (error) {
+      this.logger.error(error);
     }
   }
 
@@ -101,19 +106,24 @@ export class DefenderService {
   }
 
   private async handleCorrectCase(depositRoot: string, keysOpIndex: number) {
-    const message = { depositRoot, keysOpIndex }; // TODO
-    this.logger.debug('Correct case', message);
+    const depositData = await this.securityService.getDepositData(
+      depositRoot,
+      keysOpIndex,
+    );
 
-    await this.sendMessage(message);
+    this.logger.debug('Correct case', depositData);
+    await this.sendMessage(depositData);
   }
 
   private async handleSuspiciousCase() {
-    const message = {}; // TODO
-    this.logger.debug('Suspicious case', message);
+    const pauseData = await this.securityService.getPauseDepositData();
+    const { blockNumber, blockHash, signature } = pauseData;
+
+    this.logger.debug('Suspicious case', pauseData);
 
     await Promise.all([
-      this.lidoService.stopProtocol(),
-      this.sendMessage(message),
+      this.securityService.pauseDeposits(blockNumber, blockHash, signature),
+      this.sendMessage(pauseData),
     ]);
   }
 }

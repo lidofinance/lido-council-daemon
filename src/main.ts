@@ -1,6 +1,3 @@
-import * as appRoot from 'app-root-path';
-import * as dotenv from 'dotenv';
-import { resolve } from 'path';
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import {
@@ -8,12 +5,10 @@ import {
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { SWAGGER_URL } from 'common/swagger';
+import { Configuration } from 'common/config';
 import { AppModule } from 'app.module';
 import { APP_DESCRIPTION, APP_VERSION } from 'app.constants';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { Configuration } from './common/config/configuration';
-
-dotenv.config({ path: resolve(appRoot.path, '.env'), debug: false });
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(

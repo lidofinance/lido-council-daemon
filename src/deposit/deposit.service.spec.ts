@@ -7,17 +7,27 @@ import { DepositService } from './deposit.service';
 import { DepositCacheService } from './cache.service';
 import { Interface } from '@ethersproject/abi';
 import { DepositAbi__factory } from 'generated';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { LoggerService } from '@nestjs/common';
+import { ConfigModule } from 'common/config';
 
 describe('DepositService', () => {
   let providerService: ProviderService;
   let lidoService: LidoService;
   let cacheService: DepositCacheService;
   let depositService: DepositService;
+  let loggerService: LoggerService;
+
   let depositAddress: string;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [LoggerModule, LidoModule, ProviderModule],
+      imports: [
+        ConfigModule.forRoot(),
+        LoggerModule,
+        LidoModule,
+        ProviderModule,
+      ],
       providers: [DepositService, DepositCacheService],
     }).compile();
 
@@ -25,6 +35,7 @@ describe('DepositService', () => {
     lidoService = moduleRef.get(LidoService);
     cacheService = moduleRef.get(DepositCacheService);
     depositService = moduleRef.get(DepositService);
+    loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
     depositAddress = '0x' + '0'.repeat(40);
 
@@ -35,6 +46,8 @@ describe('DepositService', () => {
     jest
       .spyOn(lidoService, 'getDepositContractAddress')
       .mockImplementation(async () => depositAddress);
+
+    jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
   });
 
   describe('getDepositAddress', () => {

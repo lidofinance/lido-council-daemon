@@ -1,26 +1,36 @@
 import { Interface } from '@ethersproject/abi';
 import { CHAINS } from '@lido-sdk/constants';
 import { Test } from '@nestjs/testing';
+import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { RegistryAbi__factory } from 'generated';
 import { LidoModule, LidoService } from 'lido';
 import { ProviderModule, ProviderService } from 'provider';
+import { SecurityModule, SecurityService } from 'security';
 import { RegistryService } from './registry.service';
 
 describe('RegistryService', () => {
   let providerService: ProviderService;
   let lidoService: LidoService;
   let registryService: RegistryService;
+  let securityService: SecurityService;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [LoggerModule, LidoModule, ProviderModule],
+      imports: [
+        ConfigModule.forRoot(),
+        LoggerModule,
+        LidoModule,
+        ProviderModule,
+        SecurityModule,
+      ],
       providers: [RegistryService],
     }).compile();
 
     providerService = moduleRef.get(ProviderService);
     lidoService = moduleRef.get(LidoService);
     registryService = moduleRef.get(RegistryService);
+    securityService = moduleRef.get(SecurityService);
 
     jest
       .spyOn(providerService, 'getChainId')
@@ -61,6 +71,10 @@ describe('RegistryService', () => {
       jest
         .spyOn(lidoService, 'getLidoAddress')
         .mockImplementation(async () => lidoAddress);
+
+      jest
+        .spyOn(securityService, 'getMaxDeposits')
+        .mockImplementation(async () => 10);
 
       jest
         .spyOn(registryService, 'getPubkeyLength')

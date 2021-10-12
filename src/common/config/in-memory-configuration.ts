@@ -32,6 +32,10 @@ export class InMemoryConfiguration implements Configuration {
 
   @IsNotEmpty()
   @IsString()
+  WALLET_PRIVATE_KEY: string;
+
+  @IsNotEmpty()
+  @IsString()
   COUNCIL_ID: string;
 
   @IsNotEmpty()

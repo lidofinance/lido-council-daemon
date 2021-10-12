@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { StaticJsonRpcProvider } from '@ethersproject/providers';
-import { Configuration } from '../common/config/configuration';
+import { StaticJsonRpcProvider, Block } from '@ethersproject/providers';
+import { Configuration } from 'common/config';
 
 @Injectable()
 export class ProviderService {
@@ -12,7 +12,7 @@ export class ProviderService {
     return this.config.RPC_URL;
   }
 
-  private getProvider(): StaticJsonRpcProvider {
+  public get provider(): StaticJsonRpcProvider {
     if (!this.cachedProvider) {
       this.cachedProvider = new StaticJsonRpcProvider(this.rpcUrl);
     }
@@ -20,12 +20,16 @@ export class ProviderService {
     return this.cachedProvider;
   }
 
-  public get provider(): StaticJsonRpcProvider {
-    return this.getProvider();
-  }
-
   public async getChainId(): Promise<number> {
     const { chainId } = await this.provider.getNetwork();
     return chainId;
+  }
+
+  public async getBlockNumber(): Promise<number> {
+    return await this.provider.getBlockNumber();
+  }
+
+  public async getBlock(): Promise<Block> {
+    return await this.provider.getBlock('latest');
   }
 }

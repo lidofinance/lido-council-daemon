@@ -29,6 +29,7 @@ export class DepositCacheService {
   }
 
   public async deleteCache(): Promise<void> {
+    this.cache = null;
     return await this.deleteCacheFile();
   }
 

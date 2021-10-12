@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { ConfigModule } from 'common/config';
 import { ProviderModule, ProviderService } from 'provider';
 import { DEPOSIT_CACHE_DEFAULT } from './cache.constants';
 import { DepositCacheService } from './cache.service';
@@ -9,7 +10,7 @@ describe('DepositCacheService', () => {
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [ProviderModule],
+      imports: [ConfigModule.forRoot(), ProviderModule],
       providers: [DepositCacheService],
     }).compile();
 
