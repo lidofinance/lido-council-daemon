@@ -4,8 +4,8 @@ import { TransportInterface } from './transport.interface';
 import { KafkaTransport } from './kafka.transport';
 import { Kafka, logLevel } from 'kafkajs';
 import { KAFKA_LOG_PREFIX } from './kafka.constants';
-import { ConfigService } from '@nestjs/config';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { Configuration } from '../common/config/configuration';
 
 export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
 
@@ -19,18 +19,15 @@ export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
     },
     {
       provide: Kafka,
-      useFactory: async (
-        configService: ConfigService,
-        logger: LoggerService,
-      ) => {
+      useFactory: async (config: Configuration, logger: LoggerService) => {
         return new Kafka({
-          clientId: configService.get<string>('COUNCIL_ID'),
-          brokers: [configService.get<string>('KAFKA_BROKER_1')],
-          ssl: configService.get<boolean>('KAFKA_SSL'),
+          clientId: config.COUNCIL_ID,
+          brokers: [config.KAFKA_BROKER_ADDRESS_1],
+          ssl: config.KAFKA_SSL,
           sasl: {
-            mechanism: configService.get<SASLMechanism>('KAFKA_SASL_MECHANISM'),
-            username: configService.get<string>('KAFKA_USERNAME'),
-            password: configService.get<string>('KAFKA_PASSWORD'),
+            mechanism: config.KAFKA_SASL_MECHANISM,
+            username: config.KAFKA_USERNAME,
+            password: config.KAFKA_PASSWORD,
           },
           logCreator: () => {
             return ({ log, level }) => {
@@ -43,7 +40,7 @@ export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
           },
         });
       },
-      inject: [ConfigService, WINSTON_MODULE_NEST_PROVIDER],
+      inject: [Configuration, WINSTON_MODULE_NEST_PROVIDER],
     },
   ],
 })

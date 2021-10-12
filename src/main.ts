@@ -1,5 +1,7 @@
+import * as appRoot from 'app-root-path';
+import * as dotenv from 'dotenv';
+import { resolve } from 'path';
 import { NestFactory } from '@nestjs/core';
-import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import {
   FastifyAdapter,
@@ -9,6 +11,9 @@ import { SWAGGER_URL } from 'common/swagger';
 import { AppModule } from 'app.module';
 import { APP_DESCRIPTION, APP_VERSION } from 'app.constants';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { Configuration } from './common/config/configuration';
+
+dotenv.config({ path: resolve(appRoot.path, '.env'), debug: false });
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -17,8 +22,8 @@ async function bootstrap() {
     { bufferLogs: true },
   );
 
-  const configService = app.get(ConfigService);
-  const appPort = configService.get<number>('PORT');
+  const config = app.get<Configuration>(Configuration);
+  const appPort = config.PORT;
 
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
 
