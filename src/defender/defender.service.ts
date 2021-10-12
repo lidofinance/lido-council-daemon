@@ -105,22 +105,20 @@ export class DefenderService {
       depositRoot,
       keysOpIndex,
     );
-    const message = { depositRoot, keysOpIndex, ...depositData };
 
-    this.logger.debug('Correct case', message);
-    this.sendMessage(message);
+    this.logger.debug('Correct case', depositData);
+    this.sendMessage(depositData);
   }
 
   private async handleSuspiciousCase() {
     const pauseData = await this.securityService.getPauseDepositData();
-    const { blockNumber, signature } = pauseData;
-    const message = pauseData;
+    const { blockNumber, blockHash, signature } = pauseData;
 
     this.logger.debug('Suspicious case', pauseData);
 
     await Promise.all([
-      this.securityService.pauseDeposits(blockNumber, signature),
-      this.sendMessage(message),
+      this.securityService.pauseDeposits(blockNumber, blockHash, signature),
+      this.sendMessage(pauseData),
     ]);
   }
 }

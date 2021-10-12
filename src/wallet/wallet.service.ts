@@ -3,7 +3,7 @@ import { keccak256 } from '@ethersproject/keccak256';
 import { Wallet } from '@ethersproject/wallet';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { joinHex, hexPadUnit64 } from 'utils';
+import { joinHex, hexPadUnit256 } from 'utils';
 
 @Injectable()
 export class WalletService {
@@ -32,38 +32,62 @@ export class WalletService {
     prefix: string,
     depositRoot: string,
     keysOpIndex: number,
+    blockNumber: number,
+    blockHash: string,
   ): Promise<string> {
-    const encoded = this.encodeDepositData(prefix, depositRoot, keysOpIndex);
-    const hash = keccak256(encoded);
+    const encodedData = this.encodeDepositData(
+      prefix,
+      depositRoot,
+      keysOpIndex,
+      blockNumber,
+      blockHash,
+    );
+    const messageHash = keccak256(encodedData);
 
-    return await this.signMessage(hash);
+    return await this.signMessage(messageHash);
   }
 
   public encodeDepositData(
     prefix: string,
     depositRoot: string,
     keysOpIndex: number,
+    blockNumber: number,
+    blockHash: string,
   ): string {
     const keyOpIndexHex = BigNumber.from(keysOpIndex).toHexString();
-    const keyOpIndex256 = hexPadUnit64(keyOpIndexHex);
+    const keyOpIndex256 = hexPadUnit256(keyOpIndexHex);
 
-    return joinHex(prefix, depositRoot, keyOpIndex256);
+    const blockNumberHex = BigNumber.from(blockNumber).toHexString();
+    const blockNumber256 = hexPadUnit256(blockNumberHex);
+
+    return joinHex(
+      prefix,
+      depositRoot,
+      keyOpIndex256,
+      blockNumber256,
+      blockHash,
+    );
   }
 
   public async signPauseData(
     prefix: string,
-    blockHeight: number,
+    blockNumber: number,
+    blockHash: string,
   ): Promise<string> {
-    const encoded = this.encodePauseData(prefix, blockHeight);
-    const hash = keccak256(encoded);
+    const encodedData = this.encodePauseData(prefix, blockNumber, blockHash);
+    const messageHash = keccak256(encodedData);
 
-    return this.signMessage(hash);
+    return this.signMessage(messageHash);
   }
 
-  public encodePauseData(prefix: string, blockHeight: number): string {
-    const blockHeightHex = BigNumber.from(blockHeight).toHexString();
-    const blockHeight256 = hexPadUnit64(blockHeightHex);
+  public encodePauseData(
+    prefix: string,
+    blockNumber: number,
+    blockHash: string,
+  ): string {
+    const blockNumberHex = BigNumber.from(blockNumber).toHexString();
+    const blockNumber256 = hexPadUnit256(blockNumberHex);
 
-    return joinHex(prefix, blockHeight256);
+    return joinHex(prefix, blockNumber256, blockHash);
   }
 }

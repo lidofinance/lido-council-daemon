@@ -185,7 +185,8 @@
   },
   {
     "inputs": [
-      { "internalType": "address", "name": "addr", "type": "address" }
+      { "internalType": "address", "name": "addr", "type": "address" },
+      { "internalType": "uint256", "name": "newQuorum", "type": "uint256" }
     ],
     "name": "addGuardian",
     "outputs": [],
@@ -194,7 +195,8 @@
   },
   {
     "inputs": [
-      { "internalType": "address[]", "name": "addresses", "type": "address[]" }
+      { "internalType": "address[]", "name": "addresses", "type": "address[]" },
+      { "internalType": "uint256", "name": "newQuorum", "type": "uint256" }
     ],
     "name": "addGuardians",
     "outputs": [],
@@ -213,6 +215,8 @@
       { "internalType": "uint256", "name": "maxDeposits", "type": "uint256" },
       { "internalType": "bytes32", "name": "depositRoot", "type": "bytes32" },
       { "internalType": "uint256", "name": "keysOpIndex", "type": "uint256" },
+      { "internalType": "uint256", "name": "blockNumber", "type": "uint256" },
+      { "internalType": "bytes32", "name": "blockHash", "type": "bytes32" },
       {
         "components": [
           { "internalType": "bytes32", "name": "r", "type": "bytes32" },
@@ -306,7 +310,8 @@
   },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "blockHeight", "type": "uint256" },
+      { "internalType": "uint256", "name": "blockNumber", "type": "uint256" },
+      { "internalType": "bytes32", "name": "blockHash", "type": "bytes32" },
       {
         "components": [
           { "internalType": "bytes32", "name": "r", "type": "bytes32" },
@@ -324,7 +329,8 @@
   },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "index", "type": "uint256" }
+      { "internalType": "address", "name": "addr", "type": "address" },
+      { "internalType": "uint256", "name": "newQuorum", "type": "uint256" }
     ],
     "name": "removeGuardian",
     "outputs": [],

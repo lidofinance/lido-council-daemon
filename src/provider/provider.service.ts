@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { StaticJsonRpcProvider } from '@ethersproject/providers';
+import { StaticJsonRpcProvider, Block } from '@ethersproject/providers';
 
 @Injectable()
 export class ProviderService {
@@ -25,7 +25,11 @@ export class ProviderService {
     return chainId;
   }
 
-  public async getBlockNumber() {
+  public async getBlockNumber(): Promise<number> {
     return await this.provider.getBlockNumber();
+  }
+
+  public async getBlock(): Promise<Block> {
+    return await this.provider.getBlock('latest');
   }
 }

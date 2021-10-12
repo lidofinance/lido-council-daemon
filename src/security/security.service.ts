@@ -78,6 +78,8 @@ export class SecurityService {
   public async signDepositData(
     depositRoot: string,
     keysOpIndex: number,
+    blockNumber: number,
+    blockHash: string,
   ): Promise<string> {
     const messagePrefix = await this.getAttestMessagePrefix();
 
@@ -85,6 +87,8 @@ export class SecurityService {
       messagePrefix,
       depositRoot,
       keysOpIndex,
+      blockNumber,
+      blockHash,
     );
   }
 
@@ -92,39 +96,78 @@ export class SecurityService {
     depositRoot: string,
     keysOpIndex: number,
   ): Promise<{
-    blockNumber: number;
+    depositRoot: string;
+    keysOpIndex: number;
+    guardianAddress: string;
     guardianIndex: number;
+    blockNumber: number;
+    blockHash: string;
     signature: string;
   }> {
-    const [blockNumber, guardianIndex, signature] = await Promise.all([
-      this.providerService.getBlockNumber(),
+    const block = await this.providerService.getBlock();
+    const blockNumber = block.number;
+    const blockHash = block.hash;
+    const guardianAddress = this.walletService.address;
+
+    const [guardianIndex, signature] = await Promise.all([
       this.getGuardianIndex(),
-      this.signDepositData(depositRoot, keysOpIndex),
+      this.signDepositData(depositRoot, keysOpIndex, blockNumber, blockHash),
     ]);
 
-    return { blockNumber, guardianIndex, signature };
+    return {
+      depositRoot,
+      keysOpIndex,
+      blockNumber,
+      blockHash,
+      guardianAddress,
+      guardianIndex,
+      signature,
+    };
   }
 
-  public async signPauseData(blockHeight: number): Promise<string> {
+  public async signPauseData(
+    blockNumber: number,
+    blockHash: string,
+  ): Promise<string> {
     const messagePrefix = await this.getPauseMessagePrefix();
-    return await this.walletService.signPauseData(messagePrefix, blockHeight);
+
+    return await this.walletService.signPauseData(
+      messagePrefix,
+      blockNumber,
+      blockHash,
+    );
   }
 
   public async getPauseDepositData(): Promise<{
-    blockNumber: number;
+    guardianAddress: string;
     guardianIndex: number;
+    blockNumber: number;
+    blockHash: string;
     signature: string;
   }> {
-    const [blockNumber, guardianIndex] = await Promise.all([
-      this.providerService.getBlockNumber(),
+    const [block, guardianIndex] = await Promise.all([
+      this.providerService.getBlock(),
       this.getGuardianIndex(),
     ]);
-    const signature = await this.signPauseData(blockNumber);
+    const blockNumber = block.number;
+    const blockHash = block.hash;
+    const guardianAddress = this.walletService.address;
+    const signature = await this.signPauseData(block.number, block.hash);
 
-    return { blockNumber, guardianIndex, signature };
+    return {
+      guardianAddress,
+      guardianIndex,
+      blockNumber,
+      blockHash,
+      signature,
+    };
   }
 
-  public async pauseDeposits(blockHeight: number, signature: string) {
+  public async pauseDeposits(
+    blockNumber: number,
+    blockHash: string,
+    signature: string,
+  ) {
     const { r, _vs: vs } = splitSignature(signature);
     const wallet = this.walletService.wallet.connect(
       this.providerService.provider,
@@ -138,6 +181,6 @@ export class SecurityService {
       return;
     }
 
-    return await contract.pauseDeposits(blockHeight, { r, vs });
+    return await contract.pauseDeposits(blockNumber, blockHash, { r, vs });
   }
 }
