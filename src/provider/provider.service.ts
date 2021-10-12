@@ -1,15 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { StaticJsonRpcProvider } from '@ethersproject/providers';
+import { Configuration } from '../common/config/configuration';
 
 @Injectable()
 export class ProviderService {
-  constructor(private configService: ConfigService) {}
+  constructor(private config: Configuration) {}
 
   private cachedProvider: StaticJsonRpcProvider | null = null;
 
   public get rpcUrl(): string {
-    return this.configService.get<string>('RPC_URL');
+    return this.config.RPC_URL;
   }
 
   private getProvider(): StaticJsonRpcProvider {
