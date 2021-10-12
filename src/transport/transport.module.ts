@@ -1,7 +1,7 @@
 import { LoggerService, Module } from '@nestjs/common';
 import { Kafka, logLevel } from 'kafkajs';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { ConfigModule, Configuration } from 'common/config';
+import { Configuration } from 'common/config';
 import { TransportInterface } from './transport.interface';
 import { KafkaTransport } from './kafka.transport';
 import { KAFKA_LOG_PREFIX } from './kafka.constants';
@@ -9,7 +9,6 @@ import { KAFKA_LOG_PREFIX } from './kafka.constants';
 export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
 
 @Module({
-  imports: [ConfigModule],
   exports: [TransportInterface],
   providers: [
     {

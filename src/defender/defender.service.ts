@@ -22,19 +22,8 @@ export class DefenderService {
   }
 
   public async initialize(): Promise<void> {
-    this.subscribeToTransportEvents();
-
     await this.depositService.initialize();
     this.subscribeToEthereumUpdates();
-  }
-
-  private async subscribeToTransportEvents() {
-    const topic = await this.getMessageTopic();
-    await this.transportService.subscribe(topic, async (message) => {
-      this.logger.debug('Transport event', message);
-    });
-
-    this.logger.log('DefenderService subscribed to Transport events');
   }
 
   private async subscribeToEthereumUpdates() {
