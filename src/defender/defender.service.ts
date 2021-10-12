@@ -60,34 +60,38 @@ export class DefenderService {
   }
 
   private async protectPubKeys() {
-    const [
-      nextPubKeys,
-      keysOpIndex,
-      actualStateIndex,
-      depositedPubKeys,
-      depositRoot,
-    ] = await Promise.all([
-      this.registryService.getNextKeys(),
-      this.registryService.getKeysOpIndex(),
-      this.registryService.getActualStateIndex(),
-      this.depositService.getAllPubKeys(),
-      this.depositService.getDepositRoot(),
-    ]);
+    try {
+      const [
+        nextPubKeys,
+        keysOpIndex,
+        actualStateIndex,
+        depositedPubKeys,
+        depositRoot,
+      ] = await Promise.all([
+        this.registryService.getNextKeys(),
+        this.registryService.getKeysOpIndex(),
+        this.registryService.getActualStateIndex(),
+        this.depositService.getAllPubKeys(),
+        this.depositService.getDepositRoot(),
+      ]);
 
-    if (this.isSameState(actualStateIndex, keysOpIndex, depositRoot)) {
-      return;
-    }
+      if (this.isSameState(actualStateIndex, keysOpIndex, depositRoot)) {
+        return;
+      }
 
-    const alreadyDepositedPubKeys = this.matchPubKeys(
-      nextPubKeys,
-      depositedPubKeys,
-    );
+      const alreadyDepositedPubKeys = this.matchPubKeys(
+        nextPubKeys,
+        depositedPubKeys,
+      );
 
-    if (alreadyDepositedPubKeys.length) {
-      this.logger.warn({ alreadyDepositedPubKeys });
-      await this.handleSuspiciousCase();
-    } else {
-      await this.handleCorrectCase(depositRoot, keysOpIndex);
+      if (alreadyDepositedPubKeys.length) {
+        this.logger.warn({ alreadyDepositedPubKeys });
+        await this.handleSuspiciousCase();
+      } else {
+        await this.handleCorrectCase(depositRoot, keysOpIndex);
+      }
+    } catch (error) {
+      this.logger.error(error);
     }
   }
 
