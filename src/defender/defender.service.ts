@@ -53,27 +53,39 @@ export class DefenderService {
 
   private state: DefenderState | null = null;
 
-  private isSameState(keysOpIndex: number, depositRoot: string): boolean {
+  private isSameState(
+    actualStateIndex: number,
+    keysOpIndex: number,
+    depositRoot: string,
+  ): boolean {
     const previousState = this.state;
-    this.state = { keysOpIndex, depositRoot };
+    this.state = { actualStateIndex, keysOpIndex, depositRoot };
 
     if (!previousState) return false;
     const isSameKeysInRegistry = previousState.keysOpIndex === keysOpIndex;
     const isSameKeysInDeposit = previousState.depositRoot === depositRoot;
+    const isSameActualIndex =
+      previousState.actualStateIndex === actualStateIndex;
 
-    return isSameKeysInRegistry && isSameKeysInDeposit;
+    return isSameActualIndex && isSameKeysInRegistry && isSameKeysInDeposit;
   }
 
   private async protectPubKeys() {
-    const [nextPubKeys, keysOpIndex, depositedPubKeys, depositRoot] =
-      await Promise.all([
-        this.registryService.getNextKeys(),
-        this.registryService.getKeysOpIndex(),
-        this.depositService.getAllPubKeys(),
-        this.depositService.getDepositRoot(),
-      ]);
+    const [
+      nextPubKeys,
+      keysOpIndex,
+      actualStateIndex,
+      depositedPubKeys,
+      depositRoot,
+    ] = await Promise.all([
+      this.registryService.getNextKeys(),
+      this.registryService.getKeysOpIndex(),
+      this.registryService.getActualStateIndex(),
+      this.depositService.getAllPubKeys(),
+      this.depositService.getDepositRoot(),
+    ]);
 
-    if (this.isSameState(keysOpIndex, depositRoot)) {
+    if (this.isSameState(actualStateIndex, keysOpIndex, depositRoot)) {
       return;
     }
 
