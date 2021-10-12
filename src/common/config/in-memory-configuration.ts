@@ -3,8 +3,10 @@ import { IsIn, IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
 import { Injectable } from '@nestjs/common';
 import { Configuration, PubsubService } from './configuration';
 import { SASLMechanism } from '../../transport';
+import { implementationOf } from '../di/decorators/implementationOf';
 
 @Injectable()
+@implementationOf(Configuration)
 export class InMemoryConfiguration implements Configuration {
   @IsNotEmpty()
   @IsIn(['development', 'production', 'test'])

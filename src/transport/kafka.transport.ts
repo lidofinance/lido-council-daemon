@@ -2,8 +2,10 @@ import { TransportInterface } from './transport.interface';
 import { Kafka, Producer, Consumer } from 'kafkajs';
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { implementationOf } from '../common/di/decorators/implementationOf';
 
 @Injectable()
+@implementationOf(TransportInterface)
 export class KafkaTransport implements TransportInterface {
   protected consumers: { [topic: string]: Consumer } = {};
   protected producer: Producer;
