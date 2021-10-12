@@ -1,9 +1,8 @@
-import { DynamicModule, LoggerService, Module } from '@nestjs/common';
+import { DynamicModule, Module } from '@nestjs/common';
 import { InMemoryConfiguration } from './in-memory-configuration';
 import { Configuration } from './configuration';
 import { validateOrReject } from 'class-validator';
 import { plainToClass } from 'class-transformer';
-import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 @Module({})
 export class ConfigModule {
@@ -14,7 +13,7 @@ export class ConfigModule {
       providers: [
         {
           provide: Configuration,
-          useFactory: async (logger: LoggerService) => {
+          useFactory: async () => {
             const config = plainToClass(InMemoryConfiguration, process.env);
             try {
               await validateOrReject(config, {
@@ -22,14 +21,19 @@ export class ConfigModule {
               });
               return config;
             } catch (validationErrors) {
-              // eslint-disable-next-line @typescript-eslint/ban-types
-              validationErrors.forEach((error: object) =>
-                logger.error(`Bad environment variable(s): %o`, error),
-              );
+              validationErrors.forEach((error: Record<string, unknown>) => {
+                const jsonError = JSON.stringify({
+                  context: 'ConfigModule',
+                  message: 'Bad environment variable(s): %o`',
+                  level: 'error',
+                  error,
+                });
+                console.error(jsonError);
+              });
               process.exit(1);
             }
           },
-          inject: [WINSTON_MODULE_NEST_PROVIDER],
+          inject: [],
         },
       ],
       exports: [Configuration],

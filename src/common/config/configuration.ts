@@ -15,7 +15,8 @@ export interface Configuration {
   PUBSUB_SERVICE: PubsubService;
   KAFKA_BROKER_ADDRESS_1: string;
   KAFKA_BROKER_ADDRESS_2: string;
-  KAFKA_MECHANISM: SASLMechanism;
+  KAFKA_SSL: boolean;
+  KAFKA_SASL_MECHANISM: SASLMechanism;
   KAFKA_USERNAME: string;
   KAFKA_PASSWORD: string;
 }

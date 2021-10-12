@@ -39,16 +39,21 @@ export class InMemoryConfiguration implements Configuration {
 
   @IsNotEmpty()
   @IsString()
-  KAFKA_BROKER_ADDRESS_1: string;
+  KAFKA_BROKER_ADDRESS_1 = '';
+
+  @IsString()
+  KAFKA_BROKER_ADDRESS_2 = '';
 
   @IsNotEmpty()
-  @IsString()
-  KAFKA_BROKER_ADDRESS_2: string;
+  @Transform(({ value }) => (value.toLowerCase() == 'true' ? true : false), {
+    toClassOnly: true,
+  })
+  KAFKA_SSL: boolean;
 
   @IsNotEmpty()
   @IsString()
   @IsIn(['plain', 'scram-sha-256', 'scram-sha-512'])
-  KAFKA_MECHANISM: SASLMechanism = 'scram-sha-256';
+  KAFKA_SASL_MECHANISM: SASLMechanism = 'scram-sha-256';
 
   @IsNotEmpty()
   @IsString()

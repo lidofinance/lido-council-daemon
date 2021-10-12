@@ -12,9 +12,9 @@ import { TransportModule } from 'transport';
 @Module({
   imports: [
     ConfigModule.forRoot(),
+    LoggerModule,
     DefenderModule,
     TransportModule,
-    LoggerModule,
     PrometheusModule,
   ],
   providers: [PrometheusQueryProvider],
