@@ -18,7 +18,7 @@ describe('KafkaTransport', () => {
             new Kafka({
               clientId: 'test-client',
               brokers: ['localhost:9092'],
-              logCreator: (logLevel) => (entry) => void 0,
+              logCreator: () => () => void 0,
             }),
         },
       ],

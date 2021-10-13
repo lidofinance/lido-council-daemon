@@ -1,4 +1,5 @@
 import { splitSignature } from '@ethersproject/bytes';
+import { ContractTransaction } from '@ethersproject/contracts';
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { SecurityAbi__factory } from 'generated/factories/SecurityAbi__factory';
 import { SecurityAbi } from 'generated/SecurityAbi';
@@ -16,10 +17,11 @@ export class SecurityService {
   ) {}
 
   private cachedContract: SecurityAbi | null = null;
+  private cachedContractWithSigner: SecurityAbi | null = null;
   private cachedAttestMessagePrefix: string | null = null;
   private cachedPauseMessagePrefix: string | null = null;
 
-  private async getContract(): Promise<SecurityAbi> {
+  public async getContract(): Promise<SecurityAbi> {
     if (!this.cachedContract) {
       const address = await this.getDepositSecurityAddress();
       const provider = this.providerService.provider;
@@ -27,6 +29,20 @@ export class SecurityService {
     }
 
     return this.cachedContract;
+  }
+
+  public async getContractWithSigner(): Promise<SecurityAbi> {
+    if (!this.cachedContractWithSigner) {
+      const wallet = this.walletService.wallet;
+      const provider = this.providerService.provider;
+      const walletWithProvider = wallet.connect(provider);
+      const contract = await this.getContract();
+      const contractWithSigner = contract.connect(walletWithProvider);
+
+      this.cachedContractWithSigner = contractWithSigner;
+    }
+
+    return this.cachedContractWithSigner;
   }
 
   public async getDepositSecurityAddress(): Promise<string> {
@@ -167,13 +183,10 @@ export class SecurityService {
     blockNumber: number,
     blockHash: string,
     signature: string,
-  ) {
+  ): Promise<ContractTransaction> {
     const { r, _vs: vs } = splitSignature(signature);
-    const wallet = this.walletService.wallet.connect(
-      this.providerService.provider,
-    );
 
-    const contract = (await this.getContract()).connect(wallet);
+    const contract = await this.getContractWithSigner();
     const isPaused = await contract.isPaused();
 
     if (isPaused) {
