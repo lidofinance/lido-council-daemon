@@ -1,5 +1,5 @@
 import { splitSignature } from '@ethersproject/bytes';
-import { ContractTransaction } from '@ethersproject/contracts';
+import { ContractReceipt } from '@ethersproject/contracts';
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { SecurityAbi__factory } from 'generated/factories/SecurityAbi__factory';
 import { SecurityAbi } from 'generated/SecurityAbi';
@@ -183,8 +183,10 @@ export class SecurityService {
     blockNumber: number,
     blockHash: string,
     signature: string,
-  ): Promise<ContractTransaction> {
+  ): Promise<ContractReceipt> {
     const { r, _vs: vs } = splitSignature(signature);
+
+    this.logger.warn('Try to pause deposits');
 
     const contract = await this.getContractWithSigner();
     const isPaused = await contract.isPaused();
@@ -194,6 +196,14 @@ export class SecurityService {
       return;
     }
 
-    return await contract.pauseDeposits(blockNumber, blockHash, { r, vs });
+    // TODO: submit with higher gas
+    const tx = await contract.pauseDeposits(blockNumber, blockHash, { r, vs });
+    this.logger.warn('Pause transaction sent', { txHash: tx.hash });
+    this.logger.warn('Waiting for block confirmation');
+
+    const result = await tx.wait();
+
+    this.logger.warn('Block confirmation received');
+    return result;
   }
 }

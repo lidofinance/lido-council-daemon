@@ -1,4 +1,8 @@
 import { Interface } from '@ethersproject/abi';
+import { isAddress } from '@ethersproject/address';
+import { BigNumber } from '@ethersproject/bignumber';
+import { Contract } from '@ethersproject/contracts';
+import { AddressZero } from '@ethersproject/constants';
 import { CHAINS } from '@lido-sdk/constants';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
@@ -37,7 +41,38 @@ describe('RegistryService', () => {
       .mockImplementation(async () => CHAINS.Goerli);
   });
 
+  describe('getContract', () => {
+    it('should return contract instance', async () => {
+      const contract = await registryService.getContract();
+      expect(contract).toBeInstanceOf(Contract);
+    });
+
+    it('should cache instance', async () => {
+      const contract1 = await registryService.getContract();
+      const contract2 = await registryService.getContract();
+      expect(contract1).toBe(contract2);
+    });
+  });
+
   describe('getPubkeyLength', () => {
+    it('should return key length from contract', async () => {
+      const expected = 10;
+
+      const providerCall = jest
+        .spyOn(providerService.provider, 'call')
+        .mockImplementation(async () => {
+          const iface = new Interface(RegistryAbi__factory.abi);
+          const result = [BigNumber.from(expected).toHexString()];
+          return iface.encodeFunctionResult('PUBKEY_LENGTH', result);
+        });
+
+      const prefix = await registryService.getPubkeyLength();
+      expect(prefix).toBe(expected);
+      expect(providerCall).toBeCalledTimes(1);
+    });
+  });
+
+  describe('splitPubKeys', () => {
     const keyLength = 2;
 
     beforeEach(async () => {
@@ -58,6 +93,56 @@ describe('RegistryService', () => {
 
     it('should throw if source string is not divisible by the key length', async () => {
       await expect(registryService.splitPubKeys('0x12345')).rejects.toThrow();
+    });
+  });
+
+  describe('splitPubKeysArray', () => {
+    it('should split array into two chunks', () => {
+      const splitted = registryService.splitPubKeysArray(
+        Uint8Array.from([1, 2, 3, 4]),
+        2,
+      );
+
+      expect(splitted).toEqual([
+        Uint8Array.from([1, 2]),
+        Uint8Array.from([3, 4]),
+      ]);
+    });
+
+    it('should work with empty array', () => {
+      const splitted = registryService.splitPubKeysArray(
+        Uint8Array.from([]),
+        2,
+      );
+      expect(splitted).toEqual([]);
+    });
+
+    it('should throw if length is not divisible by the key length', () => {
+      expect(() =>
+        registryService.splitPubKeysArray(Uint8Array.from([1, 2, 3]), 2),
+      ).toThrow();
+    });
+  });
+
+  describe('getRegistryAddress', () => {
+    it('should return contract address for goerli', async () => {
+      jest
+        .spyOn(providerService, 'getChainId')
+        .mockImplementation(async () => CHAINS.Goerli);
+
+      const address = await registryService.getRegistryAddress();
+      expect(isAddress(address)).toBeTruthy();
+      expect(address).not.toBe(AddressZero);
+    });
+
+    it('should return contract address for mainnet', async () => {
+      jest
+        .spyOn(providerService, 'getChainId')
+        .mockImplementation(async () => CHAINS.Mainnet);
+
+      const address = await registryService.getRegistryAddress();
+      expect(isAddress(address)).toBeTruthy();
+      expect(address).not.toBe(AddressZero);
     });
   });
 
@@ -97,6 +182,46 @@ describe('RegistryService', () => {
   });
 
   describe('getKeysOpIndex', () => {
-    it.todo('should return keys operation index');
+    it('should return keys operation index', async () => {
+      const expected = 10;
+
+      const providerCall = jest
+        .spyOn(providerService.provider, 'call')
+        .mockImplementation(async () => {
+          const iface = new Interface(RegistryAbi__factory.abi);
+          const result = [BigNumber.from(expected).toHexString()];
+          return iface.encodeFunctionResult('getKeysOpIndex', result);
+        });
+
+      const keysOpIndex = await registryService.getKeysOpIndex();
+      expect(keysOpIndex).toBe(expected);
+      expect(providerCall).toBeCalledTimes(1);
+    });
+  });
+
+  describe('getActualStateIndex', () => {
+    it('should return the same value for near block', async () => {
+      const providerCall = jest
+        .spyOn(providerService, 'getBlockNumber')
+        .mockImplementationOnce(async () => 101)
+        .mockImplementationOnce(async () => 102);
+
+      const firstIndex = await registryService.getActualStateIndex();
+      const secondIndex = await registryService.getActualStateIndex();
+      expect(firstIndex).toBe(secondIndex);
+      expect(providerCall).toBeCalledTimes(2);
+    });
+
+    it('should return the unique value for far block', async () => {
+      const providerCall = jest
+        .spyOn(providerService, 'getBlockNumber')
+        .mockImplementationOnce(async () => 101)
+        .mockImplementationOnce(async () => 301);
+
+      const firstIndex = await registryService.getActualStateIndex();
+      const secondIndex = await registryService.getActualStateIndex();
+      expect(firstIndex).not.toBe(secondIndex);
+      expect(providerCall).toBeCalledTimes(2);
+    });
   });
 });

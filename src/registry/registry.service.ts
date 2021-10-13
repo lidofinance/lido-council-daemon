@@ -20,7 +20,7 @@ export class RegistryService {
   private cachedContract: RegistryAbi | null = null;
   private cachedPubKeyLength: number | null = null;
 
-  private async getContract(): Promise<RegistryAbi> {
+  public async getContract(): Promise<RegistryAbi> {
     if (!this.cachedContract) {
       const address = await this.getRegistryAddress();
       const provider = this.providerService.provider;

@@ -21,6 +21,8 @@ export class DefenderService {
     this.initialize();
   }
 
+  private isCheckingKeys = false;
+
   public async initialize(): Promise<void> {
     await this.depositService.initialize();
     this.subscribeToEthereumUpdates();
@@ -60,7 +62,13 @@ export class DefenderService {
   }
 
   private async protectPubKeys() {
+    if (this.isCheckingKeys) {
+      return;
+    }
+
     try {
+      this.isCheckingKeys = true;
+
       const [
         nextPubKeys,
         keysOpIndex,
@@ -92,6 +100,8 @@ export class DefenderService {
       }
     } catch (error) {
       this.logger.error(error);
+    } finally {
+      this.isCheckingKeys = false;
     }
   }
 
@@ -111,7 +121,7 @@ export class DefenderService {
       keysOpIndex,
     );
 
-    this.logger.debug('Correct case', depositData);
+    this.logger.debug('No problems found', depositData);
     await this.sendMessage(depositData);
   }
 
@@ -119,7 +129,7 @@ export class DefenderService {
     const pauseData = await this.securityService.getPauseDepositData();
     const { blockNumber, blockHash, signature } = pauseData;
 
-    this.logger.debug('Suspicious case', pauseData);
+    this.logger.warn('Suspicious case detected', pauseData);
 
     await Promise.all([
       this.securityService.pauseDeposits(blockNumber, blockHash, signature),

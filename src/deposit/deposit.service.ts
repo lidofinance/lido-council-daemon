@@ -28,14 +28,14 @@ export class DepositService {
   private cachedContract: DepositAbi | null = null;
   private isCollectingEvents = false;
 
-  private formatEvent(rawEvent: DepositEventEvent): DepositEvent {
+  public formatEvent(rawEvent: DepositEventEvent): DepositEvent {
     const { args, transactionHash: tx, blockNumber } = rawEvent;
     const { withdrawal_credentials: wc, pubkey, amount, signature } = args;
 
     return { pubkey, wc, amount, signature, tx, blockNumber };
   }
 
-  private async getContract(): Promise<DepositAbi> {
+  public async getContract(): Promise<DepositAbi> {
     if (!this.cachedContract) {
       const address = await this.getDepositAddress();
       const provider = this.providerService.provider;
@@ -45,19 +45,19 @@ export class DepositService {
     return this.cachedContract;
   }
 
-  private async getCurrentBlock(): Promise<number> {
+  public async getCurrentBlock(): Promise<number> {
     const provider = this.providerService.provider;
     const currentBlock = await provider.getBlockNumber();
 
     return currentBlock;
   }
 
-  private async getDeploymentBlockByNetwork(): Promise<number> {
+  public async getDeploymentBlockByNetwork(): Promise<number> {
     const chainId = await this.providerService.getChainId();
     return getDeploymentBlockByNetwork(chainId);
   }
 
-  private async getCachedEvents(): Promise<DepositEventGroup> {
+  public async getCachedEvents(): Promise<DepositEventGroup> {
     const cachedEventGroup = await this.cacheService.getCache();
     const deploymentBlock = await this.getDeploymentBlockByNetwork();
 
@@ -68,11 +68,11 @@ export class DepositService {
     };
   }
 
-  private async setCachedEvents(eventGroup: DepositEventGroup): Promise<void> {
+  public async setCachedEvents(eventGroup: DepositEventGroup): Promise<void> {
     return await this.cacheService.setCache(eventGroup);
   }
 
-  private async fetchEventsRecursive(
+  public async fetchEventsRecursive(
     startBlock: number,
     endBlock: number,
   ): Promise<DepositEventGroup> {
@@ -86,7 +86,7 @@ export class DepositService {
       const isPartitionable = endBlock - startBlock > 1;
 
       if (isPartitionable && isPartitionRequired) {
-        this.logger.debug(`limit exceeded, try to split the chunk`, {
+        this.logger.debug(`Limit exceeded, try to split the chunk`, {
           startBlock,
           endBlock,
         });
@@ -109,7 +109,7 @@ export class DepositService {
     }
   }
 
-  private async fetchEvents(
+  public async fetchEvents(
     startBlock: number,
     endBlock: number,
   ): Promise<DepositEventGroup> {
@@ -121,7 +121,7 @@ export class DepositService {
     return { events, startBlock, endBlock };
   }
 
-  private async getFreshEvents(): Promise<DepositEventGroup> {
+  public async getFreshEvents(): Promise<DepositEventGroup> {
     const endBlock = await this.getCurrentBlock();
     const startBlock = endBlock - DEPOSIT_EVENTS_FRESH_BLOCKS;
     const eventGroup = await this.fetchEventsRecursive(startBlock, endBlock);
@@ -146,8 +146,6 @@ export class DepositService {
 
     this.logger.log('DepositService subscribed to Ethereum events');
   }
-
-  /* Public methods */
 
   public async getDepositAddress(): Promise<string> {
     return await this.lidoService.getDepositContractAddress();

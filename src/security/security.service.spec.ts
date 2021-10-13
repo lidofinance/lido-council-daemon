@@ -13,6 +13,8 @@ import { Interface } from '@ethersproject/abi';
 import { BigNumber } from '@ethersproject/bignumber';
 import { hexZeroPad } from '@ethersproject/bytes';
 import { Wallet } from '@ethersproject/wallet';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { LoggerService } from '@nestjs/common';
 
 describe('SecurityService', () => {
   const address1 = hexZeroPad('0x1', 20);
@@ -22,6 +24,7 @@ describe('SecurityService', () => {
   let securityService: SecurityService;
   let providerService: ProviderService;
   let walletService: WalletService;
+  let loggerService: LoggerService;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -37,10 +40,13 @@ describe('SecurityService', () => {
     securityService = moduleRef.get(SecurityService);
     providerService = moduleRef.get(ProviderService);
     walletService = moduleRef.get(WalletService);
+    loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
     jest
       .spyOn(providerService, 'getChainId')
       .mockImplementation(async () => CHAINS.Goerli);
+
+    jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
   });
 
   describe('getContract', () => {
@@ -81,7 +87,7 @@ describe('SecurityService', () => {
         .mockImplementation(async () => CHAINS.Goerli);
 
       const address = await securityService.getDepositSecurityAddress();
-      expect(isAddress(address)).toBeTruthy;
+      expect(isAddress(address)).toBeTruthy();
       expect(address).not.toBe(AddressZero);
     });
 
@@ -91,7 +97,7 @@ describe('SecurityService', () => {
         .mockImplementation(async () => CHAINS.Mainnet);
 
       const address = await securityService.getDepositSecurityAddress();
-      expect(isAddress(address)).toBeTruthy;
+      expect(isAddress(address)).toBeTruthy();
       expect(address).not.toBe(AddressZero);
     });
   });
@@ -248,9 +254,6 @@ describe('SecurityService', () => {
     let signature: string;
 
     beforeEach(async () => {
-      isPaused.mockClear();
-      pauseDeposits.mockClear();
-
       jest
         .spyOn(providerService, 'getBlock')
         .mockImplementation(
@@ -269,14 +272,30 @@ describe('SecurityService', () => {
       signature = data.signature;
     });
 
+    afterEach(async () => {
+      isPaused.mockClear();
+      pauseDeposits.mockClear();
+    });
+
     it('should call contract method', async () => {
+      const wait = jest.fn();
+      const hash = '0x1234';
+      const expected = {};
+
       isPaused.mockImplementation(async () => false);
-      pauseDeposits.mockImplementation(async () => null);
+      pauseDeposits.mockImplementation(async () => ({ wait, hash }));
+      wait.mockImplementation(async () => expected);
 
-      await securityService.pauseDeposits(blockNumber, blockHash, signature);
+      const result = await securityService.pauseDeposits(
+        blockNumber,
+        blockHash,
+        signature,
+      );
 
-      expect(isPaused).toBeCalledWith(1);
+      expect(result).toBe(expected);
+      expect(isPaused).toBeCalledTimes(1);
       expect(pauseDeposits).toBeCalledTimes(1);
+      expect(wait).toBeCalledTimes(1);
     });
 
     it('should not call pause if contract is already paused', async () => {
