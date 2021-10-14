@@ -1,4 +1,9 @@
-import { Inject, Injectable, LoggerService } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  LoggerService,
+  OnModuleInit,
+} from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { DepositService } from 'deposit';
 import { RegistryService } from 'registry';
@@ -9,7 +14,7 @@ import { DefenderState } from './interfaces';
 import { getMessageTopic } from './defender.constants';
 
 @Injectable()
-export class DefenderService {
+export class DefenderService implements OnModuleInit {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private registryService: RegistryService,
@@ -17,16 +22,14 @@ export class DefenderService {
     private securityService: SecurityService,
     private providerService: ProviderService,
     private transportService: TransportInterface,
-  ) {
-    this.initialize();
-  }
+  ) {}
 
-  private isCheckingKeys = false;
-
-  public async initialize(): Promise<void> {
+  public async onModuleInit(): Promise<void> {
     await this.depositService.initialize();
     this.subscribeToEthereumUpdates();
   }
+
+  private isCheckingKeys = false;
 
   public async subscribeToEthereumUpdates() {
     const provider = this.providerService.provider;
@@ -35,12 +38,12 @@ export class DefenderService {
     this.logger.log('DefenderService subscribed to Ethereum events');
   }
 
-  public matchPubKeys = (
+  public matchPubKeys(
     nextPubKeys: string[],
     depositedPubKeys: Set<string>,
-  ): string[] => {
+  ): string[] {
     return nextPubKeys.filter((nextPubKey) => depositedPubKeys.has(nextPubKey));
-  };
+  }
 
   public state: DefenderState | null = null;
 
@@ -93,7 +96,10 @@ export class DefenderService {
       );
 
       if (alreadyDepositedPubKeys.length) {
-        this.logger.warn({ alreadyDepositedPubKeys });
+        this.logger.warn('Already deposited keys found', {
+          keys: alreadyDepositedPubKeys,
+        });
+
         await this.handleSuspiciousCase();
       } else {
         await this.handleCorrectCase(depositRoot, keysOpIndex);
