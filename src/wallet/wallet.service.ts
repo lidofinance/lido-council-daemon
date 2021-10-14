@@ -1,8 +1,8 @@
-import { BigNumber } from '@ethersproject/bignumber';
+import { defaultAbiCoder } from '@ethersproject/abi';
+import { Signature } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
 import { Wallet } from '@ethersproject/wallet';
 import { Inject, Injectable } from '@nestjs/common';
-import { joinHex, hexPadUnit256 } from 'utils';
 import { WALLET_PRIVATE_KEY } from './wallet.constants';
 
 @Injectable()
@@ -23,8 +23,8 @@ export class WalletService {
     return this.wallet.address;
   }
 
-  public async signMessage(message: string): Promise<string> {
-    return await this.wallet.signMessage(message);
+  public signMessage(message: string): Signature {
+    return this.wallet._signingKey().signDigest(message);
   }
 
   public async signDepositData(
@@ -33,7 +33,7 @@ export class WalletService {
     keysOpIndex: number,
     blockNumber: number,
     blockHash: string,
-  ): Promise<string> {
+  ): Promise<Signature> {
     const encodedData = this.encodeDepositData(
       prefix,
       depositRoot,
@@ -53,25 +53,16 @@ export class WalletService {
     blockNumber: number,
     blockHash: string,
   ): string {
-    const keyOpIndexHex = BigNumber.from(keysOpIndex).toHexString();
-    const keyOpIndex256 = hexPadUnit256(keyOpIndexHex);
-
-    const blockNumberHex = BigNumber.from(blockNumber).toHexString();
-    const blockNumber256 = hexPadUnit256(blockNumberHex);
-
-    return joinHex(
-      prefix,
-      depositRoot,
-      keyOpIndex256,
-      blockNumber256,
-      blockHash,
+    return defaultAbiCoder.encode(
+      ['bytes32', 'bytes32', 'uint256', 'uint256', 'bytes32'],
+      [prefix, depositRoot, keysOpIndex, blockNumber, blockHash],
     );
   }
 
   public async signPauseData(
     prefix: string,
     blockNumber: number,
-  ): Promise<string> {
+  ): Promise<Signature> {
     const encodedData = this.encodePauseData(prefix, blockNumber);
     const messageHash = keccak256(encodedData);
 
@@ -79,9 +70,9 @@ export class WalletService {
   }
 
   public encodePauseData(prefix: string, blockNumber: number): string {
-    const blockNumberHex = BigNumber.from(blockNumber).toHexString();
-    const blockNumber256 = hexPadUnit256(blockNumberHex);
-
-    return joinHex(prefix, blockNumber256);
+    return defaultAbiCoder.encode(
+      ['bytes32', 'uint256'],
+      [prefix, blockNumber],
+    );
   }
 }

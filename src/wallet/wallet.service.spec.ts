@@ -1,12 +1,10 @@
+import { hexZeroPad } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
 import { verifyMessage, Wallet } from '@ethersproject/wallet';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
 import { WALLET_PRIVATE_KEY } from './wallet.constants';
 import { WalletService } from './wallet.service';
-
-const unit256Length = 128;
-const hashLength = (str) => str.length - 2;
 
 describe('WalletService', () => {
   const wallet = Wallet.createRandom();
@@ -45,11 +43,11 @@ describe('WalletService', () => {
 
   describe('signDepositData', () => {
     it('should sign deposit data', async () => {
-      const prefix = '0x1234';
-      const depositRoot = '0x5678';
+      const prefix = hexZeroPad('0x1', 32);
+      const depositRoot = hexZeroPad('0x2', 32);
       const keysOpIndex = 1;
       const blockNumber = 1;
-      const blockHash = '0x4321';
+      const blockHash = hexZeroPad('0x3', 32);
       const signature = await walletService.signDepositData(
         prefix,
         depositRoot,
@@ -58,8 +56,14 @@ describe('WalletService', () => {
         blockHash,
       );
 
-      expect(typeof signature).toBe('string');
-      expect(signature).toHaveLength(132);
+      expect(signature).toEqual(
+        expect.objectContaining({
+          _vs: expect.any(String),
+          r: expect.any(String),
+          s: expect.any(String),
+          v: expect.any(Number),
+        }),
+      );
 
       const encoded = walletService.encodeDepositData(
         prefix,
@@ -76,11 +80,11 @@ describe('WalletService', () => {
 
   describe('encodeDepositData', () => {
     it('should encode deposit data', async () => {
-      const prefix = '0x1234';
-      const depositRoot = '0x5678';
+      const prefix = hexZeroPad('0x1', 32);
+      const depositRoot = hexZeroPad('0x2', 32);
       const keysOpIndex = 1;
       const blockNumber = 1;
-      const blockHash = '0x5678';
+      const blockHash = hexZeroPad('0x3', 32);
       const result = walletService.encodeDepositData(
         prefix,
         depositRoot,
@@ -90,36 +94,33 @@ describe('WalletService', () => {
       );
 
       expect(typeof result).toBe('string');
-      expect(result).toHaveLength(
-        2 +
-          hashLength(prefix) +
-          hashLength(depositRoot) +
-          unit256Length +
-          unit256Length +
-          hashLength(blockHash),
-      );
     });
   });
 
   describe('signPauseData', () => {
     it('should sign pause data', async () => {
-      const prefix = '0x1234';
+      const prefix = hexZeroPad('0x1', 32);
       const blockNumber = 1;
       const signature = await walletService.signPauseData(prefix, blockNumber);
 
-      expect(typeof signature).toBe('string');
-      expect(signature).toHaveLength(132);
+      expect(signature).toEqual(
+        expect.objectContaining({
+          _vs: expect.any(String),
+          r: expect.any(String),
+          s: expect.any(String),
+          v: expect.any(Number),
+        }),
+      );
     });
   });
 
   describe('encodePauseData', () => {
     it('should encode deposit data', async () => {
-      const prefix = '0x1234';
+      const prefix = hexZeroPad('0x1', 32);
       const blockNumber = 1;
       const result = walletService.encodePauseData(prefix, blockNumber);
 
       expect(typeof result).toBe('string');
-      expect(result).toHaveLength(2 + hashLength(prefix) + unit256Length);
     });
   });
 });

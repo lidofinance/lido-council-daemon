@@ -1,4 +1,4 @@
-import { Signature, splitSignature } from '@ethersproject/bytes';
+import { Signature } from '@ethersproject/bytes';
 import { ContractReceipt } from '@ethersproject/contracts';
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { SecurityAbi__factory } from 'generated/factories/SecurityAbi__factory';
@@ -96,7 +96,7 @@ export class SecurityService {
     keysOpIndex: number,
     blockNumber: number,
     blockHash: string,
-  ): Promise<string> {
+  ): Promise<Signature> {
     const messagePrefix = await this.getAttestMessagePrefix();
 
     return await this.walletService.signDepositData(
@@ -126,11 +126,10 @@ export class SecurityService {
     const blockHash = block.hash;
     const guardianAddress = this.walletService.address;
 
-    const [guardianIndex, messageSignature] = await Promise.all([
+    const [guardianIndex, signature] = await Promise.all([
       this.getGuardianIndex(),
       this.signDepositData(depositRoot, keysOpIndex, blockNumber, blockHash),
     ]);
-    const signature = splitSignature(messageSignature);
 
     return {
       type: MessageType.DEPOSIT,
@@ -144,7 +143,7 @@ export class SecurityService {
     };
   }
 
-  public async signPauseData(blockNumber: number): Promise<string> {
+  public async signPauseData(blockNumber: number): Promise<Signature> {
     const messagePrefix = await this.getPauseMessagePrefix();
 
     return await this.walletService.signPauseData(messagePrefix, blockNumber);
@@ -165,8 +164,7 @@ export class SecurityService {
     const blockNumber = block.number;
     const blockHash = block.hash;
     const guardianAddress = this.walletService.address;
-    const messageSignature = await this.signPauseData(blockNumber);
-    const signature = splitSignature(messageSignature);
+    const signature = await this.signPauseData(blockNumber);
 
     return {
       type: MessageType.PAUSE,

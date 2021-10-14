@@ -217,11 +217,11 @@ describe('SecurityService', () => {
 
   describe('signDepositData', () => {
     it('should add prefix', async () => {
-      const prefix = '0x0001';
-      const depositRoot = '0x0002';
+      const prefix = hexZeroPad('0x1', 32);
+      const depositRoot = hexZeroPad('0x2', 32);
       const keysOpIndex = 1;
       const blockNumber = 1;
-      const blockHash = '0x0003';
+      const blockHash = hexZeroPad('0x3', 32);
       const args = [depositRoot, keysOpIndex, blockNumber, blockHash] as const;
 
       const getAttestMessagePrefix = jest
@@ -230,16 +230,23 @@ describe('SecurityService', () => {
 
       const signDepositData = jest.spyOn(walletService, 'signDepositData');
 
-      const result = await securityService.signDepositData(...args);
+      const signature = await securityService.signDepositData(...args);
       expect(getAttestMessagePrefix).toBeCalledTimes(1);
       expect(signDepositData).toBeCalledWith(prefix, ...args);
-      expect(result.length).toBe(132);
+      expect(signature).toEqual(
+        expect.objectContaining({
+          _vs: expect.any(String),
+          r: expect.any(String),
+          s: expect.any(String),
+          v: expect.any(Number),
+        }),
+      );
     });
   });
 
   describe('signPauseData', () => {
     it('should add prefix', async () => {
-      const prefix = '0x0001';
+      const prefix = hexZeroPad('0x1', 32);
       const blockNumber = 1;
 
       const getPauseMessagePrefix = jest
@@ -248,10 +255,17 @@ describe('SecurityService', () => {
 
       const signPauseData = jest.spyOn(walletService, 'signPauseData');
 
-      const result = await securityService.signPauseData(blockNumber);
+      const signature = await securityService.signPauseData(blockNumber);
       expect(getPauseMessagePrefix).toBeCalledTimes(1);
       expect(signPauseData).toBeCalledWith(prefix, blockNumber);
-      expect(result.length).toBe(132);
+      expect(signature).toEqual(
+        expect.objectContaining({
+          _vs: expect.any(String),
+          r: expect.any(String),
+          s: expect.any(String),
+          v: expect.any(Number),
+        }),
+      );
     });
   });
 
