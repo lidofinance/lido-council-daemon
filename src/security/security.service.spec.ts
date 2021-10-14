@@ -11,7 +11,7 @@ import { SecurityService } from './security.service';
 import { SecurityAbi__factory } from 'generated';
 import { Interface } from '@ethersproject/abi';
 import { BigNumber } from '@ethersproject/bignumber';
-import { hexZeroPad } from '@ethersproject/bytes';
+import { hexZeroPad, Signature } from '@ethersproject/bytes';
 import { Wallet } from '@ethersproject/wallet';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
@@ -236,8 +236,6 @@ describe('SecurityService', () => {
     it('should add prefix', async () => {
       const prefix = '0x0001';
       const blockNumber = 1;
-      const blockHash = '0x0002';
-      const args = [blockNumber, blockHash] as const;
 
       const getPauseMessagePrefix = jest
         .spyOn(securityService, 'getPauseMessagePrefix')
@@ -245,9 +243,9 @@ describe('SecurityService', () => {
 
       const signPauseData = jest.spyOn(walletService, 'signPauseData');
 
-      const result = await securityService.signPauseData(...args);
+      const result = await securityService.signPauseData(blockNumber);
       expect(getPauseMessagePrefix).toBeCalledTimes(1);
-      expect(signPauseData).toBeCalledWith(prefix, ...args);
+      expect(signPauseData).toBeCalledWith(prefix, blockNumber);
       expect(result.length).toBe(132);
     });
   });
@@ -258,7 +256,7 @@ describe('SecurityService', () => {
 
     const blockNumber = 10;
     const blockHash = hexZeroPad('0x01', 32);
-    let signature: string;
+    let signature: Signature;
 
     beforeEach(async () => {
       jest
@@ -299,7 +297,6 @@ describe('SecurityService', () => {
 
       const result = await securityService.pauseDeposits(
         blockNumber,
-        blockHash,
         signature,
       );
 
@@ -313,7 +310,7 @@ describe('SecurityService', () => {
       isPaused.mockImplementation(async () => true);
       pauseDeposits.mockImplementation(async () => null);
 
-      await securityService.pauseDeposits(blockNumber, blockHash, signature);
+      await securityService.pauseDeposits(blockNumber, signature);
 
       expect(isPaused).toBeCalledTimes(1);
       expect(pauseDeposits).toBeCalledTimes(0);

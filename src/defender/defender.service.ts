@@ -28,23 +28,23 @@ export class DefenderService {
     this.subscribeToEthereumUpdates();
   }
 
-  private async subscribeToEthereumUpdates() {
+  public async subscribeToEthereumUpdates() {
     const provider = this.providerService.provider;
 
     provider.on('block', () => this.protectPubKeys());
     this.logger.log('DefenderService subscribed to Ethereum events');
   }
 
-  private matchPubKeys = (
+  public matchPubKeys = (
     nextPubKeys: string[],
     depositedPubKeys: Set<string>,
   ): string[] => {
     return nextPubKeys.filter((nextPubKey) => depositedPubKeys.has(nextPubKey));
   };
 
-  private state: DefenderState | null = null;
+  public state: DefenderState | null = null;
 
-  private isSameState(
+  public isSameState(
     actualStateIndex: number,
     keysOpIndex: number,
     depositRoot: string,
@@ -61,7 +61,7 @@ export class DefenderService {
     return isSameActualIndex && isSameKeysInRegistry && isSameKeysInDeposit;
   }
 
-  private async protectPubKeys() {
+  public async protectPubKeys() {
     if (this.isCheckingKeys) {
       return;
     }
@@ -105,17 +105,17 @@ export class DefenderService {
     }
   }
 
-  private async getMessageTopic(): Promise<string> {
+  public async getMessageTopic(): Promise<string> {
     const chainId = await this.providerService.getChainId();
     return getMessageTopic(chainId);
   }
 
-  private async sendMessage(message: unknown): Promise<void> {
+  public async sendMessage(message: unknown): Promise<void> {
     const topic = await this.getMessageTopic();
     await this.transportService.publish(topic, message);
   }
 
-  private async handleCorrectCase(depositRoot: string, keysOpIndex: number) {
+  public async handleCorrectCase(depositRoot: string, keysOpIndex: number) {
     const depositData = await this.securityService.getDepositData(
       depositRoot,
       keysOpIndex,
@@ -125,14 +125,14 @@ export class DefenderService {
     await this.sendMessage(depositData);
   }
 
-  private async handleSuspiciousCase() {
+  public async handleSuspiciousCase() {
     const pauseData = await this.securityService.getPauseDepositData();
-    const { blockNumber, blockHash, signature } = pauseData;
+    const { blockNumber, signature } = pauseData;
 
     this.logger.warn('Suspicious case detected', pauseData);
 
     await Promise.all([
-      this.securityService.pauseDeposits(blockNumber, blockHash, signature),
+      this.securityService.pauseDeposits(blockNumber, signature),
       this.sendMessage(pauseData),
     ]);
   }

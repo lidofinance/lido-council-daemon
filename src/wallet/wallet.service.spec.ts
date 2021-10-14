@@ -105,12 +105,7 @@ describe('WalletService', () => {
     it('should sign pause data', async () => {
       const prefix = '0x1234';
       const blockNumber = 1;
-      const blockHash = '0x5678';
-      const signature = await walletService.signPauseData(
-        prefix,
-        blockNumber,
-        blockHash,
-      );
+      const signature = await walletService.signPauseData(prefix, blockNumber);
 
       expect(typeof signature).toBe('string');
       expect(signature).toHaveLength(132);
@@ -121,17 +116,10 @@ describe('WalletService', () => {
     it('should encode deposit data', async () => {
       const prefix = '0x1234';
       const blockNumber = 1;
-      const blockHash = '0x5678';
-      const result = walletService.encodePauseData(
-        prefix,
-        blockNumber,
-        blockHash,
-      );
+      const result = walletService.encodePauseData(prefix, blockNumber);
 
       expect(typeof result).toBe('string');
-      expect(result).toHaveLength(
-        2 + hashLength(prefix) + unit256Length + hashLength(blockHash),
-      );
+      expect(result).toHaveLength(2 + hashLength(prefix) + unit256Length);
     });
   });
 });

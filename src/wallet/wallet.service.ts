@@ -72,22 +72,17 @@ export class WalletService {
   public async signPauseData(
     prefix: string,
     blockNumber: number,
-    blockHash: string,
   ): Promise<string> {
-    const encodedData = this.encodePauseData(prefix, blockNumber, blockHash);
+    const encodedData = this.encodePauseData(prefix, blockNumber);
     const messageHash = keccak256(encodedData);
 
     return this.signMessage(messageHash);
   }
 
-  public encodePauseData(
-    prefix: string,
-    blockNumber: number,
-    blockHash: string,
-  ): string {
+  public encodePauseData(prefix: string, blockNumber: number): string {
     const blockNumberHex = BigNumber.from(blockNumber).toHexString();
     const blockNumber256 = hexPadUnit256(blockNumberHex);
 
-    return joinHex(prefix, blockNumber256, blockHash);
+    return joinHex(prefix, blockNumber256);
   }
 }

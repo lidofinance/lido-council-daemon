@@ -10,3 +10,8 @@ export const DEPOSIT_SECURITY_BY_NETWORK: {
 export const getDepositSecurityAddress = (chainId: CHAINS): string => {
   return DEPOSIT_SECURITY_BY_NETWORK[chainId];
 };
+
+export enum MessageType {
+  PAUSE = 'pause',
+  DEPOSIT = 'deposit',
+}
