@@ -15,6 +15,8 @@ import { hexZeroPad } from '@ethersproject/bytes';
 import { Wallet } from '@ethersproject/wallet';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
+import { getNetwork } from '@ethersproject/networks';
+import { JsonRpcProvider } from '@ethersproject/providers';
 
 describe('SecurityService', () => {
   const address1 = hexZeroPad('0x1', 20);
@@ -27,6 +29,12 @@ describe('SecurityService', () => {
   let loggerService: LoggerService;
 
   beforeEach(async () => {
+    class MockRpcProvider extends JsonRpcProvider {
+      async _uncachedDetectNetwork() {
+        return getNetwork(CHAINS.Goerli);
+      }
+    }
+
     const moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot(),
@@ -35,16 +43,15 @@ describe('SecurityService', () => {
         WalletModule,
       ],
       providers: [SecurityService],
-    }).compile();
+    })
+      .overrideProvider(JsonRpcProvider)
+      .useValue(new MockRpcProvider())
+      .compile();
 
     securityService = moduleRef.get(SecurityService);
     providerService = moduleRef.get(ProviderService);
     walletService = moduleRef.get(WalletService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
-
-    jest
-      .spyOn(providerService, 'getChainId')
-      .mockImplementation(async () => CHAINS.Goerli);
 
     jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
   });
@@ -83,8 +90,8 @@ describe('SecurityService', () => {
   describe('getDepositSecurityAddress', () => {
     it('should return contract address for goerli', async () => {
       jest
-        .spyOn(providerService, 'getChainId')
-        .mockImplementation(async () => CHAINS.Goerli);
+        .spyOn(providerService.provider, 'detectNetwork')
+        .mockImplementation(async () => getNetwork(CHAINS.Goerli));
 
       const address = await securityService.getDepositSecurityAddress();
       expect(isAddress(address)).toBeTruthy();
@@ -93,8 +100,8 @@ describe('SecurityService', () => {
 
     it.skip('should return contract address for mainnet', async () => {
       jest
-        .spyOn(providerService, 'getChainId')
-        .mockImplementation(async () => CHAINS.Mainnet);
+        .spyOn(providerService.provider, 'detectNetwork')
+        .mockImplementation(async () => getNetwork(CHAINS.Mainnet));
 
       const address = await securityService.getDepositSecurityAddress();
       expect(isAddress(address)).toBeTruthy();
@@ -263,6 +270,10 @@ describe('SecurityService', () => {
       jest
         .spyOn(securityService, 'getGuardianIndex')
         .mockImplementation(async () => 0);
+
+      jest
+        .spyOn(securityService, 'getPauseMessagePrefix')
+        .mockImplementation(async () => '0x' + '1'.repeat(64));
 
       jest
         .spyOn(securityService, 'getContractWithSigner')

@@ -37,19 +37,12 @@ export class DepositService {
 
   public async getContract(): Promise<DepositAbi> {
     if (!this.cachedContract) {
-      const address = await this.getDepositAddress();
+      const address = await this.lidoService.getDepositContractAddress();
       const provider = this.providerService.provider;
       this.cachedContract = DepositAbi__factory.connect(address, provider);
     }
 
     return this.cachedContract;
-  }
-
-  public async getCurrentBlock(): Promise<number> {
-    const provider = this.providerService.provider;
-    const currentBlock = await provider.getBlockNumber();
-
-    return currentBlock;
   }
 
   public async getDeploymentBlockByNetwork(): Promise<number> {
@@ -122,7 +115,7 @@ export class DepositService {
   }
 
   public async getFreshEvents(): Promise<DepositEventGroup> {
-    const endBlock = await this.getCurrentBlock();
+    const endBlock = await this.providerService.getBlockNumber();
     const startBlock = endBlock - DEPOSIT_EVENTS_FRESH_BLOCKS;
     const eventGroup = await this.fetchEventsRecursive(startBlock, endBlock);
 
@@ -145,10 +138,6 @@ export class DepositService {
     });
 
     this.logger.log('DepositService subscribed to Ethereum events');
-  }
-
-  public async getDepositAddress(): Promise<string> {
-    return await this.lidoService.getDepositContractAddress();
   }
 
   public async initialize(): Promise<void> {
@@ -182,7 +171,7 @@ export class DepositService {
       this.isCollectingEvents = true;
 
       const [currentBlock, initialCache] = await Promise.all([
-        this.getCurrentBlock(),
+        this.providerService.getBlockNumber(),
         this.getCachedEvents(),
       ]);
 
