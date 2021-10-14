@@ -1,8 +1,14 @@
+jest.mock('utils/sleep');
+
 import { CHAINS } from '@lido-sdk/constants';
 import { Test } from '@nestjs/testing';
 import { LoggerModule } from 'common/logger';
 import { LidoModule, LidoService } from 'lido';
-import { ProviderModule, ProviderService } from 'provider';
+import {
+  ERROR_LIMIT_EXCEEDED,
+  ProviderModule,
+  ProviderService,
+} from 'provider';
 import { DepositService } from './deposit.service';
 import { DepositCacheService } from './cache.service';
 import { Interface } from '@ethersproject/abi';
@@ -14,6 +20,9 @@ import { getNetwork } from '@ethersproject/networks';
 import { Contract } from '@ethersproject/contracts';
 import { hexZeroPad } from '@ethersproject/bytes';
 import { JsonRpcProvider } from '@ethersproject/providers';
+import { sleep } from 'utils';
+
+const mockSleep = sleep as jest.MockedFunction<typeof sleep>;
 
 describe('DepositService', () => {
   let providerService: ProviderService;
@@ -49,13 +58,15 @@ describe('DepositService', () => {
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
+    jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
+    jest.spyOn(loggerService, 'debug').mockImplementation(() => undefined);
 
     jest
       .spyOn(lidoService, 'getDepositContractAddress')
       .mockImplementation(async () => hexZeroPad('0x1', 20));
   });
 
-  describe('formatEvents', () => {
+  describe('formatEvent', () => {
     it.todo('should return event in the correct format');
   });
 
@@ -95,18 +106,154 @@ describe('DepositService', () => {
   });
 
   describe('getCachedEvents', () => {
-    it.todo('should return events from cache');
-    it.todo('should return deploymentBlock if cache is empty');
+    const deploymentBlock = 100;
+
+    beforeEach(async () => {
+      jest
+        .spyOn(depositService, 'getDeploymentBlockByNetwork')
+        .mockImplementation(async () => deploymentBlock);
+    });
+
+    it('should return events from cache', async () => {
+      const cache = {
+        events: [{} as any],
+        startBlock: deploymentBlock,
+        endBlock: deploymentBlock + 100,
+      };
+
+      const mockCache = jest
+        .spyOn(cacheService, 'getCache')
+        .mockImplementation(async () => cache);
+
+      const result = await depositService.getCachedEvents();
+
+      expect(mockCache).toBeCalledTimes(1);
+      expect(result).toEqual(cache);
+    });
+
+    it('should return deploymentBlock if cache is empty', async () => {
+      const cache = {
+        events: [{} as any],
+        startBlock: 0,
+        endBlock: 0,
+      };
+
+      const mockCache = jest
+        .spyOn(cacheService, 'getCache')
+        .mockImplementation(async () => cache);
+
+      const result = await depositService.getCachedEvents();
+
+      expect(mockCache).toBeCalledTimes(1);
+      expect(result.startBlock).toBe(deploymentBlock);
+      expect(result.endBlock).toBe(deploymentBlock);
+    });
   });
 
   describe('setCachedEvents', () => {
-    it.todo('should call setCache from the cacheService');
+    it('should call setCache from the cacheService', async () => {
+      const eventGroup = {} as any;
+
+      const mockSetCache = jest
+        .spyOn(cacheService, 'setCache')
+        .mockImplementation(async () => undefined);
+
+      await depositService.setCachedEvents(eventGroup);
+
+      expect(mockSetCache).toBeCalledTimes(1);
+      expect(mockSetCache).toBeCalledWith(eventGroup);
+    });
   });
 
   describe('fetchEventsRecursive', () => {
-    it.todo('should fetch events');
-    it.todo('should fetch retry if error is unknown');
-    it.todo('should fetch recursive if limit exceeded');
+    it('should fetch events', async () => {
+      const expected = {} as any;
+      const from = 0;
+      const to = 10;
+
+      const mockFetchEvents = jest
+        .spyOn(depositService, 'fetchEvents')
+        .mockImplementation(async () => expected);
+
+      const result = await depositService.fetchEventsRecursive(from, to);
+
+      expect(mockFetchEvents).toBeCalledTimes(1);
+      expect(mockFetchEvents).toBeCalledWith(from, to);
+      expect(result).toBe(expected);
+    });
+
+    it('should fetch recursive if limit exceeded', async () => {
+      const event1 = {} as any;
+      const event2 = {} as any;
+      const expectedFirst = { events: [event1], startBlock: 0, endBlock: 4 };
+      const expectedSecond = { events: [event2], startBlock: 5, endBlock: 10 };
+
+      const startBlock = 0;
+      const endBlock = 10;
+
+      const mockFetchEvents = jest
+        .spyOn(depositService, 'fetchEvents')
+        .mockImplementationOnce(async () => {
+          throw { error: { code: ERROR_LIMIT_EXCEEDED } };
+        })
+        .mockImplementationOnce(async () => expectedFirst)
+        .mockImplementationOnce(async () => expectedSecond);
+
+      const result = await depositService.fetchEventsRecursive(
+        startBlock,
+        endBlock,
+      );
+
+      const { calls, results } = mockFetchEvents.mock;
+      const events = [event1, event2];
+
+      expect(result).toEqual({ events, startBlock, endBlock });
+      expect(mockFetchEvents).toBeCalledTimes(3);
+      expect(calls[0]).toEqual([startBlock, endBlock]);
+      expect(calls[1]).toEqual([
+        expectedFirst.startBlock,
+        expectedFirst.endBlock,
+      ]);
+      expect(calls[2]).toEqual([
+        expectedSecond.startBlock,
+        expectedSecond.endBlock,
+      ]);
+      await expect(results[1].value).resolves.toEqual(expectedFirst);
+      await expect(results[2].value).resolves.toEqual(expectedSecond);
+    });
+
+    it('should retry if error is unknown', async () => {
+      const events = [];
+      const startBlock = 0;
+      const endBlock = 10;
+      const expected = { events, startBlock, endBlock };
+
+      mockSleep.mockImplementationOnce(async () => undefined);
+
+      const mockFetchEvents = jest
+        .spyOn(depositService, 'fetchEvents')
+        .mockImplementationOnce(async () => {
+          throw new Error();
+        })
+        .mockImplementationOnce(async () => expected);
+
+      const result = await depositService.fetchEventsRecursive(
+        startBlock,
+        endBlock,
+      );
+
+      const { calls, results } = mockFetchEvents.mock;
+
+      expect(result).toEqual(expected);
+      expect(mockFetchEvents).toBeCalledTimes(2);
+      expect(calls[0]).toEqual([startBlock, endBlock]);
+      expect(calls[1]).toEqual([startBlock, endBlock]);
+      await expect(results[0].value).rejects.toThrow();
+      await expect(results[1].value).resolves.toEqual(expected);
+
+      expect(mockSleep).toBeCalledTimes(1);
+      expect(mockSleep).toBeCalledWith(expect.any(Number));
+    });
   });
 
   describe('fetchEvents', () => {
