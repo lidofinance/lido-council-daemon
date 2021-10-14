@@ -1,4 +1,5 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
+import { performance } from 'perf_hooks';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { ProviderService, ERROR_LIMIT_EXCEEDED } from 'provider';
 import { LidoService } from 'lido';
