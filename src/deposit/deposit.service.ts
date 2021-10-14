@@ -121,7 +121,7 @@ export class DepositService {
     const eventGroup = await this.fetchEventsRecursive(startBlock, endBlock);
 
     const events = eventGroup.events.length;
-    this.logger.log('Fresh events are fetched', {
+    this.logger.debug('Fresh events are fetched', {
       startBlock,
       endBlock,
       events,

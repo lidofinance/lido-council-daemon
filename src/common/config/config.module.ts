@@ -21,6 +21,10 @@ export class ConfigModule {
           useFactory: async () => {
             const config = plainToClass(InMemoryConfiguration, process.env);
             try {
+              if (config.NODE_ENV === 'test') {
+                return config;
+              }
+
               await validateOrReject(config, {
                 validationError: { target: false, value: false },
               });

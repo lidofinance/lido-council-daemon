@@ -127,7 +127,7 @@ export class DefenderService implements OnModuleInit {
       keysOpIndex,
     );
 
-    this.logger.debug('No problems found', depositData);
+    this.logger.log('No problems found', depositData);
     await this.sendMessage(depositData);
   }
 

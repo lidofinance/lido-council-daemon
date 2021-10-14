@@ -1,20 +1,19 @@
 import { BigNumber } from '@ethersproject/bignumber';
 import { keccak256 } from '@ethersproject/keccak256';
 import { Wallet } from '@ethersproject/wallet';
-import { Injectable } from '@nestjs/common';
-import { Configuration } from 'common/config';
+import { Inject, Injectable } from '@nestjs/common';
 import { joinHex, hexPadUnit256 } from 'utils';
+import { WALLET_PRIVATE_KEY } from './wallet.constants';
 
 @Injectable()
 export class WalletService {
-  constructor(private config: Configuration) {}
+  constructor(@Inject(WALLET_PRIVATE_KEY) private privateKey: string) {}
 
   private cachedWallet: Wallet | null = null;
 
   public get wallet(): Wallet {
     if (!this.cachedWallet) {
-      const privateKey = this.config.WALLET_PRIVATE_KEY;
-      this.cachedWallet = new Wallet(privateKey);
+      this.cachedWallet = new Wallet(this.privateKey);
     }
 
     return this.cachedWallet;

@@ -17,8 +17,11 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
 import { getNetwork } from '@ethersproject/networks';
 import { JsonRpcProvider } from '@ethersproject/providers';
+import { WALLET_PRIVATE_KEY } from 'wallet/wallet.constants';
 
 describe('SecurityService', () => {
+  const wallet = Wallet.createRandom();
+
   const address1 = hexZeroPad('0x1', 20);
   const address2 = hexZeroPad('0x2', 20);
   const address3 = hexZeroPad('0x3', 20);
@@ -46,6 +49,8 @@ describe('SecurityService', () => {
     })
       .overrideProvider(JsonRpcProvider)
       .useValue(new MockRpcProvider())
+      .overrideProvider(WALLET_PRIVATE_KEY)
+      .useValue(wallet.privateKey)
       .compile();
 
     securityService = moduleRef.get(SecurityService);

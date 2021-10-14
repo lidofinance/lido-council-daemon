@@ -1,7 +1,8 @@
 import { keccak256 } from '@ethersproject/keccak256';
 import { verifyMessage, Wallet } from '@ethersproject/wallet';
 import { Test } from '@nestjs/testing';
-import { ConfigModule, Configuration } from 'common/config';
+import { ConfigModule } from 'common/config';
+import { WALLET_PRIVATE_KEY } from './wallet.constants';
 import { WalletService } from './wallet.service';
 
 const unit256Length = 128;
@@ -9,22 +10,21 @@ const hashLength = (str) => str.length - 2;
 
 describe('WalletService', () => {
   const wallet = Wallet.createRandom();
-
   let walletService: WalletService;
-  let config: Configuration;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [ConfigModule.forRoot()],
-      providers: [WalletService],
+      providers: [
+        WalletService,
+        {
+          provide: WALLET_PRIVATE_KEY,
+          useValue: wallet.privateKey,
+        },
+      ],
     }).compile();
 
     walletService = moduleRef.get(WalletService);
-    config = moduleRef.get(Configuration);
-
-    Object.defineProperty(config, 'WALLET_PRIVATE_KEY', {
-      value: wallet.privateKey,
-    });
   });
 
   describe('wallet', () => {
