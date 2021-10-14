@@ -34,9 +34,8 @@ export class InMemoryConfiguration implements Configuration {
   @IsString()
   WALLET_PRIVATE_KEY: string;
 
-  @IsNotEmpty()
   @IsString()
-  COUNCIL_ID: string;
+  KAFKA_CLIENT_ID = '';
 
   @IsNotEmpty()
   @IsString()

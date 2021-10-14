@@ -5,6 +5,9 @@
   "author": "Lido team",
   "private": true,
   "license": "MIT",
+  "config": {
+    "dockerorg": "lido"
+  },
   "scripts": {
     "prebuild": "rimraf dist",
     "build": "nest build",
@@ -20,7 +23,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "typechain": "typechain --target=ethers-v5 --out-dir ./src/generated ./src/abi/*.json",
-    "postinstall": "yarn typechain"
+    "postinstall": "yarn typechain",
+    "docker:build": "docker build -t $npm_package_config_dockerorg/$npm_package_name:$npm_package_version ."
   },
   "dependencies": {
     "@ethersproject/providers": "^5.4.5",

@@ -11,9 +11,9 @@ export interface Configuration {
   LOG_LEVEL: string;
   LOG_FORMAT: string;
   RPC_URL: string;
-  COUNCIL_ID: string;
   WALLET_PRIVATE_KEY: string;
   PUBSUB_SERVICE: PubsubService;
+  KAFKA_CLIENT_ID: string;
   KAFKA_BROKER_ADDRESS_1: string;
   KAFKA_BROKER_ADDRESS_2: string;
   KAFKA_SSL: boolean;

@@ -4,24 +4,40 @@ The daemon monitors the keys in the deposit contract and compares them with Lido
 
 ## Docker image
 
-TODO
+To build `lido/lido-council-daemon` docker image locally, simply run:
+```bash
+yarn docker:build
+```
 
 ## Installation
 
-Step 1. Copy the contents of sample.env to .env
+Step 1. Copy the contents of `sample.env` to `.env` file
 
 ```bash
 cp sample.env .env
 ```
 
-Step 2. Fill out the `.env` file. These variables are important:
+Step 2. Change the following environment variables values in the previously created `.env` file:
 
 ```
-KAFKA_USERNAME
-KAFKA_PASSWORD
-KAFKA_BROKER_ADDRESS_1
+...
+KAFKA_USERNAME=<kafka username>
+KAFKA_PASSWORD=<kafka password>
+KAFKA_BROKER_ADDRESS_1=<kafka broker address with port>
 
-WALLET_PRIVATE_KEY
+WALLET_PRIVATE_KEY=<wallet private key>
+...
+```
+
+Example:
+```
+...
+KAFKA_USERNAME=john
+KAFKA_PASSWORD=pemberton
+KAFKA_BROKER_ADDRESS_1=dfv-32.confluent.kafka.cloud:9092
+
+WALLET_PRIVATE_KEY=0x8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f
+...
 ```
 
 Step 3. Install dependencies

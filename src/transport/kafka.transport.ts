@@ -18,6 +18,12 @@ export class KafkaTransport implements TransportInterface {
   }
 
   public async publish<T>(topic: string, message: T): Promise<void> {
+    this.producer.on('producer.connect', () => {
+      this.logger.log('Producer connected to kafka', {
+        context: 'KafkaTransport',
+      });
+    });
+
     await this.producer.connect();
     await this.producer.send({
       topic,
