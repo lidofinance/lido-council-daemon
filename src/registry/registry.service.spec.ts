@@ -14,6 +14,7 @@ import { SecurityModule, SecurityService } from 'security';
 import { RegistryService } from './registry.service';
 import { getNetwork } from '@ethersproject/networks';
 import { JsonRpcProvider } from '@ethersproject/providers';
+import { PrometheusModule } from 'common/prometheus';
 
 describe('RegistryService', () => {
   let providerService: ProviderService;
@@ -32,6 +33,7 @@ describe('RegistryService', () => {
       imports: [
         ConfigModule.forRoot(),
         LoggerModule,
+        PrometheusModule,
         LidoModule,
         ProviderModule,
         SecurityModule,

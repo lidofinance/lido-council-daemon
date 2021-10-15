@@ -17,6 +17,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
 import { getNetwork } from '@ethersproject/networks';
 import { JsonRpcProvider } from '@ethersproject/providers';
+import { PrometheusModule } from 'common/prometheus';
 
 describe('SecurityService', () => {
   const address1 = hexZeroPad('0x1', 20);
@@ -39,6 +40,7 @@ describe('SecurityService', () => {
       imports: [
         ConfigModule.forRoot(),
         LoggerModule,
+        PrometheusModule,
         ProviderModule,
         WalletModule,
       ],

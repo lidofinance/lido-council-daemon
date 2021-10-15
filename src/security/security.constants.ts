@@ -13,8 +13,3 @@ export const getDepositSecurityAddress = (chainId: CHAINS): string => {
 
   return address;
 };
-
-export enum MessageType {
-  PAUSE = 'pause',
-  DEPOSIT = 'deposit',
-}

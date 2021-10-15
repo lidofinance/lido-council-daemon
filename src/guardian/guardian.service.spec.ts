@@ -8,17 +8,17 @@ import { LoggerService } from '@nestjs/common';
 import { ConfigModule } from 'common/config';
 import { getNetwork } from '@ethersproject/networks';
 import { JsonRpcProvider } from '@ethersproject/providers';
-import { TransportInterface, TransportModule } from 'transport';
 import { RegistryModule, RegistryService } from 'registry';
 import { DepositModule, DepositService } from 'deposit';
 import { SecurityModule } from 'security';
+import { MessagesModule } from 'messages';
+import { PrometheusModule } from 'common/prometheus';
 
 describe('GuardianService', () => {
   let providerService: ProviderService;
   let depositService: DepositService;
   let guardianService: GuardianService;
   let registryService: RegistryService;
-  let transportService: TransportInterface;
   let loggerService: LoggerService;
 
   beforeEach(async () => {
@@ -32,11 +32,12 @@ describe('GuardianService', () => {
       imports: [
         ConfigModule.forRoot(),
         LoggerModule,
+        PrometheusModule,
         ProviderModule,
         RegistryModule,
         DepositModule,
         SecurityModule,
-        TransportModule,
+        MessagesModule,
       ],
       providers: [GuardianService],
     })
@@ -48,7 +49,6 @@ describe('GuardianService', () => {
     guardianService = moduleRef.get(GuardianService);
     depositService = moduleRef.get(DepositService);
     registryService = moduleRef.get(RegistryService);
-    transportService = moduleRef.get(TransportInterface);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
@@ -201,61 +201,6 @@ describe('GuardianService', () => {
     it.todo(
       'should exit if it’s the same contracts state and the same resigning pause index',
     );
-  });
-
-  describe('getMessageTopic', () => {
-    it('should return topic for mainnet', async () => {
-      jest
-        .spyOn(providerService.provider, 'detectNetwork')
-        .mockImplementation(async () => getNetwork(CHAINS.Mainnet));
-
-      const topic = await guardianService.getMessageTopic();
-      expect(typeof topic).toBe('string');
-      expect(topic.length).toBeGreaterThan(0);
-    });
-
-    it('should return topic for goerli', async () => {
-      jest
-        .spyOn(providerService.provider, 'detectNetwork')
-        .mockImplementation(async () => getNetwork(CHAINS.Goerli));
-
-      const topic = await guardianService.getMessageTopic();
-      expect(typeof topic).toBe('string');
-      expect(topic.length).toBeGreaterThan(0);
-    });
-
-    it('should return different topics', async () => {
-      jest
-        .spyOn(providerService, 'getChainId')
-        .mockImplementationOnce(async () => CHAINS.Mainnet)
-        .mockImplementationOnce(async () => CHAINS.Goerli);
-
-      const mainnetTopic = await guardianService.getMessageTopic();
-      const goerliTopic = await guardianService.getMessageTopic();
-
-      expect(mainnetTopic).not.toBe(goerliTopic);
-    });
-  });
-
-  describe('sendMessage', () => {
-    it('should send message to transport service', async () => {
-      const expectedMessage = 'message';
-      const expectedTopic = 'topic';
-
-      const mockPublish = jest
-        .spyOn(transportService, 'publish')
-        .mockImplementation(async () => undefined);
-
-      const mockGetTopic = jest
-        .spyOn(guardianService, 'getMessageTopic')
-        .mockImplementation(async () => expectedTopic);
-
-      await guardianService.sendMessage(expectedMessage);
-
-      expect(mockGetTopic).toBeCalledTimes(1);
-      expect(mockPublish).toBeCalledTimes(1);
-      expect(mockPublish).toBeCalledWith(expectedTopic, expectedMessage);
-    });
   });
 
   describe('isSameContractsStates', () => {

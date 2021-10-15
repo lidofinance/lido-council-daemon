@@ -7,6 +7,7 @@ import { CHAINS } from '@lido-sdk/constants';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
+import { PrometheusModule } from 'common/prometheus';
 import { ProviderModule } from 'provider';
 import { WALLET_PRIVATE_KEY } from './wallet.constants';
 import { WalletService } from './wallet.service';
@@ -23,7 +24,12 @@ describe('WalletService', () => {
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [ConfigModule.forRoot(), LoggerModule, ProviderModule],
+      imports: [
+        ConfigModule.forRoot(),
+        LoggerModule,
+        PrometheusModule,
+        ProviderModule,
+      ],
       providers: [
         WalletService,
         {
