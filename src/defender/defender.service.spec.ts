@@ -73,7 +73,7 @@ describe('DefenderService', () => {
     it('should subscribe to updates', () => {
       const mockOn = jest
         .spyOn(providerService.provider, 'on')
-        .mockImplementation(() => undefined);
+        .mockImplementation(() => undefined as any);
 
       defenderService.subscribeToEthereumUpdates();
       expect(mockOn).toBeCalledTimes(1);
