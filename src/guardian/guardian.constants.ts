@@ -15,4 +15,3 @@ export const getMessageTopicPrefix = (chainId: CHAINS): string => {
 };
 
 export const GUARDIAN_DEPOSIT_RESIGNING_BLOCKS = 50;
-export const GUARDIAN_PAUSE_RESIGNING_BLOCKS = 50;

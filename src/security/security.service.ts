@@ -192,30 +192,39 @@ export class SecurityService implements OnModuleInit {
     };
   }
 
+  public async isDepositsPaused(): Promise<boolean> {
+    const contract = await this.getContractWithSigner();
+    const isPaused = await contract.isPaused();
+    return isPaused;
+  }
+
+  private isPauseDepositsInProgress = false;
+
   public async pauseDeposits(
     blockNumber: number,
     signature: Signature,
   ): Promise<ContractReceipt | void> {
-    const { r, _vs: vs } = signature;
+    if (this.isPauseDepositsInProgress) return;
 
-    this.logger.warn('Try to pause deposits');
+    try {
+      this.isPauseDepositsInProgress = true;
+      this.logger.warn('Try to pause deposits');
 
-    const contract = await this.getContractWithSigner();
-    const isPaused = await contract.isPaused();
+      const contract = await this.getContractWithSigner();
 
-    if (isPaused) {
-      this.logger.warn('Deposits are already paused');
-      return;
+      const { r, _vs: vs } = signature;
+      const tx = await contract.pauseDeposits(blockNumber, { r, vs });
+
+      this.logger.warn('Pause transaction sent', { txHash: tx.hash });
+      this.logger.warn('Waiting for block confirmation');
+
+      await tx.wait();
+
+      this.logger.warn('Block confirmation received');
+    } catch (error) {
+      this.logger.error(error);
+    } finally {
+      this.isPauseDepositsInProgress = false;
     }
-
-    // TODO: submit with higher gas
-    const tx = await contract.pauseDeposits(blockNumber, { r, vs });
-    this.logger.warn('Pause transaction sent', { txHash: tx.hash });
-    this.logger.warn('Waiting for block confirmation');
-
-    const result = await tx.wait();
-
-    this.logger.warn('Block confirmation received');
-    return result;
   }
 }

@@ -66,7 +66,7 @@ export class RegistryService {
     return getRegistryAddress(chainId);
   }
 
-  public async getNextKeys() {
+  public async getNextSigningKeys() {
     const [contract, maxDepositKeys, lidoAddress] = await Promise.all([
       this.getContract(),
       this.securityService.getMaxDeposits(),

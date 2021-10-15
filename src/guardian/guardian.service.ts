@@ -14,7 +14,6 @@ import { ContractsState } from './interfaces';
 import {
   getMessageTopicPrefix,
   GUARDIAN_DEPOSIT_RESIGNING_BLOCKS,
-  GUARDIAN_PAUSE_RESIGNING_BLOCKS,
 } from './guardian.constants';
 import { Configuration } from 'common/config';
 
@@ -35,127 +34,123 @@ export class GuardianService implements OnModuleInit {
     this.subscribeToEthereumUpdates();
   }
 
-  private isCheckingKeys = false;
-
   public subscribeToEthereumUpdates() {
     const provider = this.providerService.provider;
 
-    provider.on('block', () => this.protectPubKeys());
+    provider.on('block', () => this.checkKeysIntersections());
     this.logger.log('GuardianService subscribed to Ethereum events');
   }
 
-  public matchPubKeys(
-    nextPubKeys: string[],
+  public getKeysIntersections(
+    nextSigningKeys: string[],
     depositedPubKeys: Set<string>,
   ): string[] {
-    return nextPubKeys.filter((nextPubKey) => depositedPubKeys.has(nextPubKey));
+    return nextSigningKeys.filter((nextSigningKey) =>
+      depositedPubKeys.has(nextSigningKey),
+    );
   }
 
-  private contractsState: ContractsState | null = null;
-  private depositResigningIndex: number | null = null;
-  private pauseResigningIndex: number | null = null;
+  private isCheckingKeysIntersections = false;
 
-  public isSameContractsState(
-    keysOpIndex: number,
-    depositRoot: string,
-  ): boolean {
-    const previousState = this.contractsState;
-    this.contractsState = { keysOpIndex, depositRoot };
-
-    if (!previousState) return false;
-    const isSameKeysInRegistry = previousState.keysOpIndex === keysOpIndex;
-    const isSameKeysInDeposit = previousState.depositRoot === depositRoot;
-
-    return isSameKeysInRegistry && isSameKeysInDeposit;
-  }
-
-  public async isSameDepositResigningIndex(): Promise<boolean> {
-    const depositResigningIndex = await this.getDepositResigningIndex();
-
-    const previousState = this.depositResigningIndex;
-    this.depositResigningIndex = depositResigningIndex;
-
-    if (!previousState) return false;
-    return previousState === depositResigningIndex;
-  }
-
-  public async isSamePauseResigningIndex(): Promise<boolean> {
-    const pauseResigningIndex = await this.getPauseResigningIndex();
-
-    const previousState = this.pauseResigningIndex;
-    this.pauseResigningIndex = pauseResigningIndex;
-
-    if (!previousState) return false;
-    return previousState === pauseResigningIndex;
-  }
-
-  public async protectPubKeys() {
-    if (this.isCheckingKeys) {
-      return;
-    }
+  public async checkKeysIntersections(): Promise<void> {
+    if (this.isCheckingKeysIntersections) return;
 
     try {
-      this.isCheckingKeys = true;
+      this.isCheckingKeysIntersections = true;
 
-      const [
-        nextPubKeys,
-        keysOpIndex,
-        depositedPubKeys,
-        depositRoot,
-        isSameDepositResigningIndex,
-        isSamePauseResigningIndex,
-      ] = await Promise.all([
-        this.registryService.getNextKeys(),
-        this.registryService.getKeysOpIndex(),
-        this.depositService.getAllPubKeys(),
-        this.depositService.getDepositRoot(),
-        this.isSameDepositResigningIndex(),
-        this.isSamePauseResigningIndex(),
+      const [nextSigningKeys, depositedPubKeys] = await Promise.all([
+        this.registryService.getNextSigningKeys(),
+        this.depositService.getAllDepositedPubKeys(),
       ]);
 
-      const alreadyDepositedPubKeys = this.matchPubKeys(
-        nextPubKeys,
+      const intersections = this.getKeysIntersections(
+        nextSigningKeys,
         depositedPubKeys,
       );
 
-      const isIntersectionsFound = alreadyDepositedPubKeys.length > 0;
-      const isSameContractsState = this.isSameContractsState(
-        keysOpIndex,
-        depositRoot,
-      );
-
-      const isSameResigningIndex = isIntersectionsFound
-        ? isSamePauseResigningIndex
-        : isSameDepositResigningIndex;
-
-      if (isSameContractsState && isSameResigningIndex) {
-        return;
-      }
+      const isIntersectionsFound = intersections.length > 0;
 
       if (isIntersectionsFound) {
         this.logger.warn('Already deposited keys found', {
-          keys: alreadyDepositedPubKeys,
+          keys: intersections,
         });
 
-        await this.handleSuspiciousCase();
+        await this.handleKeysIntersections();
       } else {
-        await this.handleCorrectCase(depositRoot, keysOpIndex);
+        await this.handleCorrectKeys();
       }
     } catch (error) {
       this.logger.error(error);
     } finally {
-      this.isCheckingKeys = false;
+      this.isCheckingKeysIntersections = false;
     }
   }
 
-  public async getDepositResigningIndex(): Promise<number> {
-    const block = await this.providerService.getBlockNumber();
-    return Math.ceil(block / GUARDIAN_DEPOSIT_RESIGNING_BLOCKS);
+  public async handleKeysIntersections(): Promise<void> {
+    const [pauseMessageData, isDepositsPaused] = await Promise.all([
+      this.securityService.getPauseDepositData(),
+      this.securityService.isDepositsPaused(),
+    ]);
+
+    if (isDepositsPaused) {
+      this.logger.warn('Deposits are already paused');
+      return;
+    }
+
+    const { blockNumber, signature } = pauseMessageData;
+
+    // call without waiting for completion
+    this.securityService.pauseDeposits(blockNumber, signature);
+
+    this.logger.warn('Suspicious case detected', pauseMessageData);
+    await this.sendMessage(pauseMessageData);
   }
 
-  public async getPauseResigningIndex(): Promise<number> {
-    const block = await this.providerService.getBlockNumber();
-    return Math.ceil(block / GUARDIAN_PAUSE_RESIGNING_BLOCKS);
+  private lastContractsState: ContractsState | null = null;
+
+  public async handleCorrectKeys(): Promise<void> {
+    const [keysOpIndex, depositRoot, blockNumber] = await Promise.all([
+      this.registryService.getKeysOpIndex(),
+      this.depositService.getDepositRoot(),
+      this.providerService.getBlockNumber(),
+    ]);
+
+    const currentContractState = { keysOpIndex, depositRoot, blockNumber };
+    const lastContractsState = this.lastContractsState;
+
+    this.lastContractsState = currentContractState;
+
+    const isSameContractsState = this.isSameContractsStates(
+      currentContractState,
+      lastContractsState,
+    );
+
+    if (isSameContractsState) return;
+
+    const depositData = await this.securityService.getDepositData(
+      depositRoot,
+      keysOpIndex,
+    );
+
+    this.logger.log('No problems found', depositData);
+    await this.sendMessage(depositData);
+  }
+
+  public isSameContractsStates(
+    firstState: ContractsState | null,
+    secondState: ContractsState | null,
+  ): boolean {
+    if (!firstState || !secondState) return false;
+    if (firstState.depositRoot !== secondState.depositRoot) return false;
+    if (firstState.keysOpIndex !== secondState.keysOpIndex) return false;
+    if (
+      Math.floor(firstState.blockNumber / GUARDIAN_DEPOSIT_RESIGNING_BLOCKS) !==
+      Math.floor(secondState.blockNumber / GUARDIAN_DEPOSIT_RESIGNING_BLOCKS)
+    ) {
+      return false;
+    }
+
+    return true;
   }
 
   public async getMessageTopic(): Promise<string> {
@@ -169,27 +164,5 @@ export class GuardianService implements OnModuleInit {
   public async sendMessage(message: unknown): Promise<void> {
     const topic = await this.getMessageTopic();
     await this.transportService.publish(topic, message);
-  }
-
-  public async handleCorrectCase(depositRoot: string, keysOpIndex: number) {
-    const depositData = await this.securityService.getDepositData(
-      depositRoot,
-      keysOpIndex,
-    );
-
-    this.logger.log('No problems found', depositData);
-    await this.sendMessage(depositData);
-  }
-
-  public async handleSuspiciousCase() {
-    const pauseData = await this.securityService.getPauseDepositData();
-    const { blockNumber, signature } = pauseData;
-
-    this.logger.warn('Suspicious case detected', pauseData);
-
-    await Promise.all([
-      this.securityService.pauseDeposits(blockNumber, signature),
-      this.sendMessage(pauseData),
-    ]);
   }
 }

@@ -153,7 +153,7 @@ describe('RegistryService', () => {
     });
   });
 
-  describe('getNextKeys', () => {
+  describe('getNextSigningKeys', () => {
     const lidoAddress = '0x' + '0'.repeat(40);
     const keyLength = 2;
     const pubkeys = '0x12345678';
@@ -181,7 +181,7 @@ describe('RegistryService', () => {
           return iface.encodeFunctionResult('assignNextSigningKeys', result);
         });
 
-      const result = await registryService.getNextKeys();
+      const result = await registryService.getNextSigningKeys();
 
       expect(result).toEqual(expected);
       expect(providerCall).toHaveBeenCalledTimes(1);

@@ -264,6 +264,10 @@ describe('SecurityService', () => {
     });
   });
 
+  describe('isDepositsPaused', () => {
+    it.todo('should call contract method');
+  });
+
   describe('pauseDeposits', () => {
     const isPaused = jest.fn();
     const pauseDeposits = jest.fn();
@@ -303,31 +307,14 @@ describe('SecurityService', () => {
     it('should call contract method', async () => {
       const wait = jest.fn();
       const hash = '0x1234';
-      const expected = {};
 
-      isPaused.mockImplementation(async () => false);
       pauseDeposits.mockImplementation(async () => ({ wait, hash }));
-      wait.mockImplementation(async () => expected);
-
-      const result = await securityService.pauseDeposits(
-        blockNumber,
-        signature,
-      );
-
-      expect(result).toBe(expected);
-      expect(isPaused).toBeCalledTimes(1);
-      expect(pauseDeposits).toBeCalledTimes(1);
-      expect(wait).toBeCalledTimes(1);
-    });
-
-    it('should not call pause if contract is already paused', async () => {
-      isPaused.mockImplementation(async () => true);
-      pauseDeposits.mockImplementation(async () => null);
+      wait.mockImplementation(async () => undefined);
 
       await securityService.pauseDeposits(blockNumber, signature);
 
-      expect(isPaused).toBeCalledTimes(1);
-      expect(pauseDeposits).toBeCalledTimes(0);
+      expect(pauseDeposits).toBeCalledTimes(1);
+      expect(wait).toBeCalledTimes(1);
     });
   });
 });

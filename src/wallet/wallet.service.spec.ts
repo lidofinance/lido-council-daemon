@@ -1,6 +1,9 @@
 import { hexZeroPad } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
+import { getNetwork } from '@ethersproject/networks';
+import { JsonRpcProvider } from '@ethersproject/providers';
 import { verifyMessage, Wallet } from '@ethersproject/wallet';
+import { CHAINS } from '@lido-sdk/constants';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
@@ -12,6 +15,12 @@ describe('WalletService', () => {
   const wallet = Wallet.createRandom();
   let walletService: WalletService;
 
+  class MockRpcProvider extends JsonRpcProvider {
+    async _uncachedDetectNetwork() {
+      return getNetwork(CHAINS.Goerli);
+    }
+  }
+
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [ConfigModule.forRoot(), LoggerModule, ProviderModule],
@@ -22,7 +31,10 @@ describe('WalletService', () => {
           useValue: wallet.privateKey,
         },
       ],
-    }).compile();
+    })
+      .overrideProvider(JsonRpcProvider)
+      .useValue(new MockRpcProvider())
+      .compile();
 
     walletService = moduleRef.get(WalletService);
   });
