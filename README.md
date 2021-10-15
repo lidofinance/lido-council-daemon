@@ -5,6 +5,7 @@ The daemon monitors the keys in the deposit contract and compares them with Lido
 ## Docker image
 
 To build `lido/lido-council-daemon` docker image locally, simply run:
+
 ```bash
 yarn docker:build
 ```
@@ -30,6 +31,7 @@ WALLET_PRIVATE_KEY=<wallet private key>
 ```
 
 Example:
+
 ```
 ...
 KAFKA_USERNAME=john
@@ -58,7 +60,7 @@ $ yarn typechain
 # development
 $ yarn start
 
-# watch mode
+# watch mode (development)
 $ yarn start:dev
 
 # production mode

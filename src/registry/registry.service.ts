@@ -2,10 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { arrayify, hexlify } from '@ethersproject/bytes';
 import { RegistryAbi, RegistryAbi__factory } from 'generated';
 import { ProviderService } from 'provider';
-import {
-  getRegistryAddress,
-  REGISTRY_DATA_UPDATE_FREQUENCY,
-} from './registry.constants';
+import { getRegistryAddress } from './registry.constants';
 import { LidoService } from 'lido';
 import { SecurityService } from 'security';
 
@@ -91,10 +88,5 @@ export class RegistryService {
     const keysOpIndex = await contract.getKeysOpIndex();
 
     return keysOpIndex.toNumber();
-  }
-
-  public async getActualStateIndex(): Promise<number> {
-    const block = await this.providerService.getBlockNumber();
-    return Math.ceil(block / REGISTRY_DATA_UPDATE_FREQUENCY);
   }
 }

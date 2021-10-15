@@ -28,11 +28,11 @@ export class InMemoryConfiguration implements Configuration {
 
   @IsNotEmpty()
   @IsString()
-  RPC_URL: string;
+  RPC_URL = '';
 
   @IsNotEmpty()
   @IsString()
-  WALLET_PRIVATE_KEY: string;
+  WALLET_PRIVATE_KEY = '';
 
   @IsString()
   KAFKA_CLIENT_ID = '';
@@ -53,7 +53,7 @@ export class InMemoryConfiguration implements Configuration {
   @Transform(({ value }) => (value.toLowerCase() == 'true' ? true : false), {
     toClassOnly: true,
   })
-  KAFKA_SSL: boolean;
+  KAFKA_SSL = false;
 
   @IsNotEmpty()
   @IsString()
@@ -62,9 +62,9 @@ export class InMemoryConfiguration implements Configuration {
 
   @IsNotEmpty()
   @IsString()
-  KAFKA_USERNAME: string;
+  KAFKA_USERNAME = '';
 
   @IsNotEmpty()
   @IsString()
-  KAFKA_PASSWORD: string;
+  KAFKA_PASSWORD = '';
 }

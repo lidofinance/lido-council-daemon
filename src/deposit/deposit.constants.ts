@@ -8,7 +8,10 @@ export const DEPLOYMENT_BLOCK_NETWORK: {
 };
 
 export const getDeploymentBlockByNetwork = (chainId: CHAINS): number => {
-  return DEPLOYMENT_BLOCK_NETWORK[chainId];
+  const address = DEPLOYMENT_BLOCK_NETWORK[chainId];
+  if (!address) throw new Error(`Chain ${chainId} is not supported`);
+
+  return address;
 };
 
 export const DEPOSIT_EVENTS_CACHE_LAG_BLOCKS = 100;

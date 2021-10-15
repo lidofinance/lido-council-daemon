@@ -12,8 +12,12 @@ import { TransportInterface, TransportModule } from 'transport';
 import { RegistryModule, RegistryService } from 'registry';
 import { DepositModule, DepositService } from 'deposit';
 import { SecurityModule, SecurityService } from 'security';
+import { WALLET_PRIVATE_KEY } from 'wallet';
+import { Wallet } from '@ethersproject/wallet';
 
 describe('DefenderService', () => {
+  const wallet = Wallet.createRandom();
+
   let providerService: ProviderService;
   let depositService: DepositService;
   let defenderService: DefenderService;
@@ -43,6 +47,8 @@ describe('DefenderService', () => {
     })
       .overrideProvider(JsonRpcProvider)
       .useValue(new MockRpcProvider())
+      .overrideProvider(WALLET_PRIVATE_KEY)
+      .useValue(wallet.privateKey)
       .compile();
 
     providerService = moduleRef.get(ProviderService);
@@ -67,7 +73,7 @@ describe('DefenderService', () => {
     it('should subscribe to updates', () => {
       const mockOn = jest
         .spyOn(providerService.provider, 'on')
-        .mockImplementation(() => undefined);
+        .mockImplementation(() => undefined as any);
 
       defenderService.subscribeToEthereumUpdates();
       expect(mockOn).toBeCalledTimes(1);
@@ -105,40 +111,106 @@ describe('DefenderService', () => {
     });
   });
 
-  describe('isSameState', () => {
+  describe('isSameContractsState', () => {
     it('should return false if previous state is empty', () => {
-      const isSame = defenderService.isSameState(1, 1, '0x1');
+      const isSame = defenderService.isSameContractsState(1, '0x1');
       expect(isSame).toBe(false);
     });
 
     it('should return true if state is the same', () => {
-      const args = [1, 1, '0x1'] as const;
-      const firstCall = defenderService.isSameState(...args);
-      const secondCall = defenderService.isSameState(...args);
+      const args = [1, '0x1'] as const;
+      const firstCall = defenderService.isSameContractsState(...args);
+      const secondCall = defenderService.isSameContractsState(...args);
 
       expect(firstCall).toBe(false);
       expect(secondCall).toBe(true);
     });
 
-    it('should return false if actualStateIndex is changed', () => {
-      const firstCall = defenderService.isSameState(1, 1, '0x1');
-      const secondCall = defenderService.isSameState(2, 1, '0x1');
-
-      expect(firstCall).toBe(false);
-      expect(secondCall).toBe(false);
-    });
-
     it('should return false if keysOpIndex is changed', () => {
-      const firstCall = defenderService.isSameState(1, 1, '0x1');
-      const secondCall = defenderService.isSameState(1, 2, '0x1');
+      const firstCall = defenderService.isSameContractsState(1, '0x1');
+      const secondCall = defenderService.isSameContractsState(2, '0x1');
 
       expect(firstCall).toBe(false);
       expect(secondCall).toBe(false);
     });
 
     it('should return false if depositRoot is changed', () => {
-      const firstCall = defenderService.isSameState(1, 1, '0x1');
-      const secondCall = defenderService.isSameState(1, 1, '0x2');
+      const firstCall = defenderService.isSameContractsState(1, '0x1');
+      const secondCall = defenderService.isSameContractsState(1, '0x2');
+
+      expect(firstCall).toBe(false);
+      expect(secondCall).toBe(false);
+    });
+  });
+
+  describe('isSameDepositResigningIndex', () => {
+    it('should return false if previous state is empty', async () => {
+      jest
+        .spyOn(defenderService, 'getDepositResigningIndex')
+        .mockImplementationOnce(async () => 1);
+
+      const isSame = await defenderService.isSameDepositResigningIndex();
+      expect(isSame).toBe(false);
+    });
+
+    it('should return true if state is the same', async () => {
+      jest
+        .spyOn(defenderService, 'getDepositResigningIndex')
+        .mockImplementationOnce(async () => 1)
+        .mockImplementationOnce(async () => 1);
+
+      const firstCall = await defenderService.isSameDepositResigningIndex();
+      const secondCall = await defenderService.isSameDepositResigningIndex();
+
+      expect(firstCall).toBe(false);
+      expect(secondCall).toBe(true);
+    });
+
+    it('should return false if depositResigningIndex is changed', async () => {
+      jest
+        .spyOn(defenderService, 'getDepositResigningIndex')
+        .mockImplementationOnce(async () => 1)
+        .mockImplementationOnce(async () => 2);
+
+      const firstCall = await defenderService.isSameDepositResigningIndex();
+      const secondCall = await defenderService.isSameDepositResigningIndex();
+
+      expect(firstCall).toBe(false);
+      expect(secondCall).toBe(false);
+    });
+  });
+
+  describe('isSamePauseResigningIndex', () => {
+    it('should return false if previous state is empty', async () => {
+      jest
+        .spyOn(defenderService, 'getPauseResigningIndex')
+        .mockImplementationOnce(async () => 1);
+
+      const isSame = await defenderService.isSamePauseResigningIndex();
+      expect(isSame).toBe(false);
+    });
+
+    it('should return true if state is the same', async () => {
+      jest
+        .spyOn(defenderService, 'getPauseResigningIndex')
+        .mockImplementationOnce(async () => 1)
+        .mockImplementationOnce(async () => 1);
+
+      const firstCall = await defenderService.isSamePauseResigningIndex();
+      const secondCall = await defenderService.isSamePauseResigningIndex();
+
+      expect(firstCall).toBe(false);
+      expect(secondCall).toBe(true);
+    });
+
+    it('should return false if pauseResigningIndex is changed', async () => {
+      jest
+        .spyOn(defenderService, 'getPauseResigningIndex')
+        .mockImplementationOnce(async () => 1)
+        .mockImplementationOnce(async () => 2);
+
+      const firstCall = await defenderService.isSamePauseResigningIndex();
+      const secondCall = await defenderService.isSamePauseResigningIndex();
 
       expect(firstCall).toBe(false);
       expect(secondCall).toBe(false);
@@ -155,7 +227,11 @@ describe('DefenderService', () => {
         .mockImplementation(async () => keysOpIndex);
 
       jest
-        .spyOn(registryService, 'getActualStateIndex')
+        .spyOn(defenderService, 'getDepositResigningIndex')
+        .mockImplementation(async () => 1);
+
+      jest
+        .spyOn(defenderService, 'getPauseResigningIndex')
         .mockImplementation(async () => 1);
 
       jest
@@ -217,8 +293,12 @@ describe('DefenderService', () => {
 
     it('should exit if the previous call is not completed', async () => {
       const mockIsSameState = jest
-        .spyOn(defenderService, 'isSameState')
+        .spyOn(defenderService, 'isSameContractsState')
         .mockImplementation(() => true);
+
+      const mockIsSameDepositResigningIndex = jest
+        .spyOn(defenderService, 'isSameDepositResigningIndex')
+        .mockImplementation(async () => true);
 
       const mockGetNextKeys = jest
         .spyOn(registryService, 'getNextKeys')
@@ -231,7 +311,16 @@ describe('DefenderService', () => {
 
       expect(mockGetNextKeys).toBeCalledTimes(1);
       expect(mockIsSameState).toBeCalledTimes(1);
+      expect(mockIsSameDepositResigningIndex).toBeCalledTimes(1);
     });
+
+    it.todo(
+      'should exit if it’s the same contracts state and the same resigning deposit index',
+    );
+
+    it.todo(
+      'should exit if it’s the same contracts state and the same resigning pause index',
+    );
   });
 
   describe('getMessageTopic', () => {
@@ -332,6 +421,58 @@ describe('DefenderService', () => {
 
       expect(mockSendMessage).toBeCalledTimes(1);
       expect(mockSendMessage).toBeCalledWith(expected);
+    });
+  });
+
+  describe('getDepositResigningIndex', () => {
+    it('should return the same value for near block', async () => {
+      const providerCall = jest
+        .spyOn(providerService, 'getBlockNumber')
+        .mockImplementationOnce(async () => 101)
+        .mockImplementationOnce(async () => 102);
+
+      const firstIndex = await defenderService.getDepositResigningIndex();
+      const secondIndex = await defenderService.getDepositResigningIndex();
+      expect(firstIndex).toBe(secondIndex);
+      expect(providerCall).toBeCalledTimes(2);
+    });
+
+    it('should return the unique value for far block', async () => {
+      const providerCall = jest
+        .spyOn(providerService, 'getBlockNumber')
+        .mockImplementationOnce(async () => 101)
+        .mockImplementationOnce(async () => 301);
+
+      const firstIndex = await defenderService.getDepositResigningIndex();
+      const secondIndex = await defenderService.getDepositResigningIndex();
+      expect(firstIndex).not.toBe(secondIndex);
+      expect(providerCall).toBeCalledTimes(2);
+    });
+  });
+
+  describe('getPauseResigningIndex', () => {
+    it('should return the same value for near block', async () => {
+      const providerCall = jest
+        .spyOn(providerService, 'getBlockNumber')
+        .mockImplementationOnce(async () => 101)
+        .mockImplementationOnce(async () => 102);
+
+      const firstIndex = await defenderService.getPauseResigningIndex();
+      const secondIndex = await defenderService.getPauseResigningIndex();
+      expect(firstIndex).toBe(secondIndex);
+      expect(providerCall).toBeCalledTimes(2);
+    });
+
+    it('should return the unique value for far block', async () => {
+      const providerCall = jest
+        .spyOn(providerService, 'getBlockNumber')
+        .mockImplementationOnce(async () => 101)
+        .mockImplementationOnce(async () => 301);
+
+      const firstIndex = await defenderService.getPauseResigningIndex();
+      const secondIndex = await defenderService.getPauseResigningIndex();
+      expect(firstIndex).not.toBe(secondIndex);
+      expect(providerCall).toBeCalledTimes(2);
     });
   });
 });
