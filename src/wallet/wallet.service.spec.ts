@@ -3,6 +3,8 @@ import { keccak256 } from '@ethersproject/keccak256';
 import { verifyMessage, Wallet } from '@ethersproject/wallet';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
+import { LoggerModule } from 'common/logger';
+import { ProviderModule } from 'provider';
 import { WALLET_PRIVATE_KEY } from './wallet.constants';
 import { WalletService } from './wallet.service';
 
@@ -12,7 +14,7 @@ describe('WalletService', () => {
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [ConfigModule.forRoot()],
+      imports: [ConfigModule.forRoot(), LoggerModule, ProviderModule],
       providers: [
         WalletService,
         {

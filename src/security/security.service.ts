@@ -1,6 +1,11 @@
 import { Signature } from '@ethersproject/bytes';
 import { ContractReceipt } from '@ethersproject/contracts';
-import { Inject, Injectable, LoggerService } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  LoggerService,
+  OnModuleInit,
+} from '@nestjs/common';
 import { SecurityAbi__factory } from 'generated/factories/SecurityAbi__factory';
 import { SecurityAbi } from 'generated/SecurityAbi';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
@@ -9,7 +14,7 @@ import { WalletService } from 'wallet';
 import { getDepositSecurityAddress, MessageType } from './security.constants';
 
 @Injectable()
-export class SecurityService {
+export class SecurityService implements OnModuleInit {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
@@ -20,6 +25,17 @@ export class SecurityService {
   private cachedContractWithSigner: SecurityAbi | null = null;
   private cachedAttestMessagePrefix: string | null = null;
   private cachedPauseMessagePrefix: string | null = null;
+
+  public async onModuleInit(): Promise<void> {
+    const guardianIndex = await this.getGuardianIndex();
+    const address = this.walletService.address;
+
+    if (guardianIndex === -1) {
+      this.logger.warn(`You address is not in the Guardian List`, { address });
+    } else {
+      this.logger.log(`You address is in the Guardian List`, { address });
+    }
+  }
 
   public async getContract(): Promise<SecurityAbi> {
     if (!this.cachedContract) {

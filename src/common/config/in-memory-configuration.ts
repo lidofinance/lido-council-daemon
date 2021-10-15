@@ -30,7 +30,6 @@ export class InMemoryConfiguration implements Configuration {
   @IsString()
   RPC_URL = '';
 
-  @IsNotEmpty()
   @IsString()
   WALLET_PRIVATE_KEY = '';
 

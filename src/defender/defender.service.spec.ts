@@ -12,12 +12,8 @@ import { TransportInterface, TransportModule } from 'transport';
 import { RegistryModule, RegistryService } from 'registry';
 import { DepositModule, DepositService } from 'deposit';
 import { SecurityModule, SecurityService } from 'security';
-import { WALLET_PRIVATE_KEY } from 'wallet';
-import { Wallet } from '@ethersproject/wallet';
 
 describe('DefenderService', () => {
-  const wallet = Wallet.createRandom();
-
   let providerService: ProviderService;
   let depositService: DepositService;
   let defenderService: DefenderService;
@@ -47,8 +43,6 @@ describe('DefenderService', () => {
     })
       .overrideProvider(JsonRpcProvider)
       .useValue(new MockRpcProvider())
-      .overrideProvider(WALLET_PRIVATE_KEY)
-      .useValue(wallet.privateKey)
       .compile();
 
     providerService = moduleRef.get(ProviderService);
