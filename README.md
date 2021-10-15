@@ -8,11 +8,31 @@ There are several ways to run a daemon:
 
 ### 1. Use image from Docker hub
 
-TODO
+
+You can pull image from dockerhub and run it manually or via docker-compose
+(`docker-compose.yml` can be found in repository root)
+```bash
+docker pull lidofinance/lido-council-daemon:1.0.0
+
+docker run  \
+  -p 3000:3000/tcp \
+  -e PORT='3000' \
+  -e LOG_LEVEL='debug' \
+  -e LOG_FORMAT='simple' \
+  -e RPC_URL='<rpc url>' \
+  -e KAFKA_SSL='true' \
+  -e KAFKA_SASL_MECHANISM='plain' \
+  -e KAFKA_USERNAME='<kafka user>' \
+  -e KAFKA_PASSWORD='<kafka password>' \
+  -e KAFKA_BROKER_ADDRESS_1='<kafka address>' \
+  -e WALLET_PRIVATE_KEY='<wallet private key>' \
+  lidofinance/lido-council-daemon:1.0.0
+```
+
 
 ### 2. Build Docker image locally
 
-To build `lido/lido-council-daemon` docker image locally, simply run:
+To build `lidofinance/lido-council-daemon` docker image locally, simply run:
 
 ```bash
 yarn docker:build

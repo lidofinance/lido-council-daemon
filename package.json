@@ -1,12 +1,12 @@
 {
   "name": "lido-council-daemon",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Lido Council Daemon",
   "author": "Lido team",
   "private": true,
   "license": "MIT",
   "config": {
-    "dockerorg": "lido"
+    "dockerorg": "lidofinance"
   },
   "scripts": {
     "prebuild": "rimraf dist",
@@ -24,7 +24,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "typechain": "typechain --target=ethers-v5 --out-dir ./src/generated ./src/abi/*.json",
     "postinstall": "yarn typechain",
-    "docker:build": "docker build -t $npm_package_config_dockerorg/$npm_package_name:$npm_package_version ."
+    "docker:build": "docker build -t $npm_package_config_dockerorg/$npm_package_name:$npm_package_version .",
+    "docker:push": "docker push $npm_package_config_dockerorg/$npm_package_name:$npm_package_version"
   },
   "dependencies": {
     "@ethersproject/providers": "^5.4.5",
