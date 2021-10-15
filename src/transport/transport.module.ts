@@ -1,4 +1,4 @@
-import { Inject, LoggerService, Module } from '@nestjs/common';
+import { LoggerService, Module } from '@nestjs/common';
 import { Kafka, logLevel } from 'kafkajs';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Configuration } from 'common/config';
