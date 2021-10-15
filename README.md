@@ -57,14 +57,18 @@ $ yarn typechain
 ## Running the app
 
 ```bash
+$ yarn build
+$ yarn start:prod
+```
+
+## Development
+
+```bash
 # development
 $ yarn start
 
-# watch mode (development)
+# watch mode
 $ yarn start:dev
-
-# production mode
-$ yarn start:prod
 ```
 
 ## Test
