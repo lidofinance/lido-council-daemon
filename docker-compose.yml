@@ -1,37 +1,19 @@
 version: '3.7'
 
 services:
-  zookeeper:
-    image: wurstmeister/zookeeper
+  council-daemon:
+    image: lidofinance/lido-council-daemon:1.0.0
     ports:
-      - "2181:2181"
-
-  kafka:
-    image: wurstmeister/kafka:2.13-2.7.1
-    ports:
-      - "9092:9092"
-    links:
-      - zookeeper
+      - "3000:3000"
     environment:
-      - "KAFKA_ADVERTISED_LISTENERS=SASL_PLAINTEXT://localhost:9092"
-      - "KAFKA_CREATE_TOPICS=test:1:1"
-      - "KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181"
-      - "KAFKA_AUTO_CREATE_TOPICS_ENABLE=false"
-      - "KAFKA_MESSAGE_MAX_BYTES=2000000"
-      - "KAFKA_OPTS=-Djava.security.auth.login.config=/etc/kafka/kafka_server_jaas.conf"
-      - "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=SASL_PLAINTEXT:SASL_PLAINTEXT"
-      - "KAFKA_LISTENERS=SASL_PLAINTEXT://:9092"
-      - "KAFKA_SASL_ENABLED_MECHANISMS=SCRAM-SHA-256,SCRAM-SHA-512"
-      - "KAFKA_INTER_BROKER_LISTENER_NAME=SASL_PLAINTEXT"
-      - "KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL=SCRAM-SHA-256"
-      - "KAFKA_AUTHORIZER_CLASS_NAME=kafka.security.authorizer.AclAuthorizer"
-      # for older kafka versions use this instead
-      # "KAFKA_AUTHORIZER_CLASS_NAME=kafka.security.auth.SimpleAclAuthorizer"
-      - "KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND=false"
-      #- "KAFKA_SECURITY_INTER_BROKER_PROTOCOL=SASL_PLAINTEXT"
-      - "KAFKA_SUPER_USERS=User:admin"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./.volumes/kafka:/kafka
-      - ./docker/kafka/kafka_server_jaas.conf:/etc/kafka/kafka_server_jaas.conf
+      - "PORT=3000"
+      - "LOG_LEVEL=debug"
+      - "LOG_FORMAT=simple"
+      - "RPC_URL=<rpc url>"
+      - "KAFKA_SSL=true"
+      - "KAFKA_SASL_MECHANISM=plain"
+      - "KAFKA_USERNAME=<kafka user>"
+      - "KAFKA_PASSWORD=<kafka password>"
+      - "KAFKA_BROKER_ADDRESS_1=<kafka address>"
+      - "WALLET_PRIVATE_KEY=<wallet private key>"
 
