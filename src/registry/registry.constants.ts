@@ -8,7 +8,8 @@ export const REGISTRY_BY_NETWORK: {
 };
 
 export const getRegistryAddress = (chainId: CHAINS): string => {
-  return REGISTRY_BY_NETWORK[chainId];
-};
+  const address = REGISTRY_BY_NETWORK[chainId];
+  if (!address) throw new Error(`Chain ${chainId} is not supported`);
 
-export const REGISTRY_DATA_UPDATE_FREQUENCY = 50;
+  return address;
+};

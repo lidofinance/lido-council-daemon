@@ -8,5 +8,11 @@ export const DEFENDER_TOPIC_BY_NETWORK: {
 };
 
 export const getMessageTopic = (chainId: CHAINS): string => {
-  return DEFENDER_TOPIC_BY_NETWORK[chainId];
+  const address = DEFENDER_TOPIC_BY_NETWORK[chainId];
+  if (!address) throw new Error(`Chain ${chainId} is not supported`);
+
+  return address;
 };
+
+export const DEFENDER_DEPOSIT_RESIGNING_BLOCKS = 50;
+export const DEFENDER_PAUSE_RESIGNING_BLOCKS = 50;

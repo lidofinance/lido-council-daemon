@@ -13,7 +13,7 @@ export class LidoService {
 
   private cachedContract: LidoAbi | null = null;
 
-  private async getContract(): Promise<LidoAbi> {
+  public async getContract(): Promise<LidoAbi> {
     if (!this.cachedContract) {
       const address = await this.getLidoAddress();
       const provider = this.providerService.provider;

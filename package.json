@@ -1,10 +1,13 @@
 {
-  "name": "lido-api-template",
+  "name": "lido-council-daemon",
   "version": "0.0.1",
-  "description": "Lido API Template",
+  "description": "Lido Council Daemon",
   "author": "Lido team",
   "private": true,
   "license": "MIT",
+  "config": {
+    "dockerorg": "lido"
+  },
   "scripts": {
     "prebuild": "rimraf dist",
     "build": "nest build",
@@ -20,7 +23,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "typechain": "typechain --target=ethers-v5 --out-dir ./src/generated ./src/abi/*.json",
-    "postinstall": "yarn typechain"
+    "postinstall": "yarn typechain",
+    "docker:build": "docker build -t $npm_package_config_dockerorg/$npm_package_name:$npm_package_version ."
   },
   "dependencies": {
     "@ethersproject/providers": "^5.4.5",
@@ -28,18 +32,12 @@
     "@nestjs/common": "^8.0.0",
     "@nestjs/config": "^1.0.1",
     "@nestjs/core": "^8.0.0",
-    "@nestjs/platform-fastify": "^8.0.9",
-    "@nestjs/swagger": "^5.1.0",
-    "@willsoto/nestjs-prometheus": "^4.0.0",
     "app-root-path": "^3.0.0",
     "class-transformer": "^0.4.0",
     "class-validator": "^0.13.1",
     "ethers": "^5.4.7",
-    "fastify-swagger": "^4.12.3",
-    "joi": "^17.4.2",
     "kafkajs": "^1.15.0",
     "nest-winston": "^1.6.1",
-    "prom-client": "^14.0.0",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
     "rxjs": "^7.2.0",
@@ -50,6 +48,7 @@
     "@nestjs/schematics": "^8.0.0",
     "@nestjs/testing": "^8.0.11",
     "@typechain/ethers-v5": "^7.1.2",
+    "@types/app-root-path": "^1.2.4",
     "@types/jest": "^27.0.1",
     "@types/kafkajs": "^1.9.0",
     "@types/node": "^16.0.0",

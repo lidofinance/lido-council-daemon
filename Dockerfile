@@ -1,29 +1,31 @@
-FROM node:14-alpine
+FROM node:14.18.1-alpine3.13 as building
 
-WORKDIR /app
-COPY package.json yarn.lock ./
+# needed for git dependencies
+RUN apk update && apk upgrade && \
+    apk add --no-cache bash git openssh
 
+WORKDIR /usr/src/app
+
+# we need specific npm version for git dependencies
+RUN npm i -g npm@7.19.0
+
+COPY ./package*.json ./
+COPY ./yarn*.lock ./
 RUN yarn install --frozen-lockfile --non-interactive && yarn cache clean
 
-ARG NODE_ENV="production"
-ARG PORT=3000
-ARG LOG_LEVEL=""
-ARG LOG_FORMAT=""
-ARG RPC_URL=""
-ARG COUNCIL_ID=""
-ARG KAFKA_BROKER_1=""
+COPY ./tsconfig*.json ./
+COPY ./src ./src
 
-ENV NODE_ENV=$NODE_ENV \
-  PORT=$PORT \
-  LOG_LEVEL=$LOG_LEVEL \
-  LOG_FORMAT=$LOG_FORMAT \
-  RPC_URL=$RPC_URL \
-  COUNCIL_ID=$COUNCIL_ID \
-  KAFKA_BROKER_1=$KAFKA_BROKER_1
-
-EXPOSE $PORT
-
-COPY . .
+RUN yarn typechain
 RUN yarn build
+
+FROM node:14.18.1-alpine3.13
+
+WORKDIR /usr/src/app
+
+COPY --from=building /usr/src/app/dist ./dist
+COPY --from=building /usr/src/app/node_modules ./node_modules
+COPY ./package*.json ./
+COPY ./yarn*.lock ./
 
 CMD ["yarn", "start:prod"]

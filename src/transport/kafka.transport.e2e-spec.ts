@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { LoggerModule } from '../common/logger';
+import { LoggerModule } from 'common/logger';
+import { ConfigModule } from 'common/config';
 import { KafkaTransport } from './kafka.transport';
 import { Kafka } from 'kafkajs';
 
@@ -9,7 +10,7 @@ describe('KafkaTransport', () => {
 
   beforeEach(async () => {
     moduleRef = await Test.createTestingModule({
-      imports: [LoggerModule],
+      imports: [ConfigModule.forRoot(), LoggerModule],
       providers: [
         KafkaTransport,
         {
@@ -18,7 +19,7 @@ describe('KafkaTransport', () => {
             new Kafka({
               clientId: 'test-client',
               brokers: ['localhost:9092'],
-              logCreator: (logLevel) => (entry) => void 0,
+              logCreator: () => () => void 0,
             }),
         },
       ],

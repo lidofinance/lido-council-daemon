@@ -1,11 +1,12 @@
-import { splitSignature } from '@ethersproject/bytes';
+import { Signature } from '@ethersproject/bytes';
+import { ContractReceipt } from '@ethersproject/contracts';
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { SecurityAbi__factory } from 'generated/factories/SecurityAbi__factory';
 import { SecurityAbi } from 'generated/SecurityAbi';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { ProviderService } from 'provider';
 import { WalletService } from 'wallet';
-import { getDepositSecurityAddress } from './security.constants';
+import { getDepositSecurityAddress, MessageType } from './security.constants';
 
 @Injectable()
 export class SecurityService {
@@ -16,10 +17,11 @@ export class SecurityService {
   ) {}
 
   private cachedContract: SecurityAbi | null = null;
+  private cachedContractWithSigner: SecurityAbi | null = null;
   private cachedAttestMessagePrefix: string | null = null;
   private cachedPauseMessagePrefix: string | null = null;
 
-  private async getContract(): Promise<SecurityAbi> {
+  public async getContract(): Promise<SecurityAbi> {
     if (!this.cachedContract) {
       const address = await this.getDepositSecurityAddress();
       const provider = this.providerService.provider;
@@ -27,6 +29,20 @@ export class SecurityService {
     }
 
     return this.cachedContract;
+  }
+
+  public async getContractWithSigner(): Promise<SecurityAbi> {
+    if (!this.cachedContractWithSigner) {
+      const wallet = this.walletService.wallet;
+      const provider = this.providerService.provider;
+      const walletWithProvider = wallet.connect(provider);
+      const contract = await this.getContract();
+      const contractWithSigner = contract.connect(walletWithProvider);
+
+      this.cachedContractWithSigner = contractWithSigner;
+    }
+
+    return this.cachedContractWithSigner;
   }
 
   public async getDepositSecurityAddress(): Promise<string> {
@@ -80,7 +96,7 @@ export class SecurityService {
     keysOpIndex: number,
     blockNumber: number,
     blockHash: string,
-  ): Promise<string> {
+  ): Promise<Signature> {
     const messagePrefix = await this.getAttestMessagePrefix();
 
     return await this.walletService.signDepositData(
@@ -96,13 +112,14 @@ export class SecurityService {
     depositRoot: string,
     keysOpIndex: number,
   ): Promise<{
+    type: MessageType;
     depositRoot: string;
     keysOpIndex: number;
     guardianAddress: string;
     guardianIndex: number;
     blockNumber: number;
     blockHash: string;
-    signature: string;
+    signature: Signature;
   }> {
     const block = await this.providerService.getBlock();
     const blockNumber = block.number;
@@ -115,6 +132,7 @@ export class SecurityService {
     ]);
 
     return {
+      type: MessageType.DEPOSIT,
       depositRoot,
       keysOpIndex,
       blockNumber,
@@ -125,25 +143,19 @@ export class SecurityService {
     };
   }
 
-  public async signPauseData(
-    blockNumber: number,
-    blockHash: string,
-  ): Promise<string> {
+  public async signPauseData(blockNumber: number): Promise<Signature> {
     const messagePrefix = await this.getPauseMessagePrefix();
 
-    return await this.walletService.signPauseData(
-      messagePrefix,
-      blockNumber,
-      blockHash,
-    );
+    return await this.walletService.signPauseData(messagePrefix, blockNumber);
   }
 
   public async getPauseDepositData(): Promise<{
+    type: MessageType;
     guardianAddress: string;
     guardianIndex: number;
     blockNumber: number;
     blockHash: string;
-    signature: string;
+    signature: Signature;
   }> {
     const [block, guardianIndex] = await Promise.all([
       this.providerService.getBlock(),
@@ -152,9 +164,10 @@ export class SecurityService {
     const blockNumber = block.number;
     const blockHash = block.hash;
     const guardianAddress = this.walletService.address;
-    const signature = await this.signPauseData(block.number, block.hash);
+    const signature = await this.signPauseData(blockNumber);
 
     return {
+      type: MessageType.PAUSE,
       guardianAddress,
       guardianIndex,
       blockNumber,
@@ -165,15 +178,13 @@ export class SecurityService {
 
   public async pauseDeposits(
     blockNumber: number,
-    blockHash: string,
-    signature: string,
-  ) {
-    const { r, _vs: vs } = splitSignature(signature);
-    const wallet = this.walletService.wallet.connect(
-      this.providerService.provider,
-    );
+    signature: Signature,
+  ): Promise<ContractReceipt | void> {
+    const { r, _vs: vs } = signature;
 
-    const contract = (await this.getContract()).connect(wallet);
+    this.logger.warn('Try to pause deposits');
+
+    const contract = await this.getContractWithSigner();
     const isPaused = await contract.isPaused();
 
     if (isPaused) {
@@ -181,6 +192,14 @@ export class SecurityService {
       return;
     }
 
-    return await contract.pauseDeposits(blockNumber, blockHash, { r, vs });
+    // TODO: submit with higher gas
+    const tx = await contract.pauseDeposits(blockNumber, { r, vs });
+    this.logger.warn('Pause transaction sent', { txHash: tx.hash });
+    this.logger.warn('Waiting for block confirmation');
+
+    const result = await tx.wait();
+
+    this.logger.warn('Block confirmation received');
+    return result;
   }
 }

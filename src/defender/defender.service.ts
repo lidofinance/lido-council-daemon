@@ -1,15 +1,24 @@
-import { Inject, Injectable, LoggerService } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  LoggerService,
+  OnModuleInit,
+} from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { DepositService } from 'deposit';
 import { RegistryService } from 'registry';
 import { ProviderService } from 'provider';
 import { SecurityService } from 'security';
 import { TransportInterface } from 'transport';
-import { DefenderState } from './interfaces';
-import { getMessageTopic } from './defender.constants';
+import { ContractsState } from './interfaces';
+import {
+  getMessageTopic,
+  DEFENDER_DEPOSIT_RESIGNING_BLOCKS,
+  DEFENDER_PAUSE_RESIGNING_BLOCKS,
+} from './defender.constants';
 
 @Injectable()
-export class DefenderService {
+export class DefenderService implements OnModuleInit {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private registryService: RegistryService,
@@ -17,112 +26,164 @@ export class DefenderService {
     private securityService: SecurityService,
     private providerService: ProviderService,
     private transportService: TransportInterface,
-  ) {
-    this.initialize();
-  }
+  ) {}
 
-  public async initialize(): Promise<void> {
+  public async onModuleInit(): Promise<void> {
     await this.depositService.initialize();
     this.subscribeToEthereumUpdates();
   }
 
-  private async subscribeToEthereumUpdates() {
+  private isCheckingKeys = false;
+
+  public subscribeToEthereumUpdates() {
     const provider = this.providerService.provider;
 
     provider.on('block', () => this.protectPubKeys());
     this.logger.log('DefenderService subscribed to Ethereum events');
   }
 
-  private matchPubKeys = (
+  public matchPubKeys(
     nextPubKeys: string[],
     depositedPubKeys: Set<string>,
-  ): string[] => {
+  ): string[] {
     return nextPubKeys.filter((nextPubKey) => depositedPubKeys.has(nextPubKey));
-  };
+  }
 
-  private state: DefenderState | null = null;
+  private contractsState: ContractsState | null = null;
+  private depositResigningIndex: number | null = null;
+  private pauseResigningIndex: number | null = null;
 
-  private isSameState(
-    actualStateIndex: number,
+  public isSameContractsState(
     keysOpIndex: number,
     depositRoot: string,
   ): boolean {
-    const previousState = this.state;
-    this.state = { actualStateIndex, keysOpIndex, depositRoot };
+    const previousState = this.contractsState;
+    this.contractsState = { keysOpIndex, depositRoot };
 
     if (!previousState) return false;
     const isSameKeysInRegistry = previousState.keysOpIndex === keysOpIndex;
     const isSameKeysInDeposit = previousState.depositRoot === depositRoot;
-    const isSameActualIndex =
-      previousState.actualStateIndex === actualStateIndex;
 
-    return isSameActualIndex && isSameKeysInRegistry && isSameKeysInDeposit;
+    return isSameKeysInRegistry && isSameKeysInDeposit;
   }
 
-  private async protectPubKeys() {
+  public async isSameDepositResigningIndex(): Promise<boolean> {
+    const depositResigningIndex = await this.getDepositResigningIndex();
+
+    const previousState = this.depositResigningIndex;
+    this.depositResigningIndex = depositResigningIndex;
+
+    if (!previousState) return false;
+    return previousState === depositResigningIndex;
+  }
+
+  public async isSamePauseResigningIndex(): Promise<boolean> {
+    const pauseResigningIndex = await this.getPauseResigningIndex();
+
+    const previousState = this.pauseResigningIndex;
+    this.pauseResigningIndex = pauseResigningIndex;
+
+    if (!previousState) return false;
+    return previousState === pauseResigningIndex;
+  }
+
+  public async protectPubKeys() {
+    if (this.isCheckingKeys) {
+      return;
+    }
+
     try {
+      this.isCheckingKeys = true;
+
       const [
         nextPubKeys,
         keysOpIndex,
-        actualStateIndex,
         depositedPubKeys,
         depositRoot,
+        isSameDepositResigningIndex,
+        isSamePauseResigningIndex,
       ] = await Promise.all([
         this.registryService.getNextKeys(),
         this.registryService.getKeysOpIndex(),
-        this.registryService.getActualStateIndex(),
         this.depositService.getAllPubKeys(),
         this.depositService.getDepositRoot(),
+        this.isSameDepositResigningIndex(),
+        this.isSamePauseResigningIndex(),
       ]);
-
-      if (this.isSameState(actualStateIndex, keysOpIndex, depositRoot)) {
-        return;
-      }
 
       const alreadyDepositedPubKeys = this.matchPubKeys(
         nextPubKeys,
         depositedPubKeys,
       );
 
-      if (alreadyDepositedPubKeys.length) {
-        this.logger.warn({ alreadyDepositedPubKeys });
+      const isIntersectionsFound = alreadyDepositedPubKeys.length > 0;
+      const isSameContractsState = this.isSameContractsState(
+        keysOpIndex,
+        depositRoot,
+      );
+
+      const isSameResigningIndex = isIntersectionsFound
+        ? isSamePauseResigningIndex
+        : isSameDepositResigningIndex;
+
+      if (isSameContractsState && isSameResigningIndex) {
+        return;
+      }
+
+      if (isIntersectionsFound) {
+        this.logger.warn('Already deposited keys found', {
+          keys: alreadyDepositedPubKeys,
+        });
+
         await this.handleSuspiciousCase();
       } else {
         await this.handleCorrectCase(depositRoot, keysOpIndex);
       }
     } catch (error) {
       this.logger.error(error);
+    } finally {
+      this.isCheckingKeys = false;
     }
   }
 
-  private async getMessageTopic(): Promise<string> {
+  public async getDepositResigningIndex(): Promise<number> {
+    const block = await this.providerService.getBlockNumber();
+    return Math.ceil(block / DEFENDER_DEPOSIT_RESIGNING_BLOCKS);
+  }
+
+  public async getPauseResigningIndex(): Promise<number> {
+    const block = await this.providerService.getBlockNumber();
+    return Math.ceil(block / DEFENDER_PAUSE_RESIGNING_BLOCKS);
+  }
+
+  public async getMessageTopic(): Promise<string> {
     const chainId = await this.providerService.getChainId();
     return getMessageTopic(chainId);
   }
 
-  private async sendMessage(message: unknown): Promise<void> {
+  public async sendMessage(message: unknown): Promise<void> {
     const topic = await this.getMessageTopic();
     await this.transportService.publish(topic, message);
   }
 
-  private async handleCorrectCase(depositRoot: string, keysOpIndex: number) {
+  public async handleCorrectCase(depositRoot: string, keysOpIndex: number) {
     const depositData = await this.securityService.getDepositData(
       depositRoot,
       keysOpIndex,
     );
 
-    this.logger.debug('Correct case', depositData);
+    this.logger.log('No problems found', depositData);
     await this.sendMessage(depositData);
   }
 
-  private async handleSuspiciousCase() {
+  public async handleSuspiciousCase() {
     const pauseData = await this.securityService.getPauseDepositData();
-    const { blockNumber, blockHash, signature } = pauseData;
+    const { blockNumber, signature } = pauseData;
 
-    this.logger.debug('Suspicious case', pauseData);
+    this.logger.warn('Suspicious case detected', pauseData);
 
     await Promise.all([
-      this.securityService.pauseDeposits(blockNumber, blockHash, signature),
+      this.securityService.pauseDeposits(blockNumber, signature),
       this.sendMessage(pauseData),
     ]);
   }

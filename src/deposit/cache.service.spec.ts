@@ -1,23 +1,30 @@
+import { getNetwork } from '@ethersproject/networks';
+import { JsonRpcProvider } from '@ethersproject/providers';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
-import { ProviderModule, ProviderService } from 'provider';
+import { ProviderModule } from 'provider';
 import { DEPOSIT_CACHE_DEFAULT } from './cache.constants';
 import { DepositCacheService } from './cache.service';
 
 describe('DepositCacheService', () => {
-  let providerService: ProviderService;
   let cacheService: DepositCacheService;
 
   beforeEach(async () => {
+    class MockRpcProvider extends JsonRpcProvider {
+      async _uncachedDetectNetwork() {
+        return getNetwork(0);
+      }
+    }
+
     const moduleRef = await Test.createTestingModule({
       imports: [ConfigModule.forRoot(), ProviderModule],
       providers: [DepositCacheService],
-    }).compile();
+    })
+      .overrideProvider(JsonRpcProvider)
+      .useValue(new MockRpcProvider())
+      .compile();
 
-    providerService = moduleRef.get(ProviderService);
     cacheService = moduleRef.get(DepositCacheService);
-
-    jest.spyOn(providerService, 'getChainId').mockImplementation(async () => 0);
   });
 
   afterEach(async () => {

@@ -1,5 +1,4 @@
-export interface DefenderState {
-  actualStateIndex: number;
+export interface ContractsState {
   keysOpIndex: number;
   depositRoot: string;
 }

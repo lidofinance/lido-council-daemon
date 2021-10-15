@@ -8,15 +8,13 @@ import { INTERFACE_MAP_KEY } from '../constants';
 export function createInterface<I>(name: string): InterfaceTag<I> {
   const id = Symbol.for(name);
 
-  // @ts-ignore
   if (!global[INTERFACE_MAP_KEY]) {
-    // @ts-ignore
     global[INTERFACE_MAP_KEY] = new Map<symbol, InterfaceTag<any>>();
   }
 
-  const interfaceMap: Map<symbol, InterfaceTag<any>> =
-    // @ts-ignore
-    global[INTERFACE_MAP_KEY];
+  const interfaceMap: Map<symbol, InterfaceTag<any>> = global[
+    INTERFACE_MAP_KEY
+  ];
 
   const foundInterfaceTag = interfaceMap.get(id);
 

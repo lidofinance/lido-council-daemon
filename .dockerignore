@@ -29,6 +29,7 @@ lerna-debug.log*
 *.launch
 .settings/
 *.sublime-workspace
+.editorconfig
 
 # IDE - VSCode
 .vscode
@@ -36,3 +37,8 @@ lerna-debug.log*
 # git
 .git
 **/.github
+
+# Docker-compose
+docker-compose*.yml
+/.images
+/.volumes
