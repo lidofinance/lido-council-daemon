@@ -17,7 +17,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
 import { getNetwork } from '@ethersproject/networks';
 import { JsonRpcProvider } from '@ethersproject/providers';
-import { WALLET_PRIVATE_KEY } from 'wallet/wallet.constants';
+import { WALLET_PRIVATE_KEY } from 'wallet';
 
 describe('SecurityService', () => {
   const wallet = Wallet.createRandom();
