@@ -31,7 +31,7 @@ export class DefenderService implements OnModuleInit {
 
   private isCheckingKeys = false;
 
-  public async subscribeToEthereumUpdates() {
+  public subscribeToEthereumUpdates() {
     const provider = this.providerService.provider;
 
     provider.on('block', () => this.protectPubKeys());
