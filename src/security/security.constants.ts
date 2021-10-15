@@ -8,7 +8,10 @@ export const DEPOSIT_SECURITY_BY_NETWORK: {
 };
 
 export const getDepositSecurityAddress = (chainId: CHAINS): string => {
-  return DEPOSIT_SECURITY_BY_NETWORK[chainId];
+  const address = DEPOSIT_SECURITY_BY_NETWORK[chainId];
+  if (!address) throw new Error(`Chain ${chainId} is not supported`);
+
+  return address;
 };
 
 export enum MessageType {

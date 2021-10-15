@@ -41,7 +41,7 @@ export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
               if (level === logLevel.ERROR) logger.error(prefix, log);
               if (level === logLevel.WARN) logger.warn(prefix, log);
               if (level === logLevel.INFO) logger.log(prefix, log);
-              if (level === logLevel.DEBUG) logger.debug(prefix, log);
+              if (level === logLevel.DEBUG) logger.debug?.(prefix, log);
             };
           },
         });

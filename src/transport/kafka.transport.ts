@@ -48,8 +48,8 @@ export class KafkaTransport implements TransportInterface {
 
       await this.consumers[topic].run({
         eachMessage: async ({ topic, partition, message }) => {
-          this.logger.debug(`Received message [${topic}] [${partition}]`);
-          const data = this.safeJsonParse(message.value.toString());
+          this.logger.debug?.(`Received message [${topic}] [${partition}]`);
+          const data = this.safeJsonParse(message.value?.toString());
 
           if (data) {
             await cb(data);
@@ -68,7 +68,7 @@ export class KafkaTransport implements TransportInterface {
     );
   }
 
-  protected safeJsonParse(str: string): any | void {
+  protected safeJsonParse(str = ''): any | void {
     try {
       return JSON.parse(str);
     } catch (e) {}

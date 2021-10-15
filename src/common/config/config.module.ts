@@ -29,7 +29,7 @@ export class ConfigModule {
                 validationError: { target: false, value: false },
               });
               return config;
-            } catch (validationErrors) {
+            } catch (validationErrors: any) {
               validationErrors.forEach((error: Record<string, unknown>) => {
                 const jsonError = JSON.stringify({
                   context: 'ConfigModule',

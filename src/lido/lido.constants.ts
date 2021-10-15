@@ -8,5 +8,8 @@ export const LIDO_BY_NETWORK: {
 };
 
 export const getLidoAddress = (chainId: CHAINS): string => {
-  return LIDO_BY_NETWORK[chainId];
+  const address = LIDO_BY_NETWORK[chainId];
+  if (!address) throw new Error(`Chain ${chainId} is not supported`);
+
+  return address;
 };

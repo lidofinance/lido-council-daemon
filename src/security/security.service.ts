@@ -179,7 +179,7 @@ export class SecurityService {
   public async pauseDeposits(
     blockNumber: number,
     signature: Signature,
-  ): Promise<ContractReceipt> {
+  ): Promise<ContractReceipt | void> {
     const { r, _vs: vs } = signature;
 
     this.logger.warn('Try to pause deposits');

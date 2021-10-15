@@ -72,7 +72,7 @@ export class DepositService {
   ): Promise<DepositEventGroup> {
     try {
       return await this.fetchEvents(startBlock, endBlock);
-    } catch (error) {
+    } catch (error: any) {
       const isLimitExceeded = error?.error?.code === ERROR_LIMIT_EXCEEDED;
       const isTimeout = error?.code === 'TIMEOUT';
       const isPartitionRequired = isTimeout || isLimitExceeded;
@@ -80,7 +80,7 @@ export class DepositService {
       const isPartitionable = endBlock - startBlock > 1;
 
       if (isPartitionable && isPartitionRequired) {
-        this.logger.debug(`Limit exceeded, try to split the chunk`, {
+        this.logger.debug?.(`Limit exceeded, try to split the chunk`, {
           startBlock,
           endBlock,
         });
@@ -121,7 +121,7 @@ export class DepositService {
     const eventGroup = await this.fetchEventsRecursive(startBlock, endBlock);
 
     const events = eventGroup.events.length;
-    this.logger.debug('Fresh events are fetched', {
+    this.logger.debug?.('Fresh events are fetched', {
       startBlock,
       endBlock,
       events,
@@ -148,7 +148,7 @@ export class DepositService {
 
   public async cacheEventsWrapped(): Promise<void> {
     const fetchTimeStart = performance.now();
-    const result = await this.cacheEvents();
+    const result = (await this.cacheEvents()) || {};
 
     const fetchTimeEnd = performance.now();
     const fetchTime = Math.ceil(fetchTimeEnd - fetchTimeStart) / 1000;
