@@ -9,22 +9,33 @@ import { implementationOf } from '../common/di/decorators/implementationOf';
 export class KafkaTransport implements TransportInterface {
   protected consumers: { [topic: string]: Consumer } = {};
   protected producer: Producer;
+  protected producerConnected = false;
 
   public constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private kafka: Kafka,
   ) {
     this.producer = this.kafka.producer();
-  }
 
-  public async publish<T>(topic: string, message: T): Promise<void> {
     this.producer.on('producer.connect', () => {
+      this.producerConnected = true;
       this.logger.log('Producer connected to kafka', {
         context: 'KafkaTransport',
       });
     });
 
-    await this.producer.connect();
+    this.producer.on('producer.disconnect', () => {
+      this.producerConnected = false;
+      this.logger.log('Producer disconnected to kafka', {
+        context: 'KafkaTransport',
+      });
+    });
+  }
+
+  public async publish<T>(topic: string, message: T): Promise<void> {
+    if (!this.producerConnected) {
+      await this.producer.connect();
+    }
     await this.producer.send({
       topic,
       messages: [

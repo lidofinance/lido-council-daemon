@@ -1,4 +1,4 @@
-FROM node:14.17.1-alpine3.13 as building
+FROM node:14.18.1-alpine3.13 as building
 
 # needed for git dependencies
 RUN apk update && apk upgrade && \
@@ -19,7 +19,7 @@ COPY ./src ./src
 RUN yarn typechain
 RUN yarn build
 
-FROM node:14.17.1-alpine3.13
+FROM node:14.18.1-alpine3.13
 
 WORKDIR /usr/src/app
 
