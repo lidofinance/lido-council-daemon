@@ -12,13 +12,14 @@ import { SecurityService } from 'security';
 import { TransportInterface } from 'transport';
 import { ContractsState } from './interfaces';
 import {
-  getMessageTopic,
-  DEFENDER_DEPOSIT_RESIGNING_BLOCKS,
-  DEFENDER_PAUSE_RESIGNING_BLOCKS,
-} from './defender.constants';
+  getMessageTopicPrefix,
+  GUARDIAN_DEPOSIT_RESIGNING_BLOCKS,
+  GUARDIAN_PAUSE_RESIGNING_BLOCKS,
+} from './guardian.constants';
+import { Configuration } from 'common/config';
 
 @Injectable()
-export class DefenderService implements OnModuleInit {
+export class GuardianService implements OnModuleInit {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private registryService: RegistryService,
@@ -26,6 +27,7 @@ export class DefenderService implements OnModuleInit {
     private securityService: SecurityService,
     private providerService: ProviderService,
     private transportService: TransportInterface,
+    private config: Configuration,
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -39,7 +41,7 @@ export class DefenderService implements OnModuleInit {
     const provider = this.providerService.provider;
 
     provider.on('block', () => this.protectPubKeys());
-    this.logger.log('DefenderService subscribed to Ethereum events');
+    this.logger.log('GuardianService subscribed to Ethereum events');
   }
 
   public matchPubKeys(
@@ -148,17 +150,20 @@ export class DefenderService implements OnModuleInit {
 
   public async getDepositResigningIndex(): Promise<number> {
     const block = await this.providerService.getBlockNumber();
-    return Math.ceil(block / DEFENDER_DEPOSIT_RESIGNING_BLOCKS);
+    return Math.ceil(block / GUARDIAN_DEPOSIT_RESIGNING_BLOCKS);
   }
 
   public async getPauseResigningIndex(): Promise<number> {
     const block = await this.providerService.getBlockNumber();
-    return Math.ceil(block / DEFENDER_PAUSE_RESIGNING_BLOCKS);
+    return Math.ceil(block / GUARDIAN_PAUSE_RESIGNING_BLOCKS);
   }
 
   public async getMessageTopic(): Promise<string> {
     const chainId = await this.providerService.getChainId();
-    return getMessageTopic(chainId);
+    const prefix = getMessageTopicPrefix(chainId);
+    const topic = this.config.KAFKA_TOPIC;
+
+    return `${prefix}-${topic}`;
   }
 
   public async sendMessage(message: unknown): Promise<void> {

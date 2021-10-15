@@ -4,7 +4,7 @@ import { ProviderModule } from 'provider';
 import { RegistryModule } from 'registry';
 import { SecurityModule } from 'security';
 import { TransportModule } from 'transport';
-import { DefenderService } from './defender.service';
+import { GuardianService } from './guardian.service';
 
 @Module({
   imports: [
@@ -14,7 +14,7 @@ import { DefenderService } from './defender.service';
     ProviderModule,
     TransportModule,
   ],
-  providers: [DefenderService],
-  exports: [DefenderService],
+  providers: [GuardianService],
+  exports: [GuardianService],
 })
-export class DefenderModule {}
+export class GuardianModule {}
