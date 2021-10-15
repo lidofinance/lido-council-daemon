@@ -205,30 +205,4 @@ describe('RegistryService', () => {
       expect(providerCall).toBeCalledTimes(1);
     });
   });
-
-  describe('getActualStateIndex', () => {
-    it('should return the same value for near block', async () => {
-      const providerCall = jest
-        .spyOn(providerService, 'getBlockNumber')
-        .mockImplementationOnce(async () => 101)
-        .mockImplementationOnce(async () => 102);
-
-      const firstIndex = await registryService.getActualStateIndex();
-      const secondIndex = await registryService.getActualStateIndex();
-      expect(firstIndex).toBe(secondIndex);
-      expect(providerCall).toBeCalledTimes(2);
-    });
-
-    it('should return the unique value for far block', async () => {
-      const providerCall = jest
-        .spyOn(providerService, 'getBlockNumber')
-        .mockImplementationOnce(async () => 101)
-        .mockImplementationOnce(async () => 301);
-
-      const firstIndex = await registryService.getActualStateIndex();
-      const secondIndex = await registryService.getActualStateIndex();
-      expect(firstIndex).not.toBe(secondIndex);
-      expect(providerCall).toBeCalledTimes(2);
-    });
-  });
 });

@@ -13,5 +13,3 @@ export const getRegistryAddress = (chainId: CHAINS): string => {
 
   return address;
 };
-
-export const REGISTRY_DATA_UPDATE_FREQUENCY = 50;

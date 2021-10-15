@@ -10,8 +10,12 @@ import { RegistryService } from 'registry';
 import { ProviderService } from 'provider';
 import { SecurityService } from 'security';
 import { TransportInterface } from 'transport';
-import { DefenderState } from './interfaces';
-import { getMessageTopic } from './defender.constants';
+import { ContractsState } from './interfaces';
+import {
+  getMessageTopic,
+  DEFENDER_DEPOSIT_RESIGNING_BLOCKS,
+  DEFENDER_PAUSE_RESIGNING_BLOCKS,
+} from './defender.constants';
 
 @Injectable()
 export class DefenderService implements OnModuleInit {
@@ -45,23 +49,42 @@ export class DefenderService implements OnModuleInit {
     return nextPubKeys.filter((nextPubKey) => depositedPubKeys.has(nextPubKey));
   }
 
-  public state: DefenderState | null = null;
+  private contractsState: ContractsState | null = null;
+  private depositResigningIndex: number | null = null;
+  private pauseResigningIndex: number | null = null;
 
-  public isSameState(
-    actualStateIndex: number,
+  public isSameContractsState(
     keysOpIndex: number,
     depositRoot: string,
   ): boolean {
-    const previousState = this.state;
-    this.state = { actualStateIndex, keysOpIndex, depositRoot };
+    const previousState = this.contractsState;
+    this.contractsState = { keysOpIndex, depositRoot };
 
     if (!previousState) return false;
     const isSameKeysInRegistry = previousState.keysOpIndex === keysOpIndex;
     const isSameKeysInDeposit = previousState.depositRoot === depositRoot;
-    const isSameActualIndex =
-      previousState.actualStateIndex === actualStateIndex;
 
-    return isSameActualIndex && isSameKeysInRegistry && isSameKeysInDeposit;
+    return isSameKeysInRegistry && isSameKeysInDeposit;
+  }
+
+  public async isSameDepositResigningIndex(): Promise<boolean> {
+    const depositResigningIndex = await this.getDepositResigningIndex();
+
+    const previousState = this.depositResigningIndex;
+    this.depositResigningIndex = depositResigningIndex;
+
+    if (!previousState) return false;
+    return previousState === depositResigningIndex;
+  }
+
+  public async isSamePauseResigningIndex(): Promise<boolean> {
+    const pauseResigningIndex = await this.getPauseResigningIndex();
+
+    const previousState = this.pauseResigningIndex;
+    this.pauseResigningIndex = pauseResigningIndex;
+
+    if (!previousState) return false;
+    return previousState === pauseResigningIndex;
   }
 
   public async protectPubKeys() {
@@ -75,27 +98,39 @@ export class DefenderService implements OnModuleInit {
       const [
         nextPubKeys,
         keysOpIndex,
-        actualStateIndex,
         depositedPubKeys,
         depositRoot,
+        isSameDepositResigningIndex,
+        isSamePauseResigningIndex,
       ] = await Promise.all([
         this.registryService.getNextKeys(),
         this.registryService.getKeysOpIndex(),
-        this.registryService.getActualStateIndex(),
         this.depositService.getAllPubKeys(),
         this.depositService.getDepositRoot(),
+        this.isSameDepositResigningIndex(),
+        this.isSamePauseResigningIndex(),
       ]);
-
-      if (this.isSameState(actualStateIndex, keysOpIndex, depositRoot)) {
-        return;
-      }
 
       const alreadyDepositedPubKeys = this.matchPubKeys(
         nextPubKeys,
         depositedPubKeys,
       );
 
-      if (alreadyDepositedPubKeys.length) {
+      const isIntersectionsFound = alreadyDepositedPubKeys.length > 0;
+      const isSameContractsState = this.isSameContractsState(
+        keysOpIndex,
+        depositRoot,
+      );
+
+      const isSameResigningIndex = isIntersectionsFound
+        ? isSamePauseResigningIndex
+        : isSameDepositResigningIndex;
+
+      if (isSameContractsState && isSameResigningIndex) {
+        return;
+      }
+
+      if (isIntersectionsFound) {
         this.logger.warn('Already deposited keys found', {
           keys: alreadyDepositedPubKeys,
         });
@@ -109,6 +144,16 @@ export class DefenderService implements OnModuleInit {
     } finally {
       this.isCheckingKeys = false;
     }
+  }
+
+  public async getDepositResigningIndex(): Promise<number> {
+    const block = await this.providerService.getBlockNumber();
+    return Math.ceil(block / DEFENDER_DEPOSIT_RESIGNING_BLOCKS);
+  }
+
+  public async getPauseResigningIndex(): Promise<number> {
+    const block = await this.providerService.getBlockNumber();
+    return Math.ceil(block / DEFENDER_PAUSE_RESIGNING_BLOCKS);
   }
 
   public async getMessageTopic(): Promise<string> {

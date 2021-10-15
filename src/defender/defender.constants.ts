@@ -13,3 +13,6 @@ export const getMessageTopic = (chainId: CHAINS): string => {
 
   return address;
 };
+
+export const DEFENDER_DEPOSIT_RESIGNING_BLOCKS = 50;
+export const DEFENDER_PAUSE_RESIGNING_BLOCKS = 50;
