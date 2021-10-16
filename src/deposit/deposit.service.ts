@@ -135,41 +135,26 @@ export class DepositService {
 
     provider.on('block', async (blockNumber) => {
       if (blockNumber % DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE !== 0) return;
-      await this.cacheEventsWrapped();
+      await this.cacheEvents();
     });
 
     this.logger.log('DepositService subscribed to Ethereum events');
   }
 
   public async initialize(): Promise<void> {
-    await this.cacheEventsWrapped();
+    await this.cacheEvents();
     this.subscribeToEthereumUpdates();
-  }
-
-  public async cacheEventsWrapped(): Promise<void> {
-    const fetchTimeStart = performance.now();
-    const result = (await this.cacheEvents()) || {};
-
-    const fetchTimeEnd = performance.now();
-    const fetchTime = Math.ceil(fetchTimeEnd - fetchTimeStart) / 1000;
-
-    if (result) {
-      this.logger.log('Cache is updated', { ...result, fetchTime });
-    } else {
-      this.logger.warn('Cache update problem', { ...result, fetchTime });
-    }
   }
 
   public async cacheEvents(): Promise<{
     newEvents: number;
     totalEvents: number;
   } | void> {
-    if (this.isCollectingEvents) {
-      return;
-    }
+    if (this.isCollectingEvents) return;
 
     try {
       this.isCollectingEvents = true;
+      const fetchTimeStart = performance.now();
 
       const [currentBlock, initialCache] = await Promise.all([
         this.providerService.getBlockNumber(),
@@ -210,6 +195,15 @@ export class DepositService {
 
       const totalEvents = eventGroup.events.length;
       const newEvents = totalEvents - initialCache.events.length;
+
+      const fetchTimeEnd = performance.now();
+      const fetchTime = Math.ceil(fetchTimeEnd - fetchTimeStart) / 1000;
+
+      this.logger.log('Cache is updated', {
+        newEvents,
+        totalEvents,
+        fetchTime,
+      });
 
       return { newEvents, totalEvents };
     } catch (error) {

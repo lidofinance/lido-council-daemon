@@ -9,7 +9,7 @@ import { DepositService } from 'deposit';
 import { RegistryService } from 'registry';
 import { ProviderService } from 'provider';
 import { SecurityService } from 'security';
-import { MessagesService } from 'messages';
+import { MessageRequiredFields, MessagesService } from 'messages';
 import { ContractsState } from './interfaces';
 import { GUARDIAN_DEPOSIT_RESIGNING_BLOCKS } from './guardian.constants';
 
@@ -98,7 +98,21 @@ export class GuardianService implements OnModuleInit {
     this.securityService.pauseDeposits(blockNumber, signature);
 
     this.logger.warn('Suspicious case detected', pauseMessageData);
-    await this.messagesService.sendMessage(pauseMessageData);
+    await this.sendMessageFromGuardian(pauseMessageData);
+  }
+
+  public async sendMessageFromGuardian<T extends MessageRequiredFields>(
+    messageData: T,
+  ): Promise<void> {
+    if (messageData.guardianIndex == -1) {
+      this.logger.warn(
+        'Your address is not in the Guardian List. The message will not be sent',
+      );
+
+      return;
+    }
+
+    await this.messagesService.sendMessage(messageData);
   }
 
   private lastContractsState: ContractsState | null = null;
@@ -128,7 +142,7 @@ export class GuardianService implements OnModuleInit {
     );
 
     this.logger.log('No problems found', depositData);
-    await this.messagesService.sendMessage(depositData);
+    await this.sendMessageFromGuardian(depositData);
   }
 
   public isSameContractsStates(

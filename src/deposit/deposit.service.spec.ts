@@ -273,10 +273,6 @@ describe('DepositService', () => {
     it.todo('should subscribe to updates');
   });
 
-  describe('cacheEventsWrapped', () => {
-    it.todo('should call cacheEvents');
-  });
-
   describe('cacheEvents', () => {
     it.todo('should collect events');
     it.todo('should start collecting from the last cached block + 1');
