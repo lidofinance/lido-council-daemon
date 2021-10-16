@@ -4,7 +4,7 @@
   "description": "Lido Council Daemon",
   "author": "Lido team",
   "private": true,
-  "license": "MIT",
+  "license": "Apache-2.0",
   "config": {
     "dockerorg": "lidofinance"
   },
