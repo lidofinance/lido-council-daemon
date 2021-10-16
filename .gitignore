@@ -46,3 +46,6 @@ lerna-debug.log*
 # Docker
 /.images
 /.volumes
+
+# Ansible
+/ansible

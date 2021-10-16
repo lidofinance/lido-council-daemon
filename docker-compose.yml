@@ -2,7 +2,7 @@ version: '3.7'
 
 services:
   council-daemon:
-    image: lidofinance/lido-council-daemon:1.0.0
+    image: lidofinance/lido-council-daemon@sha256:9b8de41aea016736a4ee417e604f4d0329993d45f07796bde3a0e741284db16b
     ports:
       - "3000:3000"
     environment:
@@ -15,5 +15,10 @@ services:
       - "KAFKA_USERNAME=<kafka user>"
       - "KAFKA_PASSWORD=<kafka password>"
       - "KAFKA_BROKER_ADDRESS_1=<kafka address>"
-      - "WALLET_PRIVATE_KEY=<wallet private key>"
+      - "KAFKA_TOPIC=defender"
+      - "WALLET_PRIVATE_KEY"
+
+    # volumes can be omitted if needed
+    volumes:
+      - ./.volumes/cache/:/council/cache/
 

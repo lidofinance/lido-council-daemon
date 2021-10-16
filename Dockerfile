@@ -4,7 +4,9 @@ FROM node:14.18.1-alpine3.13 as building
 RUN apk update && apk upgrade && \
     apk add --no-cache bash git openssh
 
-WORKDIR /usr/src/app
+RUN mkdir /council
+
+WORKDIR /council
 
 # we need specific npm version for git dependencies
 RUN npm i -g npm@7.19.0
@@ -21,10 +23,12 @@ RUN yarn build
 
 FROM node:14.18.1-alpine3.13
 
-WORKDIR /usr/src/app
+RUN mkdir /council
 
-COPY --from=building /usr/src/app/dist ./dist
-COPY --from=building /usr/src/app/node_modules ./node_modules
+WORKDIR /council
+
+COPY --from=building /council/dist ./dist
+COPY --from=building /council/node_modules ./node_modules
 COPY ./package*.json ./
 COPY ./yarn*.lock ./
 

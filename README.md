@@ -9,12 +9,13 @@ There are several ways to run a daemon:
 ### 1. Use image from Docker hub
 
 You can pull image from dockerhub and run it manually or via docker-compose
-(`docker-compose.yml` can be found in repository root)
-
+(`docker-compose.yml` can be found in repository root).
+Volumes can be omitted if needed.
 ```bash
-docker pull lidofinance/lido-council-daemon:1.0.0
+docker pull lidofinance/lido-council-daemon@sha256:9b8de41aea016736a4ee417e604f4d0329993d45f07796bde3a0e741284db16b
 
 docker run  \
+  -v /path/to/cache:/council/cache/ \
   -p 3000:3000/tcp \
   -e PORT='3000' \
   -e LOG_LEVEL='debug' \
@@ -25,8 +26,9 @@ docker run  \
   -e KAFKA_USERNAME='<kafka user>' \
   -e KAFKA_PASSWORD='<kafka password>' \
   -e KAFKA_BROKER_ADDRESS_1='<kafka address>' \
-  -e WALLET_PRIVATE_KEY='<wallet private key>' \
-  lidofinance/lido-council-daemon:1.0.0
+  -e KAFKA_TOPIC=defender \
+  -e WALLET_PRIVATE_KEY \
+  lidofinance/lido-council-daemon@sha256:9b8de41aea016736a4ee417e604f4d0329993d45f07796bde3a0e741284db16b
 ```
 
 ### 2. Build Docker image locally
