@@ -19,16 +19,12 @@ export class KafkaTransport implements TransportInterface {
 
     this.producer.on('producer.connect', () => {
       this.producerConnected = true;
-      this.logger.log('Producer connected to kafka', {
-        context: 'KafkaTransport',
-      });
+      this.logger.log('Producer connected to kafka', 'KafkaTransport');
     });
 
     this.producer.on('producer.disconnect', () => {
       this.producerConnected = false;
-      this.logger.log('Producer disconnected to kafka', {
-        context: 'KafkaTransport',
-      });
+      this.logger.log('Producer disconnected to kafka', 'KafkaTransport');
     });
   }
 
