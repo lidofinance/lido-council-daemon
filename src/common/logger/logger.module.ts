@@ -15,13 +15,12 @@ export const LoggerModule = WinstonModule.forRootAsync({
                 winston.format.colorize({ all: true }),
                 winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
                 winston.format.simple(),
-                winston.format.printf(
-                  ({ level, message, timestamp, context }) => {
-                    return `${timestamp} ${level}: ${message} ${JSON.stringify(
-                      context,
-                    )}`;
-                  },
-                ),
+                winston.format.printf((log) => {
+                  const { timestamp, level, message, context } = log;
+                  const extra = context ? JSON.stringify(context) : '';
+
+                  return `${timestamp} ${level}: ${message} ${extra}`;
+                }),
               ),
       }),
     ],

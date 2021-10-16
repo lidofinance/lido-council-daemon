@@ -36,7 +36,7 @@ export class SecurityService implements OnModuleInit {
     const address = this.walletService.address;
 
     if (guardianIndex === -1) {
-      this.logger.warn(`You address is not in the Guardian List`, { address });
+      this.logger.warn(`Your address is not in the Guardian List`, { address });
     } else {
       this.logger.log(`You address is in the Guardian List`, { address });
     }

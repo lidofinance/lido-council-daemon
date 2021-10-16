@@ -8,9 +8,9 @@ There are several ways to run a daemon:
 
 ### 1. Use image from Docker hub
 
-
 You can pull image from dockerhub and run it manually or via docker-compose
 (`docker-compose.yml` can be found in repository root)
+
 ```bash
 docker pull lidofinance/lido-council-daemon:1.0.0
 
@@ -28,7 +28,6 @@ docker run  \
   -e WALLET_PRIVATE_KEY='<wallet private key>' \
   lidofinance/lido-council-daemon:1.0.0
 ```
-
 
 ### 2. Build Docker image locally
 
@@ -116,21 +115,21 @@ On startup, the daemon checks if the provided wallet address belongs to the list
 
 ```
 warn: Private key is not provided, a random address will be generated for the test run
-warn: Account balance is too low
-warn: You address is not in the Guardian List
+warn: Account balance is too low {"balance":"1.0 ETH"}
+warn: Your address is not in the Guardian List {"address":"0x0000000000000000000000000000000000000000"}
 ```
 
 If all goes well, it will be in the logs:
 
 ```
-info: Account balance is sufficient {"context":{"balance":"1.0 ETH"}}
-info: You address is in the Guardian List {"context":{"address":"0x0000000000000000000000000000000000000000"}}
+info: Account balance is sufficient {"balance":"1.0 ETH"}
+info: You address is in the Guardian List {"address":"0x0000000000000000000000000000000000000000"}
 ```
 
 At the first startup the daemon will collect historical data:
 
 ```
-info: Historical events are fetched {"context":{"endBlock":4487322,"events":3,"startBlock":4467323}}
+info: Historical events are fetched {"endBlock":4487322,"events":3,"startBlock":4467323}
 ```
 
 ## Development
