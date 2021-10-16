@@ -9,7 +9,10 @@ import {
   LoggerService,
   OnModuleInit,
 } from '@nestjs/common';
+import { InjectMetric } from '@willsoto/nestjs-prometheus';
+import { METRIC_ACCOUNT_BALANCE } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { Gauge } from 'prom-client';
 import { ProviderService } from 'provider';
 import { WALLET_MIN_BALANCE } from 'wallet';
 import { WALLET_PRIVATE_KEY } from './wallet.constants';
@@ -17,6 +20,7 @@ import { WALLET_PRIVATE_KEY } from './wallet.constants';
 @Injectable()
 export class WalletService implements OnModuleInit {
   constructor(
+    @InjectMetric(METRIC_ACCOUNT_BALANCE) private accountBalance: Gauge<string>,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     @Inject(WALLET_PRIVATE_KEY) private privateKey: string,
     private providerService: ProviderService,
@@ -24,8 +28,11 @@ export class WalletService implements OnModuleInit {
 
   async onModuleInit() {
     const provider = this.providerService.provider;
-    const balanceWei = await provider.getBalance(this.address);
+    const guardianAddress = this.address;
+    const balanceWei = await provider.getBalance(guardianAddress);
     const balance = `${formatEther(balanceWei)} ETH`;
+
+    this.accountBalance.set(Number(formatEther(balanceWei)));
 
     if (balanceWei.lt(WALLET_MIN_BALANCE)) {
       this.logger.warn('Account balance is too low', { balance });

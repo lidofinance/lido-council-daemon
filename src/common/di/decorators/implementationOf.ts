@@ -9,7 +9,6 @@ import { InterfaceTag } from '../types/InterfaceTag';
  * `foo instanceof IFoo`
  */
 export function implementationOf<T>(interfaceTag: InterfaceTag<T>) {
-  // tslint:disable-next-line:only-arrow-functions
   return function (target: new (...args: any[]) => T): any {
     const tags: symbol[] = [];
 

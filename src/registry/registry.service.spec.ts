@@ -14,6 +14,7 @@ import { SecurityModule, SecurityService } from 'security';
 import { RegistryService } from './registry.service';
 import { getNetwork } from '@ethersproject/networks';
 import { JsonRpcProvider } from '@ethersproject/providers';
+import { PrometheusModule } from 'common/prometheus';
 
 describe('RegistryService', () => {
   let providerService: ProviderService;
@@ -32,6 +33,7 @@ describe('RegistryService', () => {
       imports: [
         ConfigModule.forRoot(),
         LoggerModule,
+        PrometheusModule,
         LidoModule,
         ProviderModule,
         SecurityModule,
@@ -153,7 +155,7 @@ describe('RegistryService', () => {
     });
   });
 
-  describe('getNextKeys', () => {
+  describe('getNextSigningKeys', () => {
     const lidoAddress = '0x' + '0'.repeat(40);
     const keyLength = 2;
     const pubkeys = '0x12345678';
@@ -181,7 +183,7 @@ describe('RegistryService', () => {
           return iface.encodeFunctionResult('assignNextSigningKeys', result);
         });
 
-      const result = await registryService.getNextKeys();
+      const result = await registryService.getNextSigningKeys();
 
       expect(result).toEqual(expected);
       expect(providerCall).toHaveBeenCalledTimes(1);

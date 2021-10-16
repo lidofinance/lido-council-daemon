@@ -165,7 +165,7 @@ describe('DepositService', () => {
     });
   });
 
-  describe('fetchEventsRecursive', () => {
+  describe('fetchEventsFallOver', () => {
     it('should fetch events', async () => {
       const expected = {} as any;
       const from = 0;
@@ -175,7 +175,7 @@ describe('DepositService', () => {
         .spyOn(depositService, 'fetchEvents')
         .mockImplementation(async () => expected);
 
-      const result = await depositService.fetchEventsRecursive(from, to);
+      const result = await depositService.fetchEventsFallOver(from, to);
 
       expect(mockFetchEvents).toBeCalledTimes(1);
       expect(mockFetchEvents).toBeCalledWith(from, to);
@@ -199,7 +199,7 @@ describe('DepositService', () => {
         .mockImplementationOnce(async () => expectedFirst)
         .mockImplementationOnce(async () => expectedSecond);
 
-      const result = await depositService.fetchEventsRecursive(
+      const result = await depositService.fetchEventsFallOver(
         startBlock,
         endBlock,
       );
@@ -237,7 +237,7 @@ describe('DepositService', () => {
         })
         .mockImplementationOnce(async () => expected);
 
-      const result = await depositService.fetchEventsRecursive(
+      const result = await depositService.fetchEventsFallOver(
         startBlock,
         endBlock,
       );
@@ -284,7 +284,7 @@ describe('DepositService', () => {
     it.todo('should exit if the previous call is not completed');
   });
 
-  describe('getAllPubKeys', () => {
+  describe('getAllDepositedPubKeys', () => {
     const cachedPubkeys = ['0x1234', '0x5678'];
     const freshPubkeys = ['0x4321', '0x8765'];
 
@@ -305,7 +305,7 @@ describe('DepositService', () => {
         .spyOn(providerService.provider, 'getLogs')
         .mockImplementation(async () => []);
 
-      const result = await depositService.getAllPubKeys();
+      const result = await depositService.getAllDepositedPubKeys();
       const expected = new Set(cachedPubkeys);
       expect(result).toEqual(expected);
       expect(providerCall).toHaveBeenCalledTimes(1);
@@ -324,7 +324,7 @@ describe('DepositService', () => {
           });
         });
 
-      const result = await depositService.getAllPubKeys();
+      const result = await depositService.getAllDepositedPubKeys();
       const expected = new Set(cachedPubkeys.concat(freshPubkeys));
       expect(result).toEqual(expected);
       expect(providerCall).toHaveBeenCalledTimes(1);

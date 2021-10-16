@@ -66,7 +66,7 @@ export class DepositService {
     return await this.cacheService.setCache(eventGroup);
   }
 
-  public async fetchEventsRecursive(
+  public async fetchEventsFallOver(
     startBlock: number,
     endBlock: number,
   ): Promise<DepositEventGroup> {
@@ -87,8 +87,8 @@ export class DepositService {
 
         const center = Math.ceil((endBlock + startBlock) / 2);
         const [first, second] = await Promise.all([
-          this.fetchEventsRecursive(startBlock, center - 1),
-          this.fetchEventsRecursive(center, endBlock),
+          this.fetchEventsFallOver(startBlock, center - 1),
+          this.fetchEventsFallOver(center, endBlock),
         ]);
 
         const events = first.events.concat(second.events);
@@ -98,7 +98,7 @@ export class DepositService {
         this.logger.warn('Fetch error. Retry', error);
 
         await sleep(DEPOSIT_EVENTS_RETRY_TIMEOUT_MS);
-        return await this.fetchEventsRecursive(startBlock, endBlock);
+        return await this.fetchEventsFallOver(startBlock, endBlock);
       }
     }
   }
@@ -118,7 +118,7 @@ export class DepositService {
   public async getFreshEvents(): Promise<DepositEventGroup> {
     const endBlock = await this.providerService.getBlockNumber();
     const startBlock = endBlock - DEPOSIT_EVENTS_FRESH_BLOCKS;
-    const eventGroup = await this.fetchEventsRecursive(startBlock, endBlock);
+    const eventGroup = await this.fetchEventsFallOver(startBlock, endBlock);
 
     const events = eventGroup.events.length;
     this.logger.debug?.('Fresh events are fetched', {
@@ -191,7 +191,7 @@ export class DepositService {
           block + DEPOSIT_EVENTS_STEP - 1,
         );
 
-        const chunkEventGroup = await this.fetchEventsRecursive(
+        const chunkEventGroup = await this.fetchEventsFallOver(
           chunkStartBlock,
           chunkToBlock,
         );
@@ -219,7 +219,7 @@ export class DepositService {
     }
   }
 
-  public async getAllPubKeys(): Promise<Set<string>> {
+  public async getAllDepositedPubKeys(): Promise<Set<string>> {
     const [cachedEvents, freshEvents] = await Promise.all([
       this.getCachedEvents(),
       this.getFreshEvents(),

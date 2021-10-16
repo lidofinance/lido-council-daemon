@@ -2,15 +2,15 @@ import { Module } from '@nestjs/common';
 
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
-import { DefenderModule } from 'defender';
-import { TransportModule } from 'transport';
+import { PrometheusModule } from 'common/prometheus';
+import { GuardianModule } from 'guardian';
 
 @Module({
   imports: [
     ConfigModule.forRoot(),
+    PrometheusModule,
     LoggerModule,
-    DefenderModule,
-    TransportModule,
+    GuardianModule,
   ],
 })
 export class AppModule {}

@@ -36,6 +36,9 @@ export class InMemoryConfiguration implements Configuration {
   @IsString()
   KAFKA_CLIENT_ID = '';
 
+  @IsString()
+  KAFKA_TOPIC = '';
+
   @IsNotEmpty()
   @IsString()
   @IsIn(['kafka', 'libp2p'])
