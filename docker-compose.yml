@@ -4,7 +4,7 @@ services:
   council-daemon:
     image: lidofinance/lido-council-daemon@sha256:9b8de41aea016736a4ee417e604f4d0329993d45f07796bde3a0e741284db16b
     ports:
-      - "3000:3000"
+      - "3000:3000" # port is used for prometheus metrics
     environment:
       - "PORT=3000"
       - "LOG_LEVEL=debug"

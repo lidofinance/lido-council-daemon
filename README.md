@@ -14,8 +14,8 @@ Volumes can be omitted if needed.
 ```bash
 docker pull lidofinance/lido-council-daemon@sha256:9b8de41aea016736a4ee417e604f4d0329993d45f07796bde3a0e741284db16b
 
-docker run  \
-  -v /path/to/cache:/council/cache/ \
+docker run -i -t \
+  -v ${PWD}/.volumes/council/cache:/council/cache/ \
   -p 3000:3000/tcp \
   -e PORT='3000' \
   -e LOG_LEVEL='debug' \
