@@ -3,7 +3,7 @@ import { DepositModule } from 'deposit';
 import { ProviderModule } from 'provider';
 import { RegistryModule } from 'registry';
 import { SecurityModule } from 'security';
-import { TransportModule } from 'transport';
+import { MessagesModule } from 'messages';
 import { GuardianService } from './guardian.service';
 
 @Module({
@@ -12,7 +12,7 @@ import { GuardianService } from './guardian.service';
     DepositModule,
     SecurityModule,
     ProviderModule,
-    TransportModule,
+    MessagesModule,
   ],
   providers: [GuardianService],
   exports: [GuardianService],

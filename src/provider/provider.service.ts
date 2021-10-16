@@ -11,7 +11,11 @@ export class ProviderService {
   }
 
   public async getBlockNumber(): Promise<number> {
-    return await this.provider.getBlockNumber();
+    const cachedBlockNumber = this.provider.blockNumber;
+
+    return cachedBlockNumber === -1
+      ? await this.provider.getBlockNumber()
+      : cachedBlockNumber;
   }
 
   public async getBlock(): Promise<Block> {

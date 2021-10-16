@@ -9,13 +9,9 @@ import { DepositService } from 'deposit';
 import { RegistryService } from 'registry';
 import { ProviderService } from 'provider';
 import { SecurityService } from 'security';
-import { TransportInterface } from 'transport';
+import { MessagesService } from 'messages';
 import { ContractsState } from './interfaces';
-import {
-  getMessageTopicPrefix,
-  GUARDIAN_DEPOSIT_RESIGNING_BLOCKS,
-} from './guardian.constants';
-import { Configuration } from 'common/config';
+import { GUARDIAN_DEPOSIT_RESIGNING_BLOCKS } from './guardian.constants';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -25,8 +21,7 @@ export class GuardianService implements OnModuleInit {
     private depositService: DepositService,
     private securityService: SecurityService,
     private providerService: ProviderService,
-    private transportService: TransportInterface,
-    private config: Configuration,
+    private messagesService: MessagesService,
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -103,7 +98,7 @@ export class GuardianService implements OnModuleInit {
     this.securityService.pauseDeposits(blockNumber, signature);
 
     this.logger.warn('Suspicious case detected', pauseMessageData);
-    await this.sendMessage(pauseMessageData);
+    await this.messagesService.sendMessage(pauseMessageData);
   }
 
   private lastContractsState: ContractsState | null = null;
@@ -133,7 +128,7 @@ export class GuardianService implements OnModuleInit {
     );
 
     this.logger.log('No problems found', depositData);
-    await this.sendMessage(depositData);
+    await this.messagesService.sendMessage(depositData);
   }
 
   public isSameContractsStates(
@@ -151,18 +146,5 @@ export class GuardianService implements OnModuleInit {
     }
 
     return true;
-  }
-
-  public async getMessageTopic(): Promise<string> {
-    const chainId = await this.providerService.getChainId();
-    const prefix = getMessageTopicPrefix(chainId);
-    const topic = this.config.KAFKA_TOPIC;
-
-    return `${prefix}-${topic}`;
-  }
-
-  public async sendMessage(message: unknown): Promise<void> {
-    const topic = await this.getMessageTopic();
-    await this.transportService.publish(topic, message);
   }
 }

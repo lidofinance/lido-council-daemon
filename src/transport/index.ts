@@ -1,2 +1,2 @@
-export * from './transport.module';
 export * from './transport.interface';
+export * from './transport.module';
