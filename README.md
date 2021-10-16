@@ -132,6 +132,16 @@ At the first startup the daemon will collect historical data:
 info: Historical events are fetched {"endBlock":4487322,"events":3,"startBlock":4467323}
 ```
 
+If the daemon works correctly, the logs will look like this:
+
+```
+2021-10-16 11:05:20 debug: Fresh events are fetched {"startBlock":5679826,"endBlock":5679976,"events":6}
+2021-10-16 11:05:35 debug: Fresh events are fetched {"startBlock":5679827,"endBlock":5679977,"events":6}
+2021-10-16 11:05:52 debug: Fresh events are fetched {"startBlock":5679828,"endBlock":5679978,"events":7}
+2021-10-16 11:05:53 info: No problems found {"type":"deposit","depositRoot":"0xc2c9308fa425a64ef9cac1837412ba462b6429fce2f170184284a260b735638c","keysOpIndex":12,"blockNumber":5679978,"blockHash":"0x87762c941f653f2f70157f86deac78f19e4d1549e231a52d1191289592d1a0ab","guardianAddress":"0x3dc4cF780F2599B528F37dedB34449Fb65Ef7d4A","guardianIndex":0,"signature":{"r":"0x44fec2e6fd34e74b8f001ef0e5bbd2db6d3179925fb82cb43231e19af46f0ddd","s":"0x2ff4326af760e353803458b75279eb8f58e5735b3565ea16bcd0f773bce106a4","_vs":"0xaff4326af760e353803458b75279eb8f58e5735b3565ea16bcd0f773bce106a4","recoveryParam":1,"v":28}}
+2021-10-16 11:06:03 debug: Fresh events are fetched {"startBlock":5679829,"endBlock":5679979,"events":7}
+```
+
 ## Development
 
 ```bash
