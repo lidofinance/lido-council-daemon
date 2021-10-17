@@ -324,10 +324,6 @@ describe('DepositService', () => {
           endBlock: 2,
           events: cachedPubkeys.map((pubkey) => ({ pubkey } as any)),
         }));
-
-      // jest
-      //   .spyOn(providerService.provider, 'getBlockNumber')
-      //   .mockImplementation(async () => 3);
     });
 
     it('should return cached pub keys', async () => {
