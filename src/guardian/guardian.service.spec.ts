@@ -8,17 +8,15 @@ import { LoggerService } from '@nestjs/common';
 import { ConfigModule } from 'common/config';
 import { getNetwork } from '@ethersproject/networks';
 import { JsonRpcProvider } from '@ethersproject/providers';
-import { RegistryModule, RegistryService } from 'registry';
-import { DepositModule, DepositService } from 'deposit';
+import { RegistryModule } from 'registry';
+import { DepositModule } from 'deposit';
 import { SecurityModule } from 'security';
 import { MessagesModule } from 'messages';
 import { PrometheusModule } from 'common/prometheus';
 
 describe('GuardianService', () => {
   let providerService: ProviderService;
-  let depositService: DepositService;
   let guardianService: GuardianService;
-  let registryService: RegistryService;
   let loggerService: LoggerService;
 
   beforeEach(async () => {
@@ -47,8 +45,6 @@ describe('GuardianService', () => {
 
     providerService = moduleRef.get(ProviderService);
     guardianService = moduleRef.get(GuardianService);
-    depositService = moduleRef.get(DepositService);
-    registryService = moduleRef.get(RegistryService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
@@ -112,69 +108,81 @@ describe('GuardianService', () => {
     });
   });
 
+  describe('getCurrentBlockData', () => {
+    it.todo('should collect data from contracts');
+  });
+
   describe('checkKeysIntersections', () => {
-    const depositedKeys = ['0x1234', '0x5678'];
+    const depositedPubKeys = ['0x1234', '0x5678'];
+
+    const currentBlockData = {
+      blockNumber: 1,
+      blockHash: '0x1234',
+      depositRoot: '0x2345',
+      keysOpIndex: 1,
+      nextSigningKeys: [] as string[],
+      depositedPubKeys: new Set(depositedPubKeys),
+      guardianAddress: '0x3456',
+      guardianIndex: 1,
+      isDepositsPaused: false,
+    };
 
     beforeEach(async () => {
       jest
-        .spyOn(guardianService, 'handleKeysIntersections')
-        .mockImplementation(async () => undefined);
-
-      jest
-        .spyOn(guardianService, 'handleCorrectKeys')
-        .mockImplementation(async () => undefined);
-
-      jest
-        .spyOn(depositService, 'getAllDepositedPubKeys')
-        .mockImplementation(async () => new Set(depositedKeys));
+        .spyOn(guardianService, 'getCurrentBlockData')
+        .mockImplementation(async () => currentBlockData);
     });
 
     it('should call handleKeysIntersections if Lido unused key is found in the deposit contract', async () => {
-      const existedKey = depositedKeys[0];
+      const depositedKey = depositedPubKeys[0];
+      const nextSigningKeys = [depositedKey];
+      const blockData = { ...currentBlockData, nextSigningKeys };
 
-      const handleCorrectKeys = jest
+      const mockGetCurrentBlockData = jest
+        .spyOn(guardianService, 'getCurrentBlockData')
+        .mockImplementation(async () => blockData);
+
+      const mockHandleCorrectKeys = jest
         .spyOn(guardianService, 'handleCorrectKeys')
         .mockImplementation(async () => undefined);
 
-      const handleKeysIntersections = jest
+      const mockHandleKeysIntersections = jest
         .spyOn(guardianService, 'handleKeysIntersections')
         .mockImplementation(async () => undefined);
 
-      const mockGetNextSigningKeys = jest
-        .spyOn(registryService, 'getNextSigningKeys')
-        .mockImplementation(async () => [existedKey]);
-
       await guardianService.checkKeysIntersections();
 
-      expect(mockGetNextSigningKeys).toBeCalledTimes(1);
-      expect(handleCorrectKeys).not.toBeCalled();
-
-      expect(handleKeysIntersections).toBeCalledTimes(1);
-      expect(handleKeysIntersections).toBeCalledWith();
+      expect(mockHandleCorrectKeys).not.toBeCalled();
+      expect(mockGetCurrentBlockData).toBeCalledTimes(1);
+      expect(mockHandleKeysIntersections).toBeCalledTimes(1);
+      expect(mockHandleKeysIntersections).toBeCalledWith(blockData, [
+        depositedKey,
+      ]);
     });
 
     it('should call handleCorrectKeys if Lido unused key are not found in the deposit contract', async () => {
       const notDepositedKey = '0x2345';
+      const nextSigningKeys = [notDepositedKey];
+      const blockData = { ...currentBlockData, nextSigningKeys };
 
-      const handleCorrectKeys = jest
+      const mockGetCurrentBlockData = jest
+        .spyOn(guardianService, 'getCurrentBlockData')
+        .mockImplementation(async () => blockData);
+
+      const mockHandleCorrectKeys = jest
         .spyOn(guardianService, 'handleCorrectKeys')
         .mockImplementation(async () => undefined);
 
-      const handleKeysIntersections = jest
+      const mockHandleKeysIntersections = jest
         .spyOn(guardianService, 'handleKeysIntersections')
         .mockImplementation(async () => undefined);
 
-      const mockGetNextSigningKeys = jest
-        .spyOn(registryService, 'getNextSigningKeys')
-        .mockImplementation(async () => [notDepositedKey]);
-
       await guardianService.checkKeysIntersections();
 
-      expect(mockGetNextSigningKeys).toBeCalledTimes(1);
-      expect(handleKeysIntersections).not.toBeCalled();
-
-      expect(handleCorrectKeys).toBeCalledTimes(1);
-      expect(handleCorrectKeys).toBeCalledWith();
+      expect(mockGetCurrentBlockData).toBeCalledTimes(1);
+      expect(mockHandleKeysIntersections).not.toBeCalled();
+      expect(mockHandleCorrectKeys).toBeCalledTimes(1);
+      expect(mockHandleCorrectKeys).toBeCalledWith(blockData);
     });
 
     it('should exit if the previous call is not completed', async () => {
@@ -182,25 +190,29 @@ describe('GuardianService', () => {
         .spyOn(guardianService, 'handleCorrectKeys')
         .mockImplementation(async () => undefined);
 
-      const mockGetNextSigningKeys = jest
-        .spyOn(registryService, 'getNextSigningKeys')
-        .mockImplementation(async () => []);
+      const mockGetCurrentBlockData = jest
+        .spyOn(guardianService, 'getCurrentBlockData')
+        .mockImplementation(async () => currentBlockData);
 
       await Promise.all([
         guardianService.checkKeysIntersections(),
         guardianService.checkKeysIntersections(),
       ]);
 
-      expect(mockGetNextSigningKeys).toBeCalledTimes(1);
+      expect(mockGetCurrentBlockData).toBeCalledTimes(1);
     });
+  });
 
-    it.todo(
-      'should exit if it’s the same contracts state and the same resigning deposit index',
-    );
+  describe('handleCorrectKeys', () => {
+    it.todo('should check contracts state');
+    it.todo('should exit if contracts state is the same');
+    it.todo('should send deposit message');
+    it.todo('should exit if it’s the same contracts state');
+  });
 
-    it.todo(
-      'should exit if it’s the same contracts state and the same resigning pause index',
-    );
+  describe('handleKeysIntersections', () => {
+    it.todo('should pause deposits');
+    it.todo('should send pause message');
   });
 
   describe('isSameContractsStates', () => {
@@ -211,14 +223,8 @@ describe('GuardianService', () => {
     it.todo('should return false if keysOpIndex are different');
   });
 
-  describe('handleCorrectKeys', () => {
-    it.todo('should check contracts state');
-    it.todo('should exit if contracts state is the same');
-    it.todo('should send deposit message');
-  });
-
-  describe('handleKeysIntersections', () => {
-    it.todo('should pause deposits');
-    it.todo('should send pause message');
+  describe('sendMessageFromGuardian', () => {
+    it.todo('should send message if guardian is in the list');
+    it.todo('should not send message if guardian is not in the list');
   });
 });

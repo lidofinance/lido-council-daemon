@@ -257,7 +257,39 @@ describe('DepositService', () => {
   });
 
   describe('fetchEvents', () => {
-    it.todo('should fetch events');
+    it('should fetch events', async () => {
+      const freshPubkeys = ['0x4321', '0x8765'];
+      const startBlock = 100;
+      const endBlock = 200;
+
+      jest
+        .spyOn(providerService.provider, 'getBlockNumber')
+        .mockImplementation(async () => endBlock);
+
+      const mockProviderCall = jest
+        .spyOn(providerService.provider, 'getLogs')
+        .mockImplementation(async () => {
+          const iface = new Interface(DepositAbi__factory.abi);
+          const eventFragment = iface.getEvent('DepositEvent');
+
+          return freshPubkeys.map((pubkey) => {
+            const args = [pubkey, '0x', '0x', '0x', 1];
+            return iface.encodeEventLog(eventFragment, args) as any;
+          });
+        });
+
+      const result = await depositService.fetchEvents(startBlock, endBlock);
+      expect(result).toEqual(
+        expect.objectContaining({
+          startBlock,
+          endBlock,
+          events: freshPubkeys.map((pubkey) =>
+            expect.objectContaining({ pubkey }),
+          ),
+        }),
+      );
+      expect(mockProviderCall).toBeCalledTimes(1);
+    });
   });
 
   describe('getFreshEvents', () => {
@@ -285,45 +317,47 @@ describe('DepositService', () => {
     const freshPubkeys = ['0x4321', '0x8765'];
 
     beforeEach(async () => {
-      jest.spyOn(cacheService, 'getCache').mockImplementation(async () => ({
-        startBlock: 0,
-        endBlock: 2,
-        events: cachedPubkeys.map((pubkey) => ({ pubkey } as any)),
-      }));
-
       jest
-        .spyOn(providerService.provider, 'getBlockNumber')
-        .mockImplementation(async () => 3);
+        .spyOn(depositService, 'getCachedEvents')
+        .mockImplementation(async () => ({
+          startBlock: 0,
+          endBlock: 2,
+          events: cachedPubkeys.map((pubkey) => ({ pubkey } as any)),
+        }));
+
+      // jest
+      //   .spyOn(providerService.provider, 'getBlockNumber')
+      //   .mockImplementation(async () => 3);
     });
 
     it('should return cached pub keys', async () => {
-      const providerCall = jest
-        .spyOn(providerService.provider, 'getLogs')
-        .mockImplementation(async () => []);
+      const mockGetFreshEvents = jest
+        .spyOn(depositService, 'getFreshEvents')
+        .mockImplementation(async () => ({
+          startBlock: 0,
+          endBlock: 10,
+          events: [],
+        }));
 
       const result = await depositService.getAllDepositedPubKeys();
       const expected = new Set(cachedPubkeys);
       expect(result).toEqual(expected);
-      expect(providerCall).toHaveBeenCalledTimes(1);
+      expect(mockGetFreshEvents).toBeCalledTimes(1);
     });
 
     it('should return merged pub keys', async () => {
-      const providerCall = jest
-        .spyOn(providerService.provider, 'getLogs')
-        .mockImplementation(async () => {
-          const iface = new Interface(DepositAbi__factory.abi);
-          const eventFragment = iface.getEvent('DepositEvent');
-
-          return freshPubkeys.map((pubkey) => {
-            const args = [pubkey, '0x', '0x', '0x', 1];
-            return iface.encodeEventLog(eventFragment, args) as any;
-          });
-        });
+      const mockGetFreshEvents = jest
+        .spyOn(depositService, 'getFreshEvents')
+        .mockImplementation(async () => ({
+          startBlock: 0,
+          endBlock: 10,
+          events: freshPubkeys.map((pubkey) => ({ pubkey } as any)),
+        }));
 
       const result = await depositService.getAllDepositedPubKeys();
       const expected = new Set(cachedPubkeys.concat(freshPubkeys));
       expect(result).toEqual(expected);
-      expect(providerCall).toHaveBeenCalledTimes(1);
+      expect(mockGetFreshEvents).toBeCalledTimes(1);
     });
 
     it.todo('should throw if cache is old');
@@ -333,7 +367,7 @@ describe('DepositService', () => {
     it('should return deposit root', async () => {
       const expected = '0x' + '0'.repeat(64);
 
-      const providerCall = jest
+      const mockProviderCall = jest
         .spyOn(providerService.provider, 'call')
         .mockImplementation(async () => {
           const iface = new Interface(DepositAbi__factory.abi);
@@ -342,7 +376,7 @@ describe('DepositService', () => {
 
       const result = await depositService.getDepositRoot();
       expect(result).toEqual(expected);
-      expect(providerCall).toHaveBeenCalledTimes(1);
+      expect(mockProviderCall).toBeCalledTimes(1);
     });
   });
 });

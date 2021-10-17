@@ -8,9 +8,9 @@ import {
 } from '@nestjs/common';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { METRIC_PAUSE_ATTEMPTS } from 'common/prometheus';
+import { OneAtTime } from 'common/decorators';
 import { SecurityAbi__factory } from 'generated/factories/SecurityAbi__factory';
 import { SecurityAbi } from 'generated/SecurityAbi';
-import { MessageType, MessagePause, MessageDeposit } from 'messages';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Counter } from 'prom-client';
 import { ProviderService } from 'provider';
@@ -112,6 +112,10 @@ export class SecurityService implements OnModuleInit {
     return guardians.indexOf(address);
   }
 
+  public getGuardianAddress(): string {
+    return this.walletService.address;
+  }
+
   public async signDepositData(
     depositRoot: string,
     keysOpIndex: number,
@@ -129,56 +133,10 @@ export class SecurityService implements OnModuleInit {
     );
   }
 
-  public async getDepositData(
-    depositRoot: string,
-    keysOpIndex: number,
-  ): Promise<MessageDeposit> {
-    const block = await this.providerService.getBlock();
-    const blockNumber = block.number;
-    const blockHash = block.hash;
-    const guardianAddress = this.walletService.address;
-
-    const [guardianIndex, signature] = await Promise.all([
-      this.getGuardianIndex(),
-      this.signDepositData(depositRoot, keysOpIndex, blockNumber, blockHash),
-    ]);
-
-    return {
-      type: MessageType.DEPOSIT,
-      depositRoot,
-      keysOpIndex,
-      blockNumber,
-      blockHash,
-      guardianAddress,
-      guardianIndex,
-      signature,
-    };
-  }
-
   public async signPauseData(blockNumber: number): Promise<Signature> {
     const messagePrefix = await this.getPauseMessagePrefix();
 
     return await this.walletService.signPauseData(messagePrefix, blockNumber);
-  }
-
-  public async getPauseDepositData(): Promise<MessagePause> {
-    const [block, guardianIndex] = await Promise.all([
-      this.providerService.getBlock(),
-      this.getGuardianIndex(),
-    ]);
-    const blockNumber = block.number;
-    const blockHash = block.hash;
-    const guardianAddress = this.walletService.address;
-    const signature = await this.signPauseData(blockNumber);
-
-    return {
-      type: MessageType.PAUSE,
-      guardianAddress,
-      guardianIndex,
-      blockNumber,
-      blockHash,
-      signature,
-    };
   }
 
   public async isDepositsPaused(): Promise<boolean> {
@@ -187,34 +145,24 @@ export class SecurityService implements OnModuleInit {
     return isPaused;
   }
 
-  private isPauseDepositsInProgress = false;
-
+  @OneAtTime()
   public async pauseDeposits(
     blockNumber: number,
     signature: Signature,
   ): Promise<ContractReceipt | void> {
-    if (this.isPauseDepositsInProgress) return;
+    this.logger.warn('Try to pause deposits');
+    this.pauseAttempts.inc();
 
-    try {
-      this.isPauseDepositsInProgress = true;
-      this.logger.warn('Try to pause deposits');
-      this.pauseAttempts.inc();
+    const contract = await this.getContractWithSigner();
 
-      const contract = await this.getContractWithSigner();
+    const { r, _vs: vs } = signature;
+    const tx = await contract.pauseDeposits(blockNumber, { r, vs });
 
-      const { r, _vs: vs } = signature;
-      const tx = await contract.pauseDeposits(blockNumber, { r, vs });
+    this.logger.warn('Pause transaction sent', { txHash: tx.hash });
+    this.logger.warn('Waiting for block confirmation');
 
-      this.logger.warn('Pause transaction sent', { txHash: tx.hash });
-      this.logger.warn('Waiting for block confirmation');
+    await tx.wait();
 
-      await tx.wait();
-
-      this.logger.warn('Block confirmation received');
-    } catch (error) {
-      this.logger.error(error);
-    } finally {
-      this.isPauseDepositsInProgress = false;
-    }
+    this.logger.warn('Block confirmation received');
   }
 }

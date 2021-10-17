@@ -73,45 +73,25 @@ export class WalletService implements OnModuleInit {
     blockNumber: number,
     blockHash: string,
   ): Promise<Signature> {
-    const encodedData = this.encodeDepositData(
-      prefix,
-      depositRoot,
-      keysOpIndex,
-      blockNumber,
-      blockHash,
-    );
-    const messageHash = keccak256(encodedData);
-
-    return await this.signMessage(messageHash);
-  }
-
-  public encodeDepositData(
-    prefix: string,
-    depositRoot: string,
-    keysOpIndex: number,
-    blockNumber: number,
-    blockHash: string,
-  ): string {
-    return defaultAbiCoder.encode(
+    const encodedData = defaultAbiCoder.encode(
       ['bytes32', 'bytes32', 'uint256', 'uint256', 'bytes32'],
       [prefix, depositRoot, keysOpIndex, blockNumber, blockHash],
     );
+
+    const messageHash = keccak256(encodedData);
+    return await this.signMessage(messageHash);
   }
 
   public async signPauseData(
     prefix: string,
     blockNumber: number,
   ): Promise<Signature> {
-    const encodedData = this.encodePauseData(prefix, blockNumber);
-    const messageHash = keccak256(encodedData);
-
-    return this.signMessage(messageHash);
-  }
-
-  public encodePauseData(prefix: string, blockNumber: number): string {
-    return defaultAbiCoder.encode(
+    const encodedData = defaultAbiCoder.encode(
       ['bytes32', 'uint256'],
       [prefix, blockNumber],
     );
+
+    const messageHash = keccak256(encodedData);
+    return this.signMessage(messageHash);
   }
 }

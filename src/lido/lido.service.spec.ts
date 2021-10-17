@@ -75,7 +75,7 @@ describe('LidoService', () => {
     it('should return deposit contract address', async () => {
       const expected = hexZeroPad('0x1', 20);
 
-      const providerCall = jest
+      const mockProviderCall = jest
         .spyOn(providerService.provider, 'call')
         .mockImplementation(async () => {
           const iface = new Interface(LidoAbi__factory.abi);
@@ -85,7 +85,7 @@ describe('LidoService', () => {
 
       const address = await lidoService.getDepositContractAddress();
       expect(address).toBe(expected);
-      expect(providerCall).toBeCalledTimes(1);
+      expect(mockProviderCall).toBeCalledTimes(1);
     });
   });
 });

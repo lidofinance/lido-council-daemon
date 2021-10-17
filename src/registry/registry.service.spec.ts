@@ -67,7 +67,7 @@ describe('RegistryService', () => {
     it('should return key length from contract', async () => {
       const expected = 10;
 
-      const providerCall = jest
+      const mockProviderCall = jest
         .spyOn(providerService.provider, 'call')
         .mockImplementation(async () => {
           const iface = new Interface(RegistryAbi__factory.abi);
@@ -77,7 +77,7 @@ describe('RegistryService', () => {
 
       const prefix = await registryService.getPubkeyLength();
       expect(prefix).toBe(expected);
-      expect(providerCall).toBeCalledTimes(1);
+      expect(mockProviderCall).toBeCalledTimes(1);
     });
   });
 
@@ -174,7 +174,7 @@ describe('RegistryService', () => {
         .spyOn(registryService, 'getPubkeyLength')
         .mockImplementation(async () => keyLength);
 
-      const providerCall = jest
+      const mockProviderCall = jest
         .spyOn(providerService.provider, 'call')
         .mockImplementation(async () => {
           const iface = new Interface(RegistryAbi__factory.abi);
@@ -186,7 +186,7 @@ describe('RegistryService', () => {
       const result = await registryService.getNextSigningKeys();
 
       expect(result).toEqual(expected);
-      expect(providerCall).toHaveBeenCalledTimes(1);
+      expect(mockProviderCall).toBeCalledTimes(1);
     });
   });
 
@@ -194,7 +194,7 @@ describe('RegistryService', () => {
     it('should return keys operation index', async () => {
       const expected = 10;
 
-      const providerCall = jest
+      const mockProviderCall = jest
         .spyOn(providerService.provider, 'call')
         .mockImplementation(async () => {
           const iface = new Interface(RegistryAbi__factory.abi);
@@ -204,7 +204,7 @@ describe('RegistryService', () => {
 
       const keysOpIndex = await registryService.getKeysOpIndex();
       expect(keysOpIndex).toBe(expected);
-      expect(providerCall).toBeCalledTimes(1);
+      expect(mockProviderCall).toBeCalledTimes(1);
     });
   });
 });

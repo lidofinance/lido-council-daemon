@@ -1,8 +1,7 @@
 import { hexZeroPad } from '@ethersproject/bytes';
-import { keccak256 } from '@ethersproject/keccak256';
 import { getNetwork } from '@ethersproject/networks';
 import { JsonRpcProvider } from '@ethersproject/providers';
-import { verifyMessage, Wallet } from '@ethersproject/wallet';
+import { Wallet } from '@ethersproject/wallet';
 import { CHAINS } from '@lido-sdk/constants';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
@@ -84,36 +83,6 @@ describe('WalletService', () => {
           v: expect.any(Number),
         }),
       );
-
-      const encoded = walletService.encodeDepositData(
-        prefix,
-        depositRoot,
-        keysOpIndex,
-        blockNumber,
-        blockHash,
-      );
-      const message = keccak256(encoded);
-
-      expect(verifyMessage(message, signature)).toBeTruthy();
-    });
-  });
-
-  describe('encodeDepositData', () => {
-    it('should encode deposit data', async () => {
-      const prefix = hexZeroPad('0x1', 32);
-      const depositRoot = hexZeroPad('0x2', 32);
-      const keysOpIndex = 1;
-      const blockNumber = 1;
-      const blockHash = hexZeroPad('0x3', 32);
-      const result = walletService.encodeDepositData(
-        prefix,
-        depositRoot,
-        keysOpIndex,
-        blockNumber,
-        blockHash,
-      );
-
-      expect(typeof result).toBe('string');
     });
   });
 
@@ -131,16 +100,6 @@ describe('WalletService', () => {
           v: expect.any(Number),
         }),
       );
-    });
-  });
-
-  describe('encodePauseData', () => {
-    it('should encode deposit data', async () => {
-      const prefix = hexZeroPad('0x1', 32);
-      const blockNumber = 1;
-      const result = walletService.encodePauseData(prefix, blockNumber);
-
-      expect(typeof result).toBe('string');
     });
   });
 });
