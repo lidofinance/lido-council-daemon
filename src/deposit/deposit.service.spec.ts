@@ -3,7 +3,6 @@ jest.mock('utils/sleep');
 import { CHAINS } from '@lido-sdk/constants';
 import { Test } from '@nestjs/testing';
 import { LoggerModule } from 'common/logger';
-import { LidoModule, LidoService } from 'lido';
 import {
   ERROR_LIMIT_EXCEEDED,
   ProviderModule,
@@ -21,12 +20,14 @@ import { Contract } from '@ethersproject/contracts';
 import { hexZeroPad } from '@ethersproject/bytes';
 import { JsonRpcProvider } from '@ethersproject/providers';
 import { sleep } from 'utils';
+import { SecurityModule, SecurityService } from 'security';
+import { PrometheusModule } from 'common/prometheus';
 
 const mockSleep = sleep as jest.MockedFunction<typeof sleep>;
 
 describe('DepositService', () => {
   let providerService: ProviderService;
-  let lidoService: LidoService;
+  let securityService: SecurityService;
   let cacheService: DepositCacheService;
   let depositService: DepositService;
   let loggerService: LoggerService;
@@ -42,7 +43,8 @@ describe('DepositService', () => {
       imports: [
         ConfigModule.forRoot(),
         LoggerModule,
-        LidoModule,
+        PrometheusModule,
+        SecurityModule,
         ProviderModule,
       ],
       providers: [DepositService, DepositCacheService],
@@ -52,7 +54,7 @@ describe('DepositService', () => {
       .compile();
 
     providerService = moduleRef.get(ProviderService);
-    lidoService = moduleRef.get(LidoService);
+    securityService = moduleRef.get(SecurityService);
     cacheService = moduleRef.get(DepositCacheService);
     depositService = moduleRef.get(DepositService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
@@ -62,7 +64,7 @@ describe('DepositService', () => {
     jest.spyOn(loggerService, 'debug').mockImplementation(() => undefined);
 
     jest
-      .spyOn(lidoService, 'getDepositContractAddress')
+      .spyOn(securityService, 'getDepositContractAddress')
       .mockImplementation(async () => hexZeroPad('0x1', 20));
   });
 

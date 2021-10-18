@@ -3,14 +3,12 @@ import { arrayify, hexlify } from '@ethersproject/bytes';
 import { RegistryAbi, RegistryAbi__factory } from 'generated';
 import { ProviderService } from 'provider';
 import { getRegistryAddress } from './registry.constants';
-import { LidoService } from 'lido';
 import { SecurityService } from 'security';
 
 @Injectable()
 export class RegistryService {
   constructor(
     private providerService: ProviderService,
-    private lidoService: LidoService,
     private securityService: SecurityService,
   ) {}
 
@@ -70,7 +68,7 @@ export class RegistryService {
     const [contract, maxDepositKeys, lidoAddress] = await Promise.all([
       this.getContract(),
       this.securityService.getMaxDeposits(),
-      this.lidoService.getLidoAddress(),
+      this.securityService.getLidoContractAddress(),
     ]);
 
     const overrides = { from: lidoAddress };

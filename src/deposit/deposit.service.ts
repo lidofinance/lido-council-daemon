@@ -2,7 +2,6 @@ import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { performance } from 'perf_hooks';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { ProviderService, ERROR_LIMIT_EXCEEDED } from 'provider';
-import { LidoService } from 'lido';
 import { DepositAbi, DepositAbi__factory } from 'generated';
 import { DepositEventEvent } from 'generated/DepositAbi';
 import {
@@ -17,13 +16,14 @@ import { DepositCacheService } from './cache.service';
 import { DepositEvent, DepositEventGroup } from './interfaces';
 import { sleep } from 'utils';
 import { OneAtTime } from 'common/decorators';
+import { SecurityService } from 'security';
 
 @Injectable()
 export class DepositService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
-    private lidoService: LidoService,
+    private securityService: SecurityService,
     private cacheService: DepositCacheService,
   ) {}
 
@@ -38,7 +38,7 @@ export class DepositService {
 
   public async getContract(): Promise<DepositAbi> {
     if (!this.cachedContract) {
-      const address = await this.lidoService.getDepositContractAddress();
+      const address = await this.securityService.getDepositContractAddress();
       const provider = this.providerService.provider;
       this.cachedContract = DepositAbi__factory.connect(address, provider);
     }

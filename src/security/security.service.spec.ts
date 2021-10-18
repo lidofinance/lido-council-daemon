@@ -111,6 +111,42 @@ describe('SecurityService', () => {
     });
   });
 
+  describe('getDepositContractAddress', () => {
+    it('should return message prefix', async () => {
+      const expected = hexZeroPad('0x1', 20);
+
+      const mockProviderCall = jest
+        .spyOn(providerService.provider, 'call')
+        .mockImplementation(async () => {
+          const iface = new Interface(SecurityAbi__factory.abi);
+          const result = [expected];
+          return iface.encodeFunctionResult('DEPOSIT_CONTRACT', result);
+        });
+
+      const prefix = await securityService.getDepositContractAddress();
+      expect(prefix).toBe(expected);
+      expect(mockProviderCall).toBeCalledTimes(1);
+    });
+  });
+
+  describe('getLidoContractAddress', () => {
+    it('should return message prefix', async () => {
+      const expected = hexZeroPad('0x1', 20);
+
+      const mockProviderCall = jest
+        .spyOn(providerService.provider, 'call')
+        .mockImplementation(async () => {
+          const iface = new Interface(SecurityAbi__factory.abi);
+          const result = [expected];
+          return iface.encodeFunctionResult('LIDO', result);
+        });
+
+      const prefix = await securityService.getLidoContractAddress();
+      expect(prefix).toBe(expected);
+      expect(mockProviderCall).toBeCalledTimes(1);
+    });
+  });
+
   describe('getAttestMessagePrefix', () => {
     it('should return message prefix', async () => {
       const expected = '0x' + '1'.repeat(64);

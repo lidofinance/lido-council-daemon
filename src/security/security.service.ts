@@ -71,6 +71,20 @@ export class SecurityService implements OnModuleInit {
     return getDepositSecurityAddress(chainId);
   }
 
+  public async getDepositContractAddress() {
+    const contract = await this.getContract();
+    const address = await contract.DEPOSIT_CONTRACT();
+
+    return address;
+  }
+
+  public async getLidoContractAddress() {
+    const contract = await this.getContract();
+    const address = await contract.LIDO();
+
+    return address;
+  }
+
   public async getAttestMessagePrefix(): Promise<string> {
     if (!this.cachedAttestMessagePrefix) {
       const contract = await this.getContract();
