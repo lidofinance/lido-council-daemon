@@ -12,7 +12,7 @@ import {
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { METRIC_ACCOUNT_BALANCE } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { Gauge } from 'prom-client';
+import { Gauge, register } from 'prom-client';
 import { ProviderService } from 'provider';
 import { WALLET_MIN_BALANCE } from 'wallet';
 import { WALLET_PRIVATE_KEY } from './wallet.constants';
@@ -31,6 +31,8 @@ export class WalletService implements OnModuleInit {
     const guardianAddress = this.address;
     const balanceWei = await provider.getBalance(guardianAddress);
     const balance = `${formatEther(balanceWei)} ETH`;
+
+    register.setDefaultLabels({ guardianAddress });
 
     this.accountBalance.set(Number(formatEther(balanceWei)));
 
