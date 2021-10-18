@@ -5,6 +5,8 @@ import {
   PrometheusAccountBalanceProvider,
   PrometheusRPCErrorsCounterProvider,
   PrometheusRPCRequestsHistogramProvider,
+  PrometheusBlockDataErrorsCounterProvider,
+  PrometheusBlockDataRequestsProvider,
 } from './prometheus.provider';
 import { METRICS_PREFIX, METRICS_URL } from './prometheus.constants';
 
@@ -22,6 +24,8 @@ const providers = [
   PrometheusRPCRequestsHistogramProvider,
   PrometheusRPCErrorsCounterProvider,
   PrometheusAccountBalanceProvider,
+  PrometheusBlockDataRequestsProvider,
+  PrometheusBlockDataErrorsCounterProvider,
 ];
 
 PrometheusModule.global = true;

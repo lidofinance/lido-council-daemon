@@ -20,11 +20,25 @@ import { ContractsState } from './interfaces';
 import { GUARDIAN_DEPOSIT_RESIGNING_BLOCKS } from './guardian.constants';
 import { BlockData } from './interfaces';
 import { OneAtTime } from 'common/decorators';
+import { InjectMetric } from '@willsoto/nestjs-prometheus';
+import {
+  METRIC_BLOCK_DATA_REQUEST_DURATION,
+  METRIC_BLOCK_DATA_REQUEST_ERRORS,
+} from 'common/prometheus';
+import { Counter, Histogram } from 'prom-client';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
   constructor(
-    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER)
+    private logger: LoggerService,
+
+    @InjectMetric(METRIC_BLOCK_DATA_REQUEST_DURATION)
+    private blockRequestsHistogram: Histogram<string>,
+
+    @InjectMetric(METRIC_BLOCK_DATA_REQUEST_ERRORS)
+    private blockErrorsCounter: Counter<string>,
+
     private registryService: RegistryService,
     private depositService: DepositService,
     private securityService: SecurityService,
@@ -69,41 +83,48 @@ export class GuardianService implements OnModuleInit {
   }
 
   public async getCurrentBlockData(): Promise<BlockData> {
-    const [
-      block,
-      depositRoot,
-      keysOpIndex,
-      nextSigningKeys,
-      depositedPubKeys,
-      guardianIndex,
-      isDepositsPaused,
-    ] = await Promise.all([
-      this.providerService.getBlock(),
-      this.depositService.getDepositRoot(),
-      this.registryService.getKeysOpIndex(),
-      this.registryService.getNextSigningKeys(),
-      this.depositService.getAllDepositedPubKeys(),
-      this.securityService.getGuardianIndex(),
-      this.securityService.isDepositsPaused(),
-    ]);
+    try {
+      const endTimer = this.blockRequestsHistogram.startTimer();
 
-    // TODO: add metric
+      const [
+        block,
+        depositRoot,
+        keysOpIndex,
+        nextSigningKeys,
+        depositedPubKeys,
+        guardianIndex,
+        isDepositsPaused,
+      ] = await Promise.all([
+        this.providerService.getBlock(),
+        this.depositService.getDepositRoot(),
+        this.registryService.getKeysOpIndex(),
+        this.registryService.getNextSigningKeys(),
+        this.depositService.getAllDepositedPubKeys(),
+        this.securityService.getGuardianIndex(),
+        this.securityService.isDepositsPaused(),
+      ]);
 
-    const guardianAddress = this.securityService.getGuardianAddress();
-    const blockNumber = block.number;
-    const blockHash = block.hash;
+      const guardianAddress = this.securityService.getGuardianAddress();
+      const blockNumber = block.number;
+      const blockHash = block.hash;
 
-    return {
-      blockNumber,
-      blockHash,
-      depositRoot,
-      keysOpIndex,
-      nextSigningKeys,
-      depositedPubKeys,
-      guardianAddress,
-      guardianIndex,
-      isDepositsPaused,
-    };
+      endTimer();
+
+      return {
+        blockNumber,
+        blockHash,
+        depositRoot,
+        keysOpIndex,
+        nextSigningKeys,
+        depositedPubKeys,
+        guardianAddress,
+        guardianIndex,
+        isDepositsPaused,
+      };
+    } catch (error) {
+      this.blockErrorsCounter.inc();
+      throw error;
+    }
   }
 
   public getKeysIntersections(

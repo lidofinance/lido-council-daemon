@@ -9,6 +9,8 @@ import {
   METRIC_RPC_REQUEST_ERRORS,
   METRIC_RPC_REQUEST_DURATION,
   METRIC_ACCOUNT_BALANCE,
+  METRIC_BLOCK_DATA_REQUEST_DURATION,
+  METRIC_BLOCK_DATA_REQUEST_ERRORS,
 } from './prometheus.constants';
 
 export const PrometheusTransportMessageCounterProvider = makeCounterProvider({
@@ -25,15 +27,26 @@ export const PrometheusPauseDepositsCounterProvider = makeCounterProvider({
 export const PrometheusRPCRequestsHistogramProvider = makeHistogramProvider({
   name: METRIC_RPC_REQUEST_DURATION,
   help: 'RPC request duration',
-  buckets: [0.1, 0.2, 0.3, 0.6, 1, 2, 5],
+  buckets: [0.1, 0.2, 0.3, 0.6, 1, 1.5, 2, 5],
 });
 
 export const PrometheusRPCErrorsCounterProvider = makeCounterProvider({
   name: METRIC_RPC_REQUEST_ERRORS,
-  help: 'RPC errors',
+  help: 'Number of RPC requests errors',
 });
 
 export const PrometheusAccountBalanceProvider = makeGaugeProvider({
   name: METRIC_ACCOUNT_BALANCE,
   help: 'Account balance',
+});
+
+export const PrometheusBlockDataRequestsProvider = makeHistogramProvider({
+  name: METRIC_BLOCK_DATA_REQUEST_DURATION,
+  help: 'Duration of data collection requests in the current block',
+  buckets: [0.1, 0.2, 0.3, 0.6, 1, 1.5, 2, 5],
+});
+
+export const PrometheusBlockDataErrorsCounterProvider = makeCounterProvider({
+  name: METRIC_BLOCK_DATA_REQUEST_ERRORS,
+  help: 'Number of errors of data collection request for the current block',
 });
