@@ -5,7 +5,6 @@ import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
 import { GuardianModule } from 'guardian';
-import { WalletModule } from 'wallet';
 
 @Module({
   imports: [
@@ -13,7 +12,6 @@ import { WalletModule } from 'wallet';
     PrometheusModule,
     LoggerModule,
     GuardianModule,
-    WalletModule,
   ],
   providers: [AppService],
 })
