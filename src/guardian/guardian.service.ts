@@ -9,14 +9,36 @@ import { DepositService } from 'deposit';
 import { RegistryService } from 'registry';
 import { ProviderService } from 'provider';
 import { SecurityService } from 'security';
-import { MessageRequiredFields, MessagesService } from 'messages';
+import {
+  MessageDeposit,
+  MessagePause,
+  MessageRequiredFields,
+  MessagesService,
+  MessageType,
+} from 'messages';
 import { ContractsState } from './interfaces';
 import { GUARDIAN_DEPOSIT_RESIGNING_BLOCKS } from './guardian.constants';
+import { BlockData } from './interfaces';
+import { OneAtTime } from 'common/decorators';
+import { InjectMetric } from '@willsoto/nestjs-prometheus';
+import {
+  METRIC_BLOCK_DATA_REQUEST_DURATION,
+  METRIC_BLOCK_DATA_REQUEST_ERRORS,
+} from 'common/prometheus';
+import { Counter, Histogram } from 'prom-client';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
   constructor(
-    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER)
+    private logger: LoggerService,
+
+    @InjectMetric(METRIC_BLOCK_DATA_REQUEST_DURATION)
+    private blockRequestsHistogram: Histogram<string>,
+
+    @InjectMetric(METRIC_BLOCK_DATA_REQUEST_ERRORS)
+    private blockErrorsCounter: Counter<string>,
+
     private registryService: RegistryService,
     private depositService: DepositService,
     private securityService: SecurityService,
@@ -36,6 +58,75 @@ export class GuardianService implements OnModuleInit {
     this.logger.log('GuardianService subscribed to Ethereum events');
   }
 
+  @OneAtTime()
+  public async checkKeysIntersections(): Promise<void> {
+    const blockData = await this.getCurrentBlockData();
+    const { nextSigningKeys, depositedPubKeys, isDepositsPaused } = blockData;
+
+    if (isDepositsPaused) {
+      this.logger.warn('Deposits are paused');
+      return;
+    }
+
+    const intersections = this.getKeysIntersections(
+      nextSigningKeys,
+      depositedPubKeys,
+    );
+
+    const isIntersectionsFound = intersections.length > 0;
+
+    if (isIntersectionsFound) {
+      await this.handleKeysIntersections(blockData, intersections);
+    } else {
+      await this.handleCorrectKeys(blockData);
+    }
+  }
+
+  public async getCurrentBlockData(): Promise<BlockData> {
+    try {
+      const endTimer = this.blockRequestsHistogram.startTimer();
+
+      const [
+        block,
+        depositRoot,
+        keysOpIndex,
+        nextSigningKeys,
+        depositedPubKeys,
+        guardianIndex,
+        isDepositsPaused,
+      ] = await Promise.all([
+        this.providerService.getBlock(),
+        this.depositService.getDepositRoot(),
+        this.registryService.getKeysOpIndex(),
+        this.registryService.getNextSigningKeys(),
+        this.depositService.getAllDepositedPubKeys(),
+        this.securityService.getGuardianIndex(),
+        this.securityService.isDepositsPaused(),
+      ]);
+
+      const guardianAddress = this.securityService.getGuardianAddress();
+      const blockNumber = block.number;
+      const blockHash = block.hash;
+
+      endTimer();
+
+      return {
+        blockNumber,
+        blockHash,
+        depositRoot,
+        keysOpIndex,
+        nextSigningKeys,
+        depositedPubKeys,
+        guardianAddress,
+        guardianIndex,
+        isDepositsPaused,
+      };
+    } catch (error) {
+      this.blockErrorsCounter.inc();
+      throw error;
+    }
+  }
+
   public getKeysIntersections(
     nextSigningKeys: string[],
     depositedPubKeys: Set<string>,
@@ -45,84 +136,52 @@ export class GuardianService implements OnModuleInit {
     );
   }
 
-  private isCheckingKeysIntersections = false;
+  public async handleKeysIntersections(
+    blockData: BlockData,
+    intersections: string[],
+  ): Promise<void> {
+    const {
+      blockNumber,
+      blockHash,
+      guardianAddress,
+      guardianIndex,
+      isDepositsPaused,
+    } = blockData;
 
-  public async checkKeysIntersections(): Promise<void> {
-    if (this.isCheckingKeysIntersections) return;
-
-    try {
-      this.isCheckingKeysIntersections = true;
-
-      const [nextSigningKeys, depositedPubKeys] = await Promise.all([
-        this.registryService.getNextSigningKeys(),
-        this.depositService.getAllDepositedPubKeys(),
-      ]);
-
-      const intersections = this.getKeysIntersections(
-        nextSigningKeys,
-        depositedPubKeys,
-      );
-
-      const isIntersectionsFound = intersections.length > 0;
-
-      if (isIntersectionsFound) {
-        this.logger.warn('Already deposited keys found', {
-          keys: intersections,
-        });
-
-        await this.handleKeysIntersections();
-      } else {
-        await this.handleCorrectKeys();
-      }
-    } catch (error) {
-      this.logger.error(error);
-    } finally {
-      this.isCheckingKeysIntersections = false;
-    }
-  }
-
-  public async handleKeysIntersections(): Promise<void> {
-    const [pauseMessageData, isDepositsPaused] = await Promise.all([
-      this.securityService.getPauseDepositData(),
-      this.securityService.isDepositsPaused(),
-    ]);
+    this.logger.warn('Already deposited keys found', { keys: intersections });
 
     if (isDepositsPaused) {
       this.logger.warn('Deposits are already paused');
       return;
     }
 
-    const { blockNumber, signature } = pauseMessageData;
+    const signature = await this.securityService.signPauseData(blockNumber);
+
+    const pauseMessage: MessagePause = {
+      type: MessageType.PAUSE,
+      guardianAddress,
+      guardianIndex,
+      blockNumber,
+      blockHash,
+      signature,
+    };
 
     // call without waiting for completion
     this.securityService.pauseDeposits(blockNumber, signature);
 
-    this.logger.warn('Suspicious case detected', pauseMessageData);
-    await this.sendMessageFromGuardian(pauseMessageData);
+    this.logger.warn('Suspicious case detected', pauseMessage);
+    await this.sendMessageFromGuardian(pauseMessage);
   }
 
-  public async sendMessageFromGuardian<T extends MessageRequiredFields>(
-    messageData: T,
-  ): Promise<void> {
-    if (messageData.guardianIndex == -1) {
-      this.logger.warn(
-        'Your address is not in the Guardian List. The message will not be sent',
-      );
-
-      return;
-    }
-
-    await this.messagesService.sendMessage(messageData);
-  }
-
-  private lastContractsState: ContractsState | null = null;
-
-  public async handleCorrectKeys(): Promise<void> {
-    const [keysOpIndex, depositRoot, blockNumber] = await Promise.all([
-      this.registryService.getKeysOpIndex(),
-      this.depositService.getDepositRoot(),
-      this.providerService.getBlockNumber(),
-    ]);
+  public async handleCorrectKeys(blockData: BlockData): Promise<void> {
+    const {
+      blockNumber,
+      blockHash,
+      depositRoot,
+      keysOpIndex,
+      guardianAddress,
+      guardianIndex,
+    } = blockData;
 
     const currentContractState = { keysOpIndex, depositRoot, blockNumber };
     const lastContractsState = this.lastContractsState;
@@ -136,14 +195,29 @@ export class GuardianService implements OnModuleInit {
 
     if (isSameContractsState) return;
 
-    const depositData = await this.securityService.getDepositData(
+    const signature = await this.securityService.signDepositData(
       depositRoot,
       keysOpIndex,
+      blockNumber,
+      blockHash,
     );
 
-    this.logger.log('No problems found', depositData);
-    await this.sendMessageFromGuardian(depositData);
+    const depositMessage: MessageDeposit = {
+      type: MessageType.DEPOSIT,
+      depositRoot,
+      keysOpIndex,
+      blockNumber,
+      blockHash,
+      guardianAddress,
+      guardianIndex,
+      signature,
+    };
+
+    this.logger.log('No problems found', depositMessage);
+    await this.sendMessageFromGuardian(depositMessage);
   }
+
+  private lastContractsState: ContractsState | null = null;
 
   public isSameContractsStates(
     firstState: ContractsState | null,
@@ -160,5 +234,19 @@ export class GuardianService implements OnModuleInit {
     }
 
     return true;
+  }
+
+  public async sendMessageFromGuardian<T extends MessageRequiredFields>(
+    messageData: T,
+  ): Promise<void> {
+    if (messageData.guardianIndex == -1) {
+      this.logger.warn(
+        'Your address is not in the Guardian List. The message will not be sent',
+      );
+
+      return;
+    }
+
+    await this.messagesService.sendMessage(messageData);
   }
 }

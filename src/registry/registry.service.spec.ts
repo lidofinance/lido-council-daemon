@@ -8,7 +8,6 @@ import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { RegistryAbi__factory } from 'generated';
-import { LidoModule, LidoService } from 'lido';
 import { ProviderModule, ProviderService } from 'provider';
 import { SecurityModule, SecurityService } from 'security';
 import { RegistryService } from './registry.service';
@@ -18,7 +17,6 @@ import { PrometheusModule } from 'common/prometheus';
 
 describe('RegistryService', () => {
   let providerService: ProviderService;
-  let lidoService: LidoService;
   let registryService: RegistryService;
   let securityService: SecurityService;
 
@@ -34,7 +32,6 @@ describe('RegistryService', () => {
         ConfigModule.forRoot(),
         LoggerModule,
         PrometheusModule,
-        LidoModule,
         ProviderModule,
         SecurityModule,
       ],
@@ -45,7 +42,6 @@ describe('RegistryService', () => {
       .compile();
 
     providerService = moduleRef.get(ProviderService);
-    lidoService = moduleRef.get(LidoService);
     registryService = moduleRef.get(RegistryService);
     securityService = moduleRef.get(SecurityService);
   });
@@ -67,7 +63,7 @@ describe('RegistryService', () => {
     it('should return key length from contract', async () => {
       const expected = 10;
 
-      const providerCall = jest
+      const mockProviderCall = jest
         .spyOn(providerService.provider, 'call')
         .mockImplementation(async () => {
           const iface = new Interface(RegistryAbi__factory.abi);
@@ -77,7 +73,7 @@ describe('RegistryService', () => {
 
       const prefix = await registryService.getPubkeyLength();
       expect(prefix).toBe(expected);
-      expect(providerCall).toBeCalledTimes(1);
+      expect(mockProviderCall).toBeCalledTimes(1);
     });
   });
 
@@ -163,7 +159,7 @@ describe('RegistryService', () => {
 
     it('should return splitted pubkeys', async () => {
       jest
-        .spyOn(lidoService, 'getLidoAddress')
+        .spyOn(securityService, 'getLidoContractAddress')
         .mockImplementation(async () => lidoAddress);
 
       jest
@@ -174,7 +170,7 @@ describe('RegistryService', () => {
         .spyOn(registryService, 'getPubkeyLength')
         .mockImplementation(async () => keyLength);
 
-      const providerCall = jest
+      const mockProviderCall = jest
         .spyOn(providerService.provider, 'call')
         .mockImplementation(async () => {
           const iface = new Interface(RegistryAbi__factory.abi);
@@ -186,7 +182,7 @@ describe('RegistryService', () => {
       const result = await registryService.getNextSigningKeys();
 
       expect(result).toEqual(expected);
-      expect(providerCall).toHaveBeenCalledTimes(1);
+      expect(mockProviderCall).toBeCalledTimes(1);
     });
   });
 
@@ -194,7 +190,7 @@ describe('RegistryService', () => {
     it('should return keys operation index', async () => {
       const expected = 10;
 
-      const providerCall = jest
+      const mockProviderCall = jest
         .spyOn(providerService.provider, 'call')
         .mockImplementation(async () => {
           const iface = new Interface(RegistryAbi__factory.abi);
@@ -204,7 +200,7 @@ describe('RegistryService', () => {
 
       const keysOpIndex = await registryService.getKeysOpIndex();
       expect(keysOpIndex).toBe(expected);
-      expect(providerCall).toBeCalledTimes(1);
+      expect(mockProviderCall).toBeCalledTimes(1);
     });
   });
 });

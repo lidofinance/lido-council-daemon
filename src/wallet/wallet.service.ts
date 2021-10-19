@@ -1,4 +1,5 @@
 import { defaultAbiCoder } from '@ethersproject/abi';
+import { BigNumber } from '@ethersproject/bignumber';
 import { Signature } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
 import { formatEther } from '@ethersproject/units';
@@ -12,10 +13,13 @@ import {
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { METRIC_ACCOUNT_BALANCE } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { Gauge } from 'prom-client';
+import { Gauge, register } from 'prom-client';
 import { ProviderService } from 'provider';
-import { WALLET_MIN_BALANCE } from 'wallet';
-import { WALLET_PRIVATE_KEY } from './wallet.constants';
+import {
+  WALLET_BALANCE_UPDATE_BLOCK_RATE,
+  WALLET_MIN_BALANCE,
+  WALLET_PRIVATE_KEY,
+} from './wallet.constants';
 
 @Injectable()
 export class WalletService implements OnModuleInit {
@@ -27,18 +31,54 @@ export class WalletService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    const provider = this.providerService.provider;
     const guardianAddress = this.address;
-    const balanceWei = await provider.getBalance(guardianAddress);
-    const balance = `${formatEther(balanceWei)} ETH`;
+    register.setDefaultLabels({ guardianAddress });
 
-    this.accountBalance.set(Number(formatEther(balanceWei)));
+    const balance = await this.getBalance();
 
-    if (balanceWei.lt(WALLET_MIN_BALANCE)) {
-      this.logger.warn('Account balance is too low', { balance });
+    if (balance.isSufficient) {
+      this.logger.log('Account balance is sufficient', {
+        balance: balance.formatted,
+      });
     } else {
-      this.logger.log('Account balance is sufficient', { balance });
+      this.logger.warn('Account balance is too low', {
+        balance: balance.formatted,
+      });
     }
+
+    this.subscribeToEthereumUpdates();
+  }
+
+  public async getBalance(): Promise<{
+    isSufficient: boolean;
+    formatted: string;
+    wei: BigNumber;
+  }> {
+    const provider = this.providerService.provider;
+    const wei = await provider.getBalance(this.address);
+    const formatted = `${formatEther(wei)} ETH`;
+    const isSufficient = wei.gte(WALLET_MIN_BALANCE);
+
+    return { isSufficient, formatted, wei };
+  }
+
+  public async subscribeToEthereumUpdates() {
+    const provider = this.providerService.provider;
+
+    provider.on('block', async (blockNumber) => {
+      if (blockNumber % WALLET_BALANCE_UPDATE_BLOCK_RATE !== 0) return;
+
+      const balance = await this.getBalance();
+      this.accountBalance.set(Number(formatEther(balance.wei)));
+
+      if (!balance.isSufficient) {
+        this.logger.warn('Account balance is too low', {
+          balance: balance.formatted,
+        });
+      }
+    });
+
+    this.logger.log('WalletService subscribed to Ethereum events');
   }
 
   private cachedWallet: Wallet | null = null;
@@ -73,45 +113,25 @@ export class WalletService implements OnModuleInit {
     blockNumber: number,
     blockHash: string,
   ): Promise<Signature> {
-    const encodedData = this.encodeDepositData(
-      prefix,
-      depositRoot,
-      keysOpIndex,
-      blockNumber,
-      blockHash,
-    );
-    const messageHash = keccak256(encodedData);
-
-    return await this.signMessage(messageHash);
-  }
-
-  public encodeDepositData(
-    prefix: string,
-    depositRoot: string,
-    keysOpIndex: number,
-    blockNumber: number,
-    blockHash: string,
-  ): string {
-    return defaultAbiCoder.encode(
+    const encodedData = defaultAbiCoder.encode(
       ['bytes32', 'bytes32', 'uint256', 'uint256', 'bytes32'],
       [prefix, depositRoot, keysOpIndex, blockNumber, blockHash],
     );
+
+    const messageHash = keccak256(encodedData);
+    return await this.signMessage(messageHash);
   }
 
   public async signPauseData(
     prefix: string,
     blockNumber: number,
   ): Promise<Signature> {
-    const encodedData = this.encodePauseData(prefix, blockNumber);
-    const messageHash = keccak256(encodedData);
-
-    return this.signMessage(messageHash);
-  }
-
-  public encodePauseData(prefix: string, blockNumber: number): string {
-    return defaultAbiCoder.encode(
+    const encodedData = defaultAbiCoder.encode(
       ['bytes32', 'uint256'],
       [prefix, blockNumber],
     );
+
+    const messageHash = keccak256(encodedData);
+    return this.signMessage(messageHash);
   }
 }

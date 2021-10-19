@@ -1,11 +1,21 @@
 import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
 import { Configuration } from 'common/config';
+import { ProviderModule, ProviderService } from 'provider';
 
 export const LoggerModule = WinstonModule.forRootAsync({
-  inject: [Configuration],
-  useFactory: async (config: Configuration) => ({
+  inject: [Configuration, ProviderService],
+  imports: [ProviderModule],
+  useFactory: async (
+    config: Configuration,
+    providerService: ProviderService,
+  ) => ({
     level: config.LOG_LEVEL,
+    defaultMeta: {
+      get block() {
+        return providerService.provider.blockNumber;
+      },
+    },
     transports: [
       new winston.transports.Console({
         format:
@@ -16,10 +26,10 @@ export const LoggerModule = WinstonModule.forRootAsync({
                 winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
                 winston.format.simple(),
                 winston.format.printf((log) => {
-                  const { timestamp, level, message, context } = log;
+                  const { timestamp, level, message, context, block } = log;
                   const extra = context ? JSON.stringify(context) : '';
 
-                  return `${timestamp} ${level}: ${message} ${extra}`;
+                  return `${timestamp} [${block}] ${level}: ${message} ${extra}`;
                 }),
               ),
       }),

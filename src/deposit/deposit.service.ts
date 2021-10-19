@@ -2,7 +2,6 @@ import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { performance } from 'perf_hooks';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { ProviderService, ERROR_LIMIT_EXCEEDED } from 'provider';
-import { LidoService } from 'lido';
 import { DepositAbi, DepositAbi__factory } from 'generated';
 import { DepositEventEvent } from 'generated/DepositAbi';
 import {
@@ -16,18 +15,19 @@ import {
 import { DepositCacheService } from './cache.service';
 import { DepositEvent, DepositEventGroup } from './interfaces';
 import { sleep } from 'utils';
+import { OneAtTime } from 'common/decorators';
+import { SecurityService } from 'security';
 
 @Injectable()
 export class DepositService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
-    private lidoService: LidoService,
+    private securityService: SecurityService,
     private cacheService: DepositCacheService,
   ) {}
 
   private cachedContract: DepositAbi | null = null;
-  private isCollectingEvents = false;
 
   public formatEvent(rawEvent: DepositEventEvent): DepositEvent {
     const { args, transactionHash: tx, blockNumber } = rawEvent;
@@ -38,7 +38,7 @@ export class DepositService {
 
   public async getContract(): Promise<DepositAbi> {
     if (!this.cachedContract) {
-      const address = await this.lidoService.getDepositContractAddress();
+      const address = await this.securityService.getDepositContractAddress();
       const provider = this.providerService.provider;
       this.cachedContract = DepositAbi__factory.connect(address, provider);
     }
@@ -146,71 +146,65 @@ export class DepositService {
     this.subscribeToEthereumUpdates();
   }
 
+  @OneAtTime()
   public async cacheEvents(): Promise<{
     newEvents: number;
     totalEvents: number;
   } | void> {
-    if (this.isCollectingEvents) return;
+    const fetchTimeStart = performance.now();
 
-    try {
-      this.isCollectingEvents = true;
-      const fetchTimeStart = performance.now();
+    const [currentBlock, initialCache] = await Promise.all([
+      this.providerService.getBlockNumber(),
+      this.getCachedEvents(),
+    ]);
 
-      const [currentBlock, initialCache] = await Promise.all([
-        this.providerService.getBlockNumber(),
-        this.getCachedEvents(),
-      ]);
+    const eventGroup = { ...initialCache };
+    const firstNotCachedBlock = initialCache.endBlock + 1;
+    const toBlock = currentBlock - DEPOSIT_EVENTS_CACHE_LAG_BLOCKS;
 
-      const eventGroup = { ...initialCache };
-      const firstNotCachedBlock = initialCache.endBlock + 1;
-      const toBlock = currentBlock - DEPOSIT_EVENTS_CACHE_LAG_BLOCKS;
+    for (
+      let block = firstNotCachedBlock;
+      block <= toBlock;
+      block += DEPOSIT_EVENTS_STEP
+    ) {
+      const chunkStartBlock = block;
+      const chunkToBlock = Math.min(
+        currentBlock,
+        block + DEPOSIT_EVENTS_STEP - 1,
+      );
 
-      for (
-        let block = firstNotCachedBlock;
-        block <= toBlock;
-        block += DEPOSIT_EVENTS_STEP
-      ) {
-        const chunkStartBlock = block;
-        const chunkToBlock = Math.min(
-          currentBlock,
-          block + DEPOSIT_EVENTS_STEP - 1,
-        );
+      const chunkEventGroup = await this.fetchEventsFallOver(
+        chunkStartBlock,
+        chunkToBlock,
+      );
 
-        const chunkEventGroup = await this.fetchEventsFallOver(
-          chunkStartBlock,
-          chunkToBlock,
-        );
+      eventGroup.endBlock = chunkEventGroup.endBlock;
+      eventGroup.events = eventGroup.events.concat(chunkEventGroup.events);
 
-        eventGroup.endBlock = chunkEventGroup.endBlock;
-        eventGroup.events = eventGroup.events.concat(chunkEventGroup.events);
-
-        this.logger.log('Historical events are fetched', {
-          startBlock: chunkStartBlock,
-          endBlock: chunkToBlock,
-          events: eventGroup.events.length,
-        });
-
-        await this.setCachedEvents(eventGroup);
-      }
-
-      const totalEvents = eventGroup.events.length;
-      const newEvents = totalEvents - initialCache.events.length;
-
-      const fetchTimeEnd = performance.now();
-      const fetchTime = Math.ceil(fetchTimeEnd - fetchTimeStart) / 1000;
-
-      this.logger.log('Cache is updated', {
-        newEvents,
-        totalEvents,
-        fetchTime,
+      this.logger.log('Historical events are fetched', {
+        startBlock: chunkStartBlock,
+        endBlock: chunkToBlock,
+        events: eventGroup.events.length,
       });
 
-      return { newEvents, totalEvents };
-    } catch (error) {
-      this.logger.error(error);
-    } finally {
-      this.isCollectingEvents = false;
+      await this.setCachedEvents(eventGroup);
     }
+
+    const totalEvents = eventGroup.events.length;
+    const newEvents = totalEvents - initialCache.events.length;
+
+    const fetchTimeEnd = performance.now();
+    const fetchTime = Math.ceil(fetchTimeEnd - fetchTimeStart) / 1000;
+
+    // TODO: replace timer with metric
+
+    this.logger.log('Cache is updated', {
+      newEvents,
+      totalEvents,
+      fetchTime,
+    });
+
+    return { newEvents, totalEvents };
   }
 
   public async getAllDepositedPubKeys(): Promise<Set<string>> {

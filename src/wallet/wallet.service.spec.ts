@@ -1,20 +1,23 @@
 import { hexZeroPad } from '@ethersproject/bytes';
-import { keccak256 } from '@ethersproject/keccak256';
 import { getNetwork } from '@ethersproject/networks';
 import { JsonRpcProvider } from '@ethersproject/providers';
-import { verifyMessage, Wallet } from '@ethersproject/wallet';
+import { Wallet } from '@ethersproject/wallet';
 import { CHAINS } from '@lido-sdk/constants';
+import { LoggerService } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
-import { ProviderModule } from 'provider';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { ProviderModule, ProviderService } from 'provider';
 import { WALLET_PRIVATE_KEY } from './wallet.constants';
 import { WalletService } from './wallet.service';
 
 describe('WalletService', () => {
   const wallet = Wallet.createRandom();
   let walletService: WalletService;
+  let providerService: ProviderService;
+  let loggerService: LoggerService;
 
   class MockRpcProvider extends JsonRpcProvider {
     async _uncachedDetectNetwork() {
@@ -43,6 +46,22 @@ describe('WalletService', () => {
       .compile();
 
     walletService = moduleRef.get(WalletService);
+    providerService = moduleRef.get(ProviderService);
+    loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
+
+    jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
+  });
+
+  describe('subscribeToEthereumUpdates', () => {
+    it('should subscribe to updates', () => {
+      const mockOn = jest
+        .spyOn(providerService.provider, 'on')
+        .mockImplementation(() => undefined as any);
+
+      walletService.subscribeToEthereumUpdates();
+      expect(mockOn).toBeCalledTimes(1);
+      expect(mockOn).toBeCalledWith('block', expect.any(Function));
+    });
   });
 
   describe('wallet', () => {
@@ -84,36 +103,6 @@ describe('WalletService', () => {
           v: expect.any(Number),
         }),
       );
-
-      const encoded = walletService.encodeDepositData(
-        prefix,
-        depositRoot,
-        keysOpIndex,
-        blockNumber,
-        blockHash,
-      );
-      const message = keccak256(encoded);
-
-      expect(verifyMessage(message, signature)).toBeTruthy();
-    });
-  });
-
-  describe('encodeDepositData', () => {
-    it('should encode deposit data', async () => {
-      const prefix = hexZeroPad('0x1', 32);
-      const depositRoot = hexZeroPad('0x2', 32);
-      const keysOpIndex = 1;
-      const blockNumber = 1;
-      const blockHash = hexZeroPad('0x3', 32);
-      const result = walletService.encodeDepositData(
-        prefix,
-        depositRoot,
-        keysOpIndex,
-        blockNumber,
-        blockHash,
-      );
-
-      expect(typeof result).toBe('string');
     });
   });
 
@@ -131,16 +120,6 @@ describe('WalletService', () => {
           v: expect.any(Number),
         }),
       );
-    });
-  });
-
-  describe('encodePauseData', () => {
-    it('should encode deposit data', async () => {
-      const prefix = hexZeroPad('0x1', 32);
-      const blockNumber = 1;
-      const result = walletService.encodePauseData(prefix, blockNumber);
-
-      expect(typeof result).toBe('string');
     });
   });
 });
