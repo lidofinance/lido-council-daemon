@@ -3,17 +3,21 @@ import { getNetwork } from '@ethersproject/networks';
 import { JsonRpcProvider } from '@ethersproject/providers';
 import { Wallet } from '@ethersproject/wallet';
 import { CHAINS } from '@lido-sdk/constants';
+import { LoggerService } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
-import { ProviderModule } from 'provider';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { ProviderModule, ProviderService } from 'provider';
 import { WALLET_PRIVATE_KEY } from './wallet.constants';
 import { WalletService } from './wallet.service';
 
 describe('WalletService', () => {
   const wallet = Wallet.createRandom();
   let walletService: WalletService;
+  let providerService: ProviderService;
+  let loggerService: LoggerService;
 
   class MockRpcProvider extends JsonRpcProvider {
     async _uncachedDetectNetwork() {
@@ -42,6 +46,22 @@ describe('WalletService', () => {
       .compile();
 
     walletService = moduleRef.get(WalletService);
+    providerService = moduleRef.get(ProviderService);
+    loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
+
+    jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
+  });
+
+  describe('subscribeToEthereumUpdates', () => {
+    it('should subscribe to updates', () => {
+      const mockOn = jest
+        .spyOn(providerService.provider, 'on')
+        .mockImplementation(() => undefined as any);
+
+      walletService.subscribeToEthereumUpdates();
+      expect(mockOn).toBeCalledTimes(1);
+      expect(mockOn).toBeCalledWith('block', expect.any(Function));
+    });
   });
 
   describe('wallet', () => {
