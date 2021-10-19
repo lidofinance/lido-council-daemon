@@ -55,5 +55,5 @@ export const PrometheusBlockDataErrorsCounterProvider = makeCounterProvider({
 export const PrometheusBuildInfoGaugeProvider = makeCounterProvider({
   name: METRIC_BUILD_INFO,
   help: 'Build information',
-  labelNames: ['version', 'name', 'commit', 'branch'] as const,
+  labelNames: ['version', 'name'] as const,
 });
