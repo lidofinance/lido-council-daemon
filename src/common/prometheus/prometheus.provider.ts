@@ -11,6 +11,7 @@ import {
   METRIC_ACCOUNT_BALANCE,
   METRIC_BLOCK_DATA_REQUEST_DURATION,
   METRIC_BLOCK_DATA_REQUEST_ERRORS,
+  METRIC_BUILD_INFO,
 } from './prometheus.constants';
 
 export const PrometheusTransportMessageCounterProvider = makeCounterProvider({
@@ -37,7 +38,7 @@ export const PrometheusRPCErrorsCounterProvider = makeCounterProvider({
 
 export const PrometheusAccountBalanceProvider = makeGaugeProvider({
   name: METRIC_ACCOUNT_BALANCE,
-  help: 'Account balance',
+  help: 'Guardian account balance',
 });
 
 export const PrometheusBlockDataRequestsProvider = makeHistogramProvider({
@@ -49,4 +50,10 @@ export const PrometheusBlockDataRequestsProvider = makeHistogramProvider({
 export const PrometheusBlockDataErrorsCounterProvider = makeCounterProvider({
   name: METRIC_BLOCK_DATA_REQUEST_ERRORS,
   help: 'Number of errors of data collection request for the current block',
+});
+
+export const PrometheusBuildInfoGaugeProvider = makeCounterProvider({
+  name: METRIC_BUILD_INFO,
+  help: 'Build information',
+  labelNames: ['version', 'name', 'commit', 'branch'] as const,
 });
