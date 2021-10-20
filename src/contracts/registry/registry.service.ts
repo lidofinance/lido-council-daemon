@@ -3,7 +3,7 @@ import { arrayify, hexlify } from '@ethersproject/bytes';
 import { RegistryAbi, RegistryAbi__factory } from 'generated';
 import { ProviderService } from 'provider';
 import { getRegistryAddress } from './registry.constants';
-import { SecurityService } from 'security';
+import { SecurityService } from 'contracts/security';
 
 @Injectable()
 export class RegistryService {

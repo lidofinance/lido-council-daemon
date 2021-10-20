@@ -9,7 +9,7 @@ import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { RegistryAbi__factory } from 'generated';
 import { ProviderModule, ProviderService } from 'provider';
-import { SecurityModule, SecurityService } from 'security';
+import { SecurityModule, SecurityService } from 'contracts/security';
 import { RegistryService } from './registry.service';
 import { getNetwork } from '@ethersproject/networks';
 import { JsonRpcProvider } from '@ethersproject/providers';

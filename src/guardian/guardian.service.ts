@@ -5,10 +5,10 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { DepositService } from 'deposit';
-import { RegistryService } from 'registry';
+import { DepositService } from 'contracts/deposit';
+import { RegistryService } from 'contracts/registry';
+import { SecurityService } from 'contracts/security';
 import { ProviderService } from 'provider';
-import { SecurityService } from 'security';
 import {
   MessageDeposit,
   MessageMeta,
@@ -17,9 +17,8 @@ import {
   MessagesService,
   MessageType,
 } from 'messages';
-import { ContractsState } from './interfaces';
+import { ContractsState, BlockData } from './interfaces';
 import { GUARDIAN_DEPOSIT_RESIGNING_BLOCKS } from './guardian.constants';
-import { BlockData } from './interfaces';
 import { OneAtTime } from 'common/decorators';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import {

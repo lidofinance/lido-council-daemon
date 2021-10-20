@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { SecurityModule } from 'security';
+import { SecurityModule } from 'contracts/security';
 import { ProviderModule } from 'provider';
 import { DepositService } from './deposit.service';
 import { DepositCacheService } from './cache.service';

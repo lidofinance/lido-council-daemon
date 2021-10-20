@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { DepositModule } from 'deposit';
+import { DepositModule } from 'contracts/deposit';
+import { RegistryModule } from 'contracts/registry';
+import { SecurityModule } from 'contracts/security';
 import { ProviderModule } from 'provider';
-import { RegistryModule } from 'registry';
-import { SecurityModule } from 'security';
 import { MessagesModule } from 'messages';
 import { GuardianService } from './guardian.service';
 

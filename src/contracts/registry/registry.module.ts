@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ProviderModule } from 'provider';
-import { SecurityModule } from 'security';
+import { SecurityModule } from 'contracts/security';
 import { RegistryService } from './registry.service';
 
 @Module({

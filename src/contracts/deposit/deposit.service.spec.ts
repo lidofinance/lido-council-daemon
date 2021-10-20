@@ -20,7 +20,7 @@ import { Contract } from '@ethersproject/contracts';
 import { hexZeroPad } from '@ethersproject/bytes';
 import { JsonRpcProvider } from '@ethersproject/providers';
 import { sleep } from 'utils';
-import { SecurityModule, SecurityService } from 'security';
+import { SecurityModule, SecurityService } from 'contracts/security';
 import { PrometheusModule } from 'common/prometheus';
 
 const mockSleep = sleep as jest.MockedFunction<typeof sleep>;

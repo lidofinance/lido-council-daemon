@@ -16,7 +16,7 @@ import { DepositCacheService } from './cache.service';
 import { DepositEvent, DepositEventGroup } from './interfaces';
 import { sleep } from 'utils';
 import { OneAtTime } from 'common/decorators';
-import { SecurityService } from 'security';
+import { SecurityService } from 'contracts/security';
 
 @Injectable()
 export class DepositService {

@@ -8,9 +8,9 @@ import { LoggerService } from '@nestjs/common';
 import { ConfigModule } from 'common/config';
 import { getNetwork } from '@ethersproject/networks';
 import { JsonRpcProvider } from '@ethersproject/providers';
-import { RegistryModule } from 'registry';
-import { DepositModule } from 'deposit';
-import { SecurityModule } from 'security';
+import { RegistryModule } from 'contracts/registry';
+import { DepositModule } from 'contracts/deposit';
+import { SecurityModule } from 'contracts/security';
 import { MessagesModule } from 'messages';
 import { PrometheusModule } from 'common/prometheus';
 
