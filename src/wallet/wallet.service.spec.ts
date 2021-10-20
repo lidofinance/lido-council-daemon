@@ -9,7 +9,8 @@ import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { ProviderModule, ProviderService } from 'provider';
+import { ProviderService } from 'provider';
+import { WalletModule } from 'wallet';
 import { WALLET_PRIVATE_KEY } from './wallet.constants';
 import { WalletService } from './wallet.service';
 
@@ -31,18 +32,13 @@ describe('WalletService', () => {
         ConfigModule.forRoot(),
         LoggerModule,
         PrometheusModule,
-        ProviderModule,
-      ],
-      providers: [
-        WalletService,
-        {
-          provide: WALLET_PRIVATE_KEY,
-          useValue: wallet.privateKey,
-        },
+        WalletModule,
       ],
     })
       .overrideProvider(JsonRpcProvider)
       .useValue(new MockRpcProvider())
+      .overrideProvider(WALLET_PRIVATE_KEY)
+      .useValue(wallet.privateKey)
       .compile();
 
     walletService = moduleRef.get(WalletService);

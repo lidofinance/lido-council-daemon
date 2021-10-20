@@ -1,5 +1,4 @@
 import { defaultAbiCoder } from '@ethersproject/abi';
-import { BigNumber } from '@ethersproject/bignumber';
 import { Signature } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
 import { formatEther } from '@ethersproject/units';
@@ -11,6 +10,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
+import { OneAtTime } from 'common/decorators';
 import { METRIC_ACCOUNT_BALANCE } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Gauge, register } from 'prom-client';
@@ -34,32 +34,8 @@ export class WalletService implements OnModuleInit {
     const guardianAddress = this.address;
     register.setDefaultLabels({ guardianAddress });
 
-    const balance = await this.getBalance();
-
-    if (balance.isSufficient) {
-      this.logger.log('Account balance is sufficient', {
-        balance: balance.formatted,
-      });
-    } else {
-      this.logger.warn('Account balance is too low', {
-        balance: balance.formatted,
-      });
-    }
-
+    await this.updateBalance();
     this.subscribeToEthereumUpdates();
-  }
-
-  public async getBalance(): Promise<{
-    isSufficient: boolean;
-    formatted: string;
-    wei: BigNumber;
-  }> {
-    const provider = this.providerService.provider;
-    const wei = await provider.getBalance(this.address);
-    const formatted = `${formatEther(wei)} ETH`;
-    const isSufficient = wei.gte(WALLET_MIN_BALANCE);
-
-    return { isSufficient, formatted, wei };
   }
 
   public async subscribeToEthereumUpdates() {
@@ -67,18 +43,26 @@ export class WalletService implements OnModuleInit {
 
     provider.on('block', async (blockNumber) => {
       if (blockNumber % WALLET_BALANCE_UPDATE_BLOCK_RATE !== 0) return;
-
-      const balance = await this.getBalance();
-      this.accountBalance.set(Number(formatEther(balance.wei)));
-
-      if (!balance.isSufficient) {
-        this.logger.warn('Account balance is too low', {
-          balance: balance.formatted,
-        });
-      }
+      this.updateBalance();
     });
 
     this.logger.log('WalletService subscribed to Ethereum events');
+  }
+
+  @OneAtTime()
+  public async updateBalance() {
+    const provider = this.providerService.provider;
+    const balanceWei = await provider.getBalance(this.address);
+    const formatted = `${formatEther(balanceWei)} ETH`;
+    const isSufficient = balanceWei.gte(WALLET_MIN_BALANCE);
+
+    this.accountBalance.set(Number(formatEther(balanceWei)));
+
+    if (isSufficient) {
+      this.logger.log('Account balance is sufficient', { balance: formatted });
+    } else {
+      this.logger.warn('Account balance is too low', { balance: formatted });
+    }
   }
 
   private cachedWallet: Wallet | null = null;
