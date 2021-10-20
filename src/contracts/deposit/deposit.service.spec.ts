@@ -2,33 +2,31 @@ jest.mock('utils/sleep');
 
 import { CHAINS } from '@lido-sdk/constants';
 import { Test } from '@nestjs/testing';
-import { LoggerModule } from 'common/logger';
-import {
-  ERROR_LIMIT_EXCEEDED,
-  ProviderModule,
-  ProviderService,
-} from 'provider';
-import { DepositService } from './deposit.service';
-import { DepositCacheService } from './cache.service';
-import { Interface } from '@ethersproject/abi';
-import { DepositAbi__factory } from 'generated';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { Interface } from '@ethersproject/abi';
 import { LoggerService } from '@nestjs/common';
-import { ConfigModule } from 'common/config';
 import { getNetwork } from '@ethersproject/networks';
 import { Contract } from '@ethersproject/contracts';
 import { hexZeroPad } from '@ethersproject/bytes';
 import { JsonRpcProvider } from '@ethersproject/providers';
 import { sleep } from 'utils';
-import { SecurityModule, SecurityService } from 'contracts/security';
+import { CacheService } from 'cache';
+import { ERROR_LIMIT_EXCEEDED, ProviderService } from 'provider';
+import { DepositAbi__factory } from 'generated';
+import { SecurityService } from 'contracts/security';
+import { DepositEventGroup } from './interfaces';
+import { DepositModule } from './deposit.module';
+import { DepositService } from './deposit.service';
 import { PrometheusModule } from 'common/prometheus';
+import { LoggerModule } from 'common/logger';
+import { ConfigModule } from 'common/config';
 
 const mockSleep = sleep as jest.MockedFunction<typeof sleep>;
 
 describe('DepositService', () => {
   let providerService: ProviderService;
   let securityService: SecurityService;
-  let cacheService: DepositCacheService;
+  let cacheService: CacheService<DepositEventGroup>;
   let depositService: DepositService;
   let loggerService: LoggerService;
 
@@ -42,12 +40,10 @@ describe('DepositService', () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot(),
-        LoggerModule,
+        DepositModule,
         PrometheusModule,
-        SecurityModule,
-        ProviderModule,
+        LoggerModule,
       ],
-      providers: [DepositService, DepositCacheService],
     })
       .overrideProvider(JsonRpcProvider)
       .useValue(new MockRpcProvider())
@@ -55,7 +51,7 @@ describe('DepositService', () => {
 
     providerService = moduleRef.get(ProviderService);
     securityService = moduleRef.get(SecurityService);
-    cacheService = moduleRef.get(DepositCacheService);
+    cacheService = moduleRef.get(CacheService);
     depositService = moduleRef.get(DepositService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 

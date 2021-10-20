@@ -1,4 +1,5 @@
 import { CHAINS } from '@lido-sdk/constants';
+import { DepositEventGroup } from './interfaces';
 
 export const DEPLOYMENT_BLOCK_NETWORK: {
   [key in CHAINS]?: number;
@@ -19,3 +20,11 @@ export const DEPOSIT_EVENTS_FRESH_BLOCKS = 150;
 export const DEPOSIT_EVENTS_STEP = 20_000;
 export const DEPOSIT_EVENTS_RETRY_TIMEOUT_MS = 5_000;
 export const DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE = 10;
+
+export const DEPOSIT_CACHE_FILE_NAME = 'deposit.events.json';
+
+export const DEPOSIT_CACHE_DEFAULT: DepositEventGroup = Object.freeze({
+  startBlock: 0,
+  endBlock: 0,
+  events: [],
+});

@@ -12,11 +12,11 @@ import {
   DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE,
   DEPOSIT_EVENTS_CACHE_LAG_BLOCKS,
 } from './deposit.constants';
-import { DepositCacheService } from './cache.service';
 import { DepositEvent, DepositEventGroup } from './interfaces';
 import { sleep } from 'utils';
 import { OneAtTime } from 'common/decorators';
 import { SecurityService } from 'contracts/security';
+import { CacheService } from 'cache';
 
 @Injectable()
 export class DepositService {
@@ -24,7 +24,7 @@ export class DepositService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
     private securityService: SecurityService,
-    private cacheService: DepositCacheService,
+    private cacheService: CacheService<DepositEventGroup>,
   ) {}
 
   private cachedContract: DepositAbi | null = null;
