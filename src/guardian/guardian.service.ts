@@ -11,6 +11,7 @@ import { ProviderService } from 'provider';
 import { SecurityService } from 'security';
 import {
   MessageDeposit,
+  MessageMeta,
   MessagePause,
   MessageRequiredFields,
   MessagesService,
@@ -26,6 +27,7 @@ import {
   METRIC_BLOCK_DATA_REQUEST_ERRORS,
 } from 'common/prometheus';
 import { Counter, Histogram } from 'prom-client';
+import { APP_NAME, APP_VERSION } from 'app.constants';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -236,6 +238,13 @@ export class GuardianService implements OnModuleInit {
     return true;
   }
 
+  public addMessageMetaData<T>(message: T): T & MessageMeta {
+    return {
+      ...message,
+      app: { version: APP_VERSION, name: APP_NAME },
+    };
+  }
+
   public async sendMessageFromGuardian<T extends MessageRequiredFields>(
     messageData: T,
   ): Promise<void> {
@@ -247,6 +256,7 @@ export class GuardianService implements OnModuleInit {
       return;
     }
 
-    await this.messagesService.sendMessage(messageData);
+    const messageWithMeta = this.addMessageMetaData(messageData);
+    await this.messagesService.sendMessage(messageWithMeta);
   }
 }

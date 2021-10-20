@@ -19,6 +19,15 @@ export interface MessageDeposit extends MessageRequiredFields {
   signature: Signature;
 }
 
+export interface MessageMeta {
+  app: MessageApp;
+}
+
+export interface MessageApp {
+  version?: string;
+  name?: string;
+}
+
 export interface MessagePause extends MessageRequiredFields {
   blockNumber: number;
   blockHash: string;
