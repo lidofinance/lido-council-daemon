@@ -5,9 +5,11 @@ import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
 import { GuardianModule } from 'guardian';
+import { ProviderModule } from 'provider';
 
 @Module({
   imports: [
+    ProviderModule.forRoot(),
     ConfigModule.forRoot(),
     PrometheusModule,
     LoggerModule,

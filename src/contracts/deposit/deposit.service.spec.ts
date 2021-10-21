@@ -8,10 +8,13 @@ import { LoggerService } from '@nestjs/common';
 import { getNetwork } from '@ethersproject/networks';
 import { Contract } from '@ethersproject/contracts';
 import { hexZeroPad } from '@ethersproject/bytes';
-import { JsonRpcProvider } from '@ethersproject/providers';
 import { sleep } from 'utils';
 import { CacheService } from 'cache';
-import { ERROR_LIMIT_EXCEEDED, ProviderService } from 'provider';
+import {
+  ERROR_LIMIT_EXCEEDED,
+  MockProviderModule,
+  ProviderService,
+} from 'provider';
 import { DepositAbi__factory } from 'generated';
 import { SecurityService } from 'contracts/security';
 import { DepositEventGroup } from './interfaces';
@@ -31,23 +34,15 @@ describe('DepositService', () => {
   let loggerService: LoggerService;
 
   beforeEach(async () => {
-    class MockRpcProvider extends JsonRpcProvider {
-      async _uncachedDetectNetwork() {
-        return getNetwork(CHAINS.Goerli);
-      }
-    }
-
     const moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot(),
+        MockProviderModule.forRoot(),
         DepositModule,
         PrometheusModule,
         LoggerModule,
       ],
-    })
-      .overrideProvider(JsonRpcProvider)
-      .useValue(new MockRpcProvider())
-      .compile();
+    }).compile();
 
     providerService = moduleRef.get(ProviderService);
     securityService = moduleRef.get(SecurityService);

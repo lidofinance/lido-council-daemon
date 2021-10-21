@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { SecurityModule } from 'contracts/security';
-import { ProviderModule } from 'provider';
 import { CacheModule } from 'cache';
 import { DepositService } from './deposit.service';
 import {
@@ -11,7 +10,6 @@ import {
 @Module({
   imports: [
     SecurityModule,
-    ProviderModule,
     CacheModule.register(DEPOSIT_CACHE_FILE_NAME, DEPOSIT_CACHE_DEFAULT),
   ],
   providers: [DepositService],

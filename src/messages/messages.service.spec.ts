@@ -1,16 +1,13 @@
 import { CHAINS } from '@lido-sdk/constants';
 import { Test } from '@nestjs/testing';
-import { ProviderModule, ProviderService } from 'provider';
+import { getNetwork } from '@ethersproject/networks';
+import { MockProviderModule, ProviderService } from 'provider';
 import { MessagesService } from './messages.service';
 import { ConfigModule } from 'common/config';
-import { getNetwork } from '@ethersproject/networks';
-import { JsonRpcProvider } from '@ethersproject/providers';
-import { TransportInterface, TransportModule } from 'transport';
 import { LoggerModule } from 'common/logger';
-import {
-  PrometheusModule,
-  PrometheusTransportMessageCounterProvider,
-} from 'common/prometheus';
+import { TransportInterface } from 'transport';
+import { PrometheusModule } from 'common/prometheus';
+import { MessagesModule } from 'messages';
 
 describe('MessagesService', () => {
   let providerService: ProviderService;
@@ -18,25 +15,15 @@ describe('MessagesService', () => {
   let transportService: TransportInterface;
 
   beforeEach(async () => {
-    class MockRpcProvider extends JsonRpcProvider {
-      async _uncachedDetectNetwork() {
-        return getNetwork(CHAINS.Goerli);
-      }
-    }
-
     const moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot(),
-        LoggerModule,
+        MockProviderModule.forRoot(),
         PrometheusModule,
-        ProviderModule,
-        TransportModule,
+        LoggerModule,
+        MessagesModule,
       ],
-      providers: [MessagesService, PrometheusTransportMessageCounterProvider],
-    })
-      .overrideProvider(JsonRpcProvider)
-      .useValue(new MockRpcProvider())
-      .compile();
+    }).compile();
 
     providerService = moduleRef.get(ProviderService);
     messagesService = moduleRef.get(MessagesService);

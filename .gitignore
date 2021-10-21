@@ -6,7 +6,8 @@
 generated/
 
 # cache
-cache/
+/cache
+!/src/cache
 
 # Env
 .env

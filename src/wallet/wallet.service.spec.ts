@@ -1,14 +1,12 @@
 import { hexZeroPad } from '@ethersproject/bytes';
-import { getNetwork } from '@ethersproject/networks';
-import { JsonRpcProvider } from '@ethersproject/providers';
 import { Wallet } from '@ethersproject/wallet';
-import { CHAINS } from '@lido-sdk/constants';
 import { LoggerService } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { MockProviderModule } from 'provider';
 import { ProviderService } from 'provider';
 import { WalletModule } from 'wallet';
 import { WALLET_PRIVATE_KEY } from './wallet.constants';
@@ -20,23 +18,16 @@ describe('WalletService', () => {
   let providerService: ProviderService;
   let loggerService: LoggerService;
 
-  class MockRpcProvider extends JsonRpcProvider {
-    async _uncachedDetectNetwork() {
-      return getNetwork(CHAINS.Goerli);
-    }
-  }
-
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot(),
+        MockProviderModule.forRoot(),
         LoggerModule,
         PrometheusModule,
         WalletModule,
       ],
     })
-      .overrideProvider(JsonRpcProvider)
-      .useValue(new MockRpcProvider())
       .overrideProvider(WALLET_PRIVATE_KEY)
       .useValue(wallet.privateKey)
       .compile();

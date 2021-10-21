@@ -5,8 +5,8 @@ import { CHAINS } from '@lido-sdk/constants';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
-import { ProviderModule, ProviderService } from 'provider';
-import { WalletModule, WalletService } from 'wallet';
+import { MockProviderModule, ProviderService } from 'provider';
+import { WalletService } from 'wallet';
 import { SecurityService } from './security.service';
 import { SecurityAbi__factory } from 'generated';
 import { Interface } from '@ethersproject/abi';
@@ -16,8 +16,8 @@ import { Wallet } from '@ethersproject/wallet';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
 import { getNetwork } from '@ethersproject/networks';
-import { JsonRpcProvider } from '@ethersproject/providers';
 import { PrometheusModule } from 'common/prometheus';
+import { SecurityModule } from '.';
 
 describe('SecurityService', () => {
   const address1 = hexZeroPad('0x1', 20);
@@ -30,25 +30,15 @@ describe('SecurityService', () => {
   let loggerService: LoggerService;
 
   beforeEach(async () => {
-    class MockRpcProvider extends JsonRpcProvider {
-      async _uncachedDetectNetwork() {
-        return getNetwork(CHAINS.Goerli);
-      }
-    }
-
     const moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot(),
+        MockProviderModule.forRoot(),
         LoggerModule,
         PrometheusModule,
-        ProviderModule,
-        WalletModule,
+        SecurityModule,
       ],
-      providers: [SecurityService],
-    })
-      .overrideProvider(JsonRpcProvider)
-      .useValue(new MockRpcProvider())
-      .compile();
+    }).compile();
 
     securityService = moduleRef.get(SecurityService);
     providerService = moduleRef.get(ProviderService);

@@ -4,6 +4,8 @@ import { RegistryAbi, RegistryAbi__factory } from 'generated';
 import { ProviderService } from 'provider';
 import { getRegistryAddress } from './registry.constants';
 import { SecurityService } from 'contracts/security';
+import { NodeOperator } from './interfaces';
+import { range } from 'utils';
 
 @Injectable()
 export class RegistryService {
@@ -13,6 +15,8 @@ export class RegistryService {
   ) {}
 
   private cachedContract: RegistryAbi | null = null;
+  private cachedBatchContract: RegistryAbi | null = null;
+  private cachedBatchContractKey: unknown = {};
   private cachedPubKeyLength: number | null = null;
 
   public async getContract(): Promise<RegistryAbi> {
@@ -25,6 +29,17 @@ export class RegistryService {
     return this.cachedContract;
   }
 
+  public async getMemoizedBatchContract(key: unknown): Promise<RegistryAbi> {
+    if (this.cachedBatchContractKey !== key || !this.cachedBatchContract) {
+      const contract = await this.getContract();
+      const provider = this.providerService.getNewBatchProviderInstance();
+      this.cachedBatchContract = contract.connect(provider);
+      this.cachedBatchContractKey = key;
+    }
+
+    return this.cachedBatchContract;
+  }
+
   public async getPubkeyLength(): Promise<number> {
     if (!this.cachedPubKeyLength) {
       const contract = await this.getContract();
@@ -35,7 +50,7 @@ export class RegistryService {
     return this.cachedPubKeyLength;
   }
 
-  public async splitPubKeys(hexString: string) {
+  public async splitPubKeys(hexString: string): Promise<string[]> {
     const pubkeyLength = await this.getPubkeyLength();
     const byteArray = arrayify(hexString);
     const splittedKeys = this.splitPubKeysArray(byteArray, pubkeyLength).map(
@@ -86,5 +101,56 @@ export class RegistryService {
     const keysOpIndex = await contract.getKeysOpIndex();
 
     return keysOpIndex.toNumber();
+  }
+
+  public async getNodeOperatorsCount(): Promise<number> {
+    const contract = await this.getContract();
+    const operatorsTotal = await contract.getNodeOperatorsCount();
+
+    return operatorsTotal.toNumber();
+  }
+
+  public async getNodeOperator(operatorId: number): Promise<NodeOperator> {
+    const contract = await this.getMemoizedBatchContract('operator');
+
+    const {
+      active,
+      name,
+      rewardAddress,
+      stakingLimit,
+      stoppedValidators,
+      totalSigningKeys,
+      usedSigningKeys,
+    } = await contract.getNodeOperator(operatorId, true);
+
+    return {
+      active,
+      name,
+      rewardAddress,
+      stakingLimit,
+      stoppedValidators,
+      totalSigningKeys,
+      usedSigningKeys,
+    };
+  }
+
+  public async getNodeOperatorsData(): Promise<NodeOperator[]> {
+    const operatorsTotal = await this.getNodeOperatorsCount();
+
+    return await Promise.all(
+      range(0, operatorsTotal).map(async (operatorId) => {
+        const operatorData = await this.getNodeOperator(operatorId);
+
+        return { ...operatorData, id: operatorId };
+      }),
+    );
+  }
+
+  public async getNodeOperatorsKeys() {
+    // TODO
+  }
+
+  public async cacheNodeOperatorsKeys() {
+    // TODO
   }
 }

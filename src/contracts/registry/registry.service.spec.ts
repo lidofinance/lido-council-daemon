@@ -8,11 +8,10 @@ import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { RegistryAbi__factory } from 'generated';
-import { ProviderModule, ProviderService } from 'provider';
+import { MockProviderModule, ProviderService } from 'provider';
 import { SecurityModule, SecurityService } from 'contracts/security';
 import { RegistryService } from './registry.service';
 import { getNetwork } from '@ethersproject/networks';
-import { JsonRpcProvider } from '@ethersproject/providers';
 import { PrometheusModule } from 'common/prometheus';
 
 describe('RegistryService', () => {
@@ -21,25 +20,16 @@ describe('RegistryService', () => {
   let securityService: SecurityService;
 
   beforeEach(async () => {
-    class MockRpcProvider extends JsonRpcProvider {
-      async _uncachedDetectNetwork() {
-        return getNetwork(CHAINS.Goerli);
-      }
-    }
-
     const moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot(),
+        MockProviderModule.forRoot(),
         LoggerModule,
         PrometheusModule,
-        ProviderModule,
         SecurityModule,
       ],
       providers: [RegistryService],
-    })
-      .overrideProvider(JsonRpcProvider)
-      .useValue(new MockRpcProvider())
-      .compile();
+    }).compile();
 
     providerService = moduleRef.get(ProviderService);
     registryService = moduleRef.get(RegistryService);
@@ -56,6 +46,25 @@ describe('RegistryService', () => {
       const contract1 = await registryService.getContract();
       const contract2 = await registryService.getContract();
       expect(contract1).toBe(contract2);
+    });
+  });
+
+  describe('getMemoizedBatchContract', () => {
+    it('should return contract instance', async () => {
+      const contract = await registryService.getMemoizedBatchContract('key');
+      expect(contract).toBeInstanceOf(Contract);
+    });
+
+    it('should return memoized instance if key is the same as previous', async () => {
+      const contract1 = await registryService.getMemoizedBatchContract('foo');
+      const contract2 = await registryService.getMemoizedBatchContract('foo');
+      expect(contract1).toBe(contract2);
+    });
+
+    it('should return new instance if key is different', async () => {
+      const contract1 = await registryService.getMemoizedBatchContract('foo');
+      const contract2 = await registryService.getMemoizedBatchContract('bar');
+      expect(contract1).not.toBe(contract2);
     });
   });
 
@@ -201,6 +210,81 @@ describe('RegistryService', () => {
       const keysOpIndex = await registryService.getKeysOpIndex();
       expect(keysOpIndex).toBe(expected);
       expect(mockProviderCall).toBeCalledTimes(1);
+    });
+  });
+
+  describe('getNodeOperatorsCount', () => {
+    it('should return a number of node operators', async () => {
+      const expected = 10;
+
+      const mockProviderCall = jest
+        .spyOn(providerService.provider, 'call')
+        .mockImplementation(async () => {
+          const iface = new Interface(RegistryAbi__factory.abi);
+          const result = [BigNumber.from(expected).toHexString()];
+          return iface.encodeFunctionResult('getNodeOperatorsCount', result);
+        });
+
+      const operatorsTotal = await registryService.getNodeOperatorsCount();
+      expect(operatorsTotal).toBe(expected);
+      expect(mockProviderCall).toBeCalledTimes(1);
+    });
+  });
+
+  describe('getNodeOperator', () => {
+    it('should return node operator data', async () => {
+      const operatorId = 10;
+
+      const expected = {
+        active: true,
+        name: '',
+        rewardAddress: '0x' + '0'.repeat(40),
+        stakingLimit: BigNumber.from(1),
+        stoppedValidators: BigNumber.from(2),
+        totalSigningKeys: BigNumber.from(3),
+        usedSigningKeys: BigNumber.from(4),
+      };
+
+      const mockGetMemoizedBatchContract = jest
+        .spyOn(registryService, 'getMemoizedBatchContract')
+        .mockImplementation(async () => registryService.getContract());
+
+      const mockProviderCall = jest
+        .spyOn(providerService.provider, 'call')
+        .mockImplementation(async () => {
+          const iface = new Interface(RegistryAbi__factory.abi);
+          const result = Object.values(expected);
+          return iface.encodeFunctionResult('getNodeOperator', result);
+        });
+
+      const operatorData = await registryService.getNodeOperator(operatorId);
+      expect(operatorData).toEqual(expected);
+      expect(mockProviderCall).toBeCalledTimes(1);
+      expect(mockGetMemoizedBatchContract).toBeCalledTimes(1);
+    });
+  });
+
+  describe('getNodeOperatorsData', () => {
+    it('should return node operator data', async () => {
+      const expectedOperatorsTotal = 2;
+      const expectedOperatorData = {} as any;
+
+      const mockGetNodeOperatorsCount = jest
+        .spyOn(registryService, 'getNodeOperatorsCount')
+        .mockImplementation(async () => expectedOperatorsTotal);
+
+      const mockGetNodeOperator = jest
+        .spyOn(registryService, 'getNodeOperator')
+        .mockImplementation(async () => expectedOperatorData);
+
+      const operatorsData = await registryService.getNodeOperatorsData();
+      expect(operatorsData).toHaveLength(expectedOperatorsTotal);
+      expect(mockGetNodeOperatorsCount).toBeCalledTimes(1);
+      expect(mockGetNodeOperator).toBeCalledTimes(expectedOperatorsTotal);
+
+      operatorsData.forEach((operatorData, index) => {
+        expect(operatorData).toEqual({ id: index });
+      });
     });
   });
 });

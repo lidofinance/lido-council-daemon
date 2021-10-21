@@ -1,9 +1,21 @@
+import { Block } from '@ethersproject/abstract-provider';
 import { Injectable } from '@nestjs/common';
-import { Block, JsonRpcProvider } from '@ethersproject/providers';
+import { RpcBatchProvider, RpcProvider } from './interfaces';
 
 @Injectable()
 export class ProviderService {
-  constructor(public provider: JsonRpcProvider) {}
+  constructor(
+    public provider: RpcProvider,
+    public batchProvider: RpcBatchProvider,
+  ) {}
+
+  public getNewProviderInstance(): RpcProvider {
+    return this.provider.clone();
+  }
+
+  public getNewBatchProviderInstance(): RpcBatchProvider {
+    return this.batchProvider.clone();
+  }
 
   public async getChainId(): Promise<number> {
     const { chainId } = await this.provider.getNetwork();
