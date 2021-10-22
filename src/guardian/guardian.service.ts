@@ -48,20 +48,34 @@ export class GuardianService implements OnModuleInit {
   ) {}
 
   public async onModuleInit(): Promise<void> {
-    await this.depositService.initialize();
-    this.subscribeToEthereumUpdates();
+    (async () => {
+      await Promise.all([
+        this.depositService.updateEventsCache(),
+        this.registryService.updateNodeOperatorsCache(),
+      ]);
+      this.subscribeToEthereumUpdates();
+    })();
   }
 
   public subscribeToEthereumUpdates() {
     const provider = this.providerService.provider;
 
-    provider.on('block', () => this.checkKeysIntersections());
+    provider.on('block', () => this.handleNewBlock());
     this.logger.log('GuardianService subscribed to Ethereum events');
   }
 
   @OneAtTime()
-  public async checkKeysIntersections(): Promise<void> {
+  public async handleNewBlock(): Promise<void> {
     const blockData = await this.getCurrentBlockData();
+
+    await Promise.all([
+      this.checkKeysIntersections(blockData),
+      this.depositService.handleNewBlock(blockData),
+      this.registryService.handleNewBlock(blockData),
+    ]);
+  }
+
+  public async checkKeysIntersections(blockData: BlockData): Promise<void> {
     const { nextSigningKeys, depositedPubKeys, isDepositsPaused } = blockData;
 
     if (isDepositsPaused) {
@@ -69,6 +83,7 @@ export class GuardianService implements OnModuleInit {
       return;
     }
 
+    // TODO: check intersection with all lido keys
     const intersections = this.getKeysIntersections(
       nextSigningKeys,
       depositedPubKeys,

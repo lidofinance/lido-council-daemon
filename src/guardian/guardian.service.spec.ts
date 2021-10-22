@@ -8,11 +8,15 @@ import { LoggerService } from '@nestjs/common';
 import { ConfigModule } from 'common/config';
 import { PrometheusModule } from 'common/prometheus';
 import { GuardianModule } from 'guardian';
+import { DepositService } from 'contracts/deposit';
+import { RegistryService } from 'contracts/registry';
 
 describe('GuardianService', () => {
   let providerService: ProviderService;
   let guardianService: GuardianService;
   let loggerService: LoggerService;
+  let depositService: DepositService;
+  let registryService: RegistryService;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -27,6 +31,8 @@ describe('GuardianService', () => {
 
     providerService = moduleRef.get(ProviderService);
     guardianService = moduleRef.get(GuardianService);
+    depositService = moduleRef.get(DepositService);
+    registryService = moduleRef.get(RegistryService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
@@ -94,6 +100,38 @@ describe('GuardianService', () => {
     it.todo('should collect data from contracts');
   });
 
+  describe('handleNewBlock', () => {
+    it('should exit if the previous call is not completed', async () => {
+      const blockData = {} as any;
+
+      const mockHandleNewBlock = jest
+        .spyOn(guardianService, 'checkKeysIntersections')
+        .mockImplementation(async () => undefined);
+
+      const mockGetCurrentBlockData = jest
+        .spyOn(guardianService, 'getCurrentBlockData')
+        .mockImplementation(async () => blockData);
+
+      const mockDepositHandleNewBlock = jest
+        .spyOn(depositService, 'handleNewBlock')
+        .mockImplementation(async () => undefined);
+
+      const mockRegistryHandleNewBlock = jest
+        .spyOn(registryService, 'handleNewBlock')
+        .mockImplementation(async () => undefined);
+
+      await Promise.all([
+        guardianService.handleNewBlock(),
+        guardianService.handleNewBlock(),
+      ]);
+
+      expect(mockHandleNewBlock).toBeCalledTimes(1);
+      expect(mockGetCurrentBlockData).toBeCalledTimes(1);
+      expect(mockDepositHandleNewBlock).toBeCalledTimes(1);
+      expect(mockRegistryHandleNewBlock).toBeCalledTimes(1);
+    });
+  });
+
   describe('checkKeysIntersections', () => {
     const depositedPubKeys = ['0x1234', '0x5678'];
 
@@ -109,20 +147,10 @@ describe('GuardianService', () => {
       isDepositsPaused: false,
     };
 
-    beforeEach(async () => {
-      jest
-        .spyOn(guardianService, 'getCurrentBlockData')
-        .mockImplementation(async () => currentBlockData);
-    });
-
     it('should call handleKeysIntersections if Lido unused key is found in the deposit contract', async () => {
       const depositedKey = depositedPubKeys[0];
       const nextSigningKeys = [depositedKey];
       const blockData = { ...currentBlockData, nextSigningKeys };
-
-      const mockGetCurrentBlockData = jest
-        .spyOn(guardianService, 'getCurrentBlockData')
-        .mockImplementation(async () => blockData);
 
       const mockHandleCorrectKeys = jest
         .spyOn(guardianService, 'handleCorrectKeys')
@@ -132,10 +160,9 @@ describe('GuardianService', () => {
         .spyOn(guardianService, 'handleKeysIntersections')
         .mockImplementation(async () => undefined);
 
-      await guardianService.checkKeysIntersections();
+      await guardianService.checkKeysIntersections(blockData);
 
       expect(mockHandleCorrectKeys).not.toBeCalled();
-      expect(mockGetCurrentBlockData).toBeCalledTimes(1);
       expect(mockHandleKeysIntersections).toBeCalledTimes(1);
       expect(mockHandleKeysIntersections).toBeCalledWith(blockData, [
         depositedKey,
@@ -147,10 +174,6 @@ describe('GuardianService', () => {
       const nextSigningKeys = [notDepositedKey];
       const blockData = { ...currentBlockData, nextSigningKeys };
 
-      const mockGetCurrentBlockData = jest
-        .spyOn(guardianService, 'getCurrentBlockData')
-        .mockImplementation(async () => blockData);
-
       const mockHandleCorrectKeys = jest
         .spyOn(guardianService, 'handleCorrectKeys')
         .mockImplementation(async () => undefined);
@@ -159,29 +182,11 @@ describe('GuardianService', () => {
         .spyOn(guardianService, 'handleKeysIntersections')
         .mockImplementation(async () => undefined);
 
-      await guardianService.checkKeysIntersections();
+      await guardianService.checkKeysIntersections(blockData);
 
-      expect(mockGetCurrentBlockData).toBeCalledTimes(1);
       expect(mockHandleKeysIntersections).not.toBeCalled();
       expect(mockHandleCorrectKeys).toBeCalledTimes(1);
       expect(mockHandleCorrectKeys).toBeCalledWith(blockData);
-    });
-
-    it('should exit if the previous call is not completed', async () => {
-      jest
-        .spyOn(guardianService, 'handleCorrectKeys')
-        .mockImplementation(async () => undefined);
-
-      const mockGetCurrentBlockData = jest
-        .spyOn(guardianService, 'getCurrentBlockData')
-        .mockImplementation(async () => currentBlockData);
-
-      await Promise.all([
-        guardianService.checkKeysIntersections(),
-        guardianService.checkKeysIntersections(),
-      ]);
-
-      expect(mockGetCurrentBlockData).toBeCalledTimes(1);
     });
   });
 

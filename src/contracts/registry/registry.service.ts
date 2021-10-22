@@ -1,22 +1,43 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { arrayify, hexlify } from '@ethersproject/bytes';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { RegistryAbi, RegistryAbi__factory } from 'generated';
 import { ProviderService } from 'provider';
-import { getRegistryAddress } from './registry.constants';
 import { SecurityService } from 'contracts/security';
-import { NodeOperator } from './interfaces';
+import {
+  getRegistryAddress,
+  REGISTRY_KEYS_QUERY_BATCH_SIZE,
+} from './registry.constants';
+import {
+  NodeOperator,
+  NodeOperatorsCache,
+  NodeOperatorsKey,
+  NodeOperatorWithKeys,
+} from './interfaces';
 import { range } from 'utils';
+import { CacheService } from 'cache';
+import { OneAtTime } from 'common/decorators';
+import { BlockData } from 'guardian';
 
 @Injectable()
 export class RegistryService {
   constructor(
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
     private securityService: SecurityService,
+    private cacheService: CacheService<NodeOperatorsCache>,
   ) {}
 
+  @OneAtTime()
+  public async handleNewBlock({ keysOpIndex }: BlockData): Promise<void> {
+    const cache = await this.getCachedNodeOperators();
+    if (cache.keysOpIndex === keysOpIndex) return;
+
+    await this.updateNodeOperatorsCache();
+  }
+
   private cachedContract: RegistryAbi | null = null;
-  private cachedBatchContract: RegistryAbi | null = null;
-  private cachedBatchContractKey: unknown = {};
+  private cachedBatchContracts: Map<string, Promise<RegistryAbi>> = new Map();
   private cachedPubKeyLength: number | null = null;
 
   public async getContract(): Promise<RegistryAbi> {
@@ -29,15 +50,23 @@ export class RegistryService {
     return this.cachedContract;
   }
 
-  public async getMemoizedBatchContract(key: unknown): Promise<RegistryAbi> {
-    if (this.cachedBatchContractKey !== key || !this.cachedBatchContract) {
-      const contract = await this.getContract();
-      const provider = this.providerService.getNewBatchProviderInstance();
-      this.cachedBatchContract = contract.connect(provider);
-      this.cachedBatchContractKey = key;
+  public async getCachedBatchContract(
+    cacheKey: string | number,
+  ): Promise<RegistryAbi> {
+    const cacheKeyStr = String(cacheKey);
+    let cachedBatchContract = this.cachedBatchContracts.get(cacheKeyStr);
+
+    if (!cachedBatchContract) {
+      cachedBatchContract = new Promise(async (resolve) => {
+        const contract = await this.getContract();
+        const provider = this.providerService.getNewBatchProviderInstance();
+        resolve(contract.connect(provider));
+      });
+
+      this.cachedBatchContracts.set(cacheKeyStr, cachedBatchContract);
     }
 
-    return this.cachedBatchContract;
+    return await cachedBatchContract;
   }
 
   public async getPubkeyLength(): Promise<number> {
@@ -111,7 +140,7 @@ export class RegistryService {
   }
 
   public async getNodeOperator(operatorId: number): Promise<NodeOperator> {
-    const contract = await this.getMemoizedBatchContract('operator');
+    const contract = await this.getCachedBatchContract('operator');
 
     const {
       active,
@@ -124,13 +153,14 @@ export class RegistryService {
     } = await contract.getNodeOperator(operatorId, true);
 
     return {
+      id: operatorId,
       active,
       name,
       rewardAddress,
-      stakingLimit,
-      stoppedValidators,
-      totalSigningKeys,
-      usedSigningKeys,
+      stakingLimit: stakingLimit.toNumber(),
+      stoppedValidators: stoppedValidators.toNumber(),
+      totalSigningKeys: totalSigningKeys.toNumber(),
+      usedSigningKeys: usedSigningKeys.toNumber(),
     };
   }
 
@@ -146,11 +176,83 @@ export class RegistryService {
     );
   }
 
-  public async getNodeOperatorsKeys() {
-    // TODO
+  public async getNodeOperatorKeys(
+    operatorId: number,
+    from: number,
+    to: number,
+  ): Promise<NodeOperatorsKey[]> {
+    return await Promise.all(
+      range(from, to).map(async (keyId) => {
+        const seedKey = Math.floor(keyId / REGISTRY_KEYS_QUERY_BATCH_SIZE);
+        const contract = await this.getCachedBatchContract(seedKey);
+
+        const result = await contract.getSigningKey(operatorId, keyId);
+        const { key, depositSignature, used } = result;
+
+        return { operatorId, key, depositSignature, used, id: keyId };
+      }),
+    );
   }
 
-  public async cacheNodeOperatorsKeys() {
-    // TODO
+  public async updateNodeOperatorsCache() {
+    const [cache, currentKeysOpIndex] = await Promise.all([
+      this.getCachedNodeOperators(),
+      this.getKeysOpIndex(),
+    ]);
+
+    const isSameKeys = cache.keysOpIndex === currentKeysOpIndex;
+    if (isSameKeys) return;
+
+    const currentOperators = await this.getNodeOperatorsData();
+    const mergedOperators: NodeOperatorWithKeys[] = [];
+
+    this.logger.log('Operators are fetched', {
+      operators: currentOperators.length,
+    });
+
+    for (const operator of currentOperators) {
+      const { id: operatorId, rewardAddress } = operator;
+      const cachedOperator = cache.operators[operatorId];
+      const isSameCachedOperator =
+        cachedOperator?.rewardAddress === rewardAddress;
+
+      let keys: NodeOperatorsKey[] = [];
+
+      if (isSameCachedOperator) {
+        const from = operator.usedSigningKeys;
+        const to = operator.totalSigningKeys;
+
+        // We get used keys from the cache, since the contract does not allow to change them
+        const cachedUsedKeys = cachedOperator.keys.slice(0, from);
+        const newKeys = await this.getNodeOperatorKeys(operatorId, from, to);
+        keys = cachedUsedKeys.concat(newKeys);
+      } else {
+        const from = 0;
+        const to = operator.totalSigningKeys;
+        keys = await this.getNodeOperatorKeys(operatorId, from, to);
+      }
+
+      this.logger.log('Operator keys are fetched', {
+        operatorName: operator.name,
+        keys: keys.length,
+      });
+
+      mergedOperators[operatorId] = { ...operator, keys };
+    }
+
+    await this.setCachedNodeOperatorsKeys({
+      operators: mergedOperators,
+      keysOpIndex: currentKeysOpIndex,
+    });
+  }
+
+  public async getCachedNodeOperators(): Promise<NodeOperatorsCache> {
+    return await this.cacheService.getCache();
+  }
+
+  public async setCachedNodeOperatorsKeys(
+    cache: NodeOperatorsCache,
+  ): Promise<void> {
+    return await this.cacheService.setCache(cache);
   }
 }

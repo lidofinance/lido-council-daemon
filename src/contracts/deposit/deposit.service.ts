@@ -17,6 +17,7 @@ import { sleep } from 'utils';
 import { OneAtTime } from 'common/decorators';
 import { SecurityService } from 'contracts/security';
 import { CacheService } from 'cache';
+import { BlockData } from 'guardian';
 
 @Injectable()
 export class DepositService {
@@ -26,6 +27,12 @@ export class DepositService {
     private securityService: SecurityService,
     private cacheService: CacheService<DepositEventGroup>,
   ) {}
+
+  @OneAtTime()
+  public async handleNewBlock({ blockNumber }: BlockData): Promise<void> {
+    if (blockNumber % DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE !== 0) return;
+    await this.updateEventsCache();
+  }
 
   private cachedContract: DepositAbi | null = null;
 
@@ -130,24 +137,7 @@ export class DepositService {
     return eventGroup;
   }
 
-  private async subscribeToEthereumUpdates() {
-    const provider = this.providerService.provider;
-
-    provider.on('block', async (blockNumber) => {
-      if (blockNumber % DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE !== 0) return;
-      await this.cacheEvents();
-    });
-
-    this.logger.log('DepositService subscribed to Ethereum events');
-  }
-
-  public async initialize(): Promise<void> {
-    await this.cacheEvents();
-    this.subscribeToEthereumUpdates();
-  }
-
-  @OneAtTime()
-  public async cacheEvents(): Promise<{
+  public async updateEventsCache(): Promise<{
     newEvents: number;
     totalEvents: number;
   } | void> {

@@ -1,4 +1,5 @@
 import { CHAINS } from '@lido-sdk/constants';
+import { NodeOperatorsCache } from './interfaces';
 
 export const REGISTRY_BY_NETWORK: {
   [key in CHAINS]?: string;
@@ -13,3 +14,13 @@ export const getRegistryAddress = (chainId: CHAINS): string => {
 
   return address;
 };
+
+export const REGISTRY_KEYS_QUERY_BATCH_SIZE = 200;
+
+export const REGISTRY_CACHE_FILE_NAME = 'registry.keys.json';
+
+export const REGISTRY_CACHE_DEFAULT: NodeOperatorsCache = Object.freeze({
+  keysOpIndex: -1,
+  operators: [],
+  keys: [],
+});

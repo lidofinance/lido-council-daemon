@@ -9,10 +9,11 @@ import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { RegistryAbi__factory } from 'generated';
 import { MockProviderModule, ProviderService } from 'provider';
-import { SecurityModule, SecurityService } from 'contracts/security';
-import { RegistryService } from './registry.service';
+import { SecurityService } from 'contracts/security';
 import { getNetwork } from '@ethersproject/networks';
 import { PrometheusModule } from 'common/prometheus';
+import { RegistryModule } from './registry.module';
+import { RegistryService } from './registry.service';
 
 describe('RegistryService', () => {
   let providerService: ProviderService;
@@ -26,9 +27,8 @@ describe('RegistryService', () => {
         MockProviderModule.forRoot(),
         LoggerModule,
         PrometheusModule,
-        SecurityModule,
+        RegistryModule,
       ],
-      providers: [RegistryService],
     }).compile();
 
     providerService = moduleRef.get(ProviderService);
@@ -49,21 +49,29 @@ describe('RegistryService', () => {
     });
   });
 
-  describe('getMemoizedBatchContract', () => {
+  describe('getCachedBatchContract', () => {
     it('should return contract instance', async () => {
-      const contract = await registryService.getMemoizedBatchContract('key');
+      const contract = await registryService.getCachedBatchContract('key');
       expect(contract).toBeInstanceOf(Contract);
     });
 
-    it('should return memoized instance if key is the same as previous', async () => {
-      const contract1 = await registryService.getMemoizedBatchContract('foo');
-      const contract2 = await registryService.getMemoizedBatchContract('foo');
+    it('should return cached instance if key is the same as previous', async () => {
+      const contract1 = await registryService.getCachedBatchContract('foo');
+      const contract2 = await registryService.getCachedBatchContract('foo');
+      expect(contract1).toBe(contract2);
+    });
+
+    it('should return cached instance synchronously', async () => {
+      const [contract1, contract2] = await Promise.all([
+        registryService.getCachedBatchContract('foo'),
+        registryService.getCachedBatchContract('foo'),
+      ]);
       expect(contract1).toBe(contract2);
     });
 
     it('should return new instance if key is different', async () => {
-      const contract1 = await registryService.getMemoizedBatchContract('foo');
-      const contract2 = await registryService.getMemoizedBatchContract('bar');
+      const contract1 = await registryService.getCachedBatchContract('foo');
+      const contract2 = await registryService.getCachedBatchContract('bar');
       expect(contract1).not.toBe(contract2);
     });
   });
@@ -239,14 +247,14 @@ describe('RegistryService', () => {
         active: true,
         name: '',
         rewardAddress: '0x' + '0'.repeat(40),
-        stakingLimit: BigNumber.from(1),
-        stoppedValidators: BigNumber.from(2),
-        totalSigningKeys: BigNumber.from(3),
-        usedSigningKeys: BigNumber.from(4),
+        stakingLimit: 1,
+        stoppedValidators: 2,
+        totalSigningKeys: 3,
+        usedSigningKeys: 4,
       };
 
-      const mockGetMemoizedBatchContract = jest
-        .spyOn(registryService, 'getMemoizedBatchContract')
+      const mockGetCachedBatchContract = jest
+        .spyOn(registryService, 'getCachedBatchContract')
         .mockImplementation(async () => registryService.getContract());
 
       const mockProviderCall = jest
@@ -258,14 +266,14 @@ describe('RegistryService', () => {
         });
 
       const operatorData = await registryService.getNodeOperator(operatorId);
-      expect(operatorData).toEqual(expected);
+      expect(operatorData).toEqual({ ...expected, id: operatorId });
       expect(mockProviderCall).toBeCalledTimes(1);
-      expect(mockGetMemoizedBatchContract).toBeCalledTimes(1);
+      expect(mockGetCachedBatchContract).toBeCalledTimes(1);
     });
   });
 
   describe('getNodeOperatorsData', () => {
-    it('should return node operator data', async () => {
+    it('should return node operators', async () => {
       const expectedOperatorsTotal = 2;
       const expectedOperatorData = {} as any;
 
