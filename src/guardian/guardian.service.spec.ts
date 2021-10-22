@@ -134,6 +134,11 @@ describe('GuardianService', () => {
 
   describe('checkKeysIntersections', () => {
     const depositedPubKeys = ['0x1234', '0x5678'];
+    const depositedEvents = {
+      startBlock: 1,
+      endBlock: 5,
+      events: depositedPubKeys.map((pubkey) => ({ pubkey } as any)),
+    };
 
     const currentBlockData = {
       blockNumber: 1,
@@ -141,7 +146,7 @@ describe('GuardianService', () => {
       depositRoot: '0x2345',
       keysOpIndex: 1,
       nextSigningKeys: [] as string[],
-      depositedPubKeys: new Set(depositedPubKeys),
+      depositedEvents,
       guardianAddress: '0x3456',
       guardianIndex: 1,
       isDepositsPaused: false,

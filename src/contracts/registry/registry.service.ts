@@ -6,6 +6,7 @@ import { ProviderService } from 'provider';
 import { SecurityService } from 'contracts/security';
 import {
   getRegistryAddress,
+  REGISTRY_KEYS_CACHE_UPDATE_BLOCK_RATE,
   REGISTRY_KEYS_QUERY_BATCH_SIZE,
 } from './registry.constants';
 import {
@@ -29,10 +30,8 @@ export class RegistryService {
   ) {}
 
   @OneAtTime()
-  public async handleNewBlock({ keysOpIndex }: BlockData): Promise<void> {
-    const cache = await this.getCachedNodeOperators();
-    if (cache.keysOpIndex === keysOpIndex) return;
-
+  public async handleNewBlock({ blockNumber }: BlockData): Promise<void> {
+    if (blockNumber % REGISTRY_KEYS_CACHE_UPDATE_BLOCK_RATE !== 0) return;
     await this.updateNodeOperatorsCache();
   }
 

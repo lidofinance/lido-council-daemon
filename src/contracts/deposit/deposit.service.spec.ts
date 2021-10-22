@@ -305,48 +305,68 @@ describe('DepositService', () => {
     it.todo('should exit if the previous call is not completed');
   });
 
-  describe('getAllDepositedPubKeys', () => {
+  describe('getAllDepositedEvents', () => {
     const cachedPubkeys = ['0x1234', '0x5678'];
     const freshPubkeys = ['0x4321', '0x8765'];
+    const cachedEvents = {
+      startBlock: 0,
+      endBlock: 2,
+      events: cachedPubkeys.map((pubkey) => ({ pubkey } as any)),
+    };
+    const currentBlock = 10;
+    const firstNotCachedBlock = cachedEvents.endBlock + 1;
 
     beforeEach(async () => {
       jest
         .spyOn(depositService, 'getCachedEvents')
-        .mockImplementation(async () => ({
-          startBlock: 0,
-          endBlock: 2,
-          events: cachedPubkeys.map((pubkey) => ({ pubkey } as any)),
-        }));
+        .mockImplementation(async () => cachedEvents);
+
+      jest
+        .spyOn(providerService, 'getBlockNumber')
+        .mockImplementation(async () => currentBlock);
     });
 
-    it('should return cached pub keys', async () => {
+    it('should return cached events', async () => {
       const mockGetFreshEvents = jest
         .spyOn(depositService, 'getFreshEvents')
         .mockImplementation(async () => ({
-          startBlock: 0,
-          endBlock: 10,
+          startBlock: firstNotCachedBlock,
+          endBlock: currentBlock,
           events: [],
         }));
 
-      const result = await depositService.getAllDepositedPubKeys();
-      const expected = new Set(cachedPubkeys);
-      expect(result).toEqual(expected);
+      const result = await depositService.getAllDepositedEvents();
+      expect(result).toEqual({ ...cachedEvents, endBlock: currentBlock });
+
       expect(mockGetFreshEvents).toBeCalledTimes(1);
+      expect(mockGetFreshEvents).toBeCalledWith(
+        firstNotCachedBlock,
+        currentBlock,
+      );
     });
 
     it('should return merged pub keys', async () => {
       const mockGetFreshEvents = jest
         .spyOn(depositService, 'getFreshEvents')
         .mockImplementation(async () => ({
-          startBlock: 0,
-          endBlock: 10,
+          startBlock: firstNotCachedBlock,
+          endBlock: currentBlock,
           events: freshPubkeys.map((pubkey) => ({ pubkey } as any)),
         }));
 
-      const result = await depositService.getAllDepositedPubKeys();
-      const expected = new Set(cachedPubkeys.concat(freshPubkeys));
-      expect(result).toEqual(expected);
+      const result = await depositService.getAllDepositedEvents();
+      expect(result).toEqual({
+        startBlock: cachedEvents.startBlock,
+        endBlock: currentBlock,
+        events: cachedPubkeys
+          .concat(freshPubkeys)
+          .map((pubkey) => ({ pubkey } as any)),
+      });
       expect(mockGetFreshEvents).toBeCalledTimes(1);
+      expect(mockGetFreshEvents).toBeCalledWith(
+        firstNotCachedBlock,
+        currentBlock,
+      );
     });
 
     it.todo('should throw if cache is old');

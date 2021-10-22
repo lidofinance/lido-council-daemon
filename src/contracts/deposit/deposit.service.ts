@@ -6,7 +6,6 @@ import { DepositAbi, DepositAbi__factory } from 'generated';
 import { DepositEventEvent } from 'generated/DepositAbi';
 import {
   DEPOSIT_EVENTS_STEP,
-  DEPOSIT_EVENTS_FRESH_BLOCKS,
   DEPOSIT_EVENTS_RETRY_TIMEOUT_MS,
   getDeploymentBlockByNetwork,
   DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE,
@@ -122,9 +121,10 @@ export class DepositService {
     return { events, startBlock, endBlock };
   }
 
-  public async getFreshEvents(): Promise<DepositEventGroup> {
-    const endBlock = await this.providerService.getBlockNumber();
-    const startBlock = endBlock - DEPOSIT_EVENTS_FRESH_BLOCKS;
+  public async getFreshEvents(
+    startBlock: number,
+    endBlock: number,
+  ): Promise<DepositEventGroup> {
     const eventGroup = await this.fetchEventsFallOver(startBlock, endBlock);
 
     const events = eventGroup.events.length;
@@ -197,21 +197,25 @@ export class DepositService {
     return { newEvents, totalEvents };
   }
 
-  public async getAllDepositedPubKeys(): Promise<Set<string>> {
-    const [cachedEvents, freshEvents] = await Promise.all([
+  public async getAllDepositedEvents(): Promise<DepositEventGroup> {
+    const [endBlock, cachedEvents] = await Promise.all([
+      this.providerService.getBlockNumber(),
       this.getCachedEvents(),
-      this.getFreshEvents(),
     ]);
 
-    if (cachedEvents.endBlock < freshEvents.startBlock) {
-      throw new Error('Events are not collected yet');
-    }
+    const firstNotCachedBlock = cachedEvents.endBlock + 1;
+    const freshEvents = await this.getFreshEvents(
+      firstNotCachedBlock,
+      endBlock,
+    );
 
-    const cachedPubKeys = cachedEvents.events.map(({ pubkey }) => pubkey);
-    const freshPubKeys = freshEvents.events.map(({ pubkey }) => pubkey);
-    const mergedPubKeys = cachedPubKeys.concat(freshPubKeys);
+    const mergedEvents = cachedEvents.events.concat(freshEvents.events);
 
-    return new Set(mergedPubKeys);
+    return {
+      events: mergedEvents,
+      startBlock: cachedEvents.startBlock,
+      endBlock,
+    };
   }
 
   public async getDepositRoot(): Promise<string> {

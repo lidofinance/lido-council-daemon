@@ -76,7 +76,7 @@ export class GuardianService implements OnModuleInit {
   }
 
   public async checkKeysIntersections(blockData: BlockData): Promise<void> {
-    const { nextSigningKeys, depositedPubKeys, isDepositsPaused } = blockData;
+    const { nextSigningKeys, depositedEvents, isDepositsPaused } = blockData;
 
     if (isDepositsPaused) {
       this.logger.warn('Deposits are paused');
@@ -86,7 +86,7 @@ export class GuardianService implements OnModuleInit {
     // TODO: check intersection with all lido keys
     const intersections = this.getKeysIntersections(
       nextSigningKeys,
-      depositedPubKeys,
+      new Set(depositedEvents.events.map(({ pubkey }) => pubkey)),
     );
 
     const isIntersectionsFound = intersections.length > 0;
@@ -107,7 +107,7 @@ export class GuardianService implements OnModuleInit {
         depositRoot,
         keysOpIndex,
         nextSigningKeys,
-        depositedPubKeys,
+        depositedEvents,
         guardianIndex,
         isDepositsPaused,
       ] = await Promise.all([
@@ -115,7 +115,7 @@ export class GuardianService implements OnModuleInit {
         this.depositService.getDepositRoot(),
         this.registryService.getKeysOpIndex(),
         this.registryService.getNextSigningKeys(),
-        this.depositService.getAllDepositedPubKeys(),
+        this.depositService.getAllDepositedEvents(),
         this.securityService.getGuardianIndex(),
         this.securityService.isDepositsPaused(),
       ]);
@@ -132,7 +132,7 @@ export class GuardianService implements OnModuleInit {
         depositRoot,
         keysOpIndex,
         nextSigningKeys,
-        depositedPubKeys,
+        depositedEvents,
         guardianAddress,
         guardianIndex,
         isDepositsPaused,
