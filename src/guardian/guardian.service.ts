@@ -56,15 +56,21 @@ export class GuardianService implements OnModuleInit {
   ) {}
 
   public async onModuleInit(): Promise<void> {
+    // Does not wait for completion, to avoid blocking the app initialization
     (async () => {
       await Promise.all([
         this.depositService.updateEventsCache(),
         this.registryService.updateNodeOperatorsCache(),
       ]);
+
+      // Subscribes to events only after the cache is warmed up
       this.subscribeToEthereumUpdates();
     })();
   }
 
+  /**
+   * Subscribes to the event of a new block appearance
+   */
   public subscribeToEthereumUpdates() {
     const provider = this.providerService.provider;
 
@@ -72,6 +78,9 @@ export class GuardianService implements OnModuleInit {
     this.logger.log('GuardianService subscribed to Ethereum events');
   }
 
+  /**
+   * Handles the appearance of a new block in the network
+   */
   @OneAtTime()
   public async handleNewBlock(): Promise<void> {
     const blockData = await this.getCurrentBlockData();
@@ -85,6 +94,11 @@ export class GuardianService implements OnModuleInit {
     this.collectMetrics(blockData);
   }
 
+  /**
+   * Collects data from contracts in one place and in parallel,
+   * to reduce the probability of getting data from different blocks
+   * @returns collected data from the current block
+   */
   public async getCurrentBlockData(): Promise<BlockData> {
     try {
       const endTimer = this.blockRequestsHistogram.startTimer();
@@ -133,6 +147,10 @@ export class GuardianService implements OnModuleInit {
     }
   }
 
+  /**
+   * Checks keys for intersections with previously deposited keys and handles the situation
+   * @param blockData - collected data from the current block
+   */
   public async checkKeysIntersections(blockData: BlockData): Promise<void> {
     if (blockData.isDepositsPaused) {
       this.logger.warn('Deposits are paused');
@@ -151,6 +169,28 @@ export class GuardianService implements OnModuleInit {
     }
   }
 
+  /**
+   * Finds the intersection of the next deposit keys in the list of all previously deposited keys
+   * Quick check that can be done on each block
+   * @param blockData - collected data from the current block
+   * @returns list of keys that were deposited earlier
+   */
+  public getNextKeysIntersections(blockData: BlockData): string[] {
+    const { depositedEvents, nextSigningKeys } = blockData;
+    const depositedKeys = depositedEvents.events.map(({ pubkey }) => pubkey);
+    const depositedKeysSet = new Set(depositedKeys);
+
+    return nextSigningKeys.filter((nextSigningKey) =>
+      depositedKeysSet.has(nextSigningKey),
+    );
+  }
+
+  /**
+   * Finds the intersection of all unused lido keys in the list of all previously deposited keys
+   * It may not run every block if the cache is being updated.
+   * @param blockData - collected data from the current block
+   * @returns list of keys that were deposited earlier
+   */
   public getCachedKeysIntersections(blockData: BlockData): string[] {
     const { nodeOperatorsCache, keysOpIndex, depositedEvents } = blockData;
     const { keysOpIndex: cachedKeysOpIndex, operators } = nodeOperatorsCache;
@@ -170,16 +210,11 @@ export class GuardianService implements OnModuleInit {
     );
   }
 
-  public getNextKeysIntersections(blockData: BlockData): string[] {
-    const { depositedEvents, nextSigningKeys } = blockData;
-    const depositedKeys = depositedEvents.events.map(({ pubkey }) => pubkey);
-    const depositedKeysSet = new Set(depositedKeys);
-
-    return nextSigningKeys.filter((nextSigningKey) =>
-      depositedKeysSet.has(nextSigningKey),
-    );
-  }
-
+  /**
+   * Handles the situation when keys have previously deposited copies
+   * @param blockData - collected data from the current block
+   * @param intersections - list of keys that were deposited earlier
+   */
   public async handleKeysIntersections(
     blockData: BlockData,
     intersections: string[],
@@ -217,6 +252,10 @@ export class GuardianService implements OnModuleInit {
     await this.sendMessageFromGuardian(pauseMessage);
   }
 
+  /**
+   * Handles the situation when keys do not have previously deposited copies
+   * @param blockData - collected data from the current block
+   */
   public async handleCorrectKeys(blockData: BlockData): Promise<void> {
     const {
       blockNumber,
@@ -263,6 +302,12 @@ export class GuardianService implements OnModuleInit {
 
   private lastContractsState: ContractsState | null = null;
 
+  /**
+   * Compares the states of the contracts to decide if the message needs to be re-signed
+   * @param firstState - contracts state
+   * @param secondState - contracts state
+   * @returns true if state is the same
+   */
   public isSameContractsStates(
     firstState: ContractsState | null,
     secondState: ContractsState | null,
@@ -280,6 +325,11 @@ export class GuardianService implements OnModuleInit {
     return true;
   }
 
+  /**
+   * Adds information about the app to the message
+   * @param message - message object
+   * @returns extended message
+   */
   public addMessageMetaData<T>(message: T): T & MessageMeta {
     return {
       ...message,
@@ -287,6 +337,10 @@ export class GuardianService implements OnModuleInit {
     };
   }
 
+  /**
+   * Sends a message to the message broker from the guardian
+   * @param messageData - message object
+   */
   public async sendMessageFromGuardian<T extends MessageRequiredFields>(
     messageData: T,
   ): Promise<void> {
@@ -302,6 +356,10 @@ export class GuardianService implements OnModuleInit {
     await this.messagesService.sendMessage(messageWithMeta);
   }
 
+  /**
+   * Collects metrics about keys in the deposit contract and keys of node operators
+   * @param blockData - collected data from the current block
+   */
   public collectMetrics(blockData: BlockData): void {
     const { depositedEvents, nodeOperatorsCache, nextSigningKeys } = blockData;
 
