@@ -38,6 +38,9 @@ export class WalletService implements OnModuleInit {
     this.subscribeToEthereumUpdates();
   }
 
+  /**
+   * Subscribes to the event of a new block appearance
+   */
   public async subscribeToEthereumUpdates() {
     const provider = this.providerService.provider;
 
@@ -49,6 +52,9 @@ export class WalletService implements OnModuleInit {
     this.logger.log('WalletService subscribed to Ethereum events');
   }
 
+  /**
+   * Updates the guardian account balance
+   */
   @OneAtTime()
   public async updateBalance() {
     const provider = this.providerService.provider;
@@ -65,8 +71,10 @@ export class WalletService implements OnModuleInit {
     }
   }
 
-  private cachedWallet: Wallet | null = null;
-
+  /**
+   * Wallet class inherits Signer and can sign transactions and messages
+   * using a private key as a standard Externally Owned Account (EOA)
+   */
   public get wallet(): Wallet {
     if (this.cachedWallet) return this.cachedWallet;
 
@@ -82,14 +90,33 @@ export class WalletService implements OnModuleInit {
     return this.cachedWallet;
   }
 
+  private cachedWallet: Wallet | null = null;
+
+  /**
+   * Guardian wallet address
+   */
   public get address(): string {
     return this.wallet.address;
   }
 
+  /**
+   * Signs a message using a private key
+   * @param message - message that is signed
+   * @returns signature
+   */
   public signMessage(message: string): Signature {
     return this.wallet._signingKey().signDigest(message);
   }
 
+  /**
+   * Signs a message to deposit buffered ethers
+   * @param prefix - unique prefix from the contract for this type of message
+   * @param depositRoot - current deposit root from the deposit contract
+   * @param keysOpIndex - current index of keys operations from the registry contract
+   * @param blockNumber - current block number
+   * @param blockHash - current block hash
+   * @returns signature
+   */
   public async signDepositData(
     prefix: string,
     depositRoot: string,
@@ -106,6 +133,12 @@ export class WalletService implements OnModuleInit {
     return await this.signMessage(messageHash);
   }
 
+  /**
+   * Signs a message to pause deposits
+   * @param prefix - unique prefix from the contract for this type of message
+   * @param blockNumber - block number that is signed
+   * @returns signature
+   */
   public async signPauseData(
     prefix: string,
     blockNumber: number,
