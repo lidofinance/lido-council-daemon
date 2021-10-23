@@ -1,4 +1,5 @@
 import { DepositEventGroup } from 'contracts/deposit';
+import { NodeOperatorsCache } from 'contracts/registry/interfaces';
 
 export interface BlockData {
   blockNumber: number;
@@ -6,6 +7,7 @@ export interface BlockData {
   depositRoot: string;
   keysOpIndex: number;
   nextSigningKeys: string[];
+  nodeOperatorsCache: NodeOperatorsCache;
   depositedEvents: DepositEventGroup;
   guardianAddress: string;
   guardianIndex: number;

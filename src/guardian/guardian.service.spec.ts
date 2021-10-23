@@ -57,14 +57,15 @@ describe('GuardianService', () => {
     });
   });
 
-  describe('getKeysIntersections', () => {
+  describe('getNextKeysIntersections', () => {
     it('should find the keys when they match', () => {
-      const nextLidoKeys = ['0x1'];
-      const depositedKeys = new Set(['0x1']);
-      const matched = guardianService.getKeysIntersections(
-        nextLidoKeys,
-        depositedKeys,
-      );
+      const nextSigningKeys = ['0x1'];
+      const depositedKeys = ['0x1'];
+      const depositedEvents = {
+        events: depositedKeys.map((pubkey) => ({ pubkey } as any)),
+      };
+      const blockData = { nextSigningKeys, depositedEvents } as any;
+      const matched = guardianService.getNextKeysIntersections(blockData);
 
       expect(matched).toBeInstanceOf(Array);
       expect(matched).toHaveLength(1);
@@ -72,24 +73,91 @@ describe('GuardianService', () => {
     });
 
     it('should not find the keys when they don’t match', () => {
-      const nextLidoKeys = ['0x2'];
-      const depositedKeys = new Set(['0x1']);
-      const matched = guardianService.getKeysIntersections(
-        nextLidoKeys,
-        depositedKeys,
-      );
+      const nextSigningKeys = ['0x2'];
+      const depositedKeys = ['0x1'];
+      const depositedEvents = {
+        events: depositedKeys.map((pubkey) => ({ pubkey } as any)),
+      };
+      const blockData = { nextSigningKeys, depositedEvents } as any;
+      const matched = guardianService.getNextKeysIntersections(blockData);
 
       expect(matched).toBeInstanceOf(Array);
       expect(matched).toHaveLength(0);
     });
 
     it('should work if array is empty', () => {
-      const nextLidoKeys = [];
-      const depositedKeys = new Set(['0x1']);
-      const matched = guardianService.getKeysIntersections(
-        nextLidoKeys,
-        depositedKeys,
-      );
+      const nextSigningKeys = [];
+      const depositedKeys = ['0x1'];
+      const depositedEvents = {
+        events: depositedKeys.map((pubkey) => ({ pubkey } as any)),
+      };
+      const blockData = { nextSigningKeys, depositedEvents } as any;
+      const matched = guardianService.getNextKeysIntersections(blockData);
+
+      expect(matched).toBeInstanceOf(Array);
+      expect(matched).toHaveLength(0);
+    });
+  });
+
+  describe('getCachedKeysIntersections', () => {
+    const pubkey = '0x1';
+    const keysOpIndex = 1;
+    const nodeOperatorsCache = {
+      keysOpIndex,
+      operators: [{ keys: [{ key: pubkey, used: false }] }],
+    };
+    const depositedKeys = [pubkey];
+    const depositedEvents = {
+      events: depositedKeys.map((pubkey) => ({ pubkey } as any)),
+    };
+
+    it('should find the keys when they match', () => {
+      const blockData = {
+        keysOpIndex,
+        nodeOperatorsCache,
+        depositedEvents,
+      } as any;
+      const matched = guardianService.getCachedKeysIntersections(blockData);
+
+      expect(matched).toBeInstanceOf(Array);
+      expect(matched).toHaveLength(1);
+      expect(matched).toContain(pubkey);
+    });
+
+    it('should not find the keys when they don’t match', () => {
+      const blockData = {
+        keysOpIndex,
+        nodeOperatorsCache,
+        depositedEvents: { events: [{ key: '0x2' }] },
+      } as any;
+      const matched = guardianService.getCachedKeysIntersections(blockData);
+
+      expect(matched).toBeInstanceOf(Array);
+      expect(matched).toHaveLength(0);
+    });
+
+    it('should ignore used keys', () => {
+      const blockData = {
+        keysOpIndex,
+        nodeOperatorsCache: {
+          ...nodeOperatorsCache,
+          operators: [{ keys: [{ key: pubkey, used: true }] }],
+        },
+        depositedEvents,
+      } as any;
+      const matched = guardianService.getCachedKeysIntersections(blockData);
+
+      expect(matched).toBeInstanceOf(Array);
+      expect(matched).toHaveLength(0);
+    });
+
+    it('should work if events array is empty', () => {
+      const blockData = {
+        keysOpIndex,
+        nodeOperatorsCache,
+        depositedEvents: { events: [] },
+      } as any;
+      const matched = guardianService.getCachedKeysIntersections(blockData);
 
       expect(matched).toBeInstanceOf(Array);
       expect(matched).toHaveLength(0);
@@ -139,6 +207,10 @@ describe('GuardianService', () => {
       endBlock: 5,
       events: depositedPubKeys.map((pubkey) => ({ pubkey } as any)),
     };
+    const nodeOperatorsCache = {
+      keysOpIndex: 1,
+      operators: [],
+    };
 
     const currentBlockData = {
       blockNumber: 1,
@@ -146,13 +218,14 @@ describe('GuardianService', () => {
       depositRoot: '0x2345',
       keysOpIndex: 1,
       nextSigningKeys: [] as string[],
+      nodeOperatorsCache,
       depositedEvents,
       guardianAddress: '0x3456',
       guardianIndex: 1,
       isDepositsPaused: false,
     };
 
-    it('should call handleKeysIntersections if Lido unused key is found in the deposit contract', async () => {
+    it('should call handleKeysIntersections if next keys are found in the deposit contract', async () => {
       const depositedKey = depositedPubKeys[0];
       const nextSigningKeys = [depositedKey];
       const blockData = { ...currentBlockData, nextSigningKeys };
@@ -174,7 +247,7 @@ describe('GuardianService', () => {
       ]);
     });
 
-    it('should call handleCorrectKeys if Lido unused key are not found in the deposit contract', async () => {
+    it('should call handleCorrectKeys if Lido next keys are not found in the deposit contract', async () => {
       const notDepositedKey = '0x2345';
       const nextSigningKeys = [notDepositedKey];
       const blockData = { ...currentBlockData, nextSigningKeys };

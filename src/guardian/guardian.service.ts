@@ -69,33 +69,11 @@ export class GuardianService implements OnModuleInit {
     const blockData = await this.getCurrentBlockData();
 
     await Promise.all([
+      // TODO: add analytics
       this.checkKeysIntersections(blockData),
       this.depositService.handleNewBlock(blockData),
       this.registryService.handleNewBlock(blockData),
     ]);
-  }
-
-  public async checkKeysIntersections(blockData: BlockData): Promise<void> {
-    const { nextSigningKeys, depositedEvents, isDepositsPaused } = blockData;
-
-    if (isDepositsPaused) {
-      this.logger.warn('Deposits are paused');
-      return;
-    }
-
-    // TODO: check intersection with all lido keys
-    const intersections = this.getKeysIntersections(
-      nextSigningKeys,
-      new Set(depositedEvents.events.map(({ pubkey }) => pubkey)),
-    );
-
-    const isIntersectionsFound = intersections.length > 0;
-
-    if (isIntersectionsFound) {
-      await this.handleKeysIntersections(blockData, intersections);
-    } else {
-      await this.handleCorrectKeys(blockData);
-    }
   }
 
   public async getCurrentBlockData(): Promise<BlockData> {
@@ -107,6 +85,7 @@ export class GuardianService implements OnModuleInit {
         depositRoot,
         keysOpIndex,
         nextSigningKeys,
+        nodeOperatorsCache,
         depositedEvents,
         guardianIndex,
         isDepositsPaused,
@@ -115,6 +94,7 @@ export class GuardianService implements OnModuleInit {
         this.depositService.getDepositRoot(),
         this.registryService.getKeysOpIndex(),
         this.registryService.getNextSigningKeys(),
+        this.registryService.getCachedNodeOperators(),
         this.depositService.getAllDepositedEvents(),
         this.securityService.getGuardianIndex(),
         this.securityService.isDepositsPaused(),
@@ -132,6 +112,7 @@ export class GuardianService implements OnModuleInit {
         depositRoot,
         keysOpIndex,
         nextSigningKeys,
+        nodeOperatorsCache,
         depositedEvents,
         guardianAddress,
         guardianIndex,
@@ -143,12 +124,50 @@ export class GuardianService implements OnModuleInit {
     }
   }
 
-  public getKeysIntersections(
-    nextSigningKeys: string[],
-    depositedPubKeys: Set<string>,
-  ): string[] {
+  public async checkKeysIntersections(blockData: BlockData): Promise<void> {
+    if (blockData.isDepositsPaused) {
+      this.logger.warn('Deposits are paused');
+      return;
+    }
+
+    const nextKeysIntersections = this.getNextKeysIntersections(blockData);
+    const cachedKeysIntersections = this.getCachedKeysIntersections(blockData);
+    const intersections = nextKeysIntersections.concat(cachedKeysIntersections);
+    const isIntersectionsFound = intersections.length > 0;
+
+    if (isIntersectionsFound) {
+      await this.handleKeysIntersections(blockData, intersections);
+    } else {
+      await this.handleCorrectKeys(blockData);
+    }
+  }
+
+  public getCachedKeysIntersections(blockData: BlockData): string[] {
+    const { nodeOperatorsCache, keysOpIndex, depositedEvents } = blockData;
+    const { keysOpIndex: cachedKeysOpIndex, operators } = nodeOperatorsCache;
+    const isCacheUpToDate = cachedKeysOpIndex === keysOpIndex;
+
+    // Skip checking until the next cache update
+    if (!isCacheUpToDate) return [];
+
+    const depositedKeys = depositedEvents.events.map(({ pubkey }) => pubkey);
+    const depositedKeysSet = new Set(depositedKeys);
+
+    return operators.flatMap((operator) =>
+      operator.keys
+        .filter(({ used }) => used === false)
+        .filter(({ key }) => depositedKeysSet.has(key))
+        .map(({ key }) => key),
+    );
+  }
+
+  public getNextKeysIntersections(blockData: BlockData): string[] {
+    const { depositedEvents, nextSigningKeys } = blockData;
+    const depositedKeys = depositedEvents.events.map(({ pubkey }) => pubkey);
+    const depositedKeysSet = new Set(depositedKeys);
+
     return nextSigningKeys.filter((nextSigningKey) =>
-      depositedPubKeys.has(nextSigningKey),
+      depositedKeysSet.has(nextSigningKey),
     );
   }
 
