@@ -13,3 +13,6 @@ export const METRIC_BLOCK_DATA_REQUEST_DURATION = `${METRICS_PREFIX}block_data_r
 export const METRIC_BLOCK_DATA_REQUEST_ERRORS = `${METRICS_PREFIX}block_data_requests_errors`;
 
 export const METRIC_BUILD_INFO = `${METRICS_PREFIX}build_info`;
+
+export const METRIC_DEPOSITED_KEYS_TOTAL = `${METRICS_PREFIX}deposited_keys_total`;
+export const METRIC_OPERATORS_KEYS_TOTAL = `${METRICS_PREFIX}operators_keys_total`;

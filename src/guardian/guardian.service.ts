@@ -24,8 +24,10 @@ import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import {
   METRIC_BLOCK_DATA_REQUEST_DURATION,
   METRIC_BLOCK_DATA_REQUEST_ERRORS,
+  METRIC_DEPOSITED_KEYS_TOTAL,
+  METRIC_OPERATORS_KEYS_TOTAL,
 } from 'common/prometheus';
-import { Counter, Histogram } from 'prom-client';
+import { Counter, Gauge, Histogram } from 'prom-client';
 import { APP_NAME, APP_VERSION } from 'app.constants';
 
 @Injectable()
@@ -39,6 +41,12 @@ export class GuardianService implements OnModuleInit {
 
     @InjectMetric(METRIC_BLOCK_DATA_REQUEST_ERRORS)
     private blockErrorsCounter: Counter<string>,
+
+    @InjectMetric(METRIC_DEPOSITED_KEYS_TOTAL)
+    private depositedKeysCounter: Gauge<string>,
+
+    @InjectMetric(METRIC_OPERATORS_KEYS_TOTAL)
+    private operatorsKeysCounter: Gauge<string>,
 
     private registryService: RegistryService,
     private depositService: DepositService,
@@ -69,11 +77,12 @@ export class GuardianService implements OnModuleInit {
     const blockData = await this.getCurrentBlockData();
 
     await Promise.all([
-      // TODO: add analytics
       this.checkKeysIntersections(blockData),
       this.depositService.handleNewBlock(blockData),
       this.registryService.handleNewBlock(blockData),
     ]);
+
+    this.collectMetrics(blockData);
   }
 
   public async getCurrentBlockData(): Promise<BlockData> {
@@ -291,5 +300,33 @@ export class GuardianService implements OnModuleInit {
 
     const messageWithMeta = this.addMessageMetaData(messageData);
     await this.messagesService.sendMessage(messageWithMeta);
+  }
+
+  public collectMetrics(blockData: BlockData): void {
+    const { depositedEvents, nodeOperatorsCache, nextSigningKeys } = blockData;
+
+    /* deposited keys */
+
+    const depositedKeys = depositedEvents.events.map(({ pubkey }) => pubkey);
+    const depositedKeysSet = new Set(depositedKeys);
+    const depositedDubsTotal = depositedKeys.length - depositedKeysSet.size;
+
+    this.depositedKeysCounter.set({ type: 'total' }, depositedKeys.length);
+    this.depositedKeysCounter.set({ type: 'unique' }, depositedKeysSet.size);
+    this.depositedKeysCounter.set({ type: 'duplicates' }, depositedDubsTotal);
+
+    /* operators keys */
+
+    const { operators } = nodeOperatorsCache;
+    const operatorsKeys = operators.flatMap(({ keys }) => keys);
+    const operatorsKeysUsed = operatorsKeys.filter(({ used }) => !!used);
+    const operatorsKeysUnused = operatorsKeys.filter(({ used }) => !used);
+    const operatorsKeysUsedTotal = operatorsKeysUsed.length;
+    const operatorsKeysUnusedTotal = operatorsKeysUnused.length;
+
+    this.operatorsKeysCounter.set({ type: 'total' }, operatorsKeys.length);
+    this.operatorsKeysCounter.set({ type: 'used' }, operatorsKeysUsedTotal);
+    this.operatorsKeysCounter.set({ type: 'unused' }, operatorsKeysUnusedTotal);
+    this.operatorsKeysCounter.set({ type: 'next' }, nextSigningKeys.length);
   }
 }

@@ -8,6 +8,8 @@ import {
   PrometheusBlockDataErrorsCounterProvider,
   PrometheusBlockDataRequestsProvider,
   PrometheusBuildInfoGaugeProvider,
+  PrometheusDepositedKeysProvider,
+  PrometheusOperatorsKeysProvider,
 } from './prometheus.provider';
 import { METRICS_PREFIX, METRICS_URL } from './prometheus.constants';
 
@@ -28,6 +30,8 @@ const providers = [
   PrometheusBlockDataRequestsProvider,
   PrometheusBlockDataErrorsCounterProvider,
   PrometheusBuildInfoGaugeProvider,
+  PrometheusDepositedKeysProvider,
+  PrometheusOperatorsKeysProvider,
 ];
 
 PrometheusModule.global = true;
