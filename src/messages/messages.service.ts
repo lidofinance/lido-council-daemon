@@ -17,6 +17,10 @@ export class MessagesService {
     private config: Configuration,
   ) {}
 
+  /**
+   * Gets a message topic for the current chain
+   * @returns message topic
+   */
   public async getMessageTopic(): Promise<string> {
     const chainId = await this.providerService.getChainId();
     const prefix = getMessageTopicPrefix(chainId);
@@ -25,6 +29,9 @@ export class MessagesService {
     return `${prefix}-${topic}`;
   }
 
+  /**
+   * Sends a message to a message broker
+   */
   public async sendMessage<T extends MessageRequiredFields>(
     message: T,
   ): Promise<void> {
