@@ -39,6 +39,9 @@ export class RegistryService {
   private cachedBatchContracts: Map<string, Promise<RegistryAbi>> = new Map();
   private cachedPubKeyLength: number | null = null;
 
+  /**
+   * Returns an instance of the contract
+   */
   public async getContract(): Promise<RegistryAbi> {
     if (!this.cachedContract) {
       const address = await this.getRegistryAddress();
@@ -49,6 +52,11 @@ export class RegistryService {
     return this.cachedContract;
   }
 
+  /**
+   * Returns an instance of the contract with connected batch RPC provider
+   * @param cacheKey - contract storage key in the cache
+   * @returns instance of the contract
+   */
   public async getCachedBatchContract(
     cacheKey: string | number,
   ): Promise<RegistryAbi> {
@@ -68,6 +76,9 @@ export class RegistryService {
     return await cachedBatchContract;
   }
 
+  /**
+   * Returns the length of the public keys stored in the contract
+   */
   public async getPubkeyLength(): Promise<number> {
     if (!this.cachedPubKeyLength) {
       const contract = await this.getContract();
@@ -102,11 +113,18 @@ export class RegistryService {
     return result;
   }
 
+  /**
+   * Returns an address of the registry contract
+   */
   public async getRegistryAddress(): Promise<string> {
     const chainId = await this.providerService.getChainId();
     return getRegistryAddress(chainId);
   }
 
+  /**
+   * Returns all keys that can be used for the deposit in the next transaction
+   * @returns array of public keys
+   */
   public async getNextSigningKeys() {
     const [contract, maxDepositKeys, lidoAddress] = await Promise.all([
       this.getContract(),
@@ -124,6 +142,10 @@ export class RegistryService {
     return splittedKeys;
   }
 
+  /**
+   * Returns a monotonically increasing counter,
+   * which increases when any of the key operations are performed
+   */
   public async getKeysOpIndex(): Promise<number> {
     const contract = await this.getContract();
     const keysOpIndex = await contract.getKeysOpIndex();
@@ -131,6 +153,9 @@ export class RegistryService {
     return keysOpIndex.toNumber();
   }
 
+  /**
+   * Returns a number of node operators stored in the contract
+   */
   public async getNodeOperatorsCount(): Promise<number> {
     const contract = await this.getContract();
     const operatorsTotal = await contract.getNodeOperatorsCount();
@@ -138,6 +163,11 @@ export class RegistryService {
     return operatorsTotal.toNumber();
   }
 
+  /**
+   * Returns information about the operator
+   * @param operatorId - node operator id
+   * @returns operator info
+   */
   public async getNodeOperator(operatorId: number): Promise<NodeOperator> {
     const contract = await this.getCachedBatchContract('operator');
 
@@ -163,6 +193,10 @@ export class RegistryService {
     };
   }
 
+  /**
+   * Returns information about all node operators
+   * @returns array of node operators
+   */
   public async getNodeOperatorsData(): Promise<NodeOperator[]> {
     const operatorsTotal = await this.getNodeOperatorsCount();
 
@@ -175,6 +209,13 @@ export class RegistryService {
     );
   }
 
+  /**
+   * Returns a list of node operators keys in the range
+   * @param operatorId - node operator id
+   * @param from - start key index
+   * @param to - end key index
+   * @returns array of node operator keys
+   */
   public async getNodeOperatorKeys(
     operatorId: number,
     from: number,
@@ -193,6 +234,9 @@ export class RegistryService {
     );
   }
 
+  /**
+   * Updates the cache of node operators if keysOpIndex is changed
+   */
   public async updateNodeOperatorsCache() {
     const [cache, currentKeysOpIndex] = await Promise.all([
       this.getCachedNodeOperators(),
@@ -245,10 +289,16 @@ export class RegistryService {
     });
   }
 
+  /**
+   * Gets node operators data from cache
+   */
   public async getCachedNodeOperators(): Promise<NodeOperatorsCache> {
     return await this.cacheService.getCache();
   }
 
+  /**
+   * Saves node operators data to cache
+   */
   public async setCachedNodeOperatorsKeys(
     cache: NodeOperatorsCache,
   ): Promise<void> {
