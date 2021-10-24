@@ -188,6 +188,10 @@ describe('GuardianService', () => {
         .spyOn(registryService, 'handleNewBlock')
         .mockImplementation(async () => undefined);
 
+      const mockCollectMetrics = jest
+        .spyOn(guardianService, 'collectMetrics')
+        .mockImplementation(() => undefined);
+
       await Promise.all([
         guardianService.handleNewBlock(),
         guardianService.handleNewBlock(),
@@ -197,6 +201,7 @@ describe('GuardianService', () => {
       expect(mockGetCurrentBlockData).toBeCalledTimes(1);
       expect(mockDepositHandleNewBlock).toBeCalledTimes(1);
       expect(mockRegistryHandleNewBlock).toBeCalledTimes(1);
+      expect(mockCollectMetrics).toBeCalledTimes(1);
     });
   });
 
