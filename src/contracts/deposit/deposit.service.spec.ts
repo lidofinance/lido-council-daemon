@@ -289,20 +289,10 @@ describe('DepositService', () => {
     it.todo('should fetch fresh events');
   });
 
-  describe('subscribeToEthereumUpdates', () => {
-    it.todo('should subscribe to block event');
-  });
-
-  describe('initialize', () => {
-    it.todo('should collect cache');
-    it.todo('should subscribe to updates');
-  });
-
-  describe('cacheEvents', () => {
+  describe('updateEventsCache', () => {
     it.todo('should collect events');
     it.todo('should start collecting from the last cached block + 1');
     it.todo('should save events to the cache');
-    it.todo('should exit if the previous call is not completed');
   });
 
   describe('getAllDepositedEvents', () => {

@@ -1,5 +1,4 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
-import { arrayify, hexlify } from '@ethersproject/bytes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { RegistryAbi, RegistryAbi__factory } from 'generated';
 import { ProviderService } from 'provider';
@@ -15,7 +14,7 @@ import {
   NodeOperatorsKey,
   NodeOperatorWithKeys,
 } from './interfaces';
-import { range } from 'utils';
+import { range, splitPubKeys } from 'utils';
 import { CacheService } from 'cache';
 import { OneAtTime } from 'common/decorators';
 import { BlockData } from 'guardian';
@@ -89,30 +88,6 @@ export class RegistryService {
     return this.cachedPubKeyLength;
   }
 
-  public async splitPubKeys(hexString: string): Promise<string[]> {
-    const pubkeyLength = await this.getPubkeyLength();
-    const byteArray = arrayify(hexString);
-    const splittedKeys = this.splitPubKeysArray(byteArray, pubkeyLength).map(
-      (array) => hexlify(array),
-    );
-
-    return splittedKeys;
-  }
-
-  public splitPubKeysArray(array: Uint8Array, keyLength: number): Uint8Array[] {
-    const keysNumber = array.length / keyLength;
-
-    if (keyLength <= 0) throw new Error('Invalid key length size');
-    if (keysNumber % 1 > 0) throw new Error('Invalid array length');
-
-    const result: Uint8Array[] = [];
-    for (let i = 0; i < array.length; i += keyLength) {
-      result.push(array.slice(i, i + keyLength));
-    }
-
-    return result;
-  }
-
   /**
    * Returns an address of the registry contract
    */
@@ -126,11 +101,13 @@ export class RegistryService {
    * @returns array of public keys
    */
   public async getNextSigningKeys() {
-    const [contract, maxDepositKeys, lidoAddress] = await Promise.all([
-      this.getContract(),
-      this.securityService.getMaxDeposits(),
-      this.securityService.getLidoContractAddress(),
-    ]);
+    const [contract, maxDepositKeys, lidoAddress, pubkeyLength] =
+      await Promise.all([
+        this.getContract(),
+        this.securityService.getMaxDeposits(),
+        this.securityService.getLidoContractAddress(),
+        this.getPubkeyLength(),
+      ]);
 
     const overrides = { from: lidoAddress };
     const [pubKeys] = await contract.callStatic.assignNextSigningKeys(
@@ -138,7 +115,7 @@ export class RegistryService {
       overrides,
     );
 
-    const splittedKeys = this.splitPubKeys(pubKeys);
+    const splittedKeys = splitPubKeys(pubKeys, pubkeyLength);
     return splittedKeys;
   }
 
