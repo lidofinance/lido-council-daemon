@@ -35,6 +35,10 @@ export class DepositService {
 
   private cachedContract: DepositAbi | null = null;
 
+  /**
+   * Returns only required information about the event,
+   * to reduce the size of the information stored in the cache
+   */
   public formatEvent(rawEvent: DepositEventEvent): DepositEvent {
     const { args, transactionHash: tx, blockNumber } = rawEvent;
     const { withdrawal_credentials: wc, pubkey, amount, signature } = args;
@@ -42,6 +46,9 @@ export class DepositService {
     return { pubkey, wc, amount, signature, tx, blockNumber };
   }
 
+  /**
+   * Returns an instance of the contract
+   */
   public async getContract(): Promise<DepositAbi> {
     if (!this.cachedContract) {
       const address = await this.securityService.getDepositContractAddress();
@@ -52,11 +59,19 @@ export class DepositService {
     return this.cachedContract;
   }
 
+  /**
+   * Returns a block number when the deposited contract was deployed
+   * @returns block number
+   */
   public async getDeploymentBlockByNetwork(): Promise<number> {
     const chainId = await this.providerService.getChainId();
     return getDeploymentBlockByNetwork(chainId);
   }
 
+  /**
+   * Gets node operators data from cache
+   * @returns event group
+   */
   public async getCachedEvents(): Promise<DepositEventGroup> {
     const cachedEventGroup = await this.cacheService.getCache();
     const deploymentBlock = await this.getDeploymentBlockByNetwork();
@@ -68,10 +83,20 @@ export class DepositService {
     };
   }
 
+  /**
+   * Saves deposited events to cache
+   */
   public async setCachedEvents(eventGroup: DepositEventGroup): Promise<void> {
     return await this.cacheService.setCache(eventGroup);
   }
 
+  /**
+   * Returns events in the block range
+   * If the request failed, it tries to repeat it or split it into two
+   * @param startBlock - start of the range
+   * @param endBlock - end of the range
+   * @returns event group
+   */
   public async fetchEventsFallOver(
     startBlock: number,
     endBlock: number,
@@ -109,6 +134,12 @@ export class DepositService {
     }
   }
 
+  /**
+   * Returns events in the block range
+   * @param startBlock - start of the range
+   * @param endBlock - end of the range
+   * @returns event group
+   */
   public async fetchEvents(
     startBlock: number,
     endBlock: number,
@@ -121,6 +152,13 @@ export class DepositService {
     return { events, startBlock, endBlock };
   }
 
+  /**
+   * Returns fresh events
+   * Gets the last events every time in case of reorganizations
+   * @param startBlock - first not cached block
+   * @param endBlock - current block
+   * @returns event group
+   */
   public async getFreshEvents(
     startBlock: number,
     endBlock: number,
@@ -137,10 +175,11 @@ export class DepositService {
     return eventGroup;
   }
 
-  public async updateEventsCache(): Promise<{
-    newEvents: number;
-    totalEvents: number;
-  } | void> {
+  /**
+   * Updates the cache deposited events
+   * The last N blocks are not stored, in order to avoid storing reorganized blocks
+   */
+  public async updateEventsCache(): Promise<void> {
     const fetchTimeStart = performance.now();
 
     const [currentBlock, initialCache] = await Promise.all([
@@ -193,10 +232,11 @@ export class DepositService {
       totalEvents,
       fetchTime,
     });
-
-    return { newEvents, totalEvents };
   }
 
+  /**
+   * Returns all deposited events based on cache and fresh data
+   */
   public async getAllDepositedEvents(): Promise<DepositEventGroup> {
     const [endBlock, cachedEvents] = await Promise.all([
       this.providerService.getBlockNumber(),
@@ -218,6 +258,9 @@ export class DepositService {
     };
   }
 
+  /**
+   * Returns a deposit root
+   */
   public async getDepositRoot(): Promise<string> {
     const contract = await this.getContract();
     const depositRoot = await contract.get_deposit_root();
