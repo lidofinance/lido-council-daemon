@@ -1,6 +1,6 @@
 {
   "name": "lido-council-daemon",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Lido Council Daemon",
   "author": "Lido team",
   "private": true,

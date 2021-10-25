@@ -2,7 +2,7 @@ version: '3.7'
 
 services:
   council-daemon:
-    image: lidofinance/lido-council-daemon@sha256:9713df85e6e59c1825ec4a6b3fe59f3c50fbd3f7bb43fd518abcf6395cc61ef7
+    image: lidofinance/lido-council-daemon@sha256:9599a04ea2487af76f95fa19380d545a077883761a3ad7d36aca6f16a32eee90
     ports:
       - "3000:3000" # port is used for prometheus metrics
     environment:
