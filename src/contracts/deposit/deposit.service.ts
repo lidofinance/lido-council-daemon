@@ -153,29 +153,6 @@ export class DepositService {
   }
 
   /**
-   * Returns fresh events
-   * Gets the last events every time in case of reorganizations
-   * @param startBlock - first not cached block
-   * @param endBlock - current block
-   * @returns event group
-   */
-  public async getFreshEvents(
-    startBlock: number,
-    endBlock: number,
-  ): Promise<DepositEventGroup> {
-    const eventGroup = await this.fetchEventsFallOver(startBlock, endBlock);
-
-    const events = eventGroup.events.length;
-    this.logger.debug?.('Fresh events are fetched', {
-      startBlock,
-      endBlock,
-      events,
-    });
-
-    return eventGroup;
-  }
-
-  /**
    * Updates the cache deposited events
    * The last N blocks are not stored, in order to avoid storing reorganized blocks
    */
@@ -197,10 +174,7 @@ export class DepositService {
       block += DEPOSIT_EVENTS_STEP
     ) {
       const chunkStartBlock = block;
-      const chunkToBlock = Math.min(
-        currentBlock,
-        block + DEPOSIT_EVENTS_STEP - 1,
-      );
+      const chunkToBlock = Math.min(toBlock, block + DEPOSIT_EVENTS_STEP - 1);
 
       const chunkEventGroup = await this.fetchEventsFallOver(
         chunkStartBlock,
@@ -244,10 +218,17 @@ export class DepositService {
     ]);
 
     const firstNotCachedBlock = cachedEvents.endBlock + 1;
-    const freshEvents = await this.getFreshEvents(
+    const freshEvents = await this.fetchEventsFallOver(
       firstNotCachedBlock,
       endBlock,
     );
+
+    const events = freshEvents.events.length;
+    this.logger.debug?.('Fresh events are fetched', {
+      startBlock: firstNotCachedBlock,
+      endBlock,
+      events,
+    });
 
     const mergedEvents = cachedEvents.events.concat(freshEvents.events);
 

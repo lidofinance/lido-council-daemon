@@ -285,14 +285,68 @@ describe('DepositService', () => {
     });
   });
 
-  describe('getFreshEvents', () => {
-    it.todo('should fetch fresh events');
-  });
-
   describe('updateEventsCache', () => {
-    it.todo('should collect events');
-    it.todo('should start collecting from the last cached block + 1');
-    it.todo('should save events to the cache');
+    const cachedPubkeys = ['0x1234', '0x5678'];
+    const cachedEvents = {
+      startBlock: 0,
+      endBlock: 2,
+      events: cachedPubkeys.map((pubkey) => ({ pubkey } as any)),
+    };
+    const currentBlock = 1000;
+    const firstNotCachedBlock = cachedEvents.endBlock + 1;
+
+    beforeEach(async () => {
+      jest
+        .spyOn(depositService, 'getCachedEvents')
+        .mockImplementation(async () => cachedEvents);
+
+      jest
+        .spyOn(providerService, 'getBlockNumber')
+        .mockImplementation(async () => currentBlock);
+    });
+
+    it('should collect events', async () => {
+      const mockFetchEventsFallOver = jest
+        .spyOn(depositService, 'fetchEventsFallOver')
+        .mockImplementation(async (startBlock, endBlock) => ({
+          startBlock,
+          endBlock,
+          events: [],
+        }));
+
+      jest
+        .spyOn(depositService, 'setCachedEvents')
+        .mockImplementation(async () => undefined);
+
+      await depositService.updateEventsCache();
+
+      expect(mockFetchEventsFallOver).toBeCalledTimes(1);
+      const { calls: fetchCalls } = mockFetchEventsFallOver.mock;
+      expect(fetchCalls[0][0]).toBe(firstNotCachedBlock);
+      expect(fetchCalls[0][1]).toBeLessThan(currentBlock);
+    });
+
+    it('should save events to the cache', async () => {
+      jest
+        .spyOn(depositService, 'fetchEventsFallOver')
+        .mockImplementation(async (startBlock, endBlock) => ({
+          startBlock,
+          endBlock,
+          events: [],
+        }));
+
+      const mockSetCachedEvents = jest
+        .spyOn(depositService, 'setCachedEvents')
+        .mockImplementation(async () => undefined);
+
+      await depositService.updateEventsCache();
+
+      expect(mockSetCachedEvents).toBeCalledTimes(1);
+      const { calls: cacheCalls } = mockSetCachedEvents.mock;
+      expect(cacheCalls[0][0].startBlock).toBe(cachedEvents.startBlock);
+      expect(cacheCalls[0][0].endBlock).toBeLessThan(currentBlock);
+      expect(cacheCalls[0][0].events).toEqual(cachedEvents.events);
+    });
   });
 
   describe('getAllDepositedEvents', () => {
@@ -317,8 +371,8 @@ describe('DepositService', () => {
     });
 
     it('should return cached events', async () => {
-      const mockGetFreshEvents = jest
-        .spyOn(depositService, 'getFreshEvents')
+      const mockFetchEventsFallOver = jest
+        .spyOn(depositService, 'fetchEventsFallOver')
         .mockImplementation(async () => ({
           startBlock: firstNotCachedBlock,
           endBlock: currentBlock,
@@ -328,16 +382,16 @@ describe('DepositService', () => {
       const result = await depositService.getAllDepositedEvents();
       expect(result).toEqual({ ...cachedEvents, endBlock: currentBlock });
 
-      expect(mockGetFreshEvents).toBeCalledTimes(1);
-      expect(mockGetFreshEvents).toBeCalledWith(
+      expect(mockFetchEventsFallOver).toBeCalledTimes(1);
+      expect(mockFetchEventsFallOver).toBeCalledWith(
         firstNotCachedBlock,
         currentBlock,
       );
     });
 
     it('should return merged pub keys', async () => {
-      const mockGetFreshEvents = jest
-        .spyOn(depositService, 'getFreshEvents')
+      const mockFetchEventsFallOver = jest
+        .spyOn(depositService, 'fetchEventsFallOver')
         .mockImplementation(async () => ({
           startBlock: firstNotCachedBlock,
           endBlock: currentBlock,
@@ -352,14 +406,12 @@ describe('DepositService', () => {
           .concat(freshPubkeys)
           .map((pubkey) => ({ pubkey } as any)),
       });
-      expect(mockGetFreshEvents).toBeCalledTimes(1);
-      expect(mockGetFreshEvents).toBeCalledWith(
+      expect(mockFetchEventsFallOver).toBeCalledTimes(1);
+      expect(mockFetchEventsFallOver).toBeCalledWith(
         firstNotCachedBlock,
         currentBlock,
       );
     });
-
-    it.todo('should throw if cache is old');
   });
 
   describe('getDepositRoot', () => {
