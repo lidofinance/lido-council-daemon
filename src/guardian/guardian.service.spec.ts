@@ -10,6 +10,8 @@ import { PrometheusModule } from 'common/prometheus';
 import { GuardianModule } from 'guardian';
 import { DepositService } from 'contracts/deposit';
 import { RegistryService } from 'contracts/registry';
+import { MessagesService, MessageType } from 'messages';
+import { SecurityService } from 'contracts/security';
 
 describe('GuardianService', () => {
   let providerService: ProviderService;
@@ -17,6 +19,8 @@ describe('GuardianService', () => {
   let loggerService: LoggerService;
   let depositService: DepositService;
   let registryService: RegistryService;
+  let messagesService: MessagesService;
+  let securityService: SecurityService;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -33,6 +37,8 @@ describe('GuardianService', () => {
     guardianService = moduleRef.get(GuardianService);
     depositService = moduleRef.get(DepositService);
     registryService = moduleRef.get(RegistryService);
+    messagesService = moduleRef.get(MessagesService);
+    securityService = moduleRef.get(SecurityService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
@@ -274,27 +280,187 @@ describe('GuardianService', () => {
   });
 
   describe('handleCorrectKeys', () => {
-    it.todo('should check contracts state');
-    it.todo('should exit if contracts state is the same');
-    it.todo('should send deposit message');
-    it.todo('should exit if it’s the same contracts state');
+    const signature = {} as any;
+    const currentContractState = {
+      keysOpIndex: 1,
+      depositRoot: '0x1',
+      blockNumber: 1,
+    };
+    const blockData = { ...currentContractState } as any;
+
+    it('should check contracts state', async () => {
+      const mockSendMessageFromGuardian = jest
+        .spyOn(guardianService, 'sendMessageFromGuardian')
+        .mockImplementation(async () => undefined);
+
+      const mockIsSameContractsStates = jest.spyOn(
+        guardianService,
+        'isSameContractsStates',
+      );
+
+      const mockSignDepositData = jest
+        .spyOn(securityService, 'signDepositData')
+        .mockImplementation(async () => signature);
+
+      await guardianService.handleCorrectKeys(blockData);
+      await guardianService.handleCorrectKeys(blockData);
+
+      expect(mockIsSameContractsStates).toBeCalledTimes(2);
+      const { results } = mockIsSameContractsStates.mock;
+      expect(results[0].value).toBeFalsy();
+      expect(results[1].value).toBeTruthy();
+
+      expect(mockSendMessageFromGuardian).toBeCalledTimes(1);
+      expect(mockSignDepositData).toBeCalledTimes(1);
+    });
+
+    it('should send deposit message', async () => {
+      const mockSendMessageFromGuardian = jest
+        .spyOn(guardianService, 'sendMessageFromGuardian')
+        .mockImplementation(async () => undefined);
+
+      const mockSignDepositData = jest
+        .spyOn(securityService, 'signDepositData')
+        .mockImplementation(async () => signature);
+
+      await guardianService.handleCorrectKeys(blockData);
+
+      expect(mockSendMessageFromGuardian).toBeCalledTimes(1);
+      expect(mockSignDepositData).toBeCalledTimes(1);
+    });
   });
 
   describe('handleKeysIntersections', () => {
-    it.todo('should pause deposits');
-    it.todo('should send pause message');
+    const signature = {} as any;
+    const blockData = { blockNumber: 1 } as any;
+    const intersections = [];
+    const type = MessageType.PAUSE;
+
+    beforeEach(async () => {
+      jest
+        .spyOn(securityService, 'signPauseData')
+        .mockImplementation(async () => signature);
+    });
+
+    it('should pause deposits', async () => {
+      jest
+        .spyOn(guardianService, 'sendMessageFromGuardian')
+        .mockImplementation(async () => undefined);
+
+      const mockPauseDeposits = jest
+        .spyOn(securityService, 'pauseDeposits')
+        .mockImplementation(async () => undefined);
+
+      await guardianService.handleKeysIntersections(blockData, intersections);
+
+      expect(mockPauseDeposits).toBeCalledTimes(1);
+      expect(mockPauseDeposits).toBeCalledWith(
+        blockData.blockNumber,
+        signature,
+      );
+    });
+
+    it('should send pause message', async () => {
+      const mockSendMessageFromGuardian = jest
+        .spyOn(guardianService, 'sendMessageFromGuardian')
+        .mockImplementation(async () => undefined);
+
+      jest
+        .spyOn(securityService, 'pauseDeposits')
+        .mockImplementation(async () => undefined);
+
+      await guardianService.handleKeysIntersections(blockData, intersections);
+
+      expect(mockSendMessageFromGuardian).toBeCalledTimes(1);
+      expect(mockSendMessageFromGuardian).toBeCalledWith(
+        expect.objectContaining({ type, signature, ...blockData }),
+      );
+    });
   });
 
   describe('isSameContractsStates', () => {
-    it.todo('should return true if states are the same');
-    it.todo('should return true if blockNumbers are close');
-    it.todo('should return false if blockNumbers are too far');
-    it.todo('should return false if depositRoot are different');
-    it.todo('should return false if keysOpIndex are different');
+    it('should return true if states are the same', () => {
+      const state = { depositRoot: '0x1', keysOpIndex: 1, blockNumber: 100 };
+      const result = guardianService.isSameContractsStates(
+        { ...state },
+        { ...state },
+      );
+      expect(result).toBeTruthy();
+    });
+
+    it('should return true if blockNumbers are close', () => {
+      const state = { depositRoot: '0x1', keysOpIndex: 1, blockNumber: 100 };
+      const result = guardianService.isSameContractsStates(state, {
+        ...state,
+        blockNumber: state.blockNumber + 1,
+      });
+      expect(result).toBeTruthy();
+    });
+
+    it('should return false if blockNumbers are too far', () => {
+      const state = { depositRoot: '0x1', keysOpIndex: 1, blockNumber: 100 };
+      const result = guardianService.isSameContractsStates(state, {
+        ...state,
+        blockNumber: state.blockNumber + 200,
+      });
+      expect(result).toBeFalsy();
+    });
+
+    it('should return false if depositRoot are different', () => {
+      const state = { depositRoot: '0x1', keysOpIndex: 1, blockNumber: 100 };
+      const result = guardianService.isSameContractsStates(state, {
+        ...state,
+        depositRoot: '0x2',
+      });
+      expect(result).toBeFalsy();
+    });
+
+    it('should return false if keysOpIndex are different', () => {
+      const state = { depositRoot: '0x1', keysOpIndex: 1, blockNumber: 100 };
+      const result = guardianService.isSameContractsStates(state, {
+        ...state,
+        keysOpIndex: 2,
+      });
+      expect(result).toBeFalsy();
+    });
+  });
+
+  describe('addMessageMetaData', () => {
+    it('should add extra data to message', () => {
+      const message = { foo: 'bar' };
+      const result = guardianService.addMessageMetaData(message);
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          ...message,
+          app: { version: expect.any(String), name: expect.any(String) },
+        }),
+      );
+    });
   });
 
   describe('sendMessageFromGuardian', () => {
-    it.todo('should send message if guardian is in the list');
-    it.todo('should not send message if guardian is not in the list');
+    it('should send message if guardian is in the list', async () => {
+      const message = { guardianIndex: 1 } as any;
+      const mockSendMessage = jest
+        .spyOn(messagesService, 'sendMessage')
+        .mockImplementation(async () => undefined);
+
+      await guardianService.sendMessageFromGuardian(message);
+
+      expect(mockSendMessage).toBeCalledTimes(1);
+      expect(mockSendMessage).toBeCalledWith(expect.objectContaining(message));
+    });
+
+    it('should not send message if guardian is not in the list', async () => {
+      const message = { guardianIndex: -1 } as any;
+      const mockSendMessage = jest
+        .spyOn(messagesService, 'sendMessage')
+        .mockImplementation(async () => undefined);
+
+      await guardianService.sendMessageFromGuardian(message);
+
+      expect(mockSendMessage).not.toBeCalled();
+    });
   });
 });
