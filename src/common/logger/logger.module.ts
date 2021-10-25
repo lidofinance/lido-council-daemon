@@ -1,11 +1,10 @@
 import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
 import { Configuration } from 'common/config';
-import { ProviderModule, ProviderService } from 'provider';
+import { ProviderService } from 'provider';
 
 export const LoggerModule = WinstonModule.forRootAsync({
   inject: [Configuration, ProviderService],
-  imports: [ProviderModule],
   useFactory: async (
     config: Configuration,
     providerService: ProviderService,

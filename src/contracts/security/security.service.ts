@@ -42,6 +42,9 @@ export class SecurityService implements OnModuleInit {
     }
   }
 
+  /**
+   * Returns an instance of the contract
+   */
   public async getContract(): Promise<SecurityAbi> {
     if (!this.cachedContract) {
       const address = await this.getDepositSecurityAddress();
@@ -52,6 +55,9 @@ export class SecurityService implements OnModuleInit {
     return this.cachedContract;
   }
 
+  /**
+   * Returns an instance of the contract that can send signed transactions
+   */
   public async getContractWithSigner(): Promise<SecurityAbi> {
     if (!this.cachedContractWithSigner) {
       const wallet = this.walletService.wallet;
@@ -66,11 +72,17 @@ export class SecurityService implements OnModuleInit {
     return this.cachedContractWithSigner;
   }
 
+  /**
+   * Returns an address of the security contract
+   */
   public async getDepositSecurityAddress(): Promise<string> {
     const chainId = await this.providerService.getChainId();
     return getDepositSecurityAddress(chainId);
   }
 
+  /**
+   * Returns an address of the deposit contract from the security contract
+   */
   public async getDepositContractAddress() {
     const contract = await this.getContract();
     const address = await contract.DEPOSIT_CONTRACT();
@@ -78,6 +90,9 @@ export class SecurityService implements OnModuleInit {
     return address;
   }
 
+  /**
+   * Returns an address of the Lido contract from the security contract
+   */
   public async getLidoContractAddress() {
     const contract = await this.getContract();
     const address = await contract.LIDO();
@@ -85,6 +100,9 @@ export class SecurityService implements OnModuleInit {
     return address;
   }
 
+  /**
+   * Returns a prefix from the contract with which the deposit message should be signed
+   */
   public async getAttestMessagePrefix(): Promise<string> {
     if (!this.cachedAttestMessagePrefix) {
       const contract = await this.getContract();
@@ -95,6 +113,9 @@ export class SecurityService implements OnModuleInit {
     return this.cachedAttestMessagePrefix;
   }
 
+  /**
+   * Returns a prefix from the contract with which the pause message should be signed
+   */
   public async getPauseMessagePrefix(): Promise<string> {
     if (!this.cachedPauseMessagePrefix) {
       const contract = await this.getContract();
@@ -105,6 +126,9 @@ export class SecurityService implements OnModuleInit {
     return this.cachedPauseMessagePrefix;
   }
 
+  /**
+   * Returns the maximum number of deposits per transaction from the contract
+   */
   public async getMaxDeposits(): Promise<number> {
     const contract = await this.getContract();
     const maxDeposits = await contract.getMaxDeposits();
@@ -112,6 +136,9 @@ export class SecurityService implements OnModuleInit {
     return maxDeposits.toNumber();
   }
 
+  /**
+   * Returns the guardian list from the contract
+   */
   public async getGuardians(): Promise<string[]> {
     const contract = await this.getContract();
     const guardians = await contract.getGuardians();
@@ -119,6 +146,9 @@ export class SecurityService implements OnModuleInit {
     return guardians;
   }
 
+  /**
+   * Returns the guardian index in the list
+   */
   public async getGuardianIndex(): Promise<number> {
     const guardians = await this.getGuardians();
     const address = this.walletService.address;
@@ -126,10 +156,16 @@ export class SecurityService implements OnModuleInit {
     return guardians.indexOf(address);
   }
 
+  /**
+   * Returns guardian address
+   */
   public getGuardianAddress(): string {
     return this.walletService.address;
   }
 
+  /**
+   * Signs a message to deposit buffered ethers with the prefix from the contract
+   */
   public async signDepositData(
     depositRoot: string,
     keysOpIndex: number,
@@ -147,18 +183,29 @@ export class SecurityService implements OnModuleInit {
     );
   }
 
+  /**
+   * Signs a message to pause deposits with the prefix from the contract
+   */
   public async signPauseData(blockNumber: number): Promise<Signature> {
     const messagePrefix = await this.getPauseMessagePrefix();
 
     return await this.walletService.signPauseData(messagePrefix, blockNumber);
   }
 
+  /**
+   * Returns the current state of deposits
+   */
   public async isDepositsPaused(): Promise<boolean> {
     const contract = await this.getContractWithSigner();
     const isPaused = await contract.isPaused();
     return isPaused;
   }
 
+  /**
+   * Sends a transaction to pause deposits
+   * @param blockNumber - the block number for which the message is signed
+   * @param signature - message signature
+   */
   @OneAtTime()
   public async pauseDeposits(
     blockNumber: number,

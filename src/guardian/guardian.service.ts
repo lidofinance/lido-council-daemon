@@ -5,27 +5,30 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { DepositService } from 'deposit';
-import { RegistryService } from 'registry';
+import { DepositService } from 'contracts/deposit';
+import { RegistryService } from 'contracts/registry';
+import { SecurityService } from 'contracts/security';
 import { ProviderService } from 'provider';
-import { SecurityService } from 'security';
 import {
   MessageDeposit,
+  MessageMeta,
   MessagePause,
   MessageRequiredFields,
   MessagesService,
   MessageType,
 } from 'messages';
-import { ContractsState } from './interfaces';
+import { ContractsState, BlockData } from './interfaces';
 import { GUARDIAN_DEPOSIT_RESIGNING_BLOCKS } from './guardian.constants';
-import { BlockData } from './interfaces';
 import { OneAtTime } from 'common/decorators';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import {
   METRIC_BLOCK_DATA_REQUEST_DURATION,
   METRIC_BLOCK_DATA_REQUEST_ERRORS,
+  METRIC_DEPOSITED_KEYS_TOTAL,
+  METRIC_OPERATORS_KEYS_TOTAL,
 } from 'common/prometheus';
-import { Counter, Histogram } from 'prom-client';
+import { Counter, Gauge, Histogram } from 'prom-client';
+import { APP_NAME, APP_VERSION } from 'app.constants';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -39,6 +42,12 @@ export class GuardianService implements OnModuleInit {
     @InjectMetric(METRIC_BLOCK_DATA_REQUEST_ERRORS)
     private blockErrorsCounter: Counter<string>,
 
+    @InjectMetric(METRIC_DEPOSITED_KEYS_TOTAL)
+    private depositedKeysCounter: Gauge<string>,
+
+    @InjectMetric(METRIC_OPERATORS_KEYS_TOTAL)
+    private operatorsKeysCounter: Gauge<string>,
+
     private registryService: RegistryService,
     private depositService: DepositService,
     private securityService: SecurityService,
@@ -47,41 +56,49 @@ export class GuardianService implements OnModuleInit {
   ) {}
 
   public async onModuleInit(): Promise<void> {
-    await this.depositService.initialize();
-    this.subscribeToEthereumUpdates();
+    // Does not wait for completion, to avoid blocking the app initialization
+    (async () => {
+      await Promise.all([
+        this.depositService.updateEventsCache(),
+        this.registryService.updateNodeOperatorsCache(),
+      ]);
+
+      // Subscribes to events only after the cache is warmed up
+      this.subscribeToEthereumUpdates();
+    })();
   }
 
+  /**
+   * Subscribes to the event of a new block appearance
+   */
   public subscribeToEthereumUpdates() {
     const provider = this.providerService.provider;
 
-    provider.on('block', () => this.checkKeysIntersections());
+    provider.on('block', () => this.handleNewBlock());
     this.logger.log('GuardianService subscribed to Ethereum events');
   }
 
+  /**
+   * Handles the appearance of a new block in the network
+   */
   @OneAtTime()
-  public async checkKeysIntersections(): Promise<void> {
+  public async handleNewBlock(): Promise<void> {
     const blockData = await this.getCurrentBlockData();
-    const { nextSigningKeys, depositedPubKeys, isDepositsPaused } = blockData;
 
-    if (isDepositsPaused) {
-      this.logger.warn('Deposits are paused');
-      return;
-    }
+    await Promise.all([
+      this.checkKeysIntersections(blockData),
+      this.depositService.handleNewBlock(blockData),
+      this.registryService.handleNewBlock(blockData),
+    ]);
 
-    const intersections = this.getKeysIntersections(
-      nextSigningKeys,
-      depositedPubKeys,
-    );
-
-    const isIntersectionsFound = intersections.length > 0;
-
-    if (isIntersectionsFound) {
-      await this.handleKeysIntersections(blockData, intersections);
-    } else {
-      await this.handleCorrectKeys(blockData);
-    }
+    this.collectMetrics(blockData);
   }
 
+  /**
+   * Collects data from contracts in one place and in parallel,
+   * to reduce the probability of getting data from different blocks
+   * @returns collected data from the current block
+   */
   public async getCurrentBlockData(): Promise<BlockData> {
     try {
       const endTimer = this.blockRequestsHistogram.startTimer();
@@ -91,7 +108,8 @@ export class GuardianService implements OnModuleInit {
         depositRoot,
         keysOpIndex,
         nextSigningKeys,
-        depositedPubKeys,
+        nodeOperatorsCache,
+        depositedEvents,
         guardianIndex,
         isDepositsPaused,
       ] = await Promise.all([
@@ -99,7 +117,8 @@ export class GuardianService implements OnModuleInit {
         this.depositService.getDepositRoot(),
         this.registryService.getKeysOpIndex(),
         this.registryService.getNextSigningKeys(),
-        this.depositService.getAllDepositedPubKeys(),
+        this.registryService.getCachedNodeOperators(),
+        this.depositService.getAllDepositedEvents(),
         this.securityService.getGuardianIndex(),
         this.securityService.isDepositsPaused(),
       ]);
@@ -116,7 +135,8 @@ export class GuardianService implements OnModuleInit {
         depositRoot,
         keysOpIndex,
         nextSigningKeys,
-        depositedPubKeys,
+        nodeOperatorsCache,
+        depositedEvents,
         guardianAddress,
         guardianIndex,
         isDepositsPaused,
@@ -127,15 +147,74 @@ export class GuardianService implements OnModuleInit {
     }
   }
 
-  public getKeysIntersections(
-    nextSigningKeys: string[],
-    depositedPubKeys: Set<string>,
-  ): string[] {
+  /**
+   * Checks keys for intersections with previously deposited keys and handles the situation
+   * @param blockData - collected data from the current block
+   */
+  public async checkKeysIntersections(blockData: BlockData): Promise<void> {
+    if (blockData.isDepositsPaused) {
+      this.logger.warn('Deposits are paused');
+      return;
+    }
+
+    const nextKeysIntersections = this.getNextKeysIntersections(blockData);
+    const cachedKeysIntersections = this.getCachedKeysIntersections(blockData);
+    const intersections = nextKeysIntersections.concat(cachedKeysIntersections);
+    const isIntersectionsFound = intersections.length > 0;
+
+    if (isIntersectionsFound) {
+      await this.handleKeysIntersections(blockData, intersections);
+    } else {
+      await this.handleCorrectKeys(blockData);
+    }
+  }
+
+  /**
+   * Finds the intersection of the next deposit keys in the list of all previously deposited keys
+   * Quick check that can be done on each block
+   * @param blockData - collected data from the current block
+   * @returns list of keys that were deposited earlier
+   */
+  public getNextKeysIntersections(blockData: BlockData): string[] {
+    const { depositedEvents, nextSigningKeys } = blockData;
+    const depositedKeys = depositedEvents.events.map(({ pubkey }) => pubkey);
+    const depositedKeysSet = new Set(depositedKeys);
+
     return nextSigningKeys.filter((nextSigningKey) =>
-      depositedPubKeys.has(nextSigningKey),
+      depositedKeysSet.has(nextSigningKey),
     );
   }
 
+  /**
+   * Finds the intersection of all unused lido keys in the list of all previously deposited keys
+   * It may not run every block if the cache is being updated.
+   * @param blockData - collected data from the current block
+   * @returns list of keys that were deposited earlier
+   */
+  public getCachedKeysIntersections(blockData: BlockData): string[] {
+    const { nodeOperatorsCache, keysOpIndex, depositedEvents } = blockData;
+    const { keysOpIndex: cachedKeysOpIndex, operators } = nodeOperatorsCache;
+    const isCacheUpToDate = cachedKeysOpIndex === keysOpIndex;
+
+    // Skip checking until the next cache update
+    if (!isCacheUpToDate) return [];
+
+    const depositedKeys = depositedEvents.events.map(({ pubkey }) => pubkey);
+    const depositedKeysSet = new Set(depositedKeys);
+
+    return operators.flatMap((operator) =>
+      operator.keys
+        .filter(({ used }) => used === false)
+        .filter(({ key }) => depositedKeysSet.has(key))
+        .map(({ key }) => key),
+    );
+  }
+
+  /**
+   * Handles the situation when keys have previously deposited copies
+   * @param blockData - collected data from the current block
+   * @param intersections - list of keys that were deposited earlier
+   */
   public async handleKeysIntersections(
     blockData: BlockData,
     intersections: string[],
@@ -173,6 +252,10 @@ export class GuardianService implements OnModuleInit {
     await this.sendMessageFromGuardian(pauseMessage);
   }
 
+  /**
+   * Handles the situation when keys do not have previously deposited copies
+   * @param blockData - collected data from the current block
+   */
   public async handleCorrectKeys(blockData: BlockData): Promise<void> {
     const {
       blockNumber,
@@ -219,6 +302,12 @@ export class GuardianService implements OnModuleInit {
 
   private lastContractsState: ContractsState | null = null;
 
+  /**
+   * Compares the states of the contracts to decide if the message needs to be re-signed
+   * @param firstState - contracts state
+   * @param secondState - contracts state
+   * @returns true if state is the same
+   */
   public isSameContractsStates(
     firstState: ContractsState | null,
     secondState: ContractsState | null,
@@ -236,6 +325,22 @@ export class GuardianService implements OnModuleInit {
     return true;
   }
 
+  /**
+   * Adds information about the app to the message
+   * @param message - message object
+   * @returns extended message
+   */
+  public addMessageMetaData<T>(message: T): T & MessageMeta {
+    return {
+      ...message,
+      app: { version: APP_VERSION, name: APP_NAME },
+    };
+  }
+
+  /**
+   * Sends a message to the message broker from the guardian
+   * @param messageData - message object
+   */
   public async sendMessageFromGuardian<T extends MessageRequiredFields>(
     messageData: T,
   ): Promise<void> {
@@ -247,6 +352,39 @@ export class GuardianService implements OnModuleInit {
       return;
     }
 
-    await this.messagesService.sendMessage(messageData);
+    const messageWithMeta = this.addMessageMetaData(messageData);
+    await this.messagesService.sendMessage(messageWithMeta);
+  }
+
+  /**
+   * Collects metrics about keys in the deposit contract and keys of node operators
+   * @param blockData - collected data from the current block
+   */
+  public collectMetrics(blockData: BlockData): void {
+    const { depositedEvents, nodeOperatorsCache, nextSigningKeys } = blockData;
+
+    /* deposited keys */
+
+    const depositedKeys = depositedEvents.events.map(({ pubkey }) => pubkey);
+    const depositedKeysSet = new Set(depositedKeys);
+    const depositedDubsTotal = depositedKeys.length - depositedKeysSet.size;
+
+    this.depositedKeysCounter.set({ type: 'total' }, depositedKeys.length);
+    this.depositedKeysCounter.set({ type: 'unique' }, depositedKeysSet.size);
+    this.depositedKeysCounter.set({ type: 'duplicates' }, depositedDubsTotal);
+
+    /* operators keys */
+
+    const { operators } = nodeOperatorsCache;
+    const operatorsKeys = operators.flatMap(({ keys }) => keys);
+    const operatorsKeysUsed = operatorsKeys.filter(({ used }) => !!used);
+    const operatorsKeysUnused = operatorsKeys.filter(({ used }) => !used);
+    const operatorsKeysUsedTotal = operatorsKeysUsed.length;
+    const operatorsKeysUnusedTotal = operatorsKeysUnused.length;
+
+    this.operatorsKeysCounter.set({ type: 'total' }, operatorsKeys.length);
+    this.operatorsKeysCounter.set({ type: 'used' }, operatorsKeysUsedTotal);
+    this.operatorsKeysCounter.set({ type: 'unused' }, operatorsKeysUnusedTotal);
+    this.operatorsKeysCounter.set({ type: 'next' }, nextSigningKeys.length);
   }
 }

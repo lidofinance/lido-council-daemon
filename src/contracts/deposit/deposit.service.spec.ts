@@ -2,60 +2,51 @@ jest.mock('utils/sleep');
 
 import { CHAINS } from '@lido-sdk/constants';
 import { Test } from '@nestjs/testing';
-import { LoggerModule } from 'common/logger';
-import {
-  ERROR_LIMIT_EXCEEDED,
-  ProviderModule,
-  ProviderService,
-} from 'provider';
-import { DepositService } from './deposit.service';
-import { DepositCacheService } from './cache.service';
-import { Interface } from '@ethersproject/abi';
-import { DepositAbi__factory } from 'generated';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { Interface } from '@ethersproject/abi';
 import { LoggerService } from '@nestjs/common';
-import { ConfigModule } from 'common/config';
 import { getNetwork } from '@ethersproject/networks';
 import { Contract } from '@ethersproject/contracts';
 import { hexZeroPad } from '@ethersproject/bytes';
-import { JsonRpcProvider } from '@ethersproject/providers';
 import { sleep } from 'utils';
-import { SecurityModule, SecurityService } from 'security';
+import { CacheService } from 'cache';
+import {
+  ERROR_LIMIT_EXCEEDED,
+  MockProviderModule,
+  ProviderService,
+} from 'provider';
+import { DepositAbi__factory } from 'generated';
+import { SecurityService } from 'contracts/security';
+import { DepositEventGroup } from './interfaces';
+import { DepositModule } from './deposit.module';
+import { DepositService } from './deposit.service';
 import { PrometheusModule } from 'common/prometheus';
+import { LoggerModule } from 'common/logger';
+import { ConfigModule } from 'common/config';
 
 const mockSleep = sleep as jest.MockedFunction<typeof sleep>;
 
 describe('DepositService', () => {
   let providerService: ProviderService;
   let securityService: SecurityService;
-  let cacheService: DepositCacheService;
+  let cacheService: CacheService<DepositEventGroup>;
   let depositService: DepositService;
   let loggerService: LoggerService;
 
   beforeEach(async () => {
-    class MockRpcProvider extends JsonRpcProvider {
-      async _uncachedDetectNetwork() {
-        return getNetwork(CHAINS.Goerli);
-      }
-    }
-
     const moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot(),
-        LoggerModule,
+        MockProviderModule.forRoot(),
+        DepositModule,
         PrometheusModule,
-        SecurityModule,
-        ProviderModule,
+        LoggerModule,
       ],
-      providers: [DepositService, DepositCacheService],
-    })
-      .overrideProvider(JsonRpcProvider)
-      .useValue(new MockRpcProvider())
-      .compile();
+    }).compile();
 
     providerService = moduleRef.get(ProviderService);
     securityService = moduleRef.get(SecurityService);
-    cacheService = moduleRef.get(DepositCacheService);
+    cacheService = moduleRef.get(CacheService);
     depositService = moduleRef.get(DepositService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
@@ -294,71 +285,133 @@ describe('DepositService', () => {
     });
   });
 
-  describe('getFreshEvents', () => {
-    it.todo('should fetch fresh events');
-  });
-
-  describe('subscribeToEthereumUpdates', () => {
-    it.todo('should subscribe to block event');
-  });
-
-  describe('initialize', () => {
-    it.todo('should collect cache');
-    it.todo('should subscribe to updates');
-  });
-
-  describe('cacheEvents', () => {
-    it.todo('should collect events');
-    it.todo('should start collecting from the last cached block + 1');
-    it.todo('should save events to the cache');
-    it.todo('should exit if the previous call is not completed');
-  });
-
-  describe('getAllDepositedPubKeys', () => {
+  describe('updateEventsCache', () => {
     const cachedPubkeys = ['0x1234', '0x5678'];
-    const freshPubkeys = ['0x4321', '0x8765'];
+    const cachedEvents = {
+      startBlock: 0,
+      endBlock: 2,
+      events: cachedPubkeys.map((pubkey) => ({ pubkey } as any)),
+    };
+    const currentBlock = 1000;
+    const firstNotCachedBlock = cachedEvents.endBlock + 1;
 
     beforeEach(async () => {
       jest
         .spyOn(depositService, 'getCachedEvents')
-        .mockImplementation(async () => ({
-          startBlock: 0,
-          endBlock: 2,
-          events: cachedPubkeys.map((pubkey) => ({ pubkey } as any)),
-        }));
+        .mockImplementation(async () => cachedEvents);
+
+      jest
+        .spyOn(providerService, 'getBlockNumber')
+        .mockImplementation(async () => currentBlock);
     });
 
-    it('should return cached pub keys', async () => {
-      const mockGetFreshEvents = jest
-        .spyOn(depositService, 'getFreshEvents')
-        .mockImplementation(async () => ({
-          startBlock: 0,
-          endBlock: 10,
+    it('should collect events', async () => {
+      const mockFetchEventsFallOver = jest
+        .spyOn(depositService, 'fetchEventsFallOver')
+        .mockImplementation(async (startBlock, endBlock) => ({
+          startBlock,
+          endBlock,
           events: [],
         }));
 
-      const result = await depositService.getAllDepositedPubKeys();
-      const expected = new Set(cachedPubkeys);
-      expect(result).toEqual(expected);
-      expect(mockGetFreshEvents).toBeCalledTimes(1);
+      jest
+        .spyOn(depositService, 'setCachedEvents')
+        .mockImplementation(async () => undefined);
+
+      await depositService.updateEventsCache();
+
+      expect(mockFetchEventsFallOver).toBeCalledTimes(1);
+      const { calls: fetchCalls } = mockFetchEventsFallOver.mock;
+      expect(fetchCalls[0][0]).toBe(firstNotCachedBlock);
+      expect(fetchCalls[0][1]).toBeLessThan(currentBlock);
+    });
+
+    it('should save events to the cache', async () => {
+      jest
+        .spyOn(depositService, 'fetchEventsFallOver')
+        .mockImplementation(async (startBlock, endBlock) => ({
+          startBlock,
+          endBlock,
+          events: [],
+        }));
+
+      const mockSetCachedEvents = jest
+        .spyOn(depositService, 'setCachedEvents')
+        .mockImplementation(async () => undefined);
+
+      await depositService.updateEventsCache();
+
+      expect(mockSetCachedEvents).toBeCalledTimes(1);
+      const { calls: cacheCalls } = mockSetCachedEvents.mock;
+      expect(cacheCalls[0][0].startBlock).toBe(cachedEvents.startBlock);
+      expect(cacheCalls[0][0].endBlock).toBeLessThan(currentBlock);
+      expect(cacheCalls[0][0].events).toEqual(cachedEvents.events);
+    });
+  });
+
+  describe('getAllDepositedEvents', () => {
+    const cachedPubkeys = ['0x1234', '0x5678'];
+    const freshPubkeys = ['0x4321', '0x8765'];
+    const cachedEvents = {
+      startBlock: 0,
+      endBlock: 2,
+      events: cachedPubkeys.map((pubkey) => ({ pubkey } as any)),
+    };
+    const currentBlock = 10;
+    const firstNotCachedBlock = cachedEvents.endBlock + 1;
+
+    beforeEach(async () => {
+      jest
+        .spyOn(depositService, 'getCachedEvents')
+        .mockImplementation(async () => cachedEvents);
+
+      jest
+        .spyOn(providerService, 'getBlockNumber')
+        .mockImplementation(async () => currentBlock);
+    });
+
+    it('should return cached events', async () => {
+      const mockFetchEventsFallOver = jest
+        .spyOn(depositService, 'fetchEventsFallOver')
+        .mockImplementation(async () => ({
+          startBlock: firstNotCachedBlock,
+          endBlock: currentBlock,
+          events: [],
+        }));
+
+      const result = await depositService.getAllDepositedEvents();
+      expect(result).toEqual({ ...cachedEvents, endBlock: currentBlock });
+
+      expect(mockFetchEventsFallOver).toBeCalledTimes(1);
+      expect(mockFetchEventsFallOver).toBeCalledWith(
+        firstNotCachedBlock,
+        currentBlock,
+      );
     });
 
     it('should return merged pub keys', async () => {
-      const mockGetFreshEvents = jest
-        .spyOn(depositService, 'getFreshEvents')
+      const mockFetchEventsFallOver = jest
+        .spyOn(depositService, 'fetchEventsFallOver')
         .mockImplementation(async () => ({
-          startBlock: 0,
-          endBlock: 10,
+          startBlock: firstNotCachedBlock,
+          endBlock: currentBlock,
           events: freshPubkeys.map((pubkey) => ({ pubkey } as any)),
         }));
 
-      const result = await depositService.getAllDepositedPubKeys();
-      const expected = new Set(cachedPubkeys.concat(freshPubkeys));
-      expect(result).toEqual(expected);
-      expect(mockGetFreshEvents).toBeCalledTimes(1);
+      const result = await depositService.getAllDepositedEvents();
+      expect(result).toEqual({
+        startBlock: cachedEvents.startBlock,
+        endBlock: currentBlock,
+        events: cachedPubkeys
+          .concat(freshPubkeys)
+          .map((pubkey) => ({ pubkey } as any)),
+      });
+      expect(mockFetchEventsFallOver).toBeCalledTimes(1);
+      expect(mockFetchEventsFallOver).toBeCalledWith(
+        firstNotCachedBlock,
+        currentBlock,
+      );
     });
-
-    it.todo('should throw if cache is old');
   });
 
   describe('getDepositRoot', () => {

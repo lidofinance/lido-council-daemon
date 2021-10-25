@@ -11,6 +11,7 @@ There are several ways to run a daemon:
 You can pull image from dockerhub and run it manually or via docker-compose
 (`docker-compose.yml` can be found in repository root).
 Volumes can be omitted if needed.
+
 ```bash
 docker pull lidofinance/lido-council-daemon@sha256:9713df85e6e59c1825ec4a6b3fe59f3c50fbd3f7bb43fd518abcf6395cc61ef7
 
@@ -158,6 +159,15 @@ $ yarn start:dev
 
 Prometheus metrics are exposed via HTTP `/metrics` endpoint.
 
+## Cache
+
+Cache warming takes a lot of RPC queries and up to 30m of time (for mainnet). That cache is fully deterministic, fairly easily repopulated and you shouldn't be afraid to lose it.
+
+To clear the cache use:
+
+```bash
+yarn cache:clear
+```
 
 ## Test
 

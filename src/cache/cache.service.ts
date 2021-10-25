@@ -1,21 +1,25 @@
-import { Injectable } from '@nestjs/common';
-import { DepositEventGroup, DepositEventsCache } from './interfaces';
+import { Inject, Injectable } from '@nestjs/common';
 import { readFile, writeFile, unlink, mkdir } from 'fs/promises';
 import { join } from 'path';
 import {
-  DEPOSIT_CACHE_DEFAULT,
-  DEPOSIT_CACHE_FILE,
-  DEPOSIT_CACHE_DIR,
+  CACHE_DIR,
+  CACHE_DEFAULT_VALUE,
+  CACHE_FILE_NAME,
 } from './cache.constants';
 import { ProviderService } from 'provider';
 
 @Injectable()
-export class DepositCacheService {
-  constructor(private providerService: ProviderService) {}
+export class CacheService<T extends unknown> {
+  constructor(
+    private providerService: ProviderService,
+    @Inject(CACHE_DIR) private cacheDir: string,
+    @Inject(CACHE_FILE_NAME) private cacheFile: string,
+    @Inject(CACHE_DEFAULT_VALUE) private cacheDefaultValue: T,
+  ) {}
 
-  private cache: DepositEventsCache | null = null;
+  private cache: T | null = null;
 
-  public async getCache(): Promise<DepositEventsCache> {
+  public async getCache(): Promise<T> {
     if (!this.cache) {
       this.cache = await this.getCacheFromFile();
     }
@@ -23,7 +27,7 @@ export class DepositCacheService {
     return this.cache;
   }
 
-  public async setCache(cache: DepositEventsCache): Promise<void> {
+  public async setCache(cache: T): Promise<void> {
     this.cache = cache;
     return await this.saveCacheToFile();
   }
@@ -37,21 +41,21 @@ export class DepositCacheService {
     const chainId = await this.providerService.getChainId();
     const networkDir = `chain-${chainId}`;
 
-    return join(DEPOSIT_CACHE_DIR, networkDir);
+    return join(this.cacheDir, networkDir);
   }
 
   private async getCacheFilePath(): Promise<string> {
     const dir = await this.getCacheDirPath();
-    return join(dir, DEPOSIT_CACHE_FILE);
+    return join(dir, this.cacheFile);
   }
 
-  private async getCacheFromFile(): Promise<DepositEventGroup> {
+  private async getCacheFromFile(): Promise<T> {
     try {
       const filePath = await this.getCacheFilePath();
       const content = await readFile(filePath);
       return JSON.parse(String(content));
     } catch (error) {
-      return DEPOSIT_CACHE_DEFAULT;
+      return this.cacheDefaultValue;
     }
   }
 

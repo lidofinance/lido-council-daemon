@@ -1,5 +1,4 @@
 import { defaultAbiCoder } from '@ethersproject/abi';
-import { BigNumber } from '@ethersproject/bignumber';
 import { Signature } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
 import { formatEther } from '@ethersproject/units';
@@ -11,6 +10,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
+import { OneAtTime } from 'common/decorators';
 import { METRIC_ACCOUNT_BALANCE } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Gauge, register } from 'prom-client';
@@ -34,55 +34,47 @@ export class WalletService implements OnModuleInit {
     const guardianAddress = this.address;
     register.setDefaultLabels({ guardianAddress });
 
-    const balance = await this.getBalance();
-
-    if (balance.isSufficient) {
-      this.logger.log('Account balance is sufficient', {
-        balance: balance.formatted,
-      });
-    } else {
-      this.logger.warn('Account balance is too low', {
-        balance: balance.formatted,
-      });
-    }
-
+    await this.updateBalance();
     this.subscribeToEthereumUpdates();
   }
 
-  public async getBalance(): Promise<{
-    isSufficient: boolean;
-    formatted: string;
-    wei: BigNumber;
-  }> {
-    const provider = this.providerService.provider;
-    const wei = await provider.getBalance(this.address);
-    const formatted = `${formatEther(wei)} ETH`;
-    const isSufficient = wei.gte(WALLET_MIN_BALANCE);
-
-    return { isSufficient, formatted, wei };
-  }
-
+  /**
+   * Subscribes to the event of a new block appearance
+   */
   public async subscribeToEthereumUpdates() {
     const provider = this.providerService.provider;
 
     provider.on('block', async (blockNumber) => {
       if (blockNumber % WALLET_BALANCE_UPDATE_BLOCK_RATE !== 0) return;
-
-      const balance = await this.getBalance();
-      this.accountBalance.set(Number(formatEther(balance.wei)));
-
-      if (!balance.isSufficient) {
-        this.logger.warn('Account balance is too low', {
-          balance: balance.formatted,
-        });
-      }
+      this.updateBalance();
     });
 
     this.logger.log('WalletService subscribed to Ethereum events');
   }
 
-  private cachedWallet: Wallet | null = null;
+  /**
+   * Updates the guardian account balance
+   */
+  @OneAtTime()
+  public async updateBalance() {
+    const provider = this.providerService.provider;
+    const balanceWei = await provider.getBalance(this.address);
+    const formatted = `${formatEther(balanceWei)} ETH`;
+    const isSufficient = balanceWei.gte(WALLET_MIN_BALANCE);
 
+    this.accountBalance.set(Number(formatEther(balanceWei)));
+
+    if (isSufficient) {
+      this.logger.log('Account balance is sufficient', { balance: formatted });
+    } else {
+      this.logger.warn('Account balance is too low', { balance: formatted });
+    }
+  }
+
+  /**
+   * Wallet class inherits Signer and can sign transactions and messages
+   * using a private key as a standard Externally Owned Account (EOA)
+   */
   public get wallet(): Wallet {
     if (this.cachedWallet) return this.cachedWallet;
 
@@ -98,14 +90,33 @@ export class WalletService implements OnModuleInit {
     return this.cachedWallet;
   }
 
+  private cachedWallet: Wallet | null = null;
+
+  /**
+   * Guardian wallet address
+   */
   public get address(): string {
     return this.wallet.address;
   }
 
+  /**
+   * Signs a message using a private key
+   * @param message - message that is signed
+   * @returns signature
+   */
   public signMessage(message: string): Signature {
     return this.wallet._signingKey().signDigest(message);
   }
 
+  /**
+   * Signs a message to deposit buffered ethers
+   * @param prefix - unique prefix from the contract for this type of message
+   * @param depositRoot - current deposit root from the deposit contract
+   * @param keysOpIndex - current index of keys operations from the registry contract
+   * @param blockNumber - current block number
+   * @param blockHash - current block hash
+   * @returns signature
+   */
   public async signDepositData(
     prefix: string,
     depositRoot: string,
@@ -122,6 +133,12 @@ export class WalletService implements OnModuleInit {
     return await this.signMessage(messageHash);
   }
 
+  /**
+   * Signs a message to pause deposits
+   * @param prefix - unique prefix from the contract for this type of message
+   * @param blockNumber - block number that is signed
+   * @returns signature
+   */
   public async signPauseData(
     prefix: string,
     blockNumber: number,

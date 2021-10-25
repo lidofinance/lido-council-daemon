@@ -1,29 +1,15 @@
-import { CHAINS } from '@lido-sdk/constants';
 import { Test } from '@nestjs/testing';
+import { getNetwork } from '@ethersproject/networks';
 import { ConfigModule } from 'common/config';
 import { ProviderService } from './provider.service';
-import { getNetwork } from '@ethersproject/networks';
-import { JsonRpcProvider } from '@ethersproject/providers';
+import { MockProviderModule } from 'provider';
 
 describe('ProviderService', () => {
   let providerService: ProviderService;
 
   beforeEach(async () => {
-    class MockRpcProvider extends JsonRpcProvider {
-      async _uncachedDetectNetwork() {
-        return getNetwork(CHAINS.Goerli);
-      }
-    }
-
     const moduleRef = await Test.createTestingModule({
-      imports: [ConfigModule.forRoot()],
-      providers: [
-        ProviderService,
-        {
-          provide: JsonRpcProvider,
-          useValue: new MockRpcProvider(),
-        },
-      ],
+      imports: [ConfigModule.forRoot(), MockProviderModule.forRoot()],
     }).compile();
 
     providerService = moduleRef.get(ProviderService);
