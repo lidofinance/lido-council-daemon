@@ -212,7 +212,6 @@
   },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "maxDeposits", "type": "uint256" },
       { "internalType": "bytes32", "name": "depositRoot", "type": "bytes32" },
       { "internalType": "uint256", "name": "keysOpIndex", "type": "uint256" },
       { "internalType": "uint256", "name": "blockNumber", "type": "uint256" },
@@ -254,6 +253,13 @@
     "outputs": [
       { "internalType": "address[]", "name": "", "type": "address[]" }
     ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getLastDepositBlock",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
     "stateMutability": "view",
     "type": "function"
   },
