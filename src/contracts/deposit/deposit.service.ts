@@ -11,12 +11,18 @@ import {
   DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE,
   DEPOSIT_EVENTS_CACHE_LAG_BLOCKS,
 } from './deposit.constants';
-import { DepositEvent, DepositEventGroup } from './interfaces';
+import {
+  DepositEvent,
+  DepositEventGroup,
+  DepositEventsCache,
+} from './interfaces';
 import { sleep } from 'utils';
 import { OneAtTime } from 'common/decorators';
 import { SecurityService } from 'contracts/security';
 import { CacheService } from 'cache';
 import { BlockData } from 'guardian';
+import { BlockTag } from '@ethersproject/abstract-provider';
+import { APP_VERSION } from 'app.constants';
 
 @Injectable()
 export class DepositService {
@@ -24,8 +30,10 @@ export class DepositService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
     private securityService: SecurityService,
-    private cacheService: CacheService<DepositEventGroup>,
+    private cacheService: CacheService<DepositEventsCache>,
   ) {}
+
+  private cachedContract: DepositAbi | null = null;
 
   @OneAtTime()
   public async handleNewBlock({ blockNumber }: BlockData): Promise<void> {
@@ -33,7 +41,35 @@ export class DepositService {
     await this.updateEventsCache();
   }
 
-  private cachedContract: DepositAbi | null = null;
+  async onModuleInit() {
+    const cache = await this.getCachedEvents();
+    const versions = {
+      cachedVersion: cache.version,
+      currentVersion: APP_VERSION,
+    };
+
+    if (cache.version === APP_VERSION) {
+      this.logger.log(
+        'Deposit Events cache version matches the application version',
+        versions,
+      );
+
+      return;
+    }
+
+    this.logger.log(
+      'Deposit Events cache does not match the application version, clearing the cache',
+      versions,
+    );
+
+    try {
+      await this.deleteCachedEvents();
+      this.logger.log('Deposit Events cache cleared');
+    } catch (error) {
+      this.logger.error(error);
+      process.exit(1);
+    }
+  }
 
   /**
    * Returns only required information about the event,
@@ -72,7 +108,7 @@ export class DepositService {
    * Gets node operators data from cache
    * @returns event group
    */
-  public async getCachedEvents(): Promise<DepositEventGroup> {
+  public async getCachedEvents(): Promise<DepositEventsCache> {
     const cachedEventGroup = await this.cacheService.getCache();
     const deploymentBlock = await this.getDeploymentBlockByNetwork();
 
@@ -87,7 +123,17 @@ export class DepositService {
    * Saves deposited events to cache
    */
   public async setCachedEvents(eventGroup: DepositEventGroup): Promise<void> {
-    return await this.cacheService.setCache(eventGroup);
+    return await this.cacheService.setCache({
+      ...eventGroup,
+      version: APP_VERSION,
+    });
+  }
+
+  /**
+   * Delete deposited events cache
+   */
+  public async deleteCachedEvents(): Promise<void> {
+    return await this.cacheService.deleteCache();
   }
 
   /**
@@ -185,6 +231,7 @@ export class DepositService {
       eventGroup.events = eventGroup.events.concat(chunkEventGroup.events);
 
       this.logger.log('Historical events are fetched', {
+        toBlock,
         startBlock: chunkStartBlock,
         endBlock: chunkToBlock,
         events: eventGroup.events.length,
@@ -201,7 +248,7 @@ export class DepositService {
 
     // TODO: replace timer with metric
 
-    this.logger.log('Cache is updated', {
+    this.logger.log('Deposit events cache is updated', {
       newEvents,
       totalEvents,
       fetchTime,
@@ -211,11 +258,11 @@ export class DepositService {
   /**
    * Returns all deposited events based on cache and fresh data
    */
-  public async getAllDepositedEvents(): Promise<DepositEventGroup> {
-    const [endBlock, cachedEvents] = await Promise.all([
-      this.providerService.getBlockNumber(),
-      this.getCachedEvents(),
-    ]);
+  public async getAllDepositedEvents(
+    blockNumber: number,
+  ): Promise<DepositEventGroup> {
+    const endBlock = blockNumber;
+    const cachedEvents = await this.getCachedEvents();
 
     const firstNotCachedBlock = cachedEvents.endBlock + 1;
     const freshEvents = await this.fetchEventsFallOver(
@@ -242,9 +289,9 @@ export class DepositService {
   /**
    * Returns a deposit root
    */
-  public async getDepositRoot(): Promise<string> {
+  public async getDepositRoot(blockTag?: BlockTag): Promise<string> {
     const contract = await this.getContract();
-    const depositRoot = await contract.get_deposit_root();
+    const depositRoot = await contract.get_deposit_root({ blockTag });
     return depositRoot;
   }
 }

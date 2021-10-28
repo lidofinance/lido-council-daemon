@@ -1,1 +1,2 @@
 export const ERROR_LIMIT_EXCEEDED = -32005;
+export const MAX_TIME_WITHOUT_NEW_BLOCKS_MS = 5 * 60 * 1000;

@@ -23,6 +23,7 @@ export const DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE = 10;
 export const DEPOSIT_CACHE_FILE_NAME = 'deposit.events.json';
 
 export const DEPOSIT_CACHE_DEFAULT: DepositEventGroup = Object.freeze({
+  version: '-1',
   startBlock: 0,
   endBlock: 0,
   events: [],

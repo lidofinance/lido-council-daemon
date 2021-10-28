@@ -2,16 +2,18 @@ import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
 import { Configuration } from 'common/config';
 import { ProviderService } from 'provider';
+import { ModuleRef } from '@nestjs/core';
 
 export const LoggerModule = WinstonModule.forRootAsync({
-  inject: [Configuration, ProviderService],
-  useFactory: async (
-    config: Configuration,
-    providerService: ProviderService,
-  ) => ({
+  imports: [],
+  inject: [Configuration, ModuleRef],
+  useFactory: async (config: Configuration, moduleRef: ModuleRef) => ({
     level: config.LOG_LEVEL,
     defaultMeta: {
       get block() {
+        const providerService = moduleRef.get(ProviderService, {
+          strict: false,
+        });
         return providerService.provider.blockNumber;
       },
     },

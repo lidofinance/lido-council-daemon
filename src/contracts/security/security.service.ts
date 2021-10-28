@@ -1,5 +1,6 @@
 import { Signature } from '@ethersproject/bytes';
 import { ContractReceipt } from '@ethersproject/contracts';
+import { BlockTag } from '@ethersproject/abstract-provider';
 import {
   Inject,
   Injectable,
@@ -32,7 +33,7 @@ export class SecurityService implements OnModuleInit {
   private cachedPauseMessagePrefix: string | null = null;
 
   public async onModuleInit(): Promise<void> {
-    const guardianIndex = await this.getGuardianIndex();
+    const guardianIndex = await this.getGuardianIndex('latest');
     const address = this.walletService.address;
 
     if (guardianIndex === -1) {
@@ -129,9 +130,9 @@ export class SecurityService implements OnModuleInit {
   /**
    * Returns the maximum number of deposits per transaction from the contract
    */
-  public async getMaxDeposits(): Promise<number> {
+  public async getMaxDeposits(blockTag?: BlockTag): Promise<number> {
     const contract = await this.getContract();
-    const maxDeposits = await contract.getMaxDeposits();
+    const maxDeposits = await contract.getMaxDeposits({ blockTag });
 
     return maxDeposits.toNumber();
   }
@@ -139,9 +140,9 @@ export class SecurityService implements OnModuleInit {
   /**
    * Returns the guardian list from the contract
    */
-  public async getGuardians(): Promise<string[]> {
+  public async getGuardians(blockTag?: BlockTag): Promise<string[]> {
     const contract = await this.getContract();
-    const guardians = await contract.getGuardians();
+    const guardians = await contract.getGuardians({ blockTag });
 
     return guardians;
   }
@@ -149,8 +150,8 @@ export class SecurityService implements OnModuleInit {
   /**
    * Returns the guardian index in the list
    */
-  public async getGuardianIndex(): Promise<number> {
-    const guardians = await this.getGuardians();
+  public async getGuardianIndex(blockTag?: BlockTag): Promise<number> {
+    const guardians = await this.getGuardians(blockTag);
     const address = this.walletService.address;
 
     return guardians.indexOf(address);
@@ -195,9 +196,9 @@ export class SecurityService implements OnModuleInit {
   /**
    * Returns the current state of deposits
    */
-  public async isDepositsPaused(): Promise<boolean> {
+  public async isDepositsPaused(blockTag?: BlockTag): Promise<boolean> {
     const contract = await this.getContractWithSigner();
-    const isPaused = await contract.isPaused();
+    const isPaused = await contract.isPaused({ blockTag });
     return isPaused;
   }
 

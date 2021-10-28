@@ -68,8 +68,10 @@ export class CacheService<T extends unknown> {
   }
 
   private async deleteCacheFile(): Promise<void> {
-    const filePath = await this.getCacheFilePath();
+    try {
+      const filePath = await this.getCacheFilePath();
 
-    return await unlink(filePath);
+      return await unlink(filePath);
+    } catch (error) {}
   }
 }

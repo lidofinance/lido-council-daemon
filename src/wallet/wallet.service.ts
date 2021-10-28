@@ -34,19 +34,23 @@ export class WalletService implements OnModuleInit {
     const guardianAddress = this.address;
     register.setDefaultLabels({ guardianAddress });
 
-    await this.updateBalance();
-    this.subscribeToEthereumUpdates();
+    try {
+      await this.updateBalance();
+      this.subscribeToEthereumUpdates();
+    } catch (error) {
+      this.logger.error(error);
+    }
   }
 
   /**
    * Subscribes to the event of a new block appearance
    */
-  public async subscribeToEthereumUpdates() {
+  public subscribeToEthereumUpdates() {
     const provider = this.providerService.provider;
 
     provider.on('block', async (blockNumber) => {
       if (blockNumber % WALLET_BALANCE_UPDATE_BLOCK_RATE !== 0) return;
-      this.updateBalance();
+      this.updateBalance().catch((error) => this.logger.error(error));
     });
 
     this.logger.log('WalletService subscribed to Ethereum events');

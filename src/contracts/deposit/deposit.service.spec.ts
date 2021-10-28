@@ -23,6 +23,7 @@ import { DepositService } from './deposit.service';
 import { PrometheusModule } from 'common/prometheus';
 import { LoggerModule } from 'common/logger';
 import { ConfigModule } from 'common/config';
+import { APP_VERSION } from 'app.constants';
 
 const mockSleep = sleep as jest.MockedFunction<typeof sleep>;
 
@@ -154,7 +155,10 @@ describe('DepositService', () => {
       await depositService.setCachedEvents(eventGroup);
 
       expect(mockSetCache).toBeCalledTimes(1);
-      expect(mockSetCache).toBeCalledWith(eventGroup);
+      expect(mockSetCache).toBeCalledWith({
+        ...eventGroup,
+        version: APP_VERSION,
+      });
     });
   });
 
@@ -290,6 +294,7 @@ describe('DepositService', () => {
     const cachedEvents = {
       startBlock: 0,
       endBlock: 2,
+      version: '1',
       events: cachedPubkeys.map((pubkey) => ({ pubkey } as any)),
     };
     const currentBlock = 1000;
@@ -363,7 +368,7 @@ describe('DepositService', () => {
     beforeEach(async () => {
       jest
         .spyOn(depositService, 'getCachedEvents')
-        .mockImplementation(async () => cachedEvents);
+        .mockImplementation(async () => ({ ...cachedEvents, version: '1' }));
 
       jest
         .spyOn(providerService, 'getBlockNumber')
@@ -379,7 +384,7 @@ describe('DepositService', () => {
           events: [],
         }));
 
-      const result = await depositService.getAllDepositedEvents();
+      const result = await depositService.getAllDepositedEvents(currentBlock);
       expect(result).toEqual({ ...cachedEvents, endBlock: currentBlock });
 
       expect(mockFetchEventsFallOver).toBeCalledTimes(1);
@@ -398,7 +403,7 @@ describe('DepositService', () => {
           events: freshPubkeys.map((pubkey) => ({ pubkey } as any)),
         }));
 
-      const result = await depositService.getAllDepositedEvents();
+      const result = await depositService.getAllDepositedEvents(currentBlock);
       expect(result).toEqual({
         startBlock: cachedEvents.startBlock,
         endBlock: currentBlock,
