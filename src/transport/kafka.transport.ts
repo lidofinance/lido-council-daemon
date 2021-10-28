@@ -1,12 +1,17 @@
 import { TransportInterface } from './transport.interface';
 import { Kafka, Producer, Consumer } from 'kafkajs';
-import { Inject, Injectable, LoggerService } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  LoggerService,
+  OnModuleInit,
+} from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { implementationOf } from '../common/di/decorators/implementationOf';
 
 @Injectable()
 @implementationOf(TransportInterface)
-export class KafkaTransport implements TransportInterface {
+export class KafkaTransport implements TransportInterface, OnModuleInit {
   protected consumers: { [topic: string]: Consumer } = {};
   protected producer: Producer;
   protected producerConnected = false;
@@ -26,6 +31,14 @@ export class KafkaTransport implements TransportInterface {
       this.producerConnected = false;
       this.logger.log('Producer disconnected to kafka', 'KafkaTransport');
     });
+  }
+
+  async onModuleInit() {
+    try {
+      await this.producer.connect();
+    } catch (error) {
+      this.logger.error(error);
+    }
   }
 
   public async publish<T>(topic: string, message: T): Promise<void> {
