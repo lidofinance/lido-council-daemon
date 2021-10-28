@@ -1,5 +1,10 @@
 import { BlockTag } from '@ethersproject/abstract-provider';
-import { Inject, Injectable, LoggerService } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  LoggerService,
+  OnModuleInit,
+} from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { RegistryAbi, RegistryAbi__factory } from 'generated';
 import { ProviderService } from 'provider';
@@ -20,9 +25,10 @@ import { range, splitPubKeys } from 'utils';
 import { CacheService } from 'cache';
 import { OneAtTime } from 'common/decorators';
 import { BlockData } from 'guardian';
+import { APP_VERSION } from 'app.constants';
 
 @Injectable()
-export class RegistryService {
+export class RegistryService implements OnModuleInit {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
@@ -40,6 +46,36 @@ export class RegistryService {
   private cachedContract: RegistryAbi | null = null;
   private cachedBatchContracts: Map<string, Promise<RegistryAbi>> = new Map();
   private cachedPubKeyLength: number | null = null;
+
+  async onModuleInit() {
+    const cache = await this.getCachedNodeOperators();
+    const versions = {
+      cachedVersion: cache.version,
+      currentVersion: APP_VERSION,
+    };
+
+    if (cache.version === APP_VERSION) {
+      this.logger.log(
+        'Node Operators cache version matches the application version',
+        versions,
+      );
+
+      return;
+    }
+
+    this.logger.log(
+      'Node Operators cache does not match the application version, clearing the cache',
+      versions,
+    );
+
+    try {
+      await this.deleteCachedNodeOperatorsKeys();
+      this.logger.log('Node Operators cache cleared');
+    } catch (error) {
+      this.logger.error(error);
+      process.exit(1);
+    }
+  }
 
   /**
    * Returns an instance of the contract
@@ -287,6 +323,7 @@ export class RegistryService {
     }
 
     await this.setCachedNodeOperatorsKeys({
+      version: APP_VERSION,
       operators: mergedOperators,
       keysOpIndex: currentKeysOpIndex,
       depositRoot: currentDepositRoot,
@@ -307,5 +344,12 @@ export class RegistryService {
     cache: NodeOperatorsCache,
   ): Promise<void> {
     return await this.cacheService.setCache(cache);
+  }
+
+  /**
+   * Delete node operators cache
+   */
+  public async deleteCachedNodeOperatorsKeys(): Promise<void> {
+    return await this.cacheService.deleteCache();
   }
 }

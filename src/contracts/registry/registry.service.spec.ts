@@ -19,6 +19,7 @@ import { CacheService } from 'cache';
 import { NodeOperatorsCache } from './interfaces';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
+import { APP_VERSION } from 'app.constants';
 
 describe('RegistryService', () => {
   let providerService: ProviderService;
@@ -349,6 +350,7 @@ describe('RegistryService', () => {
     const depositRoot = '0x1234';
     const operators = [firstOperatorWithKeys, secondOperatorWithKeys];
     const nodeOperatorsCache = {
+      version: '1',
       keysOpIndex: 1,
       depositRoot,
       operators,
@@ -406,6 +408,7 @@ describe('RegistryService', () => {
 
       expect(mockSetCachedNodeOperatorsKeys).toBeCalledTimes(1);
       expect(mockSetCachedNodeOperatorsKeys).toBeCalledWith({
+        version: APP_VERSION,
         depositRoot,
         keysOpIndex: newKeysOpIndex,
         operators: [firstOperatorWithKeys, newSecondOperatorWithKeys],
@@ -454,6 +457,7 @@ describe('RegistryService', () => {
 
       expect(mockSetCachedNodeOperatorsKeys).toBeCalledTimes(1);
       expect(mockSetCachedNodeOperatorsKeys).toBeCalledWith({
+        version: APP_VERSION,
         depositRoot: newDepositRoot,
         keysOpIndex: nodeOperatorsCache.keysOpIndex,
         operators: [firstOperatorWithKeys, secondOperatorWithKeys],
@@ -537,6 +541,7 @@ describe('RegistryService', () => {
 
       expect(mockSetCachedNodeOperatorsKeys).toBeCalledTimes(1);
       expect(mockSetCachedNodeOperatorsKeys).toBeCalledWith({
+        version: APP_VERSION,
         keysOpIndex: newKeysOpIndex,
         depositRoot,
         operators: [firstOperatorWithKeys, newSecondOperatorWithKeys],
@@ -597,6 +602,7 @@ describe('RegistryService', () => {
 
       expect(mockSetCachedNodeOperatorsKeys).toBeCalledTimes(1);
       expect(mockSetCachedNodeOperatorsKeys).toBeCalledWith({
+        version: APP_VERSION,
         depositRoot: newDepositRoot,
         keysOpIndex: nodeOperatorsCache.keysOpIndex,
         operators: [newFirstOperatorWithKeys, secondOperatorWithKeys],

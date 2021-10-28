@@ -222,6 +222,7 @@ describe('GuardianService', () => {
       depositRoot: '0x2345',
       keysOpIndex: 1,
       operators: [],
+      version: '1',
     };
 
     const currentBlockData = {
