@@ -17,6 +17,7 @@ import { OneAtTime } from 'common/decorators';
 import { SecurityService } from 'contracts/security';
 import { CacheService } from 'cache';
 import { BlockData } from 'guardian';
+import { BlockTag } from '@ethersproject/abstract-provider';
 
 @Injectable()
 export class DepositService {
@@ -211,11 +212,11 @@ export class DepositService {
   /**
    * Returns all deposited events based on cache and fresh data
    */
-  public async getAllDepositedEvents(): Promise<DepositEventGroup> {
-    const [endBlock, cachedEvents] = await Promise.all([
-      this.providerService.getBlockNumber(),
-      this.getCachedEvents(),
-    ]);
+  public async getAllDepositedEvents(
+    blockNumber: number,
+  ): Promise<DepositEventGroup> {
+    const endBlock = blockNumber;
+    const cachedEvents = await this.getCachedEvents();
 
     const firstNotCachedBlock = cachedEvents.endBlock + 1;
     const freshEvents = await this.fetchEventsFallOver(
@@ -242,9 +243,9 @@ export class DepositService {
   /**
    * Returns a deposit root
    */
-  public async getDepositRoot(): Promise<string> {
+  public async getDepositRoot(blockTag?: BlockTag): Promise<string> {
     const contract = await this.getContract();
-    const depositRoot = await contract.get_deposit_root();
+    const depositRoot = await contract.get_deposit_root({ blockTag });
     return depositRoot;
   }
 }

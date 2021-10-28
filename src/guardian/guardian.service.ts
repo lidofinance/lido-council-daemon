@@ -60,7 +60,7 @@ export class GuardianService implements OnModuleInit {
     (async () => {
       await Promise.all([
         this.depositService.updateEventsCache(),
-        this.registryService.updateNodeOperatorsCache(),
+        this.registryService.updateNodeOperatorsCache('latest'),
       ]);
 
       // Subscribes to events only after the cache is warmed up
@@ -83,15 +83,19 @@ export class GuardianService implements OnModuleInit {
    */
   @OneAtTime()
   public async handleNewBlock(): Promise<void> {
-    const blockData = await this.getCurrentBlockData();
+    try {
+      const blockData = await this.getCurrentBlockData();
 
-    await Promise.all([
-      this.checkKeysIntersections(blockData),
-      this.depositService.handleNewBlock(blockData),
-      this.registryService.handleNewBlock(blockData),
-    ]);
+      await Promise.all([
+        this.checkKeysIntersections(blockData),
+        this.depositService.handleNewBlock(blockData),
+        this.registryService.handleNewBlock(blockData),
+      ]);
 
-    this.collectMetrics(blockData);
+      this.collectMetrics(blockData);
+    } catch (error) {
+      this.logger.error(error);
+    }
   }
 
   /**
@@ -103,29 +107,29 @@ export class GuardianService implements OnModuleInit {
     try {
       const endTimer = this.blockRequestsHistogram.startTimer();
 
+      const guardianAddress = this.securityService.getGuardianAddress();
+
+      const block = await this.providerService.getBlock();
+      const blockNumber = block.number;
+      const blockHash = block.hash;
+
       const [
-        block,
-        depositRoot,
+        nodeOperatorsCache,
         keysOpIndex,
         nextSigningKeys,
-        nodeOperatorsCache,
+        depositRoot,
         depositedEvents,
         guardianIndex,
         isDepositsPaused,
       ] = await Promise.all([
-        this.providerService.getBlock(),
-        this.depositService.getDepositRoot(),
-        this.registryService.getKeysOpIndex(),
-        this.registryService.getNextSigningKeys(),
         this.registryService.getCachedNodeOperators(),
-        this.depositService.getAllDepositedEvents(),
-        this.securityService.getGuardianIndex(),
-        this.securityService.isDepositsPaused(),
+        this.registryService.getKeysOpIndex(blockNumber),
+        this.registryService.getNextSigningKeys(blockNumber),
+        this.depositService.getDepositRoot(blockNumber),
+        this.depositService.getAllDepositedEvents(blockNumber),
+        this.securityService.getGuardianIndex(blockNumber),
+        this.securityService.isDepositsPaused(blockNumber),
       ]);
-
-      const guardianAddress = this.securityService.getGuardianAddress();
-      const blockNumber = block.number;
-      const blockHash = block.hash;
 
       endTimer();
 
@@ -192,9 +196,12 @@ export class GuardianService implements OnModuleInit {
    * @returns list of keys that were deposited earlier
    */
   public getCachedKeysIntersections(blockData: BlockData): string[] {
-    const { nodeOperatorsCache, keysOpIndex, depositedEvents } = blockData;
-    const { keysOpIndex: cachedKeysOpIndex, operators } = nodeOperatorsCache;
-    const isCacheUpToDate = cachedKeysOpIndex === keysOpIndex;
+    const { keysOpIndex, depositRoot, depositedEvents } = blockData;
+    const cache = blockData.nodeOperatorsCache;
+
+    const isSameKeysOpIndex = cache.keysOpIndex === keysOpIndex;
+    const isSameDepositRoot = cache.depositRoot === depositRoot;
+    const isCacheUpToDate = isSameKeysOpIndex && isSameDepositRoot;
 
     // Skip checking until the next cache update
     if (!isCacheUpToDate) return [];
@@ -202,7 +209,7 @@ export class GuardianService implements OnModuleInit {
     const depositedKeys = depositedEvents.events.map(({ pubkey }) => pubkey);
     const depositedKeysSet = new Set(depositedKeys);
 
-    return operators.flatMap((operator) =>
+    return cache.operators.flatMap((operator) =>
       operator.keys
         .filter(({ used }) => used === false)
         .filter(({ key }) => depositedKeysSet.has(key))

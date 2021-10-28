@@ -1,8 +1,10 @@
+import { BlockTag } from '@ethersproject/abstract-provider';
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { RegistryAbi, RegistryAbi__factory } from 'generated';
 import { ProviderService } from 'provider';
 import { SecurityService } from 'contracts/security';
+import { DepositService } from 'contracts/deposit';
 import {
   getRegistryAddress,
   REGISTRY_KEYS_CACHE_UPDATE_BLOCK_RATE,
@@ -25,13 +27,14 @@ export class RegistryService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
     private securityService: SecurityService,
+    private depositService: DepositService,
     private cacheService: CacheService<NodeOperatorsCache>,
   ) {}
 
   @OneAtTime()
   public async handleNewBlock({ blockNumber }: BlockData): Promise<void> {
     if (blockNumber % REGISTRY_KEYS_CACHE_UPDATE_BLOCK_RATE !== 0) return;
-    await this.updateNodeOperatorsCache();
+    await this.updateNodeOperatorsCache(blockNumber);
   }
 
   private cachedContract: RegistryAbi | null = null;
@@ -100,16 +103,16 @@ export class RegistryService {
    * Returns all keys that can be used for the deposit in the next transaction
    * @returns array of public keys
    */
-  public async getNextSigningKeys() {
+  public async getNextSigningKeys(blockTag?: BlockTag) {
     const [contract, maxDepositKeys, lidoAddress, pubkeyLength] =
       await Promise.all([
         this.getContract(),
-        this.securityService.getMaxDeposits(),
+        this.securityService.getMaxDeposits(blockTag),
         this.securityService.getLidoContractAddress(),
         this.getPubkeyLength(),
       ]);
 
-    const overrides = { from: lidoAddress };
+    const overrides = { blockTag, from: lidoAddress };
     const [pubKeys] = await contract.callStatic.assignNextSigningKeys(
       maxDepositKeys,
       overrides,
@@ -123,9 +126,9 @@ export class RegistryService {
    * Returns a monotonically increasing counter,
    * which increases when any of the key operations are performed
    */
-  public async getKeysOpIndex(): Promise<number> {
+  public async getKeysOpIndex(blockTag?: BlockTag): Promise<number> {
     const contract = await this.getContract();
-    const keysOpIndex = await contract.getKeysOpIndex();
+    const keysOpIndex = await contract.getKeysOpIndex({ blockTag });
 
     return keysOpIndex.toNumber();
   }
@@ -133,9 +136,9 @@ export class RegistryService {
   /**
    * Returns a number of node operators stored in the contract
    */
-  public async getNodeOperatorsCount(): Promise<number> {
+  public async getNodeOperatorsCount(blockTag?: BlockTag): Promise<number> {
     const contract = await this.getContract();
-    const operatorsTotal = await contract.getNodeOperatorsCount();
+    const operatorsTotal = await contract.getNodeOperatorsCount({ blockTag });
 
     return operatorsTotal.toNumber();
   }
@@ -145,7 +148,10 @@ export class RegistryService {
    * @param operatorId - node operator id
    * @returns operator info
    */
-  public async getNodeOperator(operatorId: number): Promise<NodeOperator> {
+  public async getNodeOperator(
+    operatorId: number,
+    blockTag?: BlockTag,
+  ): Promise<NodeOperator> {
     const contract = await this.getCachedBatchContract('operator');
 
     const {
@@ -156,7 +162,7 @@ export class RegistryService {
       stoppedValidators,
       totalSigningKeys,
       usedSigningKeys,
-    } = await contract.getNodeOperator(operatorId, true);
+    } = await contract.getNodeOperator(operatorId, true, { blockTag });
 
     return {
       id: operatorId,
@@ -174,12 +180,14 @@ export class RegistryService {
    * Returns information about all node operators
    * @returns array of node operators
    */
-  public async getNodeOperatorsData(): Promise<NodeOperator[]> {
-    const operatorsTotal = await this.getNodeOperatorsCount();
+  public async getNodeOperatorsData(
+    blockTag?: BlockTag,
+  ): Promise<NodeOperator[]> {
+    const operatorsTotal = await this.getNodeOperatorsCount(blockTag);
 
     return await Promise.all(
       range(0, operatorsTotal).map(async (operatorId) => {
-        const operatorData = await this.getNodeOperator(operatorId);
+        const operatorData = await this.getNodeOperator(operatorId, blockTag);
 
         return { ...operatorData, id: operatorId };
       }),
@@ -197,13 +205,19 @@ export class RegistryService {
     operatorId: number,
     from: number,
     to: number,
+    blockTag?: BlockTag,
   ): Promise<NodeOperatorsKey[]> {
     return await Promise.all(
       range(from, to).map(async (keyId) => {
         const seedKey = Math.floor(keyId / REGISTRY_KEYS_QUERY_BATCH_SIZE);
         const contract = await this.getCachedBatchContract(seedKey);
 
-        const result = await contract.getSigningKey(operatorId, keyId);
+        const overrides = { blockTag };
+        const result = await contract.getSigningKey(
+          operatorId,
+          keyId,
+          overrides,
+        );
         const { key, depositSignature, used } = result;
 
         return { operatorId, key, depositSignature, used, id: keyId };
@@ -214,16 +228,18 @@ export class RegistryService {
   /**
    * Updates the cache of node operators if keysOpIndex is changed
    */
-  public async updateNodeOperatorsCache() {
-    const [cache, currentKeysOpIndex] = await Promise.all([
+  public async updateNodeOperatorsCache(blockTag?: BlockTag): Promise<void> {
+    const [cache, currentKeysOpIndex, currentDepositRoot] = await Promise.all([
       this.getCachedNodeOperators(),
-      this.getKeysOpIndex(),
+      this.getKeysOpIndex(blockTag),
+      this.depositService.getDepositRoot(blockTag),
     ]);
 
-    const isSameKeys = cache.keysOpIndex === currentKeysOpIndex;
-    if (isSameKeys) return;
+    const isSameKeysOpIndex = cache.keysOpIndex === currentKeysOpIndex;
+    const isSameDepositRoot = cache.depositRoot === currentDepositRoot;
+    if (isSameKeysOpIndex && isSameDepositRoot) return;
 
-    const currentOperators = await this.getNodeOperatorsData();
+    const currentOperators = await this.getNodeOperatorsData(blockTag);
     const mergedOperators: NodeOperatorWithKeys[] = [];
 
     this.logger.log('Operators are fetched', {
@@ -244,12 +260,17 @@ export class RegistryService {
 
         // We get used keys from the cache, since the contract does not allow to change them
         const cachedUsedKeys = cachedOperator.keys.slice(0, from);
-        const newKeys = await this.getNodeOperatorKeys(operatorId, from, to);
+        const newKeys = await this.getNodeOperatorKeys(
+          operatorId,
+          from,
+          to,
+          blockTag,
+        );
         keys = cachedUsedKeys.concat(newKeys);
       } else {
         const from = 0;
         const to = operator.totalSigningKeys;
-        keys = await this.getNodeOperatorKeys(operatorId, from, to);
+        keys = await this.getNodeOperatorKeys(operatorId, from, to, blockTag);
       }
 
       this.logger.log('Operator keys are fetched', {
@@ -263,6 +284,7 @@ export class RegistryService {
     await this.setCachedNodeOperatorsKeys({
       operators: mergedOperators,
       keysOpIndex: currentKeysOpIndex,
+      depositRoot: currentDepositRoot,
     });
   }
 
