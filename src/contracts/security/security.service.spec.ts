@@ -90,7 +90,7 @@ describe('SecurityService', () => {
       expect(address).not.toBe(AddressZero);
     });
 
-    it.skip('should return contract address for mainnet', async () => {
+    it('should return contract address for mainnet', async () => {
       jest
         .spyOn(providerService.provider, 'detectNetwork')
         .mockImplementation(async () => getNetwork(CHAINS.Mainnet));
