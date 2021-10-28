@@ -239,6 +239,11 @@ export class RegistryService {
     const isSameDepositRoot = cache.depositRoot === currentDepositRoot;
     if (isSameKeysOpIndex && isSameDepositRoot) return;
 
+    this.logger.log('Updating node operators cache', {
+      isSameKeysOpIndex,
+      isSameDepositRoot,
+    });
+
     const currentOperators = await this.getNodeOperatorsData(blockTag);
     const mergedOperators: NodeOperatorWithKeys[] = [];
 
@@ -255,7 +260,7 @@ export class RegistryService {
       let keys: NodeOperatorsKey[] = [];
 
       if (isSameCachedOperator) {
-        const from = operator.usedSigningKeys;
+        const from = cachedOperator.usedSigningKeys;
         const to = operator.totalSigningKeys;
 
         // We get used keys from the cache, since the contract does not allow to change them

@@ -254,9 +254,7 @@ describe('GuardianService', () => {
 
       expect(mockHandleCorrectKeys).not.toBeCalled();
       expect(mockHandleKeysIntersections).toBeCalledTimes(1);
-      expect(mockHandleKeysIntersections).toBeCalledWith(blockData, [
-        depositedKey,
-      ]);
+      expect(mockHandleKeysIntersections).toBeCalledWith(blockData);
     });
 
     it('should call handleCorrectKeys if Lido next keys are not found in the deposit contract', async () => {
@@ -334,7 +332,6 @@ describe('GuardianService', () => {
   describe('handleKeysIntersections', () => {
     const signature = {} as any;
     const blockData = { blockNumber: 1 } as any;
-    const intersections = [];
     const type = MessageType.PAUSE;
 
     beforeEach(async () => {
@@ -352,7 +349,7 @@ describe('GuardianService', () => {
         .spyOn(securityService, 'pauseDeposits')
         .mockImplementation(async () => undefined);
 
-      await guardianService.handleKeysIntersections(blockData, intersections);
+      await guardianService.handleKeysIntersections(blockData);
 
       expect(mockPauseDeposits).toBeCalledTimes(1);
       expect(mockPauseDeposits).toBeCalledWith(
@@ -370,7 +367,7 @@ describe('GuardianService', () => {
         .spyOn(securityService, 'pauseDeposits')
         .mockImplementation(async () => undefined);
 
-      await guardianService.handleKeysIntersections(blockData, intersections);
+      await guardianService.handleKeysIntersections(blockData);
 
       expect(mockSendMessageFromGuardian).toBeCalledTimes(1);
       expect(mockSendMessageFromGuardian).toBeCalledWith(

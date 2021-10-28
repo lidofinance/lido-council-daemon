@@ -168,7 +168,7 @@ export class GuardianService implements OnModuleInit {
     const isIntersectionsFound = intersections.length > 0;
 
     if (isIntersectionsFound) {
-      await this.handleKeysIntersections(blockData, intersections);
+      await this.handleKeysIntersections(blockData);
     } else {
       await this.handleCorrectKeys(blockData);
     }
@@ -182,12 +182,24 @@ export class GuardianService implements OnModuleInit {
    */
   public getNextKeysIntersections(blockData: BlockData): string[] {
     const { depositedEvents, nextSigningKeys } = blockData;
+    const { depositRoot, keysOpIndex } = blockData;
+
     const depositedKeys = depositedEvents.events.map(({ pubkey }) => pubkey);
     const depositedKeysSet = new Set(depositedKeys);
 
-    return nextSigningKeys.filter((nextSigningKey) =>
+    const intersections = nextSigningKeys.filter((nextSigningKey) =>
       depositedKeysSet.has(nextSigningKey),
     );
+
+    if (intersections.length) {
+      this.logger.warn('Already deposited keys found in the next Lido keys', {
+        depositRoot,
+        keysOpIndex,
+        intersections,
+      });
+    }
+
+    return intersections;
   }
 
   /**
@@ -210,12 +222,22 @@ export class GuardianService implements OnModuleInit {
     const depositedKeys = depositedEvents.events.map(({ pubkey }) => pubkey);
     const depositedKeysSet = new Set(depositedKeys);
 
-    return cache.operators.flatMap((operator) =>
+    const intersections = cache.operators.flatMap((operator) =>
       operator.keys
         .filter(({ used }) => used === false)
         .filter(({ key }) => depositedKeysSet.has(key))
         .map(({ key }) => key),
     );
+
+    if (intersections.length) {
+      this.logger.warn('Already deposited keys found in operators cache', {
+        keysOpIndex,
+        depositRoot,
+        intersections,
+      });
+    }
+
+    return intersections;
   }
 
   /**
@@ -223,10 +245,7 @@ export class GuardianService implements OnModuleInit {
    * @param blockData - collected data from the current block
    * @param intersections - list of keys that were deposited earlier
    */
-  public async handleKeysIntersections(
-    blockData: BlockData,
-    intersections: string[],
-  ): Promise<void> {
+  public async handleKeysIntersections(blockData: BlockData): Promise<void> {
     const {
       blockNumber,
       blockHash,
@@ -234,8 +253,6 @@ export class GuardianService implements OnModuleInit {
       guardianIndex,
       isDepositsPaused,
     } = blockData;
-
-    this.logger.warn('Already deposited keys found', { keys: intersections });
 
     if (isDepositsPaused) {
       this.logger.warn('Deposits are already paused');
