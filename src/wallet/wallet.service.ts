@@ -45,7 +45,7 @@ export class WalletService implements OnModuleInit {
   /**
    * Subscribes to the event of a new block appearance
    */
-  public async subscribeToEthereumUpdates() {
+  public subscribeToEthereumUpdates() {
     const provider = this.providerService.provider;
 
     provider.on('block', async (blockNumber) => {
