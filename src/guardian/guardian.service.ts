@@ -271,7 +271,9 @@ export class GuardianService implements OnModuleInit {
     };
 
     // call without waiting for completion
-    this.securityService.pauseDeposits(blockNumber, signature);
+    this.securityService
+      .pauseDeposits(blockNumber, signature)
+      .catch((error) => this.logger.error(error));
 
     this.logger.warn('Suspicious case detected');
     await this.sendMessageFromGuardian(pauseMessage);

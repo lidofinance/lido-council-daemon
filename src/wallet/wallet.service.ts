@@ -50,7 +50,7 @@ export class WalletService implements OnModuleInit {
 
     provider.on('block', async (blockNumber) => {
       if (blockNumber % WALLET_BALANCE_UPDATE_BLOCK_RATE !== 0) return;
-      this.updateBalance();
+      this.updateBalance().catch((error) => this.logger.error(error));
     });
 
     this.logger.log('WalletService subscribed to Ethereum events');
