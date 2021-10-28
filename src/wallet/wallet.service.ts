@@ -34,8 +34,12 @@ export class WalletService implements OnModuleInit {
     const guardianAddress = this.address;
     register.setDefaultLabels({ guardianAddress });
 
-    await this.updateBalance();
-    this.subscribeToEthereumUpdates();
+    try {
+      await this.updateBalance();
+      this.subscribeToEthereumUpdates();
+    } catch (error) {
+      this.logger.error(error);
+    }
   }
 
   /**

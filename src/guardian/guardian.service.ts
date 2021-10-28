@@ -58,13 +58,18 @@ export class GuardianService implements OnModuleInit {
   public async onModuleInit(): Promise<void> {
     // Does not wait for completion, to avoid blocking the app initialization
     (async () => {
-      await Promise.all([
-        this.depositService.updateEventsCache(),
-        this.registryService.updateNodeOperatorsCache('latest'),
-      ]);
+      try {
+        await Promise.all([
+          this.depositService.updateEventsCache(),
+          this.registryService.updateNodeOperatorsCache('latest'),
+        ]);
 
-      // Subscribes to events only after the cache is warmed up
-      this.subscribeToEthereumUpdates();
+        // Subscribes to events only after the cache is warmed up
+        this.subscribeToEthereumUpdates();
+      } catch (error) {
+        this.logger.error(error);
+        process.exit(1);
+      }
     })();
   }
 
@@ -83,19 +88,15 @@ export class GuardianService implements OnModuleInit {
    */
   @OneAtTime()
   public async handleNewBlock(): Promise<void> {
-    try {
-      const blockData = await this.getCurrentBlockData();
+    const blockData = await this.getCurrentBlockData();
 
-      await Promise.all([
-        this.checkKeysIntersections(blockData),
-        this.depositService.handleNewBlock(blockData),
-        this.registryService.handleNewBlock(blockData),
-      ]);
+    await Promise.all([
+      this.checkKeysIntersections(blockData),
+      this.depositService.handleNewBlock(blockData),
+      this.registryService.handleNewBlock(blockData),
+    ]);
 
-      this.collectMetrics(blockData);
-    } catch (error) {
-      this.logger.error(error);
-    }
+    this.collectMetrics(blockData);
   }
 
   /**

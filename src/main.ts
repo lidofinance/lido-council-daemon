@@ -11,7 +11,15 @@ async function bootstrap() {
   const config = app.get<Configuration>(Configuration);
   const appPort = config.PORT;
 
-  app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
+  const logger = app.get(WINSTON_MODULE_NEST_PROVIDER);
+  app.useLogger(logger);
+
+  process.on('unhandledRejection', async (error) => {
+    logger.error(error);
+
+    await app.close();
+    process.exit(1);
+  });
 
   await app.listen(appPort, '0.0.0.0');
 }
