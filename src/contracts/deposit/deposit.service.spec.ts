@@ -379,7 +379,7 @@ describe('DepositService', () => {
           events: [],
         }));
 
-      const result = await depositService.getAllDepositedEvents();
+      const result = await depositService.getAllDepositedEvents(currentBlock);
       expect(result).toEqual({ ...cachedEvents, endBlock: currentBlock });
 
       expect(mockFetchEventsFallOver).toBeCalledTimes(1);
@@ -398,7 +398,7 @@ describe('DepositService', () => {
           events: freshPubkeys.map((pubkey) => ({ pubkey } as any)),
         }));
 
-      const result = await depositService.getAllDepositedEvents();
+      const result = await depositService.getAllDepositedEvents(currentBlock);
       expect(result).toEqual({
         startBlock: cachedEvents.startBlock,
         endBlock: currentBlock,

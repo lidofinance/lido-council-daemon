@@ -10,6 +10,7 @@ import { LoggerModule } from 'common/logger';
 import { RegistryAbi__factory } from 'generated';
 import { MockProviderModule, ProviderService } from 'provider';
 import { SecurityService } from 'contracts/security';
+import { DepositService } from 'contracts/deposit';
 import { getNetwork } from '@ethersproject/networks';
 import { PrometheusModule } from 'common/prometheus';
 import { RegistryModule } from './registry.module';
@@ -23,6 +24,7 @@ describe('RegistryService', () => {
   let providerService: ProviderService;
   let registryService: RegistryService;
   let securityService: SecurityService;
+  let depositService: DepositService;
   let cacheService: CacheService<NodeOperatorsCache>;
   let loggerService: LoggerService;
 
@@ -40,6 +42,7 @@ describe('RegistryService', () => {
     providerService = moduleRef.get(ProviderService);
     registryService = moduleRef.get(RegistryService);
     securityService = moduleRef.get(SecurityService);
+    depositService = moduleRef.get(DepositService);
     cacheService = moduleRef.get(CacheService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
@@ -259,6 +262,7 @@ describe('RegistryService', () => {
     const from = 7;
     const to = 10;
     const keysTotal = 10 - 7;
+    const blockTag = 10;
 
     const signingKey = { key: '0x12', depositSignature: '0x23', used: false };
 
@@ -275,6 +279,7 @@ describe('RegistryService', () => {
         operatorId,
         from,
         to,
+        blockTag,
       );
       expect(result).toBeInstanceOf(Array);
       expect(result).toHaveLength(keysTotal);
@@ -282,9 +287,9 @@ describe('RegistryService', () => {
 
       const { calls } = mockGetSigningKey.mock;
       expect(mockGetSigningKey).toBeCalledTimes(keysTotal);
-      expect(calls[0]).toEqual([operatorId, 7]);
-      expect(calls[1]).toEqual([operatorId, 8]);
-      expect(calls[2]).toEqual([operatorId, 9]);
+      expect(calls[0]).toEqual([operatorId, 7, { blockTag }]);
+      expect(calls[1]).toEqual([operatorId, 8, { blockTag }]);
+      expect(calls[2]).toEqual([operatorId, 9, { blockTag }]);
     });
 
     it('should call getCachedBatchContract with the same cacheKey', async () => {
@@ -340,10 +345,16 @@ describe('RegistryService', () => {
       ...secondOperator,
       keys: secondOperatorKeys,
     };
+    const currentBlock = 10;
+    const depositRoot = '0x1234';
     const operators = [firstOperatorWithKeys, secondOperatorWithKeys];
-    const nodeOperatorsCache = { keysOpIndex: 1, operators } as any;
+    const nodeOperatorsCache = {
+      keysOpIndex: 1,
+      depositRoot,
+      operators,
+    };
 
-    it('should update node operators cache', async () => {
+    it('should update node operators cache if keysOpIndex is changed', async () => {
       const newKeysOpIndex = nodeOperatorsCache.keysOpIndex + 1;
       const newKeys = [{ used: false, key: '0x5' }];
       const newSecondOperator = { ...secondOperator, totalSigningKeys: 3 };
@@ -356,6 +367,10 @@ describe('RegistryService', () => {
       const mockGetCachedNodeOperators = jest
         .spyOn(registryService, 'getCachedNodeOperators')
         .mockImplementation(async () => nodeOperatorsCache);
+
+      const mockGetDepositRoot = jest
+        .spyOn(depositService, 'getDepositRoot')
+        .mockImplementation(async () => depositRoot);
 
       const mockGetKeysOpIndex = jest
         .spyOn(registryService, 'getKeysOpIndex')
@@ -377,28 +392,82 @@ describe('RegistryService', () => {
         .spyOn(registryService, 'setCachedNodeOperatorsKeys')
         .mockImplementation(async () => undefined);
 
-      await registryService.updateNodeOperatorsCache();
+      await registryService.updateNodeOperatorsCache(currentBlock);
 
       expect(mockGetKeysOpIndex).toBeCalledTimes(1);
       expect(mockGetCachedNodeOperators).toBeCalledTimes(1);
       expect(mockGetNodeOperatorsData).toBeCalledTimes(1);
+      expect(mockGetDepositRoot).toBeCalledTimes(1);
 
       const { calls } = mockGetNodeOperatorKeys.mock;
       expect(mockGetNodeOperatorKeys).toBeCalledTimes(2);
-      expect(calls[0]).toEqual([firstOperator.id, 1, 2]);
-      expect(calls[1]).toEqual([secondOperator.id, 1, 3]);
+      expect(calls[0]).toEqual([firstOperator.id, 1, 2, currentBlock]);
+      expect(calls[1]).toEqual([secondOperator.id, 1, 3, currentBlock]);
 
       expect(mockSetCachedNodeOperatorsKeys).toBeCalledTimes(1);
       expect(mockSetCachedNodeOperatorsKeys).toBeCalledWith({
+        depositRoot,
         keysOpIndex: newKeysOpIndex,
         operators: [firstOperatorWithKeys, newSecondOperatorWithKeys],
       });
     });
 
-    it('should exit if keysOpIndex is the same', async () => {
+    it('should update node operators cache if depositRoot is changed', async () => {
+      const newDepositRoot = '0x9876';
+
       const mockGetCachedNodeOperators = jest
         .spyOn(registryService, 'getCachedNodeOperators')
         .mockImplementation(async () => nodeOperatorsCache);
+
+      const mockGetDepositRoot = jest
+        .spyOn(depositService, 'getDepositRoot')
+        .mockImplementation(async () => newDepositRoot);
+
+      const mockGetKeysOpIndex = jest
+        .spyOn(registryService, 'getKeysOpIndex')
+        .mockImplementation(async () => nodeOperatorsCache.keysOpIndex);
+
+      const mockGetNodeOperatorsData = jest
+        .spyOn(registryService, 'getNodeOperatorsData')
+        .mockImplementation(async () => [firstOperator, secondOperator]);
+
+      const mockGetNodeOperatorKeys = jest
+        .spyOn(registryService, 'getNodeOperatorKeys')
+        .mockImplementationOnce(async () => [firstOperatorKeys[1]])
+        .mockImplementationOnce(async () => [secondOperatorKeys[1]]);
+
+      const mockSetCachedNodeOperatorsKeys = jest
+        .spyOn(registryService, 'setCachedNodeOperatorsKeys')
+        .mockImplementation(async () => undefined);
+
+      await registryService.updateNodeOperatorsCache(currentBlock);
+
+      expect(mockGetKeysOpIndex).toBeCalledTimes(1);
+      expect(mockGetCachedNodeOperators).toBeCalledTimes(1);
+      expect(mockGetNodeOperatorsData).toBeCalledTimes(1);
+      expect(mockGetDepositRoot).toBeCalledTimes(1);
+
+      const { calls } = mockGetNodeOperatorKeys.mock;
+      expect(mockGetNodeOperatorKeys).toBeCalledTimes(2);
+      expect(calls[0]).toEqual([firstOperator.id, 1, 2, currentBlock]);
+      expect(calls[1]).toEqual([secondOperator.id, 1, 2, currentBlock]);
+
+      expect(mockSetCachedNodeOperatorsKeys).toBeCalledTimes(1);
+      expect(mockSetCachedNodeOperatorsKeys).toBeCalledWith({
+        depositRoot: newDepositRoot,
+        keysOpIndex: nodeOperatorsCache.keysOpIndex,
+        operators: [firstOperatorWithKeys, secondOperatorWithKeys],
+      });
+    });
+
+    it('should exit if keysOpIndex and depositRoot is the same', async () => {
+      const mockGetCachedNodeOperators = jest
+        .spyOn(registryService, 'getCachedNodeOperators')
+        .mockImplementation(async () => nodeOperatorsCache);
+
+      const mockGetDepositRoot = jest
+        .spyOn(depositService, 'getDepositRoot')
+        .mockImplementation(async () => depositRoot);
 
       const mockGetKeysOpIndex = jest
         .spyOn(registryService, 'getKeysOpIndex')
@@ -416,6 +485,7 @@ describe('RegistryService', () => {
 
       expect(mockGetKeysOpIndex).toBeCalledTimes(1);
       expect(mockGetCachedNodeOperators).toBeCalledTimes(1);
+      expect(mockGetDepositRoot).toBeCalledTimes(1);
       expect(mockGetNodeOperatorsData).not.toBeCalled();
       expect(mockSetCachedNodeOperatorsKeys).not.toBeCalled();
     });
@@ -431,6 +501,10 @@ describe('RegistryService', () => {
       const mockGetCachedNodeOperators = jest
         .spyOn(registryService, 'getCachedNodeOperators')
         .mockImplementation(async () => nodeOperatorsCache);
+
+      const mockGetDepositRoot = jest
+        .spyOn(depositService, 'getDepositRoot')
+        .mockImplementation(async () => depositRoot);
 
       const mockGetKeysOpIndex = jest
         .spyOn(registryService, 'getKeysOpIndex')
@@ -449,20 +523,22 @@ describe('RegistryService', () => {
         .spyOn(registryService, 'setCachedNodeOperatorsKeys')
         .mockImplementation(async () => undefined);
 
-      await registryService.updateNodeOperatorsCache();
+      await registryService.updateNodeOperatorsCache(currentBlock);
 
       expect(mockGetKeysOpIndex).toBeCalledTimes(1);
       expect(mockGetCachedNodeOperators).toBeCalledTimes(1);
       expect(mockGetNodeOperatorsData).toBeCalledTimes(1);
+      expect(mockGetDepositRoot).toBeCalledTimes(1);
 
       const { calls } = mockGetNodeOperatorKeys.mock;
       expect(mockGetNodeOperatorKeys).toBeCalledTimes(2);
-      expect(calls[0]).toEqual([firstOperator.id, 1, 2]);
-      expect(calls[1]).toEqual([secondOperator.id, 0, 2]);
+      expect(calls[0]).toEqual([firstOperator.id, 1, 2, currentBlock]);
+      expect(calls[1]).toEqual([secondOperator.id, 0, 2, currentBlock]);
 
       expect(mockSetCachedNodeOperatorsKeys).toBeCalledTimes(1);
       expect(mockSetCachedNodeOperatorsKeys).toBeCalledWith({
         keysOpIndex: newKeysOpIndex,
+        depositRoot,
         operators: [firstOperatorWithKeys, newSecondOperatorWithKeys],
       });
     });

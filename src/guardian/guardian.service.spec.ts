@@ -219,6 +219,7 @@ describe('GuardianService', () => {
       events: depositedPubKeys.map((pubkey) => ({ pubkey } as any)),
     };
     const nodeOperatorsCache = {
+      depositRoot: '0x2345',
       keysOpIndex: 1,
       operators: [],
     };
