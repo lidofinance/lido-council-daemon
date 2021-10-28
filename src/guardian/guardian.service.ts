@@ -273,7 +273,7 @@ export class GuardianService implements OnModuleInit {
     // call without waiting for completion
     this.securityService.pauseDeposits(blockNumber, signature);
 
-    this.logger.warn('Suspicious case detected', pauseMessage);
+    this.logger.warn('Suspicious case detected');
     await this.sendMessageFromGuardian(pauseMessage);
   }
 
@@ -321,7 +321,7 @@ export class GuardianService implements OnModuleInit {
       signature,
     };
 
-    this.logger.log('No problems found', depositMessage);
+    this.logger.log('No problems found');
     await this.sendMessageFromGuardian(depositMessage);
   }
 
@@ -378,6 +378,8 @@ export class GuardianService implements OnModuleInit {
     }
 
     const messageWithMeta = this.addMessageMetaData(messageData);
+
+    this.logger.log('Sending message to guardian', messageData);
     await this.messagesService.sendMessage(messageWithMeta);
   }
 
