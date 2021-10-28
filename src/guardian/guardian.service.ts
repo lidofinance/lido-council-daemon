@@ -321,7 +321,11 @@ export class GuardianService implements OnModuleInit {
       signature,
     };
 
-    this.logger.log('No problems found');
+    this.logger.log('No problems found', {
+      lastState: lastContractsState,
+      newState: currentContractState,
+    });
+
     await this.sendMessageFromGuardian(depositMessage);
   }
 
