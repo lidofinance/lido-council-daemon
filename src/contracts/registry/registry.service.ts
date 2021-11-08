@@ -1,4 +1,3 @@
-import { BlockTag } from '@ethersproject/abstract-provider';
 import {
   Inject,
   Injectable,
@@ -7,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { RegistryAbi, RegistryAbi__factory } from 'generated';
-import { ProviderService } from 'provider';
+import { ProviderService, BlockTag } from 'provider';
 import { SecurityService } from 'contracts/security';
 import { DepositService } from 'contracts/deposit';
 import {
@@ -148,7 +147,7 @@ export class RegistryService implements OnModuleInit {
         this.getPubkeyLength(),
       ]);
 
-    const overrides = { blockTag, from: lidoAddress };
+    const overrides = { blockTag: blockTag as any, from: lidoAddress };
     const [pubKeys] = await contract.callStatic.assignNextSigningKeys(
       maxDepositKeys,
       overrides,
@@ -164,7 +163,9 @@ export class RegistryService implements OnModuleInit {
    */
   public async getKeysOpIndex(blockTag?: BlockTag): Promise<number> {
     const contract = await this.getContract();
-    const keysOpIndex = await contract.getKeysOpIndex({ blockTag });
+    const keysOpIndex = await contract.getKeysOpIndex({
+      blockTag: blockTag as any,
+    });
 
     return keysOpIndex.toNumber();
   }
@@ -174,7 +175,9 @@ export class RegistryService implements OnModuleInit {
    */
   public async getNodeOperatorsCount(blockTag?: BlockTag): Promise<number> {
     const contract = await this.getContract();
-    const operatorsTotal = await contract.getNodeOperatorsCount({ blockTag });
+    const operatorsTotal = await contract.getNodeOperatorsCount({
+      blockTag: blockTag as any,
+    });
 
     return operatorsTotal.toNumber();
   }
@@ -198,7 +201,9 @@ export class RegistryService implements OnModuleInit {
       stoppedValidators,
       totalSigningKeys,
       usedSigningKeys,
-    } = await contract.getNodeOperator(operatorId, true, { blockTag });
+    } = await contract.getNodeOperator(operatorId, true, {
+      blockTag: blockTag as any,
+    });
 
     return {
       id: operatorId,
@@ -248,7 +253,7 @@ export class RegistryService implements OnModuleInit {
         const seedKey = Math.floor(keyId / REGISTRY_KEYS_QUERY_BATCH_SIZE);
         const contract = await this.getCachedBatchContract(seedKey);
 
-        const overrides = { blockTag };
+        const overrides = { blockTag: blockTag as any };
         const result = await contract.getSigningKey(
           operatorId,
           keyId,

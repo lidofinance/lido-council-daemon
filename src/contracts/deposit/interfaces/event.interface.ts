@@ -5,6 +5,7 @@ export interface DepositEvent {
   signature: string;
   tx: string;
   blockNumber: number;
+  blockHash: string;
 }
 
 export interface DepositEventGroup {

@@ -1,4 +1,5 @@
 import {
+  Formatter,
   JsonRpcBatchProvider,
   JsonRpcProvider,
   StaticJsonRpcProvider,
@@ -14,9 +15,10 @@ import {
 } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Counter, Histogram } from 'prom-client';
+import { MAX_TIME_WITHOUT_NEW_BLOCKS_MS } from 'provider';
 import { RpcBatchProvider, RpcProvider } from './interfaces';
 import { ProviderService } from './provider.service';
-import { MAX_TIME_WITHOUT_NEW_BLOCKS_MS } from 'provider';
+import { FormatterWithEIP1898 } from './formatter.service';
 
 class OnBlockError extends Error {
   lastBlock: number;
@@ -48,6 +50,15 @@ const getProviderFactory = (SourceProvider: typeof JsonRpcProvider) => {
           logger.error(error);
           process.exit(1);
         }
+      }
+
+      static _formatter: Formatter | null = null;
+
+      static getFormatter(): Formatter {
+        if (this._formatter == null) {
+          this._formatter = new FormatterWithEIP1898();
+        }
+        return this._formatter;
       }
 
       on(eventName: EventType, listener: Listener): this {

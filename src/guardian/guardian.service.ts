@@ -124,12 +124,12 @@ export class GuardianService implements OnModuleInit {
         isDepositsPaused,
       ] = await Promise.all([
         this.registryService.getCachedNodeOperators(),
-        this.registryService.getKeysOpIndex(blockNumber),
-        this.registryService.getNextSigningKeys(blockNumber),
-        this.depositService.getDepositRoot(blockNumber),
-        this.depositService.getAllDepositedEvents(blockNumber),
-        this.securityService.getGuardianIndex(blockNumber),
-        this.securityService.isDepositsPaused(blockNumber),
+        this.registryService.getKeysOpIndex({ blockHash }),
+        this.registryService.getNextSigningKeys({ blockHash }),
+        this.depositService.getDepositRoot({ blockHash }),
+        this.depositService.getAllDepositedEvents(blockNumber, blockHash),
+        this.securityService.getGuardianIndex({ blockHash }),
+        this.securityService.isDepositsPaused({ blockHash }),
       ]);
 
       endTimer();
@@ -385,7 +385,7 @@ export class GuardianService implements OnModuleInit {
 
     const messageWithMeta = this.addMessageMetaData(messageData);
 
-    this.logger.log('Sending message to guardian', messageData);
+    this.logger.log('Sending a message to broker', messageData);
     await this.messagesService.sendMessage(messageWithMeta);
   }
 
