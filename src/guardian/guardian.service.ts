@@ -268,6 +268,8 @@ export class GuardianService implements OnModuleInit {
       guardianAddress,
       guardianIndex,
       isDepositsPaused,
+      depositRoot,
+      keysOpIndex,
     } = blockData;
 
     if (isDepositsPaused) {
@@ -279,6 +281,8 @@ export class GuardianService implements OnModuleInit {
 
     const pauseMessage: MessagePause = {
       type: MessageType.PAUSE,
+      depositRoot,
+      keysOpIndex,
       guardianAddress,
       guardianIndex,
       blockNumber,

@@ -30,6 +30,8 @@ export interface MessageApp {
 }
 
 export interface MessagePause extends MessageRequiredFields {
+  depositRoot: string;
+  keysOpIndex: number;
   blockNumber: number;
   blockHash: string;
   signature: Signature;
