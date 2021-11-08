@@ -94,9 +94,25 @@ export class GuardianService implements OnModuleInit {
       this.checkKeysIntersections(blockData),
       this.depositService.handleNewBlock(blockData),
       this.registryService.handleNewBlock(blockData),
+      this.pingMessageBroker(blockData),
     ]);
 
     this.collectMetrics(blockData);
+  }
+
+  /**
+   * Sends a ping message to the message broker
+   * @param blockData - collected data from the current block
+   */
+  public async pingMessageBroker(blockData: BlockData): Promise<void> {
+    const { blockNumber, guardianIndex, guardianAddress } = blockData;
+
+    await this.sendMessageFromGuardian({
+      type: MessageType.PING,
+      blockNumber,
+      guardianIndex,
+      guardianAddress,
+    });
   }
 
   /**

@@ -9,6 +9,7 @@ export interface MessageRequiredFields {
 export enum MessageType {
   PAUSE = 'pause',
   DEPOSIT = 'deposit',
+  PING = 'ping',
 }
 
 export interface MessageDeposit extends MessageRequiredFields {
