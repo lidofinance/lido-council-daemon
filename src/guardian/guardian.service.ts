@@ -94,9 +94,25 @@ export class GuardianService implements OnModuleInit {
       this.checkKeysIntersections(blockData),
       this.depositService.handleNewBlock(blockData),
       this.registryService.handleNewBlock(blockData),
+      this.pingMessageBroker(blockData),
     ]);
 
     this.collectMetrics(blockData);
+  }
+
+  /**
+   * Sends a ping message to the message broker
+   * @param blockData - collected data from the current block
+   */
+  public async pingMessageBroker(blockData: BlockData): Promise<void> {
+    const { blockNumber, guardianIndex, guardianAddress } = blockData;
+
+    await this.sendMessageFromGuardian({
+      type: MessageType.PING,
+      blockNumber,
+      guardianIndex,
+      guardianAddress,
+    });
   }
 
   /**
@@ -124,12 +140,12 @@ export class GuardianService implements OnModuleInit {
         isDepositsPaused,
       ] = await Promise.all([
         this.registryService.getCachedNodeOperators(),
-        this.registryService.getKeysOpIndex(blockNumber),
-        this.registryService.getNextSigningKeys(blockNumber),
-        this.depositService.getDepositRoot(blockNumber),
-        this.depositService.getAllDepositedEvents(blockNumber),
-        this.securityService.getGuardianIndex(blockNumber),
-        this.securityService.isDepositsPaused(blockNumber),
+        this.registryService.getKeysOpIndex({ blockHash }),
+        this.registryService.getNextSigningKeys({ blockHash }),
+        this.depositService.getDepositRoot({ blockHash }),
+        this.depositService.getAllDepositedEvents(blockNumber, blockHash),
+        this.securityService.getGuardianIndex({ blockHash }),
+        this.securityService.isDepositsPaused({ blockHash }),
       ]);
 
       endTimer();
@@ -252,6 +268,8 @@ export class GuardianService implements OnModuleInit {
       guardianAddress,
       guardianIndex,
       isDepositsPaused,
+      depositRoot,
+      keysOpIndex,
     } = blockData;
 
     if (isDepositsPaused) {
@@ -263,6 +281,8 @@ export class GuardianService implements OnModuleInit {
 
     const pauseMessage: MessagePause = {
       type: MessageType.PAUSE,
+      depositRoot,
+      keysOpIndex,
       guardianAddress,
       guardianIndex,
       blockNumber,
@@ -385,7 +405,7 @@ export class GuardianService implements OnModuleInit {
 
     const messageWithMeta = this.addMessageMetaData(messageData);
 
-    this.logger.log('Sending message to guardian', messageData);
+    this.logger.log('Sending a message to broker', messageData);
     await this.messagesService.sendMessage(messageWithMeta);
   }
 

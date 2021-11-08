@@ -186,6 +186,10 @@ describe('GuardianService', () => {
         .spyOn(guardianService, 'getCurrentBlockData')
         .mockImplementation(async () => blockData);
 
+      const mockPingMessageBroker = jest
+        .spyOn(guardianService, 'pingMessageBroker')
+        .mockImplementation(async () => undefined);
+
       const mockDepositHandleNewBlock = jest
         .spyOn(depositService, 'handleNewBlock')
         .mockImplementation(async () => undefined);
@@ -207,6 +211,7 @@ describe('GuardianService', () => {
       expect(mockGetCurrentBlockData).toBeCalledTimes(1);
       expect(mockDepositHandleNewBlock).toBeCalledTimes(1);
       expect(mockRegistryHandleNewBlock).toBeCalledTimes(1);
+      expect(mockPingMessageBroker).toBeCalledTimes(1);
       expect(mockCollectMetrics).toBeCalledTimes(1);
     });
   });

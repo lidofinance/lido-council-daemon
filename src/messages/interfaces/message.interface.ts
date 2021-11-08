@@ -9,6 +9,7 @@ export interface MessageRequiredFields {
 export enum MessageType {
   PAUSE = 'pause',
   DEPOSIT = 'deposit',
+  PING = 'ping',
 }
 
 export interface MessageDeposit extends MessageRequiredFields {
@@ -29,6 +30,8 @@ export interface MessageApp {
 }
 
 export interface MessagePause extends MessageRequiredFields {
+  depositRoot: string;
+  keysOpIndex: number;
   blockNumber: number;
   blockHash: string;
   signature: Signature;

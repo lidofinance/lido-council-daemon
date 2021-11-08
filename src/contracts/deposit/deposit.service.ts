@@ -21,7 +21,7 @@ import { OneAtTime } from 'common/decorators';
 import { SecurityService } from 'contracts/security';
 import { CacheService } from 'cache';
 import { BlockData } from 'guardian';
-import { BlockTag } from '@ethersproject/abstract-provider';
+import { BlockTag } from 'provider';
 import { APP_VERSION } from 'app.constants';
 
 @Injectable()
@@ -76,10 +76,10 @@ export class DepositService {
    * to reduce the size of the information stored in the cache
    */
   public formatEvent(rawEvent: DepositEventEvent): DepositEvent {
-    const { args, transactionHash: tx, blockNumber } = rawEvent;
+    const { args, transactionHash: tx, blockNumber, blockHash } = rawEvent;
     const { withdrawal_credentials: wc, pubkey, amount, signature } = args;
 
-    return { pubkey, wc, amount, signature, tx, blockNumber };
+    return { pubkey, wc, amount, signature, tx, blockNumber, blockHash };
   }
 
   /**
@@ -260,24 +260,26 @@ export class DepositService {
    */
   public async getAllDepositedEvents(
     blockNumber: number,
+    blockHash: string,
   ): Promise<DepositEventGroup> {
     const endBlock = blockNumber;
     const cachedEvents = await this.getCachedEvents();
 
     const firstNotCachedBlock = cachedEvents.endBlock + 1;
-    const freshEvents = await this.fetchEventsFallOver(
+    const freshEventGroup = await this.fetchEventsFallOver(
       firstNotCachedBlock,
       endBlock,
     );
+    const freshEvents = freshEventGroup.events;
+    this.checkEventsBlockHash(freshEvents, blockNumber, blockHash);
 
-    const events = freshEvents.events.length;
     this.logger.debug?.('Fresh events are fetched', {
+      events: freshEvents.length,
       startBlock: firstNotCachedBlock,
       endBlock,
-      events,
     });
 
-    const mergedEvents = cachedEvents.events.concat(freshEvents.events);
+    const mergedEvents = cachedEvents.events.concat(freshEvents);
 
     return {
       events: mergedEvents,
@@ -286,12 +288,29 @@ export class DepositService {
     };
   }
 
+  public checkEventsBlockHash(
+    events: DepositEvent[],
+    blockNumber: number,
+    blockHash: string,
+  ) {
+    events.forEach((event) => {
+      if (event.blockNumber === blockNumber && event.blockHash !== blockHash) {
+        throw new Error(
+          'Blockhash of the received events does not match the current blockhash',
+        );
+      }
+    });
+  }
+
   /**
    * Returns a deposit root
    */
   public async getDepositRoot(blockTag?: BlockTag): Promise<string> {
     const contract = await this.getContract();
-    const depositRoot = await contract.get_deposit_root({ blockTag });
+    const depositRoot = await contract.get_deposit_root({
+      blockTag: blockTag as any,
+    });
+
     return depositRoot;
   }
 }
