@@ -1,6 +1,5 @@
 import { Signature } from '@ethersproject/bytes';
 import { ContractReceipt } from '@ethersproject/contracts';
-import { BlockTag } from '@ethersproject/abstract-provider';
 import {
   Inject,
   Injectable,
@@ -14,7 +13,7 @@ import { SecurityAbi__factory } from 'generated/factories/SecurityAbi__factory';
 import { SecurityAbi } from 'generated/SecurityAbi';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Counter } from 'prom-client';
-import { ProviderService } from 'provider';
+import { BlockTag, ProviderService } from 'provider';
 import { WalletService } from 'wallet';
 import { getDepositSecurityAddress } from './security.constants';
 
@@ -132,7 +131,9 @@ export class SecurityService implements OnModuleInit {
    */
   public async getMaxDeposits(blockTag?: BlockTag): Promise<number> {
     const contract = await this.getContract();
-    const maxDeposits = await contract.getMaxDeposits({ blockTag });
+    const maxDeposits = await contract.getMaxDeposits({
+      blockTag: blockTag as any,
+    });
 
     return maxDeposits.toNumber();
   }
@@ -142,7 +143,9 @@ export class SecurityService implements OnModuleInit {
    */
   public async getGuardians(blockTag?: BlockTag): Promise<string[]> {
     const contract = await this.getContract();
-    const guardians = await contract.getGuardians({ blockTag });
+    const guardians = await contract.getGuardians({
+      blockTag: blockTag as any,
+    });
 
     return guardians;
   }
@@ -198,7 +201,8 @@ export class SecurityService implements OnModuleInit {
    */
   public async isDepositsPaused(blockTag?: BlockTag): Promise<boolean> {
     const contract = await this.getContractWithSigner();
-    const isPaused = await contract.isPaused({ blockTag });
+    const isPaused = await contract.isPaused({ blockTag: blockTag as any });
+
     return isPaused;
   }
 

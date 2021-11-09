@@ -363,6 +363,7 @@ describe('DepositService', () => {
       events: cachedPubkeys.map((pubkey) => ({ pubkey } as any)),
     };
     const currentBlock = 10;
+    const currentBlockHash = '0x12';
     const firstNotCachedBlock = cachedEvents.endBlock + 1;
 
     beforeEach(async () => {
@@ -384,7 +385,10 @@ describe('DepositService', () => {
           events: [],
         }));
 
-      const result = await depositService.getAllDepositedEvents(currentBlock);
+      const result = await depositService.getAllDepositedEvents(
+        currentBlock,
+        currentBlockHash,
+      );
       expect(result).toEqual({ ...cachedEvents, endBlock: currentBlock });
 
       expect(mockFetchEventsFallOver).toBeCalledTimes(1);
@@ -403,7 +407,10 @@ describe('DepositService', () => {
           events: freshPubkeys.map((pubkey) => ({ pubkey } as any)),
         }));
 
-      const result = await depositService.getAllDepositedEvents(currentBlock);
+      const result = await depositService.getAllDepositedEvents(
+        currentBlock,
+        currentBlockHash,
+      );
       expect(result).toEqual({
         startBlock: cachedEvents.startBlock,
         endBlock: currentBlock,
@@ -416,6 +423,54 @@ describe('DepositService', () => {
         firstNotCachedBlock,
         currentBlock,
       );
+    });
+
+    it('should throw if event blockhash is different', async () => {
+      const anotherBlockHash = '0x34';
+
+      jest
+        .spyOn(depositService, 'fetchEventsFallOver')
+        .mockImplementation(async () => ({
+          startBlock: firstNotCachedBlock,
+          endBlock: currentBlock,
+          events: freshPubkeys.map(
+            (pubkey) =>
+              ({
+                pubkey,
+                blockNumber: currentBlock,
+                blockHash: anotherBlockHash,
+              } as any),
+          ),
+        }));
+
+      await expect(
+        depositService.getAllDepositedEvents(currentBlock, currentBlockHash),
+      ).rejects.toThrow();
+    });
+  });
+
+  describe('checkEventsBlockHash', () => {
+    const events = [
+      { blockNumber: 1, blockHash: '0x1' },
+      { blockNumber: 2, blockHash: '0x2' },
+    ] as any;
+
+    it('should throw if blockhash is different', async () => {
+      expect(() => {
+        depositService.checkEventsBlockHash(events, 2, '0x3');
+      }).toThrow();
+    });
+
+    it('should not throw if there are no events for the block', async () => {
+      expect(() => {
+        depositService.checkEventsBlockHash(events, 3, '0x3');
+      }).not.toThrow();
+    });
+
+    it('should not throw if blockhash is the same', async () => {
+      expect(() => {
+        depositService.checkEventsBlockHash(events, 2, '0x2');
+      }).not.toThrow();
     });
   });
 

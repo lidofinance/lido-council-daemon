@@ -106,7 +106,7 @@ The account balance should have some ETH to send transactions. In regular mode, 
 ...
 KAFKA_USERNAME=john
 KAFKA_PASSWORD=pemberton
-KAFKA_BROKER_ADDRESS_1=dfv-32.confluent.kafka.cloud:9092
+KAFKA_BROKER_ADDRESS_1=node-address-22.confluent.kafka.cloud:9092
 
 WALLET_PRIVATE_KEY=0x8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f
 ...
