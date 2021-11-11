@@ -23,6 +23,8 @@ RUN yarn build
 
 FROM node:14.18.1-alpine3.13
 
+ENV PORT=
+
 RUN mkdir /council
 
 WORKDIR /council
@@ -30,6 +32,8 @@ WORKDIR /council
 COPY --from=building /council/dist ./dist
 COPY --from=building /council/node_modules ./node_modules
 COPY ./package*.json ./
-COPY ./yarn*.lock ./
+
+HEALTHCHECK --interval=120s --timeout=2s --retries=2 \
+    CMD sh -c "wget -nv -t1 --spider http://localhost:$PORT/health" || exit 1
 
 CMD ["yarn", "start:prod"]

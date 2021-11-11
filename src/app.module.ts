@@ -6,6 +6,7 @@ import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
 import { GuardianModule } from 'guardian';
 import { ProviderModule } from 'provider';
+import { HealthModule } from 'health';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { ProviderModule } from 'provider';
     PrometheusModule,
     LoggerModule,
     GuardianModule,
+    HealthModule,
   ],
   providers: [AppService],
 })
