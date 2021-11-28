@@ -42,33 +42,79 @@ export class DepositService {
   }
 
   async onModuleInit() {
-    const cache = await this.getCachedEvents();
-    const versions = {
-      cachedVersion: cache.version,
-      currentVersion: APP_VERSION,
-    };
+    const currentBlock = await this.providerService.getBlockNumber();
+    const cachedEvents = await this.getCachedEvents();
+    const isCacheValid = this.validateCache(cachedEvents, currentBlock);
 
-    if (cache.version === APP_VERSION) {
-      this.logger.log(
-        'Deposit Events cache version matches the application version',
-        versions,
-      );
-
-      return;
-    }
-
-    this.logger.log(
-      'Deposit Events cache does not match the application version, clearing the cache',
-      versions,
-    );
+    if (isCacheValid) return;
 
     try {
       await this.deleteCachedEvents();
-      this.logger.log('Deposit Events cache cleared');
+      this.logger.warn('Deposit events cache cleared');
     } catch (error) {
       this.logger.error(error);
       process.exit(1);
     }
+  }
+
+  /**
+   * Validates the app cache
+   * @param cachedEvents - cached events
+   * @param currentBlock - current block number
+   * @returns true if cache is valid
+   */
+  public validateCache(
+    cachedEvents: DepositEventsCache,
+    currentBlock: number,
+  ): boolean {
+    return (
+      this.validateCacheBlock(cachedEvents, currentBlock) &&
+      this.validateCacheVersion(cachedEvents)
+    );
+  }
+
+  /**
+   * Validates app version in the cache
+   * @param cachedEvents - cached events
+   * @returns true if cached app version is the same
+   */
+  public validateCacheVersion(cachedEvents: DepositEventsCache): boolean {
+    const isSameVersion = cachedEvents.version === APP_VERSION;
+
+    if (!isSameVersion) {
+      this.logger.warn(
+        'Deposit events cache does not match the application version, clearing the cache',
+        {
+          cachedVersion: cachedEvents.version,
+          currentVersion: APP_VERSION,
+        },
+      );
+    }
+
+    return isSameVersion;
+  }
+
+  /**
+   * Validates block number in the cache
+   * @param cachedEvents - cached events
+   * @param currentBlock - current block number
+   * @returns true if cached app version is the same
+   */
+  public validateCacheBlock(
+    cachedEvents: DepositEventsCache,
+    currentBlock: number,
+  ): boolean {
+    const isCacheValid = currentBlock >= cachedEvents.endBlock;
+
+    if (!isCacheValid) {
+      this.logger.warn('Deposit events cache is newer than the current block', {
+        cachedStartBlock: cachedEvents.startBlock,
+        cachedEndBlock: cachedEvents.endBlock,
+        currentBlock,
+      });
+    }
+
+    return isCacheValid;
   }
 
   /**
@@ -265,6 +311,9 @@ export class DepositService {
     const endBlock = blockNumber;
     const cachedEvents = await this.getCachedEvents();
 
+    const isCacheValid = this.validateCacheBlock(cachedEvents, blockNumber);
+    if (!isCacheValid) process.exit(1);
+
     const firstNotCachedBlock = cachedEvents.endBlock + 1;
     const freshEventGroup = await this.fetchEventsFallOver(
       firstNotCachedBlock,
@@ -292,7 +341,7 @@ export class DepositService {
     events: DepositEvent[],
     blockNumber: number,
     blockHash: string,
-  ) {
+  ): void {
     events.forEach((event) => {
       if (event.blockNumber === blockNumber && event.blockHash !== blockHash) {
         throw new Error(
