@@ -79,9 +79,9 @@ const getProviderFactory = (SourceProvider: typeof JsonRpcProvider) => {
           }, MAX_TIME_WITHOUT_NEW_BLOCKS_MS);
         };
 
-        startDieTimer(-1);
-
         if (eventName === 'block') {
+          startDieTimer(-1);
+
           super.on(eventName, function (this: any, ...args) {
             startDieTimer(args[0]);
             return listener?.apply(this, args);
