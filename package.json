@@ -38,8 +38,8 @@
     "@nestjs/terminus": "^8.0.1",
     "@willsoto/nestjs-prometheus": "^4.0.1",
     "app-root-path": "^3.0.0",
-    "class-transformer": "^0.4.0",
-    "class-validator": "^0.13.1",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.13.2",
     "ethers": "^5.4.7",
     "kafkajs": "^1.15.0",
     "nest-winston": "^1.6.1",
@@ -50,7 +50,7 @@
     "winston": "^3.3.3"
   },
   "devDependencies": {
-    "@nestjs/cli": "^8.0.0",
+    "@nestjs/cli": "^8.2.1",
     "@nestjs/schematics": "^8.0.0",
     "@nestjs/testing": "^8.0.11",
     "@typechain/ethers-v5": "^7.1.2",
