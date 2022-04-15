@@ -2,7 +2,7 @@ FROM node:14.18.1-alpine3.13 as building
 
 # needed for git dependencies
 RUN apk update && apk upgrade && \
-    apk add --no-cache bash git openssh
+    apk add --no-cache bash=5.1.16-r0 git=2.30.3-r0 openssh=8.4_p1-r4
 
 RUN mkdir /council
 
@@ -18,8 +18,7 @@ RUN yarn install --frozen-lockfile --non-interactive && yarn cache clean
 COPY ./tsconfig*.json ./
 COPY ./src ./src
 
-RUN yarn typechain
-RUN yarn build
+RUN yarn typechain && yarn build
 
 FROM node:14.18.1-alpine3.13
 
