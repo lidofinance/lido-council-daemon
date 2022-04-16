@@ -1,4 +1,5 @@
 import { Block } from '@ethersproject/abstract-provider';
+import { CHAINS } from '@lido-sdk/constants';
 import { Injectable } from '@nestjs/common';
 import { RpcBatchProvider, RpcProvider } from './interfaces';
 
@@ -47,5 +48,14 @@ export class ProviderService {
    */
   public async getBlock(): Promise<Block> {
     return await this.provider.getBlock('latest');
+  }
+
+  /**
+   * Returns network name
+   */
+  public async getNetworkName(): Promise<string> {
+    const network = await this.provider.getNetwork();
+    const name = CHAINS[network.chainId]?.toLocaleLowerCase();
+    return name || network.name;
   }
 }
