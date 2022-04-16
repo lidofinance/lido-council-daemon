@@ -320,12 +320,17 @@ export class DepositService {
       endBlock,
     );
     const freshEvents = freshEventGroup.events;
+    const lastEvent = freshEvents[freshEvents.length - 1];
+    const lastEventBlockHash = lastEvent?.blockHash;
+
     this.checkEventsBlockHash(freshEvents, blockNumber, blockHash);
 
     this.logger.debug?.('Fresh events are fetched', {
       events: freshEvents.length,
       startBlock: firstNotCachedBlock,
       endBlock,
+      blockHash,
+      lastEventBlockHash,
     });
 
     const mergedEvents = cachedEvents.events.concat(freshEvents);
@@ -337,6 +342,10 @@ export class DepositService {
     };
   }
 
+  /**
+   * Checks events block hash
+   * An additional check to avoid events processing in an alternate chain
+   */
   public checkEventsBlockHash(
     events: DepositEvent[],
     blockNumber: number,

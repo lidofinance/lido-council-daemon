@@ -37,9 +37,12 @@ export class RegistryService implements OnModuleInit {
   ) {}
 
   @OneAtTime()
-  public async handleNewBlock({ blockNumber }: BlockData): Promise<void> {
+  public async handleNewBlock({
+    blockNumber,
+    blockHash,
+  }: BlockData): Promise<void> {
     if (blockNumber % REGISTRY_KEYS_CACHE_UPDATE_BLOCK_RATE !== 0) return;
-    await this.updateNodeOperatorsCache(blockNumber);
+    await this.updateNodeOperatorsCache({ blockHash });
   }
 
   private cachedContract: RegistryAbi | null = null;
@@ -283,6 +286,7 @@ export class RegistryService implements OnModuleInit {
     this.logger.log('Updating node operators cache', {
       isSameKeysOpIndex,
       isSameDepositRoot,
+      blockTag,
     });
 
     const currentOperators = await this.getNodeOperatorsData(blockTag);
@@ -290,6 +294,7 @@ export class RegistryService implements OnModuleInit {
 
     this.logger.log('Operators are fetched', {
       operators: currentOperators.length,
+      blockTag,
     });
 
     for (const operator of currentOperators) {
@@ -322,6 +327,7 @@ export class RegistryService implements OnModuleInit {
       this.logger.log('Operator keys are fetched', {
         operatorName: operator.name,
         keys: keys.length,
+        blockTag,
       });
 
       mergedOperators[operatorId] = { ...operator, keys };
