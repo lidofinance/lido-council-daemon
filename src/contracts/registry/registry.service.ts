@@ -37,9 +37,12 @@ export class RegistryService implements OnModuleInit {
   ) {}
 
   @OneAtTime()
-  public async handleNewBlock({ blockNumber }: BlockData): Promise<void> {
+  public async handleNewBlock({
+    blockNumber,
+    blockHash,
+  }: BlockData): Promise<void> {
     if (blockNumber % REGISTRY_KEYS_CACHE_UPDATE_BLOCK_RATE !== 0) return;
-    await this.updateNodeOperatorsCache(blockNumber);
+    await this.updateNodeOperatorsCache({ blockHash });
   }
 
   private cachedContract: RegistryAbi | null = null;
