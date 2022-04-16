@@ -51,24 +51,9 @@ export class RegistryService implements OnModuleInit {
 
   async onModuleInit() {
     const cache = await this.getCachedNodeOperators();
-    const versions = {
-      cachedVersion: cache.version,
-      currentVersion: APP_VERSION,
-    };
+    const isCacheValid = this.validateCache(cache);
 
-    if (cache.version === APP_VERSION) {
-      this.logger.log(
-        'Node Operators cache version matches the application version',
-        versions,
-      );
-
-      return;
-    }
-
-    this.logger.log(
-      'Node Operators cache does not match the application version, clearing the cache',
-      versions,
-    );
+    if (isCacheValid) return;
 
     try {
       await this.deleteCachedNodeOperatorsKeys();
@@ -77,6 +62,36 @@ export class RegistryService implements OnModuleInit {
       this.logger.error(error);
       process.exit(1);
     }
+  }
+
+  /**
+   * Validates the app cache
+   * @param cache - node operators cache
+   * @returns true if cache is valid
+   */
+  public validateCache(cache: NodeOperatorsCache): boolean {
+    const isSameVersion = cache.version === APP_VERSION;
+
+    const versions = {
+      cachedVersion: cache.version,
+      currentVersion: APP_VERSION,
+    };
+
+    if (isSameVersion) {
+      this.logger.log(
+        'Node Operators cache version matches the application version',
+        versions,
+      );
+    }
+
+    if (!isSameVersion) {
+      this.logger.warn(
+        'Node Operators cache does not match the application version, clearing the cache',
+        versions,
+      );
+    }
+
+    return isSameVersion;
   }
 
   /**

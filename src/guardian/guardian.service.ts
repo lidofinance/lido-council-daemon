@@ -59,9 +59,14 @@ export class GuardianService implements OnModuleInit {
     // Does not wait for completion, to avoid blocking the app initialization
     (async () => {
       try {
+        const block = await this.providerService.getBlock();
+        const blockHash = block.hash;
+
         await Promise.all([
+          // The event cache is stored with an N block lag to avoid caching data from uncle blocks
+          // so we don't worry about blockHash here
           this.depositService.updateEventsCache(),
-          this.registryService.updateNodeOperatorsCache('latest'),
+          this.registryService.updateNodeOperatorsCache({ blockHash }),
         ]);
 
         // Subscribes to events only after the cache is warmed up
@@ -116,7 +121,7 @@ export class GuardianService implements OnModuleInit {
   }
 
   /**
-   * Collects data from contracts in one place and in parallel,
+   * Collects data from contracts in one place and by block hash,
    * to reduce the probability of getting data from different blocks
    * @returns collected data from the current block
    */
@@ -296,12 +301,16 @@ export class GuardianService implements OnModuleInit {
       signature,
     };
 
-    // call without waiting for completion
+    this.logger.warn(
+      'Suspicious case detected, initialize the protocol pause',
+      { blockHash },
+    );
+
+    // Call pause without waiting for completion
     this.securityService
       .pauseDeposits(blockNumber, signature)
       .catch((error) => this.logger.error(error));
 
-    this.logger.warn('Suspicious case detected', { blockHash });
     await this.sendMessageFromGuardian(pauseMessage);
   }
 
