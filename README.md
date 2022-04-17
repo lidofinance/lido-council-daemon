@@ -13,7 +13,7 @@ You can pull image from dockerhub and run it manually or via docker-compose
 Volumes can be omitted if needed.
 
 ```bash
-docker pull lidofinance/lido-council-daemon@sha256:ff456dad52ba0d330bd9b2e08ca749b7560ada1f9ae20e07daae14ce3c2b1eb1
+docker pull lidofinance/lido-council-daemon@sha256:679e171405b46335500796afbace495329d28879488ae255d8cb1270e56847f4
 
 docker run -i -t \
   -v ${PWD}/.volumes/council/cache:/council/cache/ \
@@ -29,7 +29,7 @@ docker run -i -t \
   -e KAFKA_BROKER_ADDRESS_1='<kafka address>' \
   -e KAFKA_TOPIC=defender \
   -e WALLET_PRIVATE_KEY \
-  lidofinance/lido-council-daemon@sha256:ff456dad52ba0d330bd9b2e08ca749b7560ada1f9ae20e07daae14ce3c2b1eb1
+  lidofinance/lido-council-daemon@sha256:679e171405b46335500796afbace495329d28879488ae255d8cb1270e56847f4
 ```
 
 ### 2. Build Docker image locally
