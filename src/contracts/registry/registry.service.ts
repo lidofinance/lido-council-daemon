@@ -37,9 +37,12 @@ export class RegistryService implements OnModuleInit {
   ) {}
 
   @OneAtTime()
-  public async handleNewBlock({ blockNumber }: BlockData): Promise<void> {
+  public async handleNewBlock({
+    blockNumber,
+    blockHash,
+  }: BlockData): Promise<void> {
     if (blockNumber % REGISTRY_KEYS_CACHE_UPDATE_BLOCK_RATE !== 0) return;
-    await this.updateNodeOperatorsCache(blockNumber);
+    await this.updateNodeOperatorsCache({ blockHash });
   }
 
   private cachedContract: RegistryAbi | null = null;
@@ -48,24 +51,9 @@ export class RegistryService implements OnModuleInit {
 
   async onModuleInit() {
     const cache = await this.getCachedNodeOperators();
-    const versions = {
-      cachedVersion: cache.version,
-      currentVersion: APP_VERSION,
-    };
+    const isCacheValid = this.validateCache(cache);
 
-    if (cache.version === APP_VERSION) {
-      this.logger.log(
-        'Node Operators cache version matches the application version',
-        versions,
-      );
-
-      return;
-    }
-
-    this.logger.log(
-      'Node Operators cache does not match the application version, clearing the cache',
-      versions,
-    );
+    if (isCacheValid) return;
 
     try {
       await this.deleteCachedNodeOperatorsKeys();
@@ -74,6 +62,36 @@ export class RegistryService implements OnModuleInit {
       this.logger.error(error);
       process.exit(1);
     }
+  }
+
+  /**
+   * Validates the app cache
+   * @param cache - node operators cache
+   * @returns true if cache is valid
+   */
+  public validateCache(cache: NodeOperatorsCache): boolean {
+    const isSameVersion = cache.version === APP_VERSION;
+
+    const versions = {
+      cachedVersion: cache.version,
+      currentVersion: APP_VERSION,
+    };
+
+    if (isSameVersion) {
+      this.logger.log(
+        'Node Operators cache version matches the application version',
+        versions,
+      );
+    }
+
+    if (!isSameVersion) {
+      this.logger.warn(
+        'Node Operators cache does not match the application version, clearing the cache',
+        versions,
+      );
+    }
+
+    return isSameVersion;
   }
 
   /**
@@ -283,6 +301,7 @@ export class RegistryService implements OnModuleInit {
     this.logger.log('Updating node operators cache', {
       isSameKeysOpIndex,
       isSameDepositRoot,
+      blockTag,
     });
 
     const currentOperators = await this.getNodeOperatorsData(blockTag);
@@ -290,6 +309,7 @@ export class RegistryService implements OnModuleInit {
 
     this.logger.log('Operators are fetched', {
       operators: currentOperators.length,
+      blockTag,
     });
 
     for (const operator of currentOperators) {
@@ -322,6 +342,7 @@ export class RegistryService implements OnModuleInit {
       this.logger.log('Operator keys are fetched', {
         operatorName: operator.name,
         keys: keys.length,
+        blockTag,
       });
 
       mergedOperators[operatorId] = { ...operator, keys };

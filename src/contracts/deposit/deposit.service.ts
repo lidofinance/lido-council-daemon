@@ -38,6 +38,9 @@ export class DepositService {
   @OneAtTime()
   public async handleNewBlock({ blockNumber }: BlockData): Promise<void> {
     if (blockNumber % DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE !== 0) return;
+
+    // The event cache is stored with an N block lag to avoid caching data from uncle blocks
+    // so we don't worry about blockHash here
     await this.updateEventsCache();
   }
 
@@ -81,13 +84,22 @@ export class DepositService {
   public validateCacheVersion(cachedEvents: DepositEventsCache): boolean {
     const isSameVersion = cachedEvents.version === APP_VERSION;
 
+    const versions = {
+      cachedVersion: cachedEvents.version,
+      currentVersion: APP_VERSION,
+    };
+
+    if (isSameVersion) {
+      this.logger.log(
+        'Deposit events cache version matches the application version',
+        versions,
+      );
+    }
+
     if (!isSameVersion) {
       this.logger.warn(
         'Deposit events cache does not match the application version, clearing the cache',
-        {
-          cachedVersion: cachedEvents.version,
-          currentVersion: APP_VERSION,
-        },
+        versions,
       );
     }
 
@@ -106,12 +118,21 @@ export class DepositService {
   ): boolean {
     const isCacheValid = currentBlock >= cachedEvents.endBlock;
 
+    const blocks = {
+      cachedStartBlock: cachedEvents.startBlock,
+      cachedEndBlock: cachedEvents.endBlock,
+      currentBlock,
+    };
+
+    if (isCacheValid) {
+      this.logger.log('Deposit events cache has valid age', blocks);
+    }
+
     if (!isCacheValid) {
-      this.logger.warn('Deposit events cache is newer than the current block', {
-        cachedStartBlock: cachedEvents.startBlock,
-        cachedEndBlock: cachedEvents.endBlock,
-        currentBlock,
-      });
+      this.logger.warn(
+        'Deposit events cache is newer than the current block',
+        blocks,
+      );
     }
 
     return isCacheValid;
@@ -320,12 +341,17 @@ export class DepositService {
       endBlock,
     );
     const freshEvents = freshEventGroup.events;
+    const lastEvent = freshEvents[freshEvents.length - 1];
+    const lastEventBlockHash = lastEvent?.blockHash;
+
     this.checkEventsBlockHash(freshEvents, blockNumber, blockHash);
 
     this.logger.debug?.('Fresh events are fetched', {
       events: freshEvents.length,
       startBlock: firstNotCachedBlock,
       endBlock,
+      blockHash,
+      lastEventBlockHash,
     });
 
     const mergedEvents = cachedEvents.events.concat(freshEvents);
@@ -337,6 +363,10 @@ export class DepositService {
     };
   }
 
+  /**
+   * Checks events block hash
+   * An additional check to avoid events processing in an alternate chain
+   */
   public checkEventsBlockHash(
     events: DepositEvent[],
     blockNumber: number,

@@ -59,9 +59,14 @@ export class GuardianService implements OnModuleInit {
     // Does not wait for completion, to avoid blocking the app initialization
     (async () => {
       try {
+        const block = await this.providerService.getBlock();
+        const blockHash = block.hash;
+
         await Promise.all([
+          // The event cache is stored with an N block lag to avoid caching data from uncle blocks
+          // so we don't worry about blockHash here
           this.depositService.updateEventsCache(),
-          this.registryService.updateNodeOperatorsCache('latest'),
+          this.registryService.updateNodeOperatorsCache({ blockHash }),
         ]);
 
         // Subscribes to events only after the cache is warmed up
@@ -116,7 +121,7 @@ export class GuardianService implements OnModuleInit {
   }
 
   /**
-   * Collects data from contracts in one place and in parallel,
+   * Collects data from contracts in one place and by block hash,
    * to reduce the probability of getting data from different blocks
    * @returns collected data from the current block
    */
@@ -173,8 +178,10 @@ export class GuardianService implements OnModuleInit {
    * @param blockData - collected data from the current block
    */
   public async checkKeysIntersections(blockData: BlockData): Promise<void> {
+    const { blockHash } = blockData;
+
     if (blockData.isDepositsPaused) {
-      this.logger.warn('Deposits are paused');
+      this.logger.warn('Deposits are paused', { blockHash });
       return;
     }
 
@@ -197,6 +204,7 @@ export class GuardianService implements OnModuleInit {
    * @returns list of keys that were deposited earlier
    */
   public getNextKeysIntersections(blockData: BlockData): string[] {
+    const { blockHash } = blockData;
     const { depositedEvents, nextSigningKeys } = blockData;
     const { depositRoot, keysOpIndex } = blockData;
 
@@ -209,6 +217,7 @@ export class GuardianService implements OnModuleInit {
 
     if (intersections.length) {
       this.logger.warn('Already deposited keys found in the next Lido keys', {
+        blockHash,
         depositRoot,
         keysOpIndex,
         intersections,
@@ -225,6 +234,7 @@ export class GuardianService implements OnModuleInit {
    * @returns list of keys that were deposited earlier
    */
   public getCachedKeysIntersections(blockData: BlockData): string[] {
+    const { blockHash } = blockData;
     const { keysOpIndex, depositRoot, depositedEvents } = blockData;
     const cache = blockData.nodeOperatorsCache;
 
@@ -247,6 +257,7 @@ export class GuardianService implements OnModuleInit {
 
     if (intersections.length) {
       this.logger.warn('Already deposited keys found in operators cache', {
+        blockHash,
         keysOpIndex,
         depositRoot,
         intersections,
@@ -273,7 +284,7 @@ export class GuardianService implements OnModuleInit {
     } = blockData;
 
     if (isDepositsPaused) {
-      this.logger.warn('Deposits are already paused');
+      this.logger.warn('Deposits are already paused', { blockHash });
       return;
     }
 
@@ -290,12 +301,16 @@ export class GuardianService implements OnModuleInit {
       signature,
     };
 
-    // call without waiting for completion
+    this.logger.warn(
+      'Suspicious case detected, initialize the protocol pause',
+      { blockHash },
+    );
+
+    // Call pause without waiting for completion
     this.securityService
       .pauseDeposits(blockNumber, signature)
       .catch((error) => this.logger.error(error));
 
-    this.logger.warn('Suspicious case detected');
     await this.sendMessageFromGuardian(pauseMessage);
   }
 
@@ -344,6 +359,7 @@ export class GuardianService implements OnModuleInit {
     };
 
     this.logger.log('No problems found', {
+      blockHash,
       lastState: lastContractsState,
       newState: currentContractState,
     });
