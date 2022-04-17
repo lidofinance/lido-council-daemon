@@ -1,3 +1,12 @@
+## [1.2.1](https://github.com/lidofinance/lido-council-daemon/compare/1.2.0...1.2.1) (2022-04-17)
+
+
+### Bug Fixes
+
+* increase heap limit ([308ad6d](https://github.com/lidofinance/lido-council-daemon/commit/308ad6d5c6eb385fcf7557ba05d7a35cd8e77775))
+
+
+
 # [1.2.0](https://github.com/lidofinance/lido-council-daemon/compare/1.1.3...1.2.0) (2022-04-17)
 
 
@@ -25,10 +34,6 @@
 * network for build info ([d53d72d](https://github.com/lidofinance/lido-council-daemon/commit/d53d72d0b6eb034318079e50cc59d0f48ff2e1c7))
 * ping message ([3aa7d9e](https://github.com/lidofinance/lido-council-daemon/commit/3aa7d9e555b335b097a58b6e11a8aa78141da441))
 * update docs ([cc51ad5](https://github.com/lidofinance/lido-council-daemon/commit/cc51ad56eb9638e0233fc403a1093092bef579c5))
-
-
-
-# [1.1.0](https://github.com/lidofinance/lido-council-daemon/compare/1.0.5...1.1.0) (2021-10-28)
 
 
 
