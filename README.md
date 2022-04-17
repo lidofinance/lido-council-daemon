@@ -13,7 +13,7 @@ You can pull image from dockerhub and run it manually or via docker-compose
 Volumes can be omitted if needed.
 
 ```bash
-docker pull lidofinance/lido-council-daemon@sha256:f7c6c68eb6044fe747d094e4bd6256c6c88ac54029bd1a9b85e6f8f7c1586874
+docker pull lidofinance/lido-council-daemon@sha256:ff456dad52ba0d330bd9b2e08ca749b7560ada1f9ae20e07daae14ce3c2b1eb1
 
 docker run -i -t \
   -v ${PWD}/.volumes/council/cache:/council/cache/ \
@@ -29,7 +29,7 @@ docker run -i -t \
   -e KAFKA_BROKER_ADDRESS_1='<kafka address>' \
   -e KAFKA_TOPIC=defender \
   -e WALLET_PRIVATE_KEY \
-  lidofinance/lido-council-daemon@sha256:f7c6c68eb6044fe747d094e4bd6256c6c88ac54029bd1a9b85e6f8f7c1586874
+  lidofinance/lido-council-daemon@sha256:ff456dad52ba0d330bd9b2e08ca749b7560ada1f9ae20e07daae14ce3c2b1eb1
 ```
 
 ### 2. Build Docker image locally
@@ -80,7 +80,7 @@ The following variables are required for the daemon to work:
 
 ### Kafka
 
-```
+```env
 ...
 KAFKA_USERNAME=<kafka username>
 KAFKA_PASSWORD=<kafka password>
@@ -90,7 +90,7 @@ KAFKA_BROKER_ADDRESS_1=<kafka broker address with port>
 
 ### Wallet private key
 
-```
+```env
 ...
 WALLET_PRIVATE_KEY=<wallet private key>
 ...
@@ -102,7 +102,7 @@ The account balance should have some ETH to send transactions. In regular mode, 
 
 ### Example
 
-```
+```env
 ...
 KAFKA_USERNAME=john
 KAFKA_PASSWORD=pemberton
@@ -116,7 +116,7 @@ WALLET_PRIVATE_KEY=0x8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b4
 
 On startup, the daemon checks if the provided wallet address belongs to the list of guardians, as well as account balance. If something goes wrong you will see warnings:
 
-```
+```log
 warn: Private key is not provided, a random address will be generated for the test run
 warn: Account balance is too low {"balance":"1.0 ETH"}
 warn: Your address is not in the Guardian List {"address":"0x0000000000000000000000000000000000000000"}
@@ -124,25 +124,25 @@ warn: Your address is not in the Guardian List {"address":"0x0000000000000000000
 
 If all goes well, it will be in the logs:
 
-```
+```log
 info: Account balance is sufficient {"balance":"1.0 ETH"}
 info: You address is in the Guardian List {"address":"0x0000000000000000000000000000000000000000"}
 ```
 
 At the first startup the daemon will collect historical data:
 
-```
+```log
 info: Historical events are fetched {"endBlock":4487322,"events":3,"startBlock":4467323}
 ```
 
 If the daemon works correctly, the logs will look like this:
 
-```
-2021-10-16 11:05:20 debug: Fresh events are fetched {"startBlock":5679826,"endBlock":5679976,"events":6}
-2021-10-16 11:05:35 debug: Fresh events are fetched {"startBlock":5679827,"endBlock":5679977,"events":6}
-2021-10-16 11:05:52 debug: Fresh events are fetched {"startBlock":5679828,"endBlock":5679978,"events":7}
-2021-10-16 11:05:53 info: No problems found {"type":"deposit","depositRoot":"0xc2c9308fa425a64ef9cac1837412ba462b6429fce2f170184284a260b735638c","keysOpIndex":12,"blockNumber":5679978,"blockHash":"0x87762c941f653f2f70157f86deac78f19e4d1549e231a52d1191289592d1a0ab","guardianAddress":"0x3dc4cF780F2599B528F37dedB34449Fb65Ef7d4A","guardianIndex":0,"signature":{"r":"0x44fec2e6fd34e74b8f001ef0e5bbd2db6d3179925fb82cb43231e19af46f0ddd","s":"0x2ff4326af760e353803458b75279eb8f58e5735b3565ea16bcd0f773bce106a4","_vs":"0xaff4326af760e353803458b75279eb8f58e5735b3565ea16bcd0f773bce106a4","recoveryParam":1,"v":28}}
-2021-10-16 11:06:03 debug: Fresh events are fetched {"startBlock":5679829,"endBlock":5679979,"events":7}
+```log
+debug: Fresh events are fetched {"startBlock":5679826,"endBlock":5679976,"events":6}
+debug: Fresh events are fetched {"startBlock":5679827,"endBlock":5679977,"events":6}
+debug: Fresh events are fetched {"startBlock":5679828,"endBlock":5679978,"events":7}
+info: No problems found {"type":"deposit","depositRoot":"0xc2c9308fa425a64ef9cac1837412ba462b6429fce2f170184284a260b735638c","keysOpIndex":12,"blockNumber":5679978,"blockHash":"0x87762c941f653f2f70157f86deac78f19e4d1549e231a52d1191289592d1a0ab","guardianAddress":"0x3dc4cF780F2599B528F37dedB34449Fb65Ef7d4A","guardianIndex":0,"signature":{"r":"0x44fec2e6fd34e74b8f001ef0e5bbd2db6d3179925fb82cb43231e19af46f0ddd","s":"0x2ff4326af760e353803458b75279eb8f58e5735b3565ea16bcd0f773bce106a4","_vs":"0xaff4326af760e353803458b75279eb8f58e5735b3565ea16bcd0f773bce106a4","recoveryParam":1,"v":28}}
+debug: Fresh events are fetched {"startBlock":5679829,"endBlock":5679979,"events":7}
 ```
 
 ## Development
