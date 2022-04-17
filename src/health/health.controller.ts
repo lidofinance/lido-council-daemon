@@ -4,6 +4,7 @@ import {
   MemoryHealthIndicator,
   HealthCheck,
 } from '@nestjs/terminus';
+import { MAX_MEMORY_HEAP } from './health.constants';
 import { ProviderHealthIndicator } from './provider.health';
 
 @Controller('health')
@@ -18,7 +19,7 @@ export class HealthController {
   @HealthCheck()
   check() {
     return this.health.check([
-      async () => this.memory.checkHeap('memoryHeap', 1024 * 1024 * 1024),
+      async () => this.memory.checkHeap('memoryHeap', MAX_MEMORY_HEAP),
       async () => this.provider.isHealthy('RPCProvider'),
     ]);
   }
