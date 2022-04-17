@@ -57,7 +57,7 @@ export class RegistryService implements OnModuleInit {
 
     try {
       await this.deleteCachedNodeOperatorsKeys();
-      this.logger.log('Node Operators cache cleared');
+      this.logger.warn('Node Operators cache cleared');
     } catch (error) {
       this.logger.error(error);
       process.exit(1);
