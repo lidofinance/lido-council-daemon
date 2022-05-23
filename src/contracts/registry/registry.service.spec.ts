@@ -1,9 +1,6 @@
 import { Interface } from '@ethersproject/abi';
-import { isAddress } from '@ethersproject/address';
 import { BigNumber } from '@ethersproject/bignumber';
 import { Contract } from '@ethersproject/contracts';
-import { AddressZero } from '@ethersproject/constants';
-import { CHAINS } from '@lido-sdk/constants';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
@@ -11,7 +8,7 @@ import { RegistryAbi__factory } from 'generated';
 import { MockProviderModule, ProviderService } from 'provider';
 import { SecurityService } from 'contracts/security';
 import { DepositService } from 'contracts/deposit';
-import { getNetwork } from '@ethersproject/networks';
+import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { PrometheusModule } from 'common/prometheus';
 import { RegistryModule } from './registry.module';
 import { RegistryService } from './registry.service';
@@ -26,8 +23,11 @@ describe('RegistryService', () => {
   let registryService: RegistryService;
   let securityService: SecurityService;
   let depositService: DepositService;
+  let repositoryService: RepositoryService;
   let cacheService: CacheService<NodeOperatorsCache>;
   let loggerService: LoggerService;
+
+  const registryAddress = '0x' + '1'.repeat(40);
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -37,6 +37,7 @@ describe('RegistryService', () => {
         LoggerModule,
         PrometheusModule,
         RegistryModule,
+        RepositoryModule,
       ],
     }).compile();
 
@@ -44,23 +45,14 @@ describe('RegistryService', () => {
     registryService = moduleRef.get(RegistryService);
     securityService = moduleRef.get(SecurityService);
     depositService = moduleRef.get(DepositService);
+    repositoryService = moduleRef.get(RepositoryService);
     cacheService = moduleRef.get(CacheService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
-  });
-
-  describe('getContract', () => {
-    it('should return contract instance', async () => {
-      const contract = await registryService.getContract();
-      expect(contract).toBeInstanceOf(Contract);
-    });
-
-    it('should cache instance', async () => {
-      const contract1 = await registryService.getContract();
-      const contract2 = await registryService.getContract();
-      expect(contract1).toBe(contract2);
-    });
+    jest
+      .spyOn(repositoryService, 'getRegistryAddress')
+      .mockImplementation(async () => registryAddress);
   });
 
   describe('getCachedBatchContract', () => {
@@ -108,28 +100,6 @@ describe('RegistryService', () => {
     });
   });
 
-  describe('getRegistryAddress', () => {
-    it('should return contract address for goerli', async () => {
-      jest
-        .spyOn(providerService.provider, 'detectNetwork')
-        .mockImplementation(async () => getNetwork(CHAINS.Goerli));
-
-      const address = await registryService.getRegistryAddress();
-      expect(isAddress(address)).toBeTruthy();
-      expect(address).not.toBe(AddressZero);
-    });
-
-    it('should return contract address for mainnet', async () => {
-      jest
-        .spyOn(providerService.provider, 'detectNetwork')
-        .mockImplementation(async () => getNetwork(CHAINS.Mainnet));
-
-      const address = await registryService.getRegistryAddress();
-      expect(isAddress(address)).toBeTruthy();
-      expect(address).not.toBe(AddressZero);
-    });
-  });
-
   describe('getNextSigningKeys', () => {
     const lidoAddress = '0x' + '0'.repeat(40);
     const keyLength = 2;
@@ -138,8 +108,8 @@ describe('RegistryService', () => {
 
     it('should return splitted pubkeys', async () => {
       jest
-        .spyOn(securityService, 'getLidoContractAddress')
-        .mockImplementation(async () => lidoAddress);
+        .spyOn(repositoryService, 'getCachedLidoContract')
+        .mockImplementation(async () => ({ address: lidoAddress } as any));
 
       jest
         .spyOn(securityService, 'getMaxDeposits')
@@ -217,7 +187,9 @@ describe('RegistryService', () => {
 
       const mockGetCachedBatchContract = jest
         .spyOn(registryService, 'getCachedBatchContract')
-        .mockImplementation(async () => registryService.getContract());
+        .mockImplementation(async () =>
+          repositoryService.getCachedRegistryContract(),
+        );
 
       const mockProviderCall = jest
         .spyOn(providerService.provider, 'call')

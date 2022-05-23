@@ -2,7 +2,6 @@ import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { performance } from 'perf_hooks';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { ProviderService, ERROR_LIMIT_EXCEEDED } from 'provider';
-import { DepositAbi, DepositAbi__factory } from 'generated';
 import { DepositEventEvent } from 'generated/DepositAbi';
 import {
   DEPOSIT_EVENTS_STEP,
@@ -18,7 +17,7 @@ import {
 } from './interfaces';
 import { sleep } from 'utils';
 import { OneAtTime } from 'common/decorators';
-import { SecurityService } from 'contracts/security';
+import { RepositoryService } from 'contracts/repository';
 import { CacheService } from 'cache';
 import { BlockData } from 'guardian';
 import { BlockTag } from 'provider';
@@ -29,11 +28,9 @@ export class DepositService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
-    private securityService: SecurityService,
+    private repositoryService: RepositoryService,
     private cacheService: CacheService<DepositEventsCache>,
   ) {}
-
-  private cachedContract: DepositAbi | null = null;
 
   @OneAtTime()
   public async handleNewBlock({ blockNumber }: BlockData): Promise<void> {
@@ -53,7 +50,6 @@ export class DepositService {
 
     try {
       await this.deleteCachedEvents();
-      this.logger.warn('Deposit events cache cleared');
     } catch (error) {
       this.logger.error(error);
       process.exit(1);
@@ -150,19 +146,6 @@ export class DepositService {
   }
 
   /**
-   * Returns an instance of the contract
-   */
-  public async getContract(): Promise<DepositAbi> {
-    if (!this.cachedContract) {
-      const address = await this.securityService.getDepositContractAddress();
-      const provider = this.providerService.provider;
-      this.cachedContract = DepositAbi__factory.connect(address, provider);
-    }
-
-    return this.cachedContract;
-  }
-
-  /**
    * Returns a block number when the deposited contract was deployed
    * @returns block number
    */
@@ -200,7 +183,8 @@ export class DepositService {
    * Delete deposited events cache
    */
   public async deleteCachedEvents(): Promise<void> {
-    return await this.cacheService.deleteCache();
+    await this.cacheService.deleteCache();
+    this.logger.warn('Deposit events cache cleared');
   }
 
   /**
@@ -257,7 +241,7 @@ export class DepositService {
     startBlock: number,
     endBlock: number,
   ): Promise<DepositEventGroup> {
-    const contract = await this.getContract();
+    const contract = await this.repositoryService.getCachedDepositContract();
     const filter = contract.filters.DepositEvent();
     const rawEvents = await contract.queryFilter(filter, startBlock, endBlock);
     const events = rawEvents.map((rawEvent) => this.formatEvent(rawEvent));
@@ -385,7 +369,7 @@ export class DepositService {
    * Returns a deposit root
    */
   public async getDepositRoot(blockTag?: BlockTag): Promise<string> {
-    const contract = await this.getContract();
+    const contract = await this.repositoryService.getCachedDepositContract();
     const depositRoot = await contract.get_deposit_root({
       blockTag: blockTag as any,
     });
