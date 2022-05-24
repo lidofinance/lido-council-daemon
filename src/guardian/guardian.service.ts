@@ -98,7 +98,7 @@ export class GuardianService implements OnModuleInit {
   public async handleNewBlock(): Promise<void> {
     this.logger.log('New block cycle start');
     const block = await this.providerService.getBlock();
-    await this.handleContractsAddresses(block);
+    await this.repositoryService.updateContracts({ blockHash: block.hash });
 
     const blockData = await this.getCurrentBlockData(block);
 
@@ -111,20 +111,6 @@ export class GuardianService implements OnModuleInit {
 
     this.collectMetrics(blockData);
     this.logger.log('New block cycle end');
-  }
-
-  /**
-   * Checks contract addresses and clears the cache if they are updated
-   */
-  public async handleContractsAddresses(block: Block): Promise<void> {
-    const isContractsUpdated = await this.repositoryService.updateContracts({
-      blockHash: block.hash,
-    });
-
-    if (isContractsUpdated) {
-      await this.depositService.updateEventsCache();
-      await this.registryService.updateNodeOperatorsCache();
-    }
   }
 
   /**
