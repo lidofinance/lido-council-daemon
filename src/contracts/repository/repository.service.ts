@@ -95,7 +95,7 @@ export class RepositoryService {
     blockTag?: BlockTag,
   ): Promise<KernelAbi> {
     const kernelAddress = await this.getKernelAddress(blockTag);
-    const provider = this.providerService.batchProvider;
+    const provider = this.providerService.provider;
 
     return KernelAbi__factory.connect(kernelAddress, provider);
   }
@@ -106,7 +106,7 @@ export class RepositoryService {
   @Cache()
   public async getCachedACLContract(blockTag?: BlockTag): Promise<AclAbi> {
     const aclAddress = await this.getACLAddress(blockTag);
-    const provider = this.providerService.batchProvider;
+    const provider = this.providerService.provider;
 
     return AclAbi__factory.connect(aclAddress, provider);
   }
@@ -190,7 +190,9 @@ export class RepositoryService {
       depositRole,
     );
     const logs = await aclContract.queryFilter(depositRoleFilter);
-    const lastLog = logs.sort((a, b) => b.blockNumber - a.blockNumber)[0];
+    const lastLog = logs
+      .filter((log) => log.args.allowed === true)
+      .sort((a, b) => b.blockNumber - a.blockNumber)[0];
 
     return lastLog.args.entity;
   }

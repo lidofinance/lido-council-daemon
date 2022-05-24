@@ -1,7 +1,7 @@
 import { CACHE_MANAGER, Inject } from '@nestjs/common';
 import { CachingConfig, Cache as CacheManager } from 'cache-manager';
 
-const cacheDefaultOptions = { max: 100, ttl: 0 };
+const cacheDefaultOptions = { max: 100, ttl: 300 };
 
 export function Cache(options?: { key?: string } & Partial<CachingConfig>) {
   const injectCache = Inject(CACHE_MANAGER);
