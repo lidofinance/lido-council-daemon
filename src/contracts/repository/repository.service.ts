@@ -46,11 +46,16 @@ export class RepositoryService {
     };
 
     const compareResults = await Promise.all([
-      addresses(this.getCachedKernelContract, this.getKernelAddress),
-      addresses(this.getCachedACLContract, this.getACLAddress),
+      /**
+       * TODO: support on-fly updating for other contracts
+       * needs to clear deposit and registry caches and update batch contracts in registry service
+       */
+
+      // addresses(this.getCachedKernelContract, this.getKernelAddress),
+      // addresses(this.getCachedACLContract, this.getACLAddress),
+      // addresses(this.getCachedRegistryContract, this.getRegistryAddress),
+      // addresses(this.getCachedDepositContract, this.getDepositAddress),
       addresses(this.getCachedSecurityContract, this.getDepositSecurityAddress),
-      addresses(this.getCachedRegistryContract, this.getRegistryAddress),
-      addresses(this.getCachedDepositContract, this.getDepositAddress),
     ]);
 
     const changedAddresses = compareResults.filter(

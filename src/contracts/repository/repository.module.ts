@@ -3,7 +3,7 @@ import { RepositoryService } from './repository.service';
 
 @Global()
 @Module({
-  imports: [CacheModule.register()],
+  imports: [CacheModule.register({ max: 100, ttl: 0 })],
   providers: [RepositoryService],
   exports: [RepositoryService],
 })
