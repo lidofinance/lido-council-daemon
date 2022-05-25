@@ -1,31 +1,30 @@
 import { isAddress } from '@ethersproject/address';
-import { Contract } from '@ethersproject/contracts';
-import { AddressZero } from '@ethersproject/constants';
-import { CHAINS } from '@lido-sdk/constants';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { MockProviderModule, ProviderService } from 'provider';
 import { WalletService } from 'wallet';
-import { SecurityService } from './security.service';
 import { SecurityAbi__factory } from 'generated';
+import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { Interface } from '@ethersproject/abi';
 import { BigNumber } from '@ethersproject/bignumber';
 import { hexZeroPad } from '@ethersproject/bytes';
-import { Wallet } from '@ethersproject/wallet';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
-import { getNetwork } from '@ethersproject/networks';
 import { PrometheusModule } from 'common/prometheus';
-import { SecurityModule } from '.';
+import { SecurityService } from './security.service';
+import { SecurityModule } from './security.module';
 
 describe('SecurityService', () => {
   const address1 = hexZeroPad('0x1', 20);
   const address2 = hexZeroPad('0x2', 20);
   const address3 = hexZeroPad('0x3', 20);
 
+  const securityAddress = '0x' + '1'.repeat(40);
+
   let securityService: SecurityService;
   let providerService: ProviderService;
+  let repositoryService: RepositoryService;
   let walletService: WalletService;
   let loggerService: LoggerService;
 
@@ -37,104 +36,20 @@ describe('SecurityService', () => {
         LoggerModule,
         PrometheusModule,
         SecurityModule,
+        RepositoryModule,
       ],
     }).compile();
 
     securityService = moduleRef.get(SecurityService);
     providerService = moduleRef.get(ProviderService);
+    repositoryService = moduleRef.get(RepositoryService);
     walletService = moduleRef.get(WalletService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
     jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
-  });
-
-  describe('getContract', () => {
-    it('should return contract instance', async () => {
-      const contract = await securityService.getContract();
-      expect(contract).toBeInstanceOf(Contract);
-    });
-
-    it('should cache instance', async () => {
-      const contract1 = await securityService.getContract();
-      const contract2 = await securityService.getContract();
-      expect(contract1).toBe(contract2);
-    });
-  });
-
-  describe('getContractWithSigner', () => {
-    it('should return contract instance', async () => {
-      const contract = await securityService.getContractWithSigner();
-      expect(contract).toBeInstanceOf(Contract);
-    });
-
-    it('should cache instance', async () => {
-      const contract1 = await securityService.getContractWithSigner();
-      const contract2 = await securityService.getContractWithSigner();
-      expect(contract1).toBe(contract2);
-    });
-
-    it('should have signer', async () => {
-      const contract = await securityService.getContractWithSigner();
-      expect(contract.signer).toBeInstanceOf(Wallet);
-    });
-  });
-
-  describe('getDepositSecurityAddress', () => {
-    it('should return contract address for goerli', async () => {
-      jest
-        .spyOn(providerService.provider, 'detectNetwork')
-        .mockImplementation(async () => getNetwork(CHAINS.Goerli));
-
-      const address = await securityService.getDepositSecurityAddress();
-      expect(isAddress(address)).toBeTruthy();
-      expect(address).not.toBe(AddressZero);
-    });
-
-    it('should return contract address for mainnet', async () => {
-      jest
-        .spyOn(providerService.provider, 'detectNetwork')
-        .mockImplementation(async () => getNetwork(CHAINS.Mainnet));
-
-      const address = await securityService.getDepositSecurityAddress();
-      expect(isAddress(address)).toBeTruthy();
-      expect(address).not.toBe(AddressZero);
-    });
-  });
-
-  describe('getDepositContractAddress', () => {
-    it('should return message prefix', async () => {
-      const expected = hexZeroPad('0x1', 20);
-
-      const mockProviderCall = jest
-        .spyOn(providerService.provider, 'call')
-        .mockImplementation(async () => {
-          const iface = new Interface(SecurityAbi__factory.abi);
-          const result = [expected];
-          return iface.encodeFunctionResult('DEPOSIT_CONTRACT', result);
-        });
-
-      const prefix = await securityService.getDepositContractAddress();
-      expect(prefix).toBe(expected);
-      expect(mockProviderCall).toBeCalledTimes(1);
-    });
-  });
-
-  describe('getLidoContractAddress', () => {
-    it('should return message prefix', async () => {
-      const expected = hexZeroPad('0x1', 20);
-
-      const mockProviderCall = jest
-        .spyOn(providerService.provider, 'call')
-        .mockImplementation(async () => {
-          const iface = new Interface(SecurityAbi__factory.abi);
-          const result = [expected];
-          return iface.encodeFunctionResult('LIDO', result);
-        });
-
-      const prefix = await securityService.getLidoContractAddress();
-      expect(prefix).toBe(expected);
-      expect(mockProviderCall).toBeCalledTimes(1);
-    });
+    jest
+      .spyOn(repositoryService, 'getDepositSecurityAddress')
+      .mockImplementation(async () => securityAddress);
   });
 
   describe('getAttestMessagePrefix', () => {

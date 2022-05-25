@@ -4,10 +4,12 @@ import {
   LoggerService,
   OnModuleInit,
 } from '@nestjs/common';
+import { Block } from '@ethersproject/providers';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { DepositService } from 'contracts/deposit';
 import { RegistryService } from 'contracts/registry';
 import { SecurityService } from 'contracts/security';
+import { RepositoryService } from 'contracts/repository';
 import { ProviderService } from 'provider';
 import {
   MessageDeposit,
@@ -53,6 +55,7 @@ export class GuardianService implements OnModuleInit {
     private securityService: SecurityService,
     private providerService: ProviderService,
     private messagesService: MessagesService,
+    private repositoryService: RepositoryService,
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -93,7 +96,11 @@ export class GuardianService implements OnModuleInit {
    */
   @OneAtTime()
   public async handleNewBlock(): Promise<void> {
-    const blockData = await this.getCurrentBlockData();
+    this.logger.log('New block cycle start');
+    const block = await this.providerService.getBlock();
+    await this.repositoryService.updateContracts({ blockHash: block.hash });
+
+    const blockData = await this.getCurrentBlockData(block);
 
     await Promise.all([
       this.checkKeysIntersections(blockData),
@@ -103,6 +110,7 @@ export class GuardianService implements OnModuleInit {
     ]);
 
     this.collectMetrics(blockData);
+    this.logger.log('New block cycle end');
   }
 
   /**
@@ -125,13 +133,12 @@ export class GuardianService implements OnModuleInit {
    * to reduce the probability of getting data from different blocks
    * @returns collected data from the current block
    */
-  public async getCurrentBlockData(): Promise<BlockData> {
+  public async getCurrentBlockData(block: Block): Promise<BlockData> {
     try {
       const endTimer = this.blockRequestsHistogram.startTimer();
 
       const guardianAddress = this.securityService.getGuardianAddress();
 
-      const block = await this.providerService.getBlock();
       const blockNumber = block.number;
       const blockHash = block.hash;
 

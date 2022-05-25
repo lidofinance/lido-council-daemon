@@ -9,13 +9,12 @@ import {
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { METRIC_PAUSE_ATTEMPTS } from 'common/prometheus';
 import { OneAtTime } from 'common/decorators';
-import { SecurityAbi__factory } from 'generated/factories/SecurityAbi__factory';
-import { SecurityAbi } from 'generated/SecurityAbi';
+import { SecurityAbi } from 'generated';
+import { RepositoryService } from 'contracts/repository';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Counter } from 'prom-client';
 import { BlockTag, ProviderService } from 'provider';
 import { WalletService } from 'wallet';
-import { getDepositSecurityAddress } from './security.constants';
 
 @Injectable()
 export class SecurityService implements OnModuleInit {
@@ -23,11 +22,10 @@ export class SecurityService implements OnModuleInit {
     @InjectMetric(METRIC_PAUSE_ATTEMPTS) private pauseAttempts: Counter<string>,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
+    private repositoryService: RepositoryService,
     private walletService: WalletService,
   ) {}
 
-  private cachedContract: SecurityAbi | null = null;
-  private cachedContractWithSigner: SecurityAbi | null = null;
   private cachedAttestMessagePrefix: string | null = null;
   private cachedPauseMessagePrefix: string | null = null;
 
@@ -43,69 +41,23 @@ export class SecurityService implements OnModuleInit {
   }
 
   /**
-   * Returns an instance of the contract
-   */
-  public async getContract(): Promise<SecurityAbi> {
-    if (!this.cachedContract) {
-      const address = await this.getDepositSecurityAddress();
-      const provider = this.providerService.provider;
-      this.cachedContract = SecurityAbi__factory.connect(address, provider);
-    }
-
-    return this.cachedContract;
-  }
-
-  /**
    * Returns an instance of the contract that can send signed transactions
    */
   public async getContractWithSigner(): Promise<SecurityAbi> {
-    if (!this.cachedContractWithSigner) {
-      const wallet = this.walletService.wallet;
-      const provider = this.providerService.provider;
-      const walletWithProvider = wallet.connect(provider);
-      const contract = await this.getContract();
-      const contractWithSigner = contract.connect(walletWithProvider);
+    const wallet = this.walletService.wallet;
+    const provider = this.providerService.provider;
+    const walletWithProvider = wallet.connect(provider);
+    const contract = await this.repositoryService.getCachedSecurityContract();
+    const contractWithSigner = contract.connect(walletWithProvider);
 
-      this.cachedContractWithSigner = contractWithSigner;
-    }
-
-    return this.cachedContractWithSigner;
+    return contractWithSigner;
   }
-
-  /**
-   * Returns an address of the security contract
-   */
-  public async getDepositSecurityAddress(): Promise<string> {
-    const chainId = await this.providerService.getChainId();
-    return getDepositSecurityAddress(chainId);
-  }
-
-  /**
-   * Returns an address of the deposit contract from the security contract
-   */
-  public async getDepositContractAddress() {
-    const contract = await this.getContract();
-    const address = await contract.DEPOSIT_CONTRACT();
-
-    return address;
-  }
-
-  /**
-   * Returns an address of the Lido contract from the security contract
-   */
-  public async getLidoContractAddress() {
-    const contract = await this.getContract();
-    const address = await contract.LIDO();
-
-    return address;
-  }
-
   /**
    * Returns a prefix from the contract with which the deposit message should be signed
    */
   public async getAttestMessagePrefix(): Promise<string> {
     if (!this.cachedAttestMessagePrefix) {
-      const contract = await this.getContract();
+      const contract = await this.repositoryService.getCachedSecurityContract();
       const messagePrefix = await contract.ATTEST_MESSAGE_PREFIX();
       this.cachedAttestMessagePrefix = messagePrefix;
     }
@@ -118,7 +70,7 @@ export class SecurityService implements OnModuleInit {
    */
   public async getPauseMessagePrefix(): Promise<string> {
     if (!this.cachedPauseMessagePrefix) {
-      const contract = await this.getContract();
+      const contract = await this.repositoryService.getCachedSecurityContract();
       const messagePrefix = await contract.PAUSE_MESSAGE_PREFIX();
       this.cachedPauseMessagePrefix = messagePrefix;
     }
@@ -130,7 +82,7 @@ export class SecurityService implements OnModuleInit {
    * Returns the maximum number of deposits per transaction from the contract
    */
   public async getMaxDeposits(blockTag?: BlockTag): Promise<number> {
-    const contract = await this.getContract();
+    const contract = await this.repositoryService.getCachedSecurityContract();
     const maxDeposits = await contract.getMaxDeposits({
       blockTag: blockTag as any,
     });
@@ -142,7 +94,7 @@ export class SecurityService implements OnModuleInit {
    * Returns the guardian list from the contract
    */
   public async getGuardians(blockTag?: BlockTag): Promise<string[]> {
-    const contract = await this.getContract();
+    const contract = await this.repositoryService.getCachedSecurityContract();
     const guardians = await contract.getGuardians({
       blockTag: blockTag as any,
     });
@@ -200,7 +152,7 @@ export class SecurityService implements OnModuleInit {
    * Returns the current state of deposits
    */
   public async isDepositsPaused(blockTag?: BlockTag): Promise<boolean> {
-    const contract = await this.getContractWithSigner();
+    const contract = await this.repositoryService.getCachedSecurityContract();
     const isPaused = await contract.isPaused({ blockTag: blockTag as any });
 
     return isPaused;
