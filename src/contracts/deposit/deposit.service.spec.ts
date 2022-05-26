@@ -6,8 +6,6 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Interface } from '@ethersproject/abi';
 import { LoggerService } from '@nestjs/common';
 import { getNetwork } from '@ethersproject/networks';
-import { Contract } from '@ethersproject/contracts';
-import { hexZeroPad } from '@ethersproject/bytes';
 import { sleep } from 'utils';
 import { CacheService } from 'cache';
 import {
@@ -16,7 +14,7 @@ import {
   ProviderService,
 } from 'provider';
 import { DepositAbi__factory } from 'generated';
-import { SecurityService } from 'contracts/security';
+import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { DepositEventGroup } from './interfaces';
 import { DepositModule } from './deposit.module';
 import { DepositService } from './deposit.service';
@@ -29,10 +27,12 @@ const mockSleep = sleep as jest.MockedFunction<typeof sleep>;
 
 describe('DepositService', () => {
   let providerService: ProviderService;
-  let securityService: SecurityService;
   let cacheService: CacheService<DepositEventGroup>;
   let depositService: DepositService;
   let loggerService: LoggerService;
+  let repositoryService: RepositoryService;
+
+  const depositAddress = '0x' + '1'.repeat(40);
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -42,13 +42,14 @@ describe('DepositService', () => {
         DepositModule,
         PrometheusModule,
         LoggerModule,
+        RepositoryModule,
       ],
     }).compile();
 
     providerService = moduleRef.get(ProviderService);
-    securityService = moduleRef.get(SecurityService);
     cacheService = moduleRef.get(CacheService);
     depositService = moduleRef.get(DepositService);
+    repositoryService = moduleRef.get(RepositoryService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
@@ -56,25 +57,12 @@ describe('DepositService', () => {
     jest.spyOn(loggerService, 'debug').mockImplementation(() => undefined);
 
     jest
-      .spyOn(securityService, 'getDepositContractAddress')
-      .mockImplementation(async () => hexZeroPad('0x1', 20));
+      .spyOn(repositoryService, 'getDepositAddress')
+      .mockImplementation(async () => depositAddress);
   });
 
   describe('formatEvent', () => {
     it.todo('should return event in the correct format');
-  });
-
-  describe('getContract', () => {
-    it('should return contract instance', async () => {
-      const contract = await depositService.getContract();
-      expect(contract).toBeInstanceOf(Contract);
-    });
-
-    it('should cache instance', async () => {
-      const contract1 = await depositService.getContract();
-      const contract2 = await depositService.getContract();
-      expect(contract1).toBe(contract2);
-    });
   });
 
   describe('getDeploymentBlockByNetwork', () => {

@@ -5,12 +5,12 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { RegistryAbi, RegistryAbi__factory } from 'generated';
+import { RegistryAbi } from 'generated';
 import { ProviderService, BlockTag } from 'provider';
 import { SecurityService } from 'contracts/security';
 import { DepositService } from 'contracts/deposit';
+import { RepositoryService } from 'contracts/repository';
 import {
-  getRegistryAddress,
   REGISTRY_KEYS_CACHE_UPDATE_BLOCK_RATE,
   REGISTRY_KEYS_QUERY_BATCH_SIZE,
 } from './registry.constants';
@@ -33,6 +33,7 @@ export class RegistryService implements OnModuleInit {
     private providerService: ProviderService,
     private securityService: SecurityService,
     private depositService: DepositService,
+    private repositoryService: RepositoryService,
     private cacheService: CacheService<NodeOperatorsCache>,
   ) {}
 
@@ -45,7 +46,6 @@ export class RegistryService implements OnModuleInit {
     await this.updateNodeOperatorsCache({ blockHash });
   }
 
-  private cachedContract: RegistryAbi | null = null;
   private cachedBatchContracts: Map<string, Promise<RegistryAbi>> = new Map();
   private cachedPubKeyLength: number | null = null;
 
@@ -57,7 +57,6 @@ export class RegistryService implements OnModuleInit {
 
     try {
       await this.deleteCachedNodeOperatorsKeys();
-      this.logger.warn('Node Operators cache cleared');
     } catch (error) {
       this.logger.error(error);
       process.exit(1);
@@ -95,19 +94,6 @@ export class RegistryService implements OnModuleInit {
   }
 
   /**
-   * Returns an instance of the contract
-   */
-  public async getContract(): Promise<RegistryAbi> {
-    if (!this.cachedContract) {
-      const address = await this.getRegistryAddress();
-      const provider = this.providerService.provider;
-      this.cachedContract = RegistryAbi__factory.connect(address, provider);
-    }
-
-    return this.cachedContract;
-  }
-
-  /**
    * Returns an instance of the contract with connected batch RPC provider
    * @param cacheKey - contract storage key in the cache
    * @returns instance of the contract
@@ -120,7 +106,8 @@ export class RegistryService implements OnModuleInit {
 
     if (!cachedBatchContract) {
       cachedBatchContract = new Promise(async (resolve) => {
-        const contract = await this.getContract();
+        const contract =
+          await this.repositoryService.getCachedRegistryContract();
         const provider = this.providerService.getNewBatchProviderInstance();
         resolve(contract.connect(provider));
       });
@@ -136,7 +123,7 @@ export class RegistryService implements OnModuleInit {
    */
   public async getPubkeyLength(): Promise<number> {
     if (!this.cachedPubKeyLength) {
-      const contract = await this.getContract();
+      const contract = await this.repositoryService.getCachedRegistryContract();
       const keyLength = await contract.PUBKEY_LENGTH();
       this.cachedPubKeyLength = keyLength.toNumber();
     }
@@ -145,28 +132,20 @@ export class RegistryService implements OnModuleInit {
   }
 
   /**
-   * Returns an address of the registry contract
-   */
-  public async getRegistryAddress(): Promise<string> {
-    const chainId = await this.providerService.getChainId();
-    return getRegistryAddress(chainId);
-  }
-
-  /**
    * Returns all keys that can be used for the deposit in the next transaction
    * @returns array of public keys
    */
   public async getNextSigningKeys(blockTag?: BlockTag) {
-    const [contract, maxDepositKeys, lidoAddress, pubkeyLength] =
-      await Promise.all([
-        this.getContract(),
-        this.securityService.getMaxDeposits(blockTag),
-        this.securityService.getLidoContractAddress(),
-        this.getPubkeyLength(),
-      ]);
+    const lido = await this.repositoryService.getCachedLidoContract();
+    const registry = await this.repositoryService.getCachedRegistryContract();
 
-    const overrides = { blockTag: blockTag as any, from: lidoAddress };
-    const [pubKeys] = await contract.callStatic.assignNextSigningKeys(
+    const [maxDepositKeys, pubkeyLength] = await Promise.all([
+      this.securityService.getMaxDeposits(blockTag),
+      this.getPubkeyLength(),
+    ]);
+
+    const overrides = { blockTag: blockTag as any, from: lido.address };
+    const [pubKeys] = await registry.callStatic.assignNextSigningKeys(
       maxDepositKeys,
       overrides,
     );
@@ -180,7 +159,7 @@ export class RegistryService implements OnModuleInit {
    * which increases when any of the key operations are performed
    */
   public async getKeysOpIndex(blockTag?: BlockTag): Promise<number> {
-    const contract = await this.getContract();
+    const contract = await this.repositoryService.getCachedRegistryContract();
     const keysOpIndex = await contract.getKeysOpIndex({
       blockTag: blockTag as any,
     });
@@ -192,7 +171,7 @@ export class RegistryService implements OnModuleInit {
    * Returns a number of node operators stored in the contract
    */
   public async getNodeOperatorsCount(blockTag?: BlockTag): Promise<number> {
-    const contract = await this.getContract();
+    const contract = await this.repositoryService.getCachedRegistryContract();
     const operatorsTotal = await contract.getNodeOperatorsCount({
       blockTag: blockTag as any,
     });
@@ -376,6 +355,7 @@ export class RegistryService implements OnModuleInit {
    * Delete node operators cache
    */
   public async deleteCachedNodeOperatorsKeys(): Promise<void> {
-    return await this.cacheService.deleteCache();
+    await this.cacheService.deleteCache();
+    this.logger.warn('Node Operators cache cleared');
   }
 }
