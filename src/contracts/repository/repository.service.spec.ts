@@ -197,7 +197,7 @@ describe('RepositoryService', () => {
   });
 
   describe('update contracts', () => {
-    const blockTag = 100;
+    const blockTag = { number: 100 } as any;
     let mockKernelAddress;
     let mockACLAddress;
     let mockSecurityAddress;

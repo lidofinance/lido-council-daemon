@@ -1,4 +1,5 @@
 import { Contract } from '@ethersproject/contracts';
+import { Block } from '@ethersproject/providers';
 import {
   CACHE_MANAGER,
   Inject,
@@ -14,9 +15,9 @@ import { AclAbi, AclAbi__factory } from 'generated';
 import { SecurityAbi, SecurityAbi__factory } from 'generated';
 import { RegistryAbi, RegistryAbi__factory } from 'generated';
 import { DepositAbi, DepositAbi__factory } from 'generated';
+import { ProviderService } from 'provider';
 
-import { BlockTag, ProviderService } from 'provider';
-import { getLidoAddress } from './repository.constants';
+import { EVENTS_OVERLAP_BLOCKS, getLidoAddress } from './repository.constants';
 
 @Injectable()
 export class RepositoryService {
@@ -27,17 +28,19 @@ export class RepositoryService {
     private providerService: ProviderService,
   ) {}
 
+  cachedAddresses = new Map<string, { block: number; address: string }>();
+
   /**
    * Monitors up-to-date contract addresses
    * @returns boolean - true if contracts has been updated
    */
-  public async updateContracts(blockTag: BlockTag): Promise<boolean> {
+  public async updateContracts(block: Block): Promise<boolean> {
     const addresses = async (
-      contractGetter: (blockTag?: BlockTag) => Promise<Contract>,
-      addressGetter: (blockTag?: BlockTag) => Promise<string>,
+      contractGetter: (block: Block) => Promise<Contract>,
+      addressGetter: (block: Block) => Promise<string>,
     ) => {
-      const contract = await contractGetter.bind(this, blockTag)();
-      const newAddress = await addressGetter.bind(this, blockTag)();
+      const contract = await contractGetter.bind(this, block)();
+      const newAddress = await addressGetter.bind(this, block)();
 
       return {
         prevAddress: contract.address,
@@ -96,10 +99,8 @@ export class RepositoryService {
    * Returns an instance of the Kernel contract
    */
   @Cache()
-  public async getCachedKernelContract(
-    blockTag?: BlockTag,
-  ): Promise<KernelAbi> {
-    const kernelAddress = await this.getKernelAddress(blockTag);
+  public async getCachedKernelContract(block?: Block): Promise<KernelAbi> {
+    const kernelAddress = await this.getKernelAddress(block);
     const provider = this.providerService.provider;
 
     return KernelAbi__factory.connect(kernelAddress, provider);
@@ -109,8 +110,8 @@ export class RepositoryService {
    * Returns an instance of the ACL contract
    */
   @Cache()
-  public async getCachedACLContract(blockTag?: BlockTag): Promise<AclAbi> {
-    const aclAddress = await this.getACLAddress(blockTag);
+  public async getCachedACLContract(block?: Block): Promise<AclAbi> {
+    const aclAddress = await this.getACLAddress(block);
     const provider = this.providerService.provider;
 
     return AclAbi__factory.connect(aclAddress, provider);
@@ -120,10 +121,8 @@ export class RepositoryService {
    * Returns an instance of the Deposit Security contract
    */
   @Cache()
-  public async getCachedSecurityContract(
-    blockTag?: BlockTag,
-  ): Promise<SecurityAbi> {
-    const securityAddress = await this.getDepositSecurityAddress(blockTag);
+  public async getCachedSecurityContract(block?: Block): Promise<SecurityAbi> {
+    const securityAddress = await this.getDepositSecurityAddress(block);
     const provider = this.providerService.provider;
 
     return SecurityAbi__factory.connect(securityAddress, provider);
@@ -133,10 +132,8 @@ export class RepositoryService {
    * Returns an instance of the Node Operators Registry contract
    */
   @Cache()
-  public async getCachedRegistryContract(
-    blockTag?: BlockTag,
-  ): Promise<RegistryAbi> {
-    const aclAddress = await this.getRegistryAddress(blockTag);
+  public async getCachedRegistryContract(block?: Block): Promise<RegistryAbi> {
+    const aclAddress = await this.getRegistryAddress(block);
     const provider = this.providerService.provider;
 
     return RegistryAbi__factory.connect(aclAddress, provider);
@@ -146,10 +143,8 @@ export class RepositoryService {
    * Returns an instance of the Deposit contract
    */
   @Cache()
-  public async getCachedDepositContract(
-    blockTag?: BlockTag,
-  ): Promise<DepositAbi> {
-    const depositAddress = await this.getDepositAddress(blockTag);
+  public async getCachedDepositContract(block?: Block): Promise<DepositAbi> {
+    const depositAddress = await this.getDepositAddress(block);
     const provider = this.providerService.provider;
 
     return DepositAbi__factory.connect(depositAddress, provider);
@@ -166,7 +161,8 @@ export class RepositoryService {
   /**
    * Returns Kernel contract address
    */
-  public async getKernelAddress(blockTag?: BlockTag): Promise<string> {
+  public async getKernelAddress(block?: Block): Promise<string> {
+    const blockTag = block ? { blockHash: block.hash } : undefined;
     const lidoContract = await this.getCachedLidoContract();
     return await lidoContract.kernel({ blockTag: blockTag as any });
   }
@@ -174,17 +170,23 @@ export class RepositoryService {
   /**
    * Returns ACL contract address
    */
-  public async getACLAddress(blockTag?: BlockTag): Promise<string> {
-    const kernelContract = await this.getCachedKernelContract(blockTag);
+  public async getACLAddress(block?: Block): Promise<string> {
+    const blockTag = block ? { blockHash: block.hash } : undefined;
+    const kernelContract = await this.getCachedKernelContract(block);
     return await kernelContract.acl({ blockTag: blockTag as any });
   }
 
   /**
    * Returns Deposit Security contract address
    */
-  public async getDepositSecurityAddress(blockTag?: BlockTag): Promise<string> {
+  public async getDepositSecurityAddress(block?: Block): Promise<string> {
+    block = block ?? (await this.providerService.getBlock());
+
+    const blockTag = block ? { blockHash: block.hash } : undefined;
+    const cached = this.cachedAddresses.get('depositSecurity');
+
     const lidoContract = await this.getCachedLidoContract();
-    const aclContract = await this.getCachedACLContract(blockTag);
+    const aclContract = await this.getCachedACLContract(block);
     const depositRole = await lidoContract.DEPOSIT_ROLE({
       blockTag: blockTag as any,
     });
@@ -194,18 +196,42 @@ export class RepositoryService {
       lidoContract.address,
       depositRole,
     );
-    const logs = await aclContract.queryFilter(depositRoleFilter);
-    const lastLog = logs
+
+    const startBlock = cached?.block ? cached.block - EVENTS_OVERLAP_BLOCKS : 0;
+    const endBlock = block.number;
+
+    const result = await this.providerService.fetchEventsFallOver(
+      startBlock,
+      endBlock,
+      async (startBlock, endBlock) => {
+        const events = await aclContract.queryFilter(
+          depositRoleFilter,
+          startBlock,
+          endBlock,
+        );
+        return { events, startBlock, endBlock };
+      },
+    );
+
+    const lastEvent = result.events
       .filter((log) => log.args.allowed === true)
       .sort((a, b) => b.blockNumber - a.blockNumber)[0];
 
-    return lastLog.args.entity;
+    const address = lastEvent?.args.entity || cached?.address;
+
+    if (!address) {
+      throw new Error('Deposit security contract address cannot be fetched');
+    }
+
+    this.cachedAddresses.set('depositSecurity', { address, block: endBlock });
+    return address;
   }
 
   /**
    * Returns Node Operators Registry contract address
    */
-  public async getRegistryAddress(blockTag?: BlockTag): Promise<string> {
+  public async getRegistryAddress(block?: Block): Promise<string> {
+    const blockTag = block ? { blockHash: block.hash } : undefined;
     const lidoContract = await this.getCachedLidoContract();
     return await lidoContract.getOperators({ blockTag: blockTag as any });
   }
@@ -213,7 +239,8 @@ export class RepositoryService {
   /**
    * Returns Deposit contract address
    */
-  public async getDepositAddress(blockTag?: BlockTag): Promise<string> {
+  public async getDepositAddress(block?: Block): Promise<string> {
+    const blockTag = block ? { blockHash: block.hash } : undefined;
     const lidoContract = await this.getCachedLidoContract();
     return await lidoContract.getDepositContract({ blockTag: blockTag as any });
   }

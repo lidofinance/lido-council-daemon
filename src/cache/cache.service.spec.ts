@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { MockProviderModule } from 'provider';
 import { ConfigModule } from 'common/config';
+import { LoggerModule } from 'common/logger';
 import { CacheModule } from 'cache';
 import { CacheService } from './cache.service';
 
@@ -15,6 +16,7 @@ describe('CacheService', () => {
         ConfigModule.forRoot(),
         MockProviderModule.forRoot(),
         CacheModule.register(cacheFile, defaultCacheValue),
+        LoggerModule,
       ],
     }).compile();
 

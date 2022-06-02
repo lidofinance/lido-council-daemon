@@ -1,18 +1,34 @@
 import { Test } from '@nestjs/testing';
+import { LoggerService } from '@nestjs/common';
 import { getNetwork } from '@ethersproject/networks';
+import { Logger } from '@ethersproject/logger';
 import { ConfigModule } from 'common/config';
+import { LoggerModule } from 'common/logger';
 import { ProviderService } from './provider.service';
 import { MockProviderModule } from 'provider';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+
+const logger = new Logger('');
 
 describe('ProviderService', () => {
   let providerService: ProviderService;
+  let loggerService: LoggerService;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [ConfigModule.forRoot(), MockProviderModule.forRoot()],
+      imports: [
+        ConfigModule.forRoot(),
+        MockProviderModule.forRoot(),
+        LoggerModule,
+      ],
     }).compile();
 
     providerService = moduleRef.get(ProviderService);
+    loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
+
+    jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
+    jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
+    jest.spyOn(loggerService, 'debug').mockImplementation(() => undefined);
   });
 
   describe('getChainId', () => {
@@ -77,6 +93,49 @@ describe('ProviderService', () => {
       expect(block).toBe(expected);
       expect(mockProviderCall).toBeCalledTimes(1);
       expect(mockProviderCall).toBeCalledWith('latest');
+    });
+  });
+
+  describe('fetchEventsFallOver', () => {
+    it('should fetch recursive if missing response', async () => {
+      const event1 = {} as any;
+      const event2 = {} as any;
+      const expectedFirst = { events: [event1], startBlock: 0, endBlock: 4 };
+      const expectedSecond = { events: [event2], startBlock: 5, endBlock: 10 };
+
+      const startBlock = 0;
+      const endBlock = 10;
+
+      const mockFetchEvents = jest
+        .fn()
+        .mockImplementationOnce(async () => {
+          logger.throwError('missing response', Logger.errors.SERVER_ERROR, {});
+        })
+        .mockImplementationOnce(async () => expectedFirst)
+        .mockImplementationOnce(async () => expectedSecond);
+
+      const result = await providerService.fetchEventsFallOver(
+        startBlock,
+        endBlock,
+        mockFetchEvents,
+      );
+
+      const { calls, results } = mockFetchEvents.mock;
+      const events = [event1, event2];
+
+      expect(result).toEqual({ events, startBlock, endBlock });
+      expect(mockFetchEvents).toBeCalledTimes(3);
+      expect(calls[0]).toEqual([startBlock, endBlock]);
+      expect(calls[1]).toEqual([
+        expectedFirst.startBlock,
+        expectedFirst.endBlock,
+      ]);
+      expect(calls[2]).toEqual([
+        expectedSecond.startBlock,
+        expectedSecond.endBlock,
+      ]);
+      await expect(results[1].value).resolves.toEqual(expectedFirst);
+      await expect(results[2].value).resolves.toEqual(expectedSecond);
     });
   });
 });
