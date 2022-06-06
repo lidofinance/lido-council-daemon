@@ -1,11 +1,10 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { performance } from 'perf_hooks';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { ProviderService, ERROR_LIMIT_EXCEEDED } from 'provider';
+import { ProviderService } from 'provider';
 import { DepositEventEvent } from 'generated/DepositAbi';
 import {
   DEPOSIT_EVENTS_STEP,
-  DEPOSIT_EVENTS_RETRY_TIMEOUT_MS,
   getDeploymentBlockByNetwork,
   DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE,
   DEPOSIT_EVENTS_CACHE_LAG_BLOCKS,
@@ -15,7 +14,6 @@ import {
   DepositEventGroup,
   DepositEventsCache,
 } from './interfaces';
-import { sleep } from 'utils';
 import { OneAtTime } from 'common/decorators';
 import { RepositoryService } from 'contracts/repository';
 import { CacheService } from 'cache';
@@ -198,37 +196,11 @@ export class DepositService {
     startBlock: number,
     endBlock: number,
   ): Promise<DepositEventGroup> {
-    try {
-      return await this.fetchEvents(startBlock, endBlock);
-    } catch (error: any) {
-      const isLimitExceeded = error?.error?.code === ERROR_LIMIT_EXCEEDED;
-      const isTimeout = error?.code === 'TIMEOUT';
-      const isPartitionRequired = isTimeout || isLimitExceeded;
-
-      const isPartitionable = endBlock - startBlock > 1;
-
-      if (isPartitionable && isPartitionRequired) {
-        this.logger.debug?.(`Limit exceeded, try to split the chunk`, {
-          startBlock,
-          endBlock,
-        });
-
-        const center = Math.ceil((endBlock + startBlock) / 2);
-        const [first, second] = await Promise.all([
-          this.fetchEventsFallOver(startBlock, center - 1),
-          this.fetchEventsFallOver(center, endBlock),
-        ]);
-
-        const events = first.events.concat(second.events);
-
-        return { events, startBlock, endBlock };
-      } else {
-        this.logger.warn('Fetch error. Retry', error);
-
-        await sleep(DEPOSIT_EVENTS_RETRY_TIMEOUT_MS);
-        return await this.fetchEventsFallOver(startBlock, endBlock);
-      }
-    }
+    return await this.providerService.fetchEventsFallOver(
+      startBlock,
+      endBlock,
+      this.fetchEvents.bind(this),
+    );
   }
 
   /**

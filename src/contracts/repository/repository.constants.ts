@@ -13,3 +13,6 @@ export const getLidoAddress = (chainId: CHAINS): string => {
 
   return address;
 };
+
+export const EVENTS_OVERLAP_BLOCKS = 10;
+export const EVENTS_FETCH_STEP = 20_000;

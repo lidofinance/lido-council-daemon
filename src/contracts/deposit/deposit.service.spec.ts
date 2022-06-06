@@ -9,7 +9,7 @@ import { getNetwork } from '@ethersproject/networks';
 import { sleep } from 'utils';
 import { CacheService } from 'cache';
 import {
-  ERROR_LIMIT_EXCEEDED,
+  ERRORS_LIMIT_EXCEEDED,
   MockProviderModule,
   ProviderService,
 } from 'provider';
@@ -179,7 +179,7 @@ describe('DepositService', () => {
       const mockFetchEvents = jest
         .spyOn(depositService, 'fetchEvents')
         .mockImplementationOnce(async () => {
-          throw { error: { code: ERROR_LIMIT_EXCEEDED } };
+          throw { error: { code: ERRORS_LIMIT_EXCEEDED[0] } };
         })
         .mockImplementationOnce(async () => expectedFirst)
         .mockImplementationOnce(async () => expectedSecond);
