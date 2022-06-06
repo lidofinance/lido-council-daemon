@@ -1,11 +1,6 @@
 import { Signature } from '@ethersproject/bytes';
 import { ContractReceipt } from '@ethersproject/contracts';
-import {
-  Inject,
-  Injectable,
-  LoggerService,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { METRIC_PAUSE_ATTEMPTS } from 'common/prometheus';
 import { OneAtTime } from 'common/decorators';
@@ -17,7 +12,7 @@ import { BlockTag, ProviderService } from 'provider';
 import { WalletService } from 'wallet';
 
 @Injectable()
-export class SecurityService implements OnModuleInit {
+export class SecurityService {
   constructor(
     @InjectMetric(METRIC_PAUSE_ATTEMPTS) private pauseAttempts: Counter<string>,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
@@ -29,8 +24,8 @@ export class SecurityService implements OnModuleInit {
   private cachedAttestMessagePrefix: string | null = null;
   private cachedPauseMessagePrefix: string | null = null;
 
-  public async onModuleInit(): Promise<void> {
-    const guardianIndex = await this.getGuardianIndex('latest');
+  public async initialize(blockTag: BlockTag): Promise<void> {
+    const guardianIndex = await this.getGuardianIndex(blockTag);
     const address = this.walletService.address;
 
     if (guardianIndex === -1) {

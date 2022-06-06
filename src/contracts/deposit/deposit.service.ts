@@ -39,10 +39,9 @@ export class DepositService {
     await this.updateEventsCache();
   }
 
-  async onModuleInit() {
-    const currentBlock = await this.providerService.getBlockNumber();
+  public async initialize(blockNumber: number) {
     const cachedEvents = await this.getCachedEvents();
-    const isCacheValid = this.validateCache(cachedEvents, currentBlock);
+    const isCacheValid = this.validateCache(cachedEvents, blockNumber);
 
     if (isCacheValid) return;
 

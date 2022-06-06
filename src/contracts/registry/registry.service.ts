@@ -1,9 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  LoggerService,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { RegistryAbi } from 'generated';
 import { ProviderService, BlockTag } from 'provider';
@@ -27,7 +22,7 @@ import { BlockData } from 'guardian';
 import { APP_VERSION } from 'app.constants';
 
 @Injectable()
-export class RegistryService implements OnModuleInit {
+export class RegistryService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
@@ -49,7 +44,7 @@ export class RegistryService implements OnModuleInit {
   private cachedBatchContracts: Map<string, Promise<RegistryAbi>> = new Map();
   private cachedPubKeyLength: number | null = null;
 
-  async onModuleInit() {
+  public async initialize() {
     const cache = await this.getCachedNodeOperators();
     const isCacheValid = this.validateCache(cache);
 
