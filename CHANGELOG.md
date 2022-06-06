@@ -1,3 +1,13 @@
+## [1.4.1](https://github.com/lidofinance/lido-council-daemon/compare/1.4.0...1.4.1) (2022-06-06)
+
+
+### Bug Fixes
+
+* get events in chunks ([79c2bd6](https://github.com/lidofinance/lido-council-daemon/commit/79c2bd67577c4cca7ba42835521e1633be8cb4be))
+* geth large log query ([979e24e](https://github.com/lidofinance/lido-council-daemon/commit/979e24eea8cf6c68e9e5f89722f82fd2af30dafa))
+
+
+
 # [1.4.0](https://github.com/lidofinance/lido-council-daemon/compare/1.3.0...1.4.0) (2022-05-26)
 
 
@@ -32,8 +42,6 @@
 
 * Docker + security and docker lints ([7698a0c](https://github.com/lidofinance/lido-council-daemon/commit/7698a0cc550323e36cc82c819bf935d4ec9d9d29))
 * fetch operators data by blockhash ([a0f746e](https://github.com/lidofinance/lido-council-daemon/commit/a0f746eb63448aae28fe89af873833d6d6c98f2b))
-* not root docker user ([0423948](https://github.com/lidofinance/lido-council-daemon/commit/04239489a42e7b0ce301f1ec57e7aa79c38dd6fe))
-* replace with user node ([4b14d31](https://github.com/lidofinance/lido-council-daemon/commit/4b14d31a202c3a3b6c34b4be31f89d93edf92fcc))
 * vuln fix - bump minimist to 1.2.6 ([b583a32](https://github.com/lidofinance/lido-council-daemon/commit/b583a321d8d9ff37948ab5c588bafe9207c25814))
 
 
