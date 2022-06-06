@@ -17,7 +17,6 @@ export const getDeploymentBlockByNetwork = (chainId: CHAINS): number => {
 
 export const DEPOSIT_EVENTS_CACHE_LAG_BLOCKS = 100;
 export const DEPOSIT_EVENTS_STEP = 10_000;
-export const DEPOSIT_EVENTS_RETRY_TIMEOUT_MS = 5_000;
 export const DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE = 10;
 
 export const DEPOSIT_CACHE_FILE_NAME = 'deposit.events.json';

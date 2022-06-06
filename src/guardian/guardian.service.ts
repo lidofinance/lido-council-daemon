@@ -98,7 +98,7 @@ export class GuardianService implements OnModuleInit {
   public async handleNewBlock(): Promise<void> {
     this.logger.log('New block cycle start');
     const block = await this.providerService.getBlock();
-    await this.repositoryService.updateContracts({ blockHash: block.hash });
+    await this.repositoryService.updateContracts(block);
 
     const blockData = await this.getCurrentBlockData(block);
 
