@@ -66,6 +66,12 @@ export class GuardianService implements OnModuleInit {
         const blockHash = block.hash;
 
         await Promise.all([
+          this.registryService.initialize(),
+          this.depositService.initialize(block.number),
+          this.securityService.initialize({ blockHash }),
+        ]);
+
+        await Promise.all([
           // The event cache is stored with an N block lag to avoid caching data from uncle blocks
           // so we don't worry about blockHash here
           this.depositService.updateEventsCache(),
