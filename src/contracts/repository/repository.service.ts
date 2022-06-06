@@ -17,7 +17,11 @@ import { RegistryAbi, RegistryAbi__factory } from 'generated';
 import { DepositAbi, DepositAbi__factory } from 'generated';
 import { ProviderService } from 'provider';
 
-import { EVENTS_OVERLAP_BLOCKS, getLidoAddress } from './repository.constants';
+import {
+  EVENTS_FETCH_STEP,
+  EVENTS_OVERLAP_BLOCKS,
+  getLidoAddress,
+} from './repository.constants';
 
 @Injectable()
 export class RepositoryService {
@@ -197,26 +201,38 @@ export class RepositoryService {
       depositRole,
     );
 
+    const findLastEvent = async (rangeStart: number, rangeEnd: number) => {
+      const startBlock = Math.max(rangeStart, rangeEnd - EVENTS_FETCH_STEP);
+      const endBlock = rangeEnd;
+
+      const result = await this.providerService.fetchEventsFallOver(
+        startBlock,
+        endBlock,
+        async (startBlock, endBlock) => {
+          const events = await aclContract.queryFilter(
+            depositRoleFilter,
+            startBlock,
+            endBlock,
+          );
+          return { events, startBlock, endBlock };
+        },
+      );
+
+      this.logger.debug?.('ACL events are fetched', { startBlock, endBlock });
+
+      const lastEvent = result.events
+        .filter((log) => log.args.allowed === true)
+        .sort((a, b) => b.blockNumber - a.blockNumber)[0];
+
+      if (lastEvent) return lastEvent;
+      if (startBlock <= rangeStart) return null;
+
+      return await findLastEvent(rangeStart, startBlock);
+    };
+
     const startBlock = cached?.block ? cached.block - EVENTS_OVERLAP_BLOCKS : 0;
     const endBlock = block.number;
-
-    const result = await this.providerService.fetchEventsFallOver(
-      startBlock,
-      endBlock,
-      async (startBlock, endBlock) => {
-        const events = await aclContract.queryFilter(
-          depositRoleFilter,
-          startBlock,
-          endBlock,
-        );
-        return { events, startBlock, endBlock };
-      },
-    );
-
-    const lastEvent = result.events
-      .filter((log) => log.args.allowed === true)
-      .sort((a, b) => b.blockNumber - a.blockNumber)[0];
-
+    const lastEvent = await findLastEvent(startBlock, endBlock);
     const address = lastEvent?.args.entity || cached?.address;
 
     if (!address) {
