@@ -26,6 +26,7 @@ import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import {
   METRIC_BLOCK_DATA_REQUEST_DURATION,
   METRIC_BLOCK_DATA_REQUEST_ERRORS,
+  METRIC_VALIDATED_DEPOSITS_TOTAL,
   METRIC_DEPOSITED_KEYS_TOTAL,
   METRIC_OPERATORS_KEYS_TOTAL,
 } from 'common/prometheus';
@@ -43,6 +44,9 @@ export class GuardianService implements OnModuleInit {
 
     @InjectMetric(METRIC_BLOCK_DATA_REQUEST_ERRORS)
     private blockErrorsCounter: Counter<string>,
+
+    @InjectMetric(METRIC_VALIDATED_DEPOSITS_TOTAL)
+    private validatedDepositsCounter: Gauge<string>,
 
     @InjectMetric(METRIC_DEPOSITED_KEYS_TOTAL)
     private depositedKeysCounter: Gauge<string>,
@@ -443,19 +447,49 @@ export class GuardianService implements OnModuleInit {
    * @param blockData - collected data from the current block
    */
   public collectMetrics(blockData: BlockData): void {
-    const { depositedEvents, nodeOperatorsCache, nextSigningKeys } = blockData;
+    this.collectValidatingMetrics(blockData);
+    this.collectDepositMetrics(blockData);
+    this.collectOperatorMetrics(blockData);
+  }
 
-    /* deposited keys */
+  /**
+   * Collects metrics about validated deposits
+   * @param blockData - collected data from the current block
+   */
+  public collectValidatingMetrics(blockData: BlockData): void {
+    const { depositedEvents } = blockData;
+    const { events } = depositedEvents;
 
-    const depositedKeys = depositedEvents.events.map(({ pubkey }) => pubkey);
+    const valid = events.reduce((sum, { valid }) => sum + (valid ? 1 : 0), 0);
+    const invalid = events.reduce((sum, { valid }) => sum + (valid ? 0 : 1), 0);
+
+    this.validatedDepositsCounter.set({ type: 'valid' }, valid);
+    this.validatedDepositsCounter.set({ type: 'invalid' }, invalid);
+  }
+
+  /**
+   * Collects metrics about deposited keys
+   * @param blockData - collected data from the current block
+   */
+  public collectDepositMetrics(blockData: BlockData): void {
+    const { depositedEvents } = blockData;
+    const { events } = depositedEvents;
+
+    const depositedKeys = events.map(({ pubkey }) => pubkey);
     const depositedKeysSet = new Set(depositedKeys);
     const depositedDubsTotal = depositedKeys.length - depositedKeysSet.size;
 
     this.depositedKeysCounter.set({ type: 'total' }, depositedKeys.length);
     this.depositedKeysCounter.set({ type: 'unique' }, depositedKeysSet.size);
     this.depositedKeysCounter.set({ type: 'duplicates' }, depositedDubsTotal);
+  }
 
-    /* operators keys */
+  /**
+   * Collects metrics about operators keys
+   * @param blockData - collected data from the current block
+   */
+  public collectOperatorMetrics(blockData: BlockData): void {
+    const { nodeOperatorsCache, nextSigningKeys } = blockData;
 
     const { operators } = nodeOperatorsCache;
     const operatorsKeys = operators.flatMap(({ keys }) => keys);

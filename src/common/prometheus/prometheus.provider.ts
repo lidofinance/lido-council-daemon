@@ -12,6 +12,7 @@ import {
   METRIC_BLOCK_DATA_REQUEST_DURATION,
   METRIC_BLOCK_DATA_REQUEST_ERRORS,
   METRIC_BUILD_INFO,
+  METRIC_VALIDATED_DEPOSITS_TOTAL,
   METRIC_DEPOSITED_KEYS_TOTAL,
   METRIC_OPERATORS_KEYS_TOTAL,
 } from './prometheus.constants';
@@ -58,6 +59,12 @@ export const PrometheusBuildInfoGaugeProvider = makeCounterProvider({
   name: METRIC_BUILD_INFO,
   help: 'Build information',
   labelNames: ['version', 'name', 'network'] as const,
+});
+
+export const PrometheusValidatedDepositsProvider = makeGaugeProvider({
+  name: METRIC_VALIDATED_DEPOSITS_TOTAL,
+  help: 'Number of deposits by validation',
+  labelNames: ['type'] as const,
 });
 
 export const PrometheusDepositedKeysProvider = makeGaugeProvider({
