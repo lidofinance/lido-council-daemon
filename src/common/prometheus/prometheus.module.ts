@@ -9,6 +9,7 @@ import {
   PrometheusBlockDataRequestsProvider,
   PrometheusBuildInfoGaugeProvider,
   PrometheusValidatedDepositsProvider,
+  PrometheusIntersectionsProvider,
   PrometheusDepositedKeysProvider,
   PrometheusOperatorsKeysProvider,
 } from './prometheus.provider';
@@ -32,6 +33,7 @@ const providers = [
   PrometheusBlockDataErrorsCounterProvider,
   PrometheusBuildInfoGaugeProvider,
   PrometheusValidatedDepositsProvider,
+  PrometheusIntersectionsProvider,
   PrometheusDepositedKeysProvider,
   PrometheusOperatorsKeysProvider,
 ];

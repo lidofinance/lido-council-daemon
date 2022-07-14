@@ -30,6 +30,7 @@ import {
   METRIC_VALIDATED_DEPOSITS_TOTAL,
   METRIC_DEPOSITED_KEYS_TOTAL,
   METRIC_OPERATORS_KEYS_TOTAL,
+  METRIC_INTERSECTIONS_TOTAL,
 } from 'common/prometheus';
 import { Counter, Gauge, Histogram } from 'prom-client';
 import { APP_NAME, APP_VERSION } from 'app.constants';
@@ -54,6 +55,9 @@ export class GuardianService implements OnModuleInit {
 
     @InjectMetric(METRIC_OPERATORS_KEYS_TOTAL)
     private operatorsKeysCounter: Gauge<string>,
+
+    @InjectMetric(METRIC_INTERSECTIONS_TOTAL)
+    private intersectionsCounter: Gauge<string>,
 
     private registryService: RegistryService,
     private depositService: DepositService,
@@ -199,11 +203,6 @@ export class GuardianService implements OnModuleInit {
   public async checkKeysIntersections(blockData: BlockData): Promise<void> {
     const { blockHash } = blockData;
 
-    if (blockData.isDepositsPaused) {
-      this.logger.warn('Deposits are paused', { blockHash });
-      return;
-    }
-
     const nextKeysIntersections = this.getNextKeysIntersections(blockData);
     const cachedKeysIntersections = this.getCachedKeysIntersections(blockData);
     const intersections = nextKeysIntersections.concat(cachedKeysIntersections);
@@ -212,6 +211,13 @@ export class GuardianService implements OnModuleInit {
       blockData,
     );
     const isFilteredIntersectionsFound = filteredIntersections.length > 0;
+
+    this.collectIntersectionsMetrics(intersections, filteredIntersections);
+
+    if (blockData.isDepositsPaused) {
+      this.logger.warn('Deposits are paused', { blockHash });
+      return;
+    }
 
     if (isFilteredIntersectionsFound) {
       await this.handleKeysIntersections(blockData);
@@ -533,5 +539,18 @@ export class GuardianService implements OnModuleInit {
     this.operatorsKeysCounter.set({ type: 'used' }, operatorsKeysUsedTotal);
     this.operatorsKeysCounter.set({ type: 'unused' }, operatorsKeysUnusedTotal);
     this.operatorsKeysCounter.set({ type: 'next' }, nextSigningKeys.length);
+  }
+
+  /**
+   * Collects metrics about keys intersections
+   * @param all - all intersections
+   * @param filtered - all intersections
+   */
+  public collectIntersectionsMetrics(
+    all: VerifiedDepositEvent[],
+    filtered: VerifiedDepositEvent[],
+  ): void {
+    this.intersectionsCounter.set({ type: 'all' }, all.length);
+    this.intersectionsCounter.set({ type: 'filtered' }, filtered.length);
   }
 }

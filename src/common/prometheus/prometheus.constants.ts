@@ -15,6 +15,7 @@ export const METRIC_BLOCK_DATA_REQUEST_ERRORS = `${METRICS_PREFIX}block_data_req
 export const METRIC_BUILD_INFO = `${METRICS_PREFIX}build_info`;
 
 export const METRIC_VALIDATED_DEPOSITS_TOTAL = `${METRICS_PREFIX}validated_deposits_total`;
+export const METRIC_INTERSECTIONS_TOTAL = `${METRICS_PREFIX}intersections_total`;
 
 export const METRIC_DEPOSITED_KEYS_TOTAL = `${METRICS_PREFIX}deposited_keys_total`;
 export const METRIC_OPERATORS_KEYS_TOTAL = `${METRICS_PREFIX}operators_keys_total`;
