@@ -64,6 +64,7 @@ export class BlsService implements OnModuleInit {
 
       return blst.verify(signingRoot, blsPublicKey, blsSignature);
     } catch (error) {
+      this.logger.warn('Failed to verify deposit data', depositData);
       this.logger.error(error);
 
       return false;

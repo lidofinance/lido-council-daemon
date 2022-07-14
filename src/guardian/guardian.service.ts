@@ -6,9 +6,10 @@ import {
 } from '@nestjs/common';
 import { Block } from '@ethersproject/providers';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { DepositService } from 'contracts/deposit';
+import { DepositService, VerifiedDepositEvent } from 'contracts/deposit';
 import { RegistryService } from 'contracts/registry';
 import { SecurityService } from 'contracts/security';
+import { LidoService } from 'contracts/lido';
 import { RepositoryService } from 'contracts/repository';
 import { ProviderService } from 'provider';
 import {
@@ -60,6 +61,7 @@ export class GuardianService implements OnModuleInit {
     private providerService: ProviderService,
     private messagesService: MessagesService,
     private repositoryService: RepositoryService,
+    private lidoService: LidoService,
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -205,9 +207,13 @@ export class GuardianService implements OnModuleInit {
     const nextKeysIntersections = this.getNextKeysIntersections(blockData);
     const cachedKeysIntersections = this.getCachedKeysIntersections(blockData);
     const intersections = nextKeysIntersections.concat(cachedKeysIntersections);
-    const isIntersectionsFound = intersections.length > 0;
+    const filteredIntersections = await this.excludeEligibleIntersections(
+      intersections,
+      blockData,
+    );
+    const isFilteredIntersectionsFound = filteredIntersections.length > 0;
 
-    if (isIntersectionsFound) {
+    if (isFilteredIntersectionsFound) {
       await this.handleKeysIntersections(blockData);
     } else {
       await this.handleCorrectKeys(blockData);
@@ -220,16 +226,16 @@ export class GuardianService implements OnModuleInit {
    * @param blockData - collected data from the current block
    * @returns list of keys that were deposited earlier
    */
-  public getNextKeysIntersections(blockData: BlockData): string[] {
+  public getNextKeysIntersections(
+    blockData: BlockData,
+  ): VerifiedDepositEvent[] {
     const { blockHash } = blockData;
     const { depositedEvents, nextSigningKeys } = blockData;
     const { depositRoot, keysOpIndex } = blockData;
 
-    const depositedKeys = depositedEvents.events.map(({ pubkey }) => pubkey);
-    const depositedKeysSet = new Set(depositedKeys);
-
-    const intersections = nextSigningKeys.filter((nextSigningKey) =>
-      depositedKeysSet.has(nextSigningKey),
+    const nextSigningKeysSet = new Set(nextSigningKeys);
+    const intersections = depositedEvents.events.filter(({ pubkey }) =>
+      nextSigningKeysSet.has(pubkey),
     );
 
     if (intersections.length) {
@@ -250,7 +256,9 @@ export class GuardianService implements OnModuleInit {
    * @param blockData - collected data from the current block
    * @returns list of keys that were deposited earlier
    */
-  public getCachedKeysIntersections(blockData: BlockData): string[] {
+  public getCachedKeysIntersections(
+    blockData: BlockData,
+  ): VerifiedDepositEvent[] {
     const { blockHash } = blockData;
     const { keysOpIndex, depositRoot, depositedEvents } = blockData;
     const cache = blockData.nodeOperatorsCache;
@@ -262,14 +270,13 @@ export class GuardianService implements OnModuleInit {
     // Skip checking until the next cache update
     if (!isCacheUpToDate) return [];
 
-    const depositedKeys = depositedEvents.events.map(({ pubkey }) => pubkey);
-    const depositedKeysSet = new Set(depositedKeys);
+    const unusedOperatorsKeys = cache.operators.flatMap((operator) =>
+      operator.keys.filter(({ used }) => used === false).map(({ key }) => key),
+    );
+    const unusedOperatorsKeysSet = new Set(unusedOperatorsKeys);
 
-    const intersections = cache.operators.flatMap((operator) =>
-      operator.keys
-        .filter(({ used }) => used === false)
-        .filter(({ key }) => depositedKeysSet.has(key))
-        .map(({ key }) => key),
+    const intersections = depositedEvents.events.filter(({ pubkey }) =>
+      unusedOperatorsKeysSet.has(pubkey),
     );
 
     if (intersections.length) {
@@ -285,9 +292,33 @@ export class GuardianService implements OnModuleInit {
   }
 
   /**
+   * Excludes invalid deposits and deposits with Lido WC from intersections
+   * @param intersections - list of deposits with keys that were deposited earlier
+   * @param blockData - collected data from the current block
+   */
+  public async excludeEligibleIntersections(
+    intersections: VerifiedDepositEvent[],
+    blockData: BlockData,
+  ): Promise<VerifiedDepositEvent[]> {
+    // Exclude deposits with invalid signature over the deposit data
+    const validIntersections = intersections.filter(({ valid }) => valid);
+    if (!validIntersections.length) return [];
+
+    // Exclude deposits with Lido withdrawal credentials
+    const { blockHash } = blockData;
+    const lidoWC = await this.lidoService.getWithdrawalCredentials({
+      blockHash,
+    });
+    const attackIntersections = validIntersections.filter(
+      (deposit) => deposit.wc !== lidoWC,
+    );
+
+    return attackIntersections;
+  }
+
+  /**
    * Handles the situation when keys have previously deposited copies
    * @param blockData - collected data from the current block
-   * @param intersections - list of keys that were deposited earlier
    */
   public async handleKeysIntersections(blockData: BlockData): Promise<void> {
     const {
