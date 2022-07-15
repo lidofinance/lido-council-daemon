@@ -19,6 +19,6 @@ export class AppService implements OnModuleInit {
     const name = APP_NAME;
 
     this.buildInfo.labels({ version, name, network }).inc();
-    this.logger.log('Init app', { name, version });
+    this.logger.log('Init app', { name, version, network });
   }
 }
