@@ -113,9 +113,8 @@ export class GuardianService implements OnModuleInit {
   @OneAtTime()
   public async handleNewBlock(): Promise<void> {
     this.logger.log('New block cycle start');
-    const block = await this.providerService.getBlock();
-    await this.repositoryService.updateContracts(block);
 
+    const block = await this.providerService.getBlock();
     const blockData = await this.getCurrentBlockData(block);
 
     await Promise.all([

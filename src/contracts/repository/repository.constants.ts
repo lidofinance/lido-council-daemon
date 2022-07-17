@@ -14,5 +14,16 @@ export const getLidoAddress = (chainId: CHAINS): string => {
   return address;
 };
 
-export const EVENTS_OVERLAP_BLOCKS = 10;
-export const EVENTS_FETCH_STEP = 20_000;
+export const DEPOSIT_SECURITY_BY_NETWORK: {
+  [key in CHAINS]?: string;
+} = {
+  [CHAINS.Mainnet]: '0x710B3303fB508a84F10793c1106e32bE873C24cd',
+  [CHAINS.Goerli]: '0x7DC1C1ff64078f73C98338e2f17D1996ffBb2eDe',
+};
+
+export const getDepositSecurityAddress = (chainId: CHAINS): string => {
+  const address = DEPOSIT_SECURITY_BY_NETWORK[chainId];
+  if (!address) throw new Error(`Chain ${chainId} is not supported`);
+
+  return address;
+};

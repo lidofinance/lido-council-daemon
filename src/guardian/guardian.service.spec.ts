@@ -11,8 +11,8 @@ import { GuardianModule } from 'guardian';
 import { DepositService } from 'contracts/deposit';
 import { RegistryService } from 'contracts/registry';
 import { SecurityService } from 'contracts/security';
+import { RepositoryModule } from 'contracts/repository';
 import { LidoService } from 'contracts/lido';
-import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { MessagesService, MessageType } from 'messages';
 
 describe('GuardianService', () => {
@@ -24,7 +24,6 @@ describe('GuardianService', () => {
   let lidoService: LidoService;
   let messagesService: MessagesService;
   let securityService: SecurityService;
-  let repositoryService: RepositoryService;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -45,7 +44,6 @@ describe('GuardianService', () => {
     lidoService = moduleRef.get(LidoService);
     messagesService = moduleRef.get(MessagesService);
     securityService = moduleRef.get(SecurityService);
-    repositoryService = moduleRef.get(RepositoryService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
@@ -189,10 +187,6 @@ describe('GuardianService', () => {
         .spyOn(providerService, 'getBlock')
         .mockImplementation(async () => ({ number: 1, hash: '0x01' } as any));
 
-      const mockUpdateContracts = jest
-        .spyOn(repositoryService, 'updateContracts')
-        .mockImplementation(async () => false);
-
       const mockHandleNewBlock = jest
         .spyOn(guardianService, 'checkKeysIntersections')
         .mockImplementation(async () => undefined);
@@ -223,7 +217,6 @@ describe('GuardianService', () => {
       ]);
 
       expect(mockProviderCall).toBeCalledTimes(1);
-      expect(mockUpdateContracts).toBeCalledTimes(1);
       expect(mockHandleNewBlock).toBeCalledTimes(1);
       expect(mockGetCurrentBlockData).toBeCalledTimes(1);
       expect(mockDepositHandleNewBlock).toBeCalledTimes(1);
