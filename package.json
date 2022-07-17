@@ -29,6 +29,8 @@
     "cache:clear": "rimraf cache"
   },
   "dependencies": {
+    "@chainsafe/blst": "^0.2.4",
+    "@chainsafe/ssz": "^0.9.2",
     "@ethersproject/providers": "^5.4.5",
     "@lido-sdk/constants": "^1.2.0",
     "@nestjs/common": "^8.0.0",
@@ -56,11 +58,11 @@
     "@nestjs/testing": "^8.0.11",
     "@typechain/ethers-v5": "^7.1.2",
     "@types/app-root-path": "^1.2.4",
+    "@types/cache-manager": "^3.4.3",
     "@types/jest": "^27.0.1",
     "@types/kafkajs": "^1.9.0",
     "@types/node": "^16.0.0",
     "@types/supertest": "^2.0.11",
-    "@types/cache-manager": "^3.4.3",
     "@typescript-eslint/eslint-plugin": "^4.28.2",
     "@typescript-eslint/parser": "^4.28.2",
     "eslint": "^7.30.0",

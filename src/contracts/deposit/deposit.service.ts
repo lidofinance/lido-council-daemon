@@ -11,14 +11,15 @@ import {
 } from './deposit.constants';
 import {
   DepositEvent,
-  DepositEventGroup,
-  DepositEventsCache,
+  VerifiedDepositEventsCache,
+  VerifiedDepositEventGroup,
 } from './interfaces';
 import { OneAtTime } from 'common/decorators';
 import { RepositoryService } from 'contracts/repository';
 import { CacheService } from 'cache';
 import { BlockData } from 'guardian';
 import { BlockTag } from 'provider';
+import { BlsService } from 'bls';
 import { APP_VERSION } from 'app.constants';
 
 @Injectable()
@@ -27,7 +28,8 @@ export class DepositService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
     private repositoryService: RepositoryService,
-    private cacheService: CacheService<DepositEventsCache>,
+    private cacheService: CacheService<VerifiedDepositEventsCache>,
+    private blsService: BlsService,
   ) {}
 
   @OneAtTime()
@@ -60,7 +62,7 @@ export class DepositService {
    * @returns true if cache is valid
    */
   public validateCache(
-    cachedEvents: DepositEventsCache,
+    cachedEvents: VerifiedDepositEventsCache,
     currentBlock: number,
   ): boolean {
     return (
@@ -74,7 +76,9 @@ export class DepositService {
    * @param cachedEvents - cached events
    * @returns true if cached app version is the same
    */
-  public validateCacheVersion(cachedEvents: DepositEventsCache): boolean {
+  public validateCacheVersion(
+    cachedEvents: VerifiedDepositEventsCache,
+  ): boolean {
     const isSameVersion = cachedEvents.version === APP_VERSION;
 
     const versions = {
@@ -106,7 +110,7 @@ export class DepositService {
    * @returns true if cached app version is the same
    */
   public validateCacheBlock(
-    cachedEvents: DepositEventsCache,
+    cachedEvents: VerifiedDepositEventsCache,
     currentBlock: number,
   ): boolean {
     const isCacheValid = currentBlock >= cachedEvents.endBlock;
@@ -155,7 +159,7 @@ export class DepositService {
    * Gets node operators data from cache
    * @returns event group
    */
-  public async getCachedEvents(): Promise<DepositEventsCache> {
+  public async getCachedEvents(): Promise<VerifiedDepositEventsCache> {
     const cachedEventGroup = await this.cacheService.getCache();
     const deploymentBlock = await this.getDeploymentBlockByNetwork();
 
@@ -169,7 +173,9 @@ export class DepositService {
   /**
    * Saves deposited events to cache
    */
-  public async setCachedEvents(eventGroup: DepositEventGroup): Promise<void> {
+  public async setCachedEvents(
+    eventGroup: VerifiedDepositEventGroup,
+  ): Promise<void> {
     return await this.cacheService.setCache({
       ...eventGroup,
       version: APP_VERSION,
@@ -194,7 +200,7 @@ export class DepositService {
   public async fetchEventsFallOver(
     startBlock: number,
     endBlock: number,
-  ): Promise<DepositEventGroup> {
+  ): Promise<VerifiedDepositEventGroup> {
     return await this.providerService.fetchEventsFallOver(
       startBlock,
       endBlock,
@@ -211,11 +217,15 @@ export class DepositService {
   public async fetchEvents(
     startBlock: number,
     endBlock: number,
-  ): Promise<DepositEventGroup> {
+  ): Promise<VerifiedDepositEventGroup> {
     const contract = await this.repositoryService.getCachedDepositContract();
     const filter = contract.filters.DepositEvent();
     const rawEvents = await contract.queryFilter(filter, startBlock, endBlock);
-    const events = rawEvents.map((rawEvent) => this.formatEvent(rawEvent));
+    const events = rawEvents.map((rawEvent) => {
+      const formatted = this.formatEvent(rawEvent);
+      const valid = this.verifyDeposit(formatted);
+      return { valid, ...formatted };
+    });
 
     return { events, startBlock, endBlock };
   }
@@ -283,7 +293,7 @@ export class DepositService {
   public async getAllDepositedEvents(
     blockNumber: number,
     blockHash: string,
-  ): Promise<DepositEventGroup> {
+  ): Promise<VerifiedDepositEventGroup> {
     const endBlock = blockNumber;
     const cachedEvents = await this.getCachedEvents();
 
@@ -346,5 +356,13 @@ export class DepositService {
     });
 
     return depositRoot;
+  }
+
+  /**
+   * Verifies a deposit signature
+   */
+  public verifyDeposit(depositEvent: DepositEvent): boolean {
+    const { pubkey, wc, amount, signature } = depositEvent;
+    return this.blsService.verify({ pubkey, wc, amount, signature });
   }
 }
