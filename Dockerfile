@@ -2,7 +2,7 @@ FROM node:14.18.1-alpine3.13 as building
 
 # needed for git dependencies
 RUN apk update && apk upgrade && \
-    apk add --no-cache bash=5.1.16-r0 git=2.30.3-r0 openssh=8.4_p1-r4
+    apk add --no-cache bash=5.1.16-r0 git=2.30.5-r0 openssh=8.4_p1-r4
 
 RUN mkdir /council
 
