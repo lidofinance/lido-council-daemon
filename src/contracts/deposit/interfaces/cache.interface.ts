@@ -1,5 +1,5 @@
-import { DepositEventGroup } from './event.interface';
+import { VerifiedDepositEventGroup } from './event.interface';
 
-export interface DepositEventsCache extends DepositEventGroup {
+export interface VerifiedDepositEventsCache extends VerifiedDepositEventGroup {
   version: string;
 }
