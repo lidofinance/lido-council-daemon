@@ -1,10 +1,11 @@
-# [1.5.0](https://github.com/lidofinance/lido-council-daemon/compare/1.4.2...1.5.0) (2022-07-18)
+# [1.6.0](https://github.com/lidofinance/lido-council-daemon/compare/1.4.2...1.6.0) (2022-07-19)
 
 
 ### Bug Fixes
 
 * git version in docker ([1013166](https://github.com/lidofinance/lido-council-daemon/commit/1013166b533456cb68dd973958e4f38883b93181))
 * log invalid deposit data ([eff7f91](https://github.com/lidofinance/lido-council-daemon/commit/eff7f910119b6b9fe7b3de038d62c8d86fce35e0))
+* testnet deploy ([a8407d9](https://github.com/lidofinance/lido-council-daemon/commit/a8407d9ee2cdff35b387c6631d5f26c8d02dd1bf))
 
 
 ### Features
