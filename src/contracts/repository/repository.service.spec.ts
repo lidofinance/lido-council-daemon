@@ -1,20 +1,22 @@
+import { isAddress } from '@ethersproject/address';
+import { Interface } from '@ethersproject/abi';
 import { Contract } from '@ethersproject/contracts';
+import { hexZeroPad } from '@ethersproject/bytes';
+import { CHAINS } from '@lido-sdk/constants';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
-import { MockProviderModule } from 'provider';
-import { RepositoryService } from 'contracts/repository';
 import { PrometheusModule } from 'common/prometheus';
+import { MockProviderModule, ProviderService } from 'provider';
+import { RepositoryService } from 'contracts/repository';
+import { LidoAbi__factory } from 'generated';
 import { RepositoryModule } from './repository.module';
-import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { LoggerService } from '@nestjs/common';
 
 describe('RepositoryService', () => {
   const address1 = '0x' + '1'.repeat(40);
-  const address2 = '0x' + '0'.repeat(40);
 
   let repositoryService: RepositoryService;
-  let loggerService: LoggerService;
+  let providerService: ProviderService;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -28,10 +30,7 @@ describe('RepositoryService', () => {
     }).compile();
 
     repositoryService = moduleRef.get(RepositoryService);
-    loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
-
-    jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
-    jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
+    providerService = moduleRef.get(ProviderService);
   });
 
   describe('lido contract', () => {
@@ -57,60 +56,6 @@ describe('RepositoryService', () => {
     it('should cache instance', async () => {
       const contract1 = await repositoryService.getCachedLidoContract();
       const contract2 = await repositoryService.getCachedLidoContract();
-      expect(contract1).toEqual(contract2);
-    });
-  });
-
-  describe('kernel contract', () => {
-    let mockGetAddress;
-
-    beforeEach(() => {
-      mockGetAddress = jest
-        .spyOn(repositoryService, 'getKernelAddress')
-        .mockImplementationOnce(async () => address1);
-    });
-
-    it('should return contract instance', async () => {
-      const contract = await repositoryService.getCachedKernelContract();
-      expect(contract).toBeInstanceOf(Contract);
-    });
-
-    it('should call getKernelAddress once', async () => {
-      await repositoryService.getCachedKernelContract();
-      await repositoryService.getCachedKernelContract();
-      expect(mockGetAddress).toBeCalledTimes(1);
-    });
-
-    it('should cache instance', async () => {
-      const contract1 = await repositoryService.getCachedKernelContract();
-      const contract2 = await repositoryService.getCachedKernelContract();
-      expect(contract1).toEqual(contract2);
-    });
-  });
-
-  describe('acl contract', () => {
-    let mockGetAddress;
-
-    beforeEach(() => {
-      mockGetAddress = jest
-        .spyOn(repositoryService, 'getACLAddress')
-        .mockImplementationOnce(async () => address1);
-    });
-
-    it('should return contract instance', async () => {
-      const contract = await repositoryService.getCachedACLContract();
-      expect(contract).toBeInstanceOf(Contract);
-    });
-
-    it('should call getACLAddress once', async () => {
-      await repositoryService.getCachedACLContract();
-      await repositoryService.getCachedACLContract();
-      expect(mockGetAddress).toBeCalledTimes(1);
-    });
-
-    it('should cache instance', async () => {
-      const contract1 = await repositoryService.getCachedACLContract();
-      const contract2 = await repositoryService.getCachedACLContract();
       expect(contract1).toEqual(contract2);
     });
   });
@@ -196,145 +141,95 @@ describe('RepositoryService', () => {
     });
   });
 
-  describe('update contracts', () => {
-    const blockTag = { number: 100 } as any;
-    let mockKernelAddress;
-    let mockACLAddress;
-    let mockSecurityAddress;
-    let mockRegistryAddress;
-    let mockDepositAddress;
+  describe('lido address', () => {
+    it('should return contract address for mainnet', async () => {
+      jest
+        .spyOn(providerService, 'getChainId')
+        .mockImplementationOnce(async () => CHAINS.Mainnet);
 
-    beforeEach(() => {
-      mockKernelAddress = jest
-        .spyOn(repositoryService, 'getKernelAddress')
-        .mockImplementation(async () => address1);
-
-      mockACLAddress = jest
-        .spyOn(repositoryService, 'getACLAddress')
-        .mockImplementation(async () => address1);
-
-      mockSecurityAddress = jest
-        .spyOn(repositoryService, 'getDepositSecurityAddress')
-        .mockImplementation(async () => address1);
-
-      mockRegistryAddress = jest
-        .spyOn(repositoryService, 'getRegistryAddress')
-        .mockImplementation(async () => address1);
-
-      mockDepositAddress = jest
-        .spyOn(repositoryService, 'getDepositAddress')
-        .mockImplementation(async () => address1);
+      const address = await repositoryService.getLidoAddress();
+      expect(isAddress(address)).toBeTruthy();
     });
 
-    afterEach(() => {
-      jest.resetAllMocks();
+    it('should return contract address for goerli', async () => {
+      jest
+        .spyOn(providerService, 'getChainId')
+        .mockImplementationOnce(async () => CHAINS.Goerli);
+
+      const address = await repositoryService.getLidoAddress();
+      expect(isAddress(address)).toBeTruthy();
     });
 
-    it('should not update contracts if addresses are same', async () => {
-      await expect(
-        repositoryService.updateContracts(blockTag),
-      ).resolves.toBeFalsy();
+    it('should throw an error for unknown network', async () => {
+      jest
+        .spyOn(providerService, 'getChainId')
+        .mockImplementationOnce(async () => 999);
 
-      await expect(
-        repositoryService.updateContracts(blockTag),
-      ).resolves.toBeFalsy();
+      await expect(repositoryService.getLidoAddress()).rejects.toThrowError();
+    });
+  });
+
+  describe('deposit security address', () => {
+    it('should return contract address for mainnet', async () => {
+      jest
+        .spyOn(providerService, 'getChainId')
+        .mockImplementationOnce(async () => CHAINS.Mainnet);
+
+      const address = await repositoryService.getDepositSecurityAddress();
+      expect(isAddress(address)).toBeTruthy();
     });
 
-    it('should update contracts if security address has changed', async () => {
-      await expect(
-        repositoryService.updateContracts(blockTag),
-      ).resolves.toBeFalsy();
+    it('should return contract address for goerli', async () => {
+      jest
+        .spyOn(providerService, 'getChainId')
+        .mockImplementationOnce(async () => CHAINS.Goerli);
 
-      mockSecurityAddress.mockReset();
-      mockSecurityAddress.mockImplementation(async () => address2);
-
-      await expect(
-        repositoryService.updateContracts(blockTag),
-      ).resolves.toBeTruthy();
-
-      const contract = await repositoryService.getCachedSecurityContract();
-      expect(contract.address).toBe(address2);
+      const address = await repositoryService.getDepositSecurityAddress();
+      expect(isAddress(address)).toBeTruthy();
     });
 
-    it('should update contracts if security address has changed', async () => {
-      const contract1 = await repositoryService.getCachedSecurityContract();
-      const contract2 = await repositoryService.getCachedSecurityContract();
-
-      mockSecurityAddress.mockReset();
-      mockSecurityAddress.mockImplementation(async () => address2);
+    it('should throw an error for unknown network', async () => {
+      jest
+        .spyOn(providerService, 'getChainId')
+        .mockImplementationOnce(async () => 999);
 
       await expect(
-        repositoryService.updateContracts(blockTag),
-      ).resolves.toBeTruthy();
-
-      const contract3 = await repositoryService.getCachedSecurityContract();
-
-      expect(contract1).toEqual(contract2);
-      expect(contract2).not.toEqual(contract3);
+        repositoryService.getDepositSecurityAddress(),
+      ).rejects.toThrowError();
     });
+  });
 
-    it.skip('should update contracts if kernel address has changed', async () => {
-      await expect(
-        repositoryService.updateContracts(blockTag),
-      ).resolves.toBeFalsy();
+  describe('registry address', () => {
+    it('should return contract address', async () => {
+      const expected = hexZeroPad('0x1', 20);
 
-      mockKernelAddress.mockReset();
-      mockKernelAddress.mockImplementation(async () => address2);
+      const mockProviderCall = jest
+        .spyOn(providerService.provider, 'call')
+        .mockImplementation(async () => {
+          const iface = new Interface(LidoAbi__factory.abi);
+          return iface.encodeFunctionResult('getOperators', [expected]);
+        });
 
-      await expect(
-        repositoryService.updateContracts(blockTag),
-      ).resolves.toBeTruthy();
-
-      const contract = await repositoryService.getCachedKernelContract();
-      expect(contract.address).toBe(address2);
+      const address = await repositoryService.getRegistryAddress();
+      expect(address).toEqual(expected);
+      expect(mockProviderCall).toBeCalledTimes(1);
     });
+  });
 
-    it.skip('should update contracts if acl address has changed', async () => {
-      await expect(
-        repositoryService.updateContracts(blockTag),
-      ).resolves.toBeFalsy();
+  describe('deposit address', () => {
+    it('should return contract address', async () => {
+      const expected = hexZeroPad('0x1', 20);
 
-      mockACLAddress.mockReset();
-      mockACLAddress.mockImplementation(async () => address2);
+      const mockProviderCall = jest
+        .spyOn(providerService.provider, 'call')
+        .mockImplementation(async () => {
+          const iface = new Interface(LidoAbi__factory.abi);
+          return iface.encodeFunctionResult('getDepositContract', [expected]);
+        });
 
-      await expect(
-        repositoryService.updateContracts(blockTag),
-      ).resolves.toBeTruthy();
-
-      const contract = await repositoryService.getCachedACLContract();
-      expect(contract.address).toBe(address2);
-    });
-
-    it.skip('should update contracts if registry address has changed', async () => {
-      await expect(
-        repositoryService.updateContracts(blockTag),
-      ).resolves.toBeFalsy();
-
-      mockRegistryAddress.mockReset();
-      mockRegistryAddress.mockImplementation(async () => address2);
-
-      await expect(
-        repositoryService.updateContracts(blockTag),
-      ).resolves.toBeTruthy();
-
-      const contract = await repositoryService.getCachedRegistryContract();
-      expect(contract.address).toBe(address2);
-    });
-
-    it.skip('should update contracts if deposit address has changed', async () => {
-      await expect(
-        repositoryService.updateContracts(blockTag),
-      ).resolves.toBeFalsy();
-
-      mockDepositAddress.mockReset();
-      mockDepositAddress.mockImplementation(async () => address2);
-
-      await expect(
-        repositoryService.updateContracts(blockTag),
-      ).resolves.toBeTruthy();
-
-      const contract = await repositoryService.getCachedDepositContract();
-      expect(contract.address).toBe(address2);
+      const address = await repositoryService.getDepositAddress();
+      expect(address).toEqual(expected);
+      expect(mockProviderCall).toBeCalledTimes(1);
     });
   });
 });

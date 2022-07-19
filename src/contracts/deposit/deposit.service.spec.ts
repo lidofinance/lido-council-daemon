@@ -22,6 +22,7 @@ import { PrometheusModule } from 'common/prometheus';
 import { LoggerModule } from 'common/logger';
 import { ConfigModule } from 'common/config';
 import { APP_VERSION } from 'app.constants';
+import { BlsService } from 'bls';
 
 const mockSleep = sleep as jest.MockedFunction<typeof sleep>;
 
@@ -31,6 +32,7 @@ describe('DepositService', () => {
   let depositService: DepositService;
   let loggerService: LoggerService;
   let repositoryService: RepositoryService;
+  let blsService: BlsService;
 
   const depositAddress = '0x' + '1'.repeat(40);
 
@@ -50,6 +52,7 @@ describe('DepositService', () => {
     cacheService = moduleRef.get(CacheService);
     depositService = moduleRef.get(DepositService);
     repositoryService = moduleRef.get(RepositoryService);
+    blsService = moduleRef.get(BlsService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
@@ -250,6 +253,8 @@ describe('DepositService', () => {
       jest
         .spyOn(providerService.provider, 'getBlockNumber')
         .mockImplementation(async () => endBlock);
+
+      jest.spyOn(blsService, 'verify').mockImplementation(() => true);
 
       const mockProviderCall = jest
         .spyOn(providerService.provider, 'getLogs')

@@ -6,9 +6,10 @@ import {
 } from '@nestjs/common';
 import { Block } from '@ethersproject/providers';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { DepositService } from 'contracts/deposit';
+import { DepositService, VerifiedDepositEvent } from 'contracts/deposit';
 import { RegistryService } from 'contracts/registry';
 import { SecurityService } from 'contracts/security';
+import { LidoService } from 'contracts/lido';
 import { RepositoryService } from 'contracts/repository';
 import { ProviderService } from 'provider';
 import {
@@ -26,8 +27,10 @@ import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import {
   METRIC_BLOCK_DATA_REQUEST_DURATION,
   METRIC_BLOCK_DATA_REQUEST_ERRORS,
+  METRIC_VALIDATED_DEPOSITS_TOTAL,
   METRIC_DEPOSITED_KEYS_TOTAL,
   METRIC_OPERATORS_KEYS_TOTAL,
+  METRIC_INTERSECTIONS_TOTAL,
 } from 'common/prometheus';
 import { Counter, Gauge, Histogram } from 'prom-client';
 import { APP_NAME, APP_VERSION } from 'app.constants';
@@ -44,11 +47,17 @@ export class GuardianService implements OnModuleInit {
     @InjectMetric(METRIC_BLOCK_DATA_REQUEST_ERRORS)
     private blockErrorsCounter: Counter<string>,
 
+    @InjectMetric(METRIC_VALIDATED_DEPOSITS_TOTAL)
+    private validatedDepositsCounter: Gauge<string>,
+
     @InjectMetric(METRIC_DEPOSITED_KEYS_TOTAL)
     private depositedKeysCounter: Gauge<string>,
 
     @InjectMetric(METRIC_OPERATORS_KEYS_TOTAL)
     private operatorsKeysCounter: Gauge<string>,
+
+    @InjectMetric(METRIC_INTERSECTIONS_TOTAL)
+    private intersectionsCounter: Gauge<string>,
 
     private registryService: RegistryService,
     private depositService: DepositService,
@@ -56,6 +65,7 @@ export class GuardianService implements OnModuleInit {
     private providerService: ProviderService,
     private messagesService: MessagesService,
     private repositoryService: RepositoryService,
+    private lidoService: LidoService,
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -103,9 +113,8 @@ export class GuardianService implements OnModuleInit {
   @OneAtTime()
   public async handleNewBlock(): Promise<void> {
     this.logger.log('New block cycle start');
-    const block = await this.providerService.getBlock();
-    await this.repositoryService.updateContracts(block);
 
+    const block = await this.providerService.getBlock();
     const blockData = await this.getCurrentBlockData(block);
 
     await Promise.all([
@@ -193,17 +202,23 @@ export class GuardianService implements OnModuleInit {
   public async checkKeysIntersections(blockData: BlockData): Promise<void> {
     const { blockHash } = blockData;
 
+    const nextKeysIntersections = this.getNextKeysIntersections(blockData);
+    const cachedKeysIntersections = this.getCachedKeysIntersections(blockData);
+    const intersections = nextKeysIntersections.concat(cachedKeysIntersections);
+    const filteredIntersections = await this.excludeEligibleIntersections(
+      intersections,
+      blockData,
+    );
+    const isFilteredIntersectionsFound = filteredIntersections.length > 0;
+
+    this.collectIntersectionsMetrics(intersections, filteredIntersections);
+
     if (blockData.isDepositsPaused) {
       this.logger.warn('Deposits are paused', { blockHash });
       return;
     }
 
-    const nextKeysIntersections = this.getNextKeysIntersections(blockData);
-    const cachedKeysIntersections = this.getCachedKeysIntersections(blockData);
-    const intersections = nextKeysIntersections.concat(cachedKeysIntersections);
-    const isIntersectionsFound = intersections.length > 0;
-
-    if (isIntersectionsFound) {
+    if (isFilteredIntersectionsFound) {
       await this.handleKeysIntersections(blockData);
     } else {
       await this.handleCorrectKeys(blockData);
@@ -216,16 +231,16 @@ export class GuardianService implements OnModuleInit {
    * @param blockData - collected data from the current block
    * @returns list of keys that were deposited earlier
    */
-  public getNextKeysIntersections(blockData: BlockData): string[] {
+  public getNextKeysIntersections(
+    blockData: BlockData,
+  ): VerifiedDepositEvent[] {
     const { blockHash } = blockData;
     const { depositedEvents, nextSigningKeys } = blockData;
     const { depositRoot, keysOpIndex } = blockData;
 
-    const depositedKeys = depositedEvents.events.map(({ pubkey }) => pubkey);
-    const depositedKeysSet = new Set(depositedKeys);
-
-    const intersections = nextSigningKeys.filter((nextSigningKey) =>
-      depositedKeysSet.has(nextSigningKey),
+    const nextSigningKeysSet = new Set(nextSigningKeys);
+    const intersections = depositedEvents.events.filter(({ pubkey }) =>
+      nextSigningKeysSet.has(pubkey),
     );
 
     if (intersections.length) {
@@ -246,7 +261,9 @@ export class GuardianService implements OnModuleInit {
    * @param blockData - collected data from the current block
    * @returns list of keys that were deposited earlier
    */
-  public getCachedKeysIntersections(blockData: BlockData): string[] {
+  public getCachedKeysIntersections(
+    blockData: BlockData,
+  ): VerifiedDepositEvent[] {
     const { blockHash } = blockData;
     const { keysOpIndex, depositRoot, depositedEvents } = blockData;
     const cache = blockData.nodeOperatorsCache;
@@ -258,14 +275,13 @@ export class GuardianService implements OnModuleInit {
     // Skip checking until the next cache update
     if (!isCacheUpToDate) return [];
 
-    const depositedKeys = depositedEvents.events.map(({ pubkey }) => pubkey);
-    const depositedKeysSet = new Set(depositedKeys);
+    const unusedOperatorsKeys = cache.operators.flatMap((operator) =>
+      operator.keys.filter(({ used }) => used === false).map(({ key }) => key),
+    );
+    const unusedOperatorsKeysSet = new Set(unusedOperatorsKeys);
 
-    const intersections = cache.operators.flatMap((operator) =>
-      operator.keys
-        .filter(({ used }) => used === false)
-        .filter(({ key }) => depositedKeysSet.has(key))
-        .map(({ key }) => key),
+    const intersections = depositedEvents.events.filter(({ pubkey }) =>
+      unusedOperatorsKeysSet.has(pubkey),
     );
 
     if (intersections.length) {
@@ -281,9 +297,33 @@ export class GuardianService implements OnModuleInit {
   }
 
   /**
+   * Excludes invalid deposits and deposits with Lido WC from intersections
+   * @param intersections - list of deposits with keys that were deposited earlier
+   * @param blockData - collected data from the current block
+   */
+  public async excludeEligibleIntersections(
+    intersections: VerifiedDepositEvent[],
+    blockData: BlockData,
+  ): Promise<VerifiedDepositEvent[]> {
+    // Exclude deposits with invalid signature over the deposit data
+    const validIntersections = intersections.filter(({ valid }) => valid);
+    if (!validIntersections.length) return [];
+
+    // Exclude deposits with Lido withdrawal credentials
+    const { blockHash } = blockData;
+    const lidoWC = await this.lidoService.getWithdrawalCredentials({
+      blockHash,
+    });
+    const attackIntersections = validIntersections.filter(
+      (deposit) => deposit.wc !== lidoWC,
+    );
+
+    return attackIntersections;
+  }
+
+  /**
    * Handles the situation when keys have previously deposited copies
    * @param blockData - collected data from the current block
-   * @param intersections - list of keys that were deposited earlier
    */
   public async handleKeysIntersections(blockData: BlockData): Promise<void> {
     const {
@@ -443,19 +483,49 @@ export class GuardianService implements OnModuleInit {
    * @param blockData - collected data from the current block
    */
   public collectMetrics(blockData: BlockData): void {
-    const { depositedEvents, nodeOperatorsCache, nextSigningKeys } = blockData;
+    this.collectValidatingMetrics(blockData);
+    this.collectDepositMetrics(blockData);
+    this.collectOperatorMetrics(blockData);
+  }
 
-    /* deposited keys */
+  /**
+   * Collects metrics about validated deposits
+   * @param blockData - collected data from the current block
+   */
+  public collectValidatingMetrics(blockData: BlockData): void {
+    const { depositedEvents } = blockData;
+    const { events } = depositedEvents;
 
-    const depositedKeys = depositedEvents.events.map(({ pubkey }) => pubkey);
+    const valid = events.reduce((sum, { valid }) => sum + (valid ? 1 : 0), 0);
+    const invalid = events.reduce((sum, { valid }) => sum + (valid ? 0 : 1), 0);
+
+    this.validatedDepositsCounter.set({ type: 'valid' }, valid);
+    this.validatedDepositsCounter.set({ type: 'invalid' }, invalid);
+  }
+
+  /**
+   * Collects metrics about deposited keys
+   * @param blockData - collected data from the current block
+   */
+  public collectDepositMetrics(blockData: BlockData): void {
+    const { depositedEvents } = blockData;
+    const { events } = depositedEvents;
+
+    const depositedKeys = events.map(({ pubkey }) => pubkey);
     const depositedKeysSet = new Set(depositedKeys);
     const depositedDubsTotal = depositedKeys.length - depositedKeysSet.size;
 
     this.depositedKeysCounter.set({ type: 'total' }, depositedKeys.length);
     this.depositedKeysCounter.set({ type: 'unique' }, depositedKeysSet.size);
     this.depositedKeysCounter.set({ type: 'duplicates' }, depositedDubsTotal);
+  }
 
-    /* operators keys */
+  /**
+   * Collects metrics about operators keys
+   * @param blockData - collected data from the current block
+   */
+  public collectOperatorMetrics(blockData: BlockData): void {
+    const { nodeOperatorsCache, nextSigningKeys } = blockData;
 
     const { operators } = nodeOperatorsCache;
     const operatorsKeys = operators.flatMap(({ keys }) => keys);
@@ -468,5 +538,18 @@ export class GuardianService implements OnModuleInit {
     this.operatorsKeysCounter.set({ type: 'used' }, operatorsKeysUsedTotal);
     this.operatorsKeysCounter.set({ type: 'unused' }, operatorsKeysUnusedTotal);
     this.operatorsKeysCounter.set({ type: 'next' }, nextSigningKeys.length);
+  }
+
+  /**
+   * Collects metrics about keys intersections
+   * @param all - all intersections
+   * @param filtered - all intersections
+   */
+  public collectIntersectionsMetrics(
+    all: VerifiedDepositEvent[],
+    filtered: VerifiedDepositEvent[],
+  ): void {
+    this.intersectionsCounter.set({ type: 'all' }, all.length);
+    this.intersectionsCounter.set({ type: 'filtered' }, filtered.length);
   }
 }

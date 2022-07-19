@@ -11,7 +11,8 @@ import { GuardianModule } from 'guardian';
 import { DepositService } from 'contracts/deposit';
 import { RegistryService } from 'contracts/registry';
 import { SecurityService } from 'contracts/security';
-import { RepositoryModule, RepositoryService } from 'contracts/repository';
+import { RepositoryModule } from 'contracts/repository';
+import { LidoService } from 'contracts/lido';
 import { MessagesService, MessageType } from 'messages';
 
 describe('GuardianService', () => {
@@ -20,9 +21,9 @@ describe('GuardianService', () => {
   let loggerService: LoggerService;
   let depositService: DepositService;
   let registryService: RegistryService;
+  let lidoService: LidoService;
   let messagesService: MessagesService;
   let securityService: SecurityService;
-  let repositoryService: RepositoryService;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -40,9 +41,9 @@ describe('GuardianService', () => {
     guardianService = moduleRef.get(GuardianService);
     depositService = moduleRef.get(DepositService);
     registryService = moduleRef.get(RegistryService);
+    lidoService = moduleRef.get(LidoService);
     messagesService = moduleRef.get(MessagesService);
     securityService = moduleRef.get(SecurityService);
-    repositoryService = moduleRef.get(RepositoryService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
@@ -79,7 +80,7 @@ describe('GuardianService', () => {
 
       expect(matched).toBeInstanceOf(Array);
       expect(matched).toHaveLength(1);
-      expect(matched).toContain('0x1');
+      expect(matched).toContainEqual({ pubkey: '0x1' });
     });
 
     it('should not find the keys when they don’t match', () => {
@@ -131,7 +132,7 @@ describe('GuardianService', () => {
 
       expect(matched).toBeInstanceOf(Array);
       expect(matched).toHaveLength(1);
-      expect(matched).toContain(pubkey);
+      expect(matched).toContainEqual({ pubkey });
     });
 
     it('should not find the keys when they don’t match', () => {
@@ -186,10 +187,6 @@ describe('GuardianService', () => {
         .spyOn(providerService, 'getBlock')
         .mockImplementation(async () => ({ number: 1, hash: '0x01' } as any));
 
-      const mockUpdateContracts = jest
-        .spyOn(repositoryService, 'updateContracts')
-        .mockImplementation(async () => false);
-
       const mockHandleNewBlock = jest
         .spyOn(guardianService, 'checkKeysIntersections')
         .mockImplementation(async () => undefined);
@@ -220,7 +217,6 @@ describe('GuardianService', () => {
       ]);
 
       expect(mockProviderCall).toBeCalledTimes(1);
-      expect(mockUpdateContracts).toBeCalledTimes(1);
       expect(mockHandleNewBlock).toBeCalledTimes(1);
       expect(mockGetCurrentBlockData).toBeCalledTimes(1);
       expect(mockDepositHandleNewBlock).toBeCalledTimes(1);
@@ -231,11 +227,15 @@ describe('GuardianService', () => {
   });
 
   describe('checkKeysIntersections', () => {
+    const lidoWC = '0x12';
+    const attackerWC = '0x23';
     const depositedPubKeys = ['0x1234', '0x5678'];
     const depositedEvents = {
       startBlock: 1,
       endBlock: 5,
-      events: depositedPubKeys.map((pubkey) => ({ pubkey } as any)),
+      events: depositedPubKeys.map(
+        (pubkey) => ({ pubkey, valid: true } as any),
+      ),
     };
     const nodeOperatorsCache = {
       depositRoot: '0x2345',
@@ -260,7 +260,15 @@ describe('GuardianService', () => {
     it('should call handleKeysIntersections if next keys are found in the deposit contract', async () => {
       const depositedKey = depositedPubKeys[0];
       const nextSigningKeys = [depositedKey];
-      const blockData = { ...currentBlockData, nextSigningKeys };
+      const events = currentBlockData.depositedEvents.events.map(
+        ({ ...data }) => ({ ...data, wc: attackerWC } as any),
+      );
+
+      const blockData = {
+        ...currentBlockData,
+        depositedEvents: { ...currentBlockData.depositedEvents, events },
+        nextSigningKeys,
+      };
 
       const mockHandleCorrectKeys = jest
         .spyOn(guardianService, 'handleCorrectKeys')
@@ -270,11 +278,16 @@ describe('GuardianService', () => {
         .spyOn(guardianService, 'handleKeysIntersections')
         .mockImplementation(async () => undefined);
 
+      const mockGetWithdrawalCredentials = jest
+        .spyOn(lidoService, 'getWithdrawalCredentials')
+        .mockImplementation(async () => lidoWC);
+
       await guardianService.checkKeysIntersections(blockData);
 
       expect(mockHandleCorrectKeys).not.toBeCalled();
       expect(mockHandleKeysIntersections).toBeCalledTimes(1);
       expect(mockHandleKeysIntersections).toBeCalledWith(blockData);
+      expect(mockGetWithdrawalCredentials).toBeCalledTimes(1);
     });
 
     it('should call handleCorrectKeys if Lido next keys are not found in the deposit contract', async () => {
@@ -346,6 +359,56 @@ describe('GuardianService', () => {
 
       expect(mockSendMessageFromGuardian).toBeCalledTimes(1);
       expect(mockSignDepositData).toBeCalledTimes(1);
+    });
+  });
+
+  describe('excludeEligibleIntersections', () => {
+    const pubkey = '0x1234';
+    const lidoWC = '0x12';
+    const attackerWC = '0x23';
+    const blockData = { blockHash: '0x1234' } as any;
+
+    beforeEach(async () => {
+      jest
+        .spyOn(lidoService, 'getWithdrawalCredentials')
+        .mockImplementation(async () => lidoWC);
+    });
+
+    it('should exclude invalid intersections', async () => {
+      const intersections = [{ valid: false, pubkey, wc: lidoWC } as any];
+
+      const filteredIntersections =
+        await guardianService.excludeEligibleIntersections(
+          intersections,
+          blockData,
+        );
+
+      expect(filteredIntersections).toHaveLength(0);
+    });
+
+    it('should exclude intersections with lido WC', async () => {
+      const intersections = [{ valid: true, pubkey, wc: lidoWC } as any];
+
+      const filteredIntersections =
+        await guardianService.excludeEligibleIntersections(
+          intersections,
+          blockData,
+        );
+
+      expect(filteredIntersections).toHaveLength(0);
+    });
+
+    it('should not exclude intersections with attacker WC', async () => {
+      const intersections = [{ valid: true, pubkey, wc: attackerWC } as any];
+
+      const filteredIntersections =
+        await guardianService.excludeEligibleIntersections(
+          intersections,
+          blockData,
+        );
+
+      expect(filteredIntersections).toHaveLength(1);
+      expect(filteredIntersections).toEqual(intersections);
     });
   });
 

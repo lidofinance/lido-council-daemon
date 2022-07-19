@@ -8,8 +8,16 @@ export interface DepositEvent {
   blockHash: string;
 }
 
+export interface VerifiedDepositEvent extends DepositEvent {
+  valid: boolean;
+}
+
 export interface DepositEventGroup {
   events: DepositEvent[];
   startBlock: number;
   endBlock: number;
+}
+
+export interface VerifiedDepositEventGroup extends DepositEventGroup {
+  events: VerifiedDepositEvent[];
 }
