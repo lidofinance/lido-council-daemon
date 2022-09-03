@@ -289,6 +289,71 @@ describe('RegistryService', () => {
     });
   });
 
+  describe('getNodeOperatorKey', () => {
+    const operatorId = 1;
+    const keyId = 4;
+    const blockTag = 10;
+
+    const signingKey = { key: '0x12', depositSignature: '0x23', used: false };
+
+    it('should return node operator keys', async () => {
+      const mockGetSigningKey = jest.fn().mockImplementation(() => signingKey);
+
+      const mockGetCachedBatchContract = jest
+        .spyOn(registryService, 'getCachedBatchContract')
+        .mockImplementation(
+          async () => ({ getSigningKey: mockGetSigningKey } as any),
+        );
+
+      const result = await registryService.getNodeOperatorKey(
+        operatorId,
+        keyId,
+        blockTag,
+      );
+      expect(result).toBeInstanceOf(Object);
+      expect(result).toEqual({ operatorId, id: keyId, ...signingKey });
+      expect(mockGetCachedBatchContract).toBeCalledTimes(1);
+
+      const { calls } = mockGetSigningKey.mock;
+      expect(mockGetSigningKey).toBeCalledTimes(1);
+      expect(calls[0]).toEqual([operatorId, keyId, { blockTag }]);
+    });
+
+    it('should call getCachedBatchContract with the same cacheKey', async () => {
+      const mockGetSigningKey = jest.fn().mockImplementation(() => signingKey);
+
+      const mockGetCachedBatchContract = jest
+        .spyOn(registryService, 'getCachedBatchContract')
+        .mockImplementation(
+          async () => ({ getSigningKey: mockGetSigningKey } as any),
+        );
+
+      await registryService.getNodeOperatorKey(operatorId, 1);
+      await registryService.getNodeOperatorKey(operatorId, 2);
+
+      const { calls } = mockGetCachedBatchContract.mock;
+      expect(mockGetCachedBatchContract).toBeCalledTimes(2);
+      expect(calls[0]).toEqual(calls[1]);
+    });
+
+    it('should call getCachedBatchContract with different cacheKey', async () => {
+      const mockGetSigningKey = jest.fn().mockImplementation(() => signingKey);
+
+      const mockGetCachedBatchContract = jest
+        .spyOn(registryService, 'getCachedBatchContract')
+        .mockImplementation(
+          async () => ({ getSigningKey: mockGetSigningKey } as any),
+        );
+
+      await registryService.getNodeOperatorKey(operatorId, 1);
+      await registryService.getNodeOperatorKey(operatorId, 1000);
+
+      const { calls } = mockGetCachedBatchContract.mock;
+      expect(mockGetCachedBatchContract).toBeCalledTimes(2);
+      expect(calls[0]).not.toEqual(calls[1]);
+    });
+  });
+
   describe('updateNodeOperatorsCache', () => {
     const firstOperator = {
       id: 0,

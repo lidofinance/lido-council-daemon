@@ -1,6 +1,7 @@
 import { NodeOperatorsCache } from './interfaces';
 
 export const REGISTRY_KEYS_QUERY_BATCH_SIZE = 200;
+export const REGISTRY_KEYS_QUERY_CONCURRENCY = 5;
 export const REGISTRY_KEYS_CACHE_UPDATE_BLOCK_RATE = 20;
 
 export const REGISTRY_CACHE_FILE_NAME = 'registry.keys.json';

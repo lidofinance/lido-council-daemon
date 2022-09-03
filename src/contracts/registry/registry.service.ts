@@ -8,6 +8,7 @@ import { RepositoryService } from 'contracts/repository';
 import {
   REGISTRY_KEYS_CACHE_UPDATE_BLOCK_RATE,
   REGISTRY_KEYS_QUERY_BATCH_SIZE,
+  REGISTRY_KEYS_QUERY_CONCURRENCY,
 } from './registry.constants';
 import {
   NodeOperator,
@@ -15,7 +16,7 @@ import {
   NodeOperatorsKey,
   NodeOperatorWithKeys,
 } from './interfaces';
-import { range, splitPubKeys } from 'utils';
+import { range, rangePromise, splitPubKeys } from 'utils';
 import { CacheService } from 'cache';
 import { OneAtTime } from 'common/decorators';
 import { BlockData } from 'guardian';
@@ -240,22 +241,36 @@ export class RegistryService {
     to: number,
     blockTag?: BlockTag,
   ): Promise<NodeOperatorsKey[]> {
-    return await Promise.all(
-      range(from, to).map(async (keyId) => {
-        const seedKey = Math.floor(keyId / REGISTRY_KEYS_QUERY_BATCH_SIZE);
-        const contract = await this.getCachedBatchContract(seedKey);
+    const fetcher = async (keyId: number) => {
+      return await this.getNodeOperatorKey(operatorId, keyId, blockTag);
+    };
 
-        const overrides = { blockTag: blockTag as any };
-        const result = await contract.getSigningKey(
-          operatorId,
-          keyId,
-          overrides,
-        );
-        const { key, depositSignature, used } = result;
+    const batchSize = REGISTRY_KEYS_QUERY_BATCH_SIZE;
+    const concurrency = REGISTRY_KEYS_QUERY_CONCURRENCY;
+    const groupSize = batchSize * concurrency;
 
-        return { operatorId, key, depositSignature, used, id: keyId };
-      }),
-    );
+    return await rangePromise(fetcher, from, to, groupSize);
+  }
+
+  /**
+   * Returns a node operator key
+   * @param operatorId - node operator id
+   * @param keyId - key id
+   * @returns node operator key
+   */
+  public async getNodeOperatorKey(
+    operatorId: number,
+    keyId: number,
+    blockTag?: BlockTag,
+  ): Promise<NodeOperatorsKey> {
+    const seedKey = Math.floor(keyId / REGISTRY_KEYS_QUERY_BATCH_SIZE);
+    const contract = await this.getCachedBatchContract(seedKey);
+    const overrides = { blockTag: blockTag as any };
+
+    const result = await contract.getSigningKey(operatorId, keyId, overrides);
+    const { key, depositSignature, used } = result;
+
+    return { operatorId, key, depositSignature, used, id: keyId };
   }
 
   /**
