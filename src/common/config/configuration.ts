@@ -21,4 +21,6 @@ export interface Configuration {
   KAFKA_SASL_MECHANISM: SASLMechanism;
   KAFKA_USERNAME: string;
   KAFKA_PASSWORD: string;
+  REGISTRY_KEYS_QUERY_BATCH_SIZE: number;
+  REGISTRY_KEYS_QUERY_CONCURRENCY: number;
 }

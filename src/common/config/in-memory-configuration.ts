@@ -1,5 +1,12 @@
 import { Transform } from 'class-transformer';
-import { IsIn, IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
+import {
+  IsIn,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 import { Injectable } from '@nestjs/common';
 import { Configuration, PubsubService } from './configuration';
 import { SASLMechanism } from '../../transport';
@@ -69,4 +76,16 @@ export class InMemoryConfiguration implements Configuration {
   @IsNotEmpty()
   @IsString()
   KAFKA_PASSWORD = '';
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Transform(({ value }) => parseInt(value, 10), { toClassOnly: true })
+  REGISTRY_KEYS_QUERY_BATCH_SIZE = 200;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Transform(({ value }) => parseInt(value, 10), { toClassOnly: true })
+  REGISTRY_KEYS_QUERY_CONCURRENCY = 5;
 }

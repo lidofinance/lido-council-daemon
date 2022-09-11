@@ -5,11 +5,7 @@ import { ProviderService, BlockTag } from 'provider';
 import { SecurityService } from 'contracts/security';
 import { DepositService } from 'contracts/deposit';
 import { RepositoryService } from 'contracts/repository';
-import {
-  REGISTRY_KEYS_CACHE_UPDATE_BLOCK_RATE,
-  REGISTRY_KEYS_QUERY_BATCH_SIZE,
-  REGISTRY_KEYS_QUERY_CONCURRENCY,
-} from './registry.constants';
+import { REGISTRY_KEYS_CACHE_UPDATE_BLOCK_RATE } from './registry.constants';
 import {
   NodeOperator,
   NodeOperatorsCache,
@@ -19,6 +15,7 @@ import {
 import { range, rangePromise, splitPubKeys } from 'utils';
 import { CacheService } from 'cache';
 import { OneAtTime } from 'common/decorators';
+import { Configuration } from 'common/config';
 import { BlockData } from 'guardian';
 import { APP_VERSION } from 'app.constants';
 
@@ -31,6 +28,7 @@ export class RegistryService {
     private depositService: DepositService,
     private repositoryService: RepositoryService,
     private cacheService: CacheService<NodeOperatorsCache>,
+    private config: Configuration,
   ) {}
 
   @OneAtTime()
@@ -245,8 +243,8 @@ export class RegistryService {
       return await this.getNodeOperatorKey(operatorId, keyId, blockTag);
     };
 
-    const batchSize = REGISTRY_KEYS_QUERY_BATCH_SIZE;
-    const concurrency = REGISTRY_KEYS_QUERY_CONCURRENCY;
+    const batchSize = this.config.REGISTRY_KEYS_QUERY_BATCH_SIZE;
+    const concurrency = this.config.REGISTRY_KEYS_QUERY_CONCURRENCY;
     const groupSize = batchSize * concurrency;
 
     return await rangePromise(fetcher, from, to, groupSize);
@@ -263,7 +261,9 @@ export class RegistryService {
     keyId: number,
     blockTag?: BlockTag,
   ): Promise<NodeOperatorsKey> {
-    const seedKey = Math.floor(keyId / REGISTRY_KEYS_QUERY_BATCH_SIZE);
+    const seedKey = Math.floor(
+      keyId / this.config.REGISTRY_KEYS_QUERY_BATCH_SIZE,
+    );
     const contract = await this.getCachedBatchContract(seedKey);
     const overrides = { blockTag: blockTag as any };
 
