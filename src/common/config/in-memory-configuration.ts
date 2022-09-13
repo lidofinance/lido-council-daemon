@@ -44,38 +44,41 @@ export class InMemoryConfiguration implements Configuration {
   KAFKA_CLIENT_ID = '';
 
   @IsString()
-  KAFKA_TOPIC = '';
+  BROKER_TOPIC = '';
 
-  @IsNotEmpty()
   @IsString()
-  @IsIn(['kafka', 'libp2p'])
-  PUBSUB_SERVICE: PubsubService = 'kafka';
+  @IsIn(['kafka', 'rabbitmq', 'libp2p'])
+  PUBSUB_SERVICE: PubsubService = 'rabbitmq';
 
-  @IsNotEmpty()
   @IsString()
   KAFKA_BROKER_ADDRESS_1 = '';
 
   @IsString()
   KAFKA_BROKER_ADDRESS_2 = '';
 
-  @IsNotEmpty()
   @Transform(({ value }) => (value.toLowerCase() == 'true' ? true : false), {
     toClassOnly: true,
   })
   KAFKA_SSL = false;
 
-  @IsNotEmpty()
   @IsString()
   @IsIn(['plain', 'scram-sha-256', 'scram-sha-512'])
   KAFKA_SASL_MECHANISM: SASLMechanism = 'scram-sha-256';
 
-  @IsNotEmpty()
   @IsString()
   KAFKA_USERNAME = '';
 
-  @IsNotEmpty()
   @IsString()
   KAFKA_PASSWORD = '';
+
+  @IsString()
+  RABBITMQ_URL = '';
+
+  @IsString()
+  RABBITMQ_LOGIN = '';
+
+  @IsString()
+  RABBITMQ_PASSCODE = '';
 
   @IsOptional()
   @IsNumber()

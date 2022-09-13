@@ -37,12 +37,10 @@ describe('KafkaTransport', () => {
     it('should send two messages to topic and read two messages from topic', async () => {
       const receivedMessages = [];
 
-      await transport.publish('test', { label: 'first' });
-      await transport.publish('test', { label: 'second' });
+      await transport.publish('test', { label: 'first' }, 'test');
+      await transport.publish('test', { label: 'second' }, 'test');
 
-      await transport.subscribe('test', async (msg) => {
-        receivedMessages.push(msg);
-      });
+      await transport.subscribe('test', async (msg) => receivedMessages.push(msg), 'test');
 
       await new Promise<void>(async (resolve) => {
         setTimeout(resolve, 3000);

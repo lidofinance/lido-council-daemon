@@ -4,7 +4,11 @@ export const TransportInterface =
   createInterface<TransportInterface>('TransportInterface');
 
 export interface TransportInterface {
-  publish<T>(topic: string, message: T): Promise<void>;
-  subscribe<T>(topic: string, cb: (message: T) => Promise<void>): Promise<void>;
+  publish<T>(topic: string, message: T, messageType: string): Promise<void>;
+  subscribe<T>(
+    topic: string,
+    messageType: string,
+    cb: (message: T) => Promise<void>,
+  ): Promise<void>;
   disconnect(): Promise<void>;
 }

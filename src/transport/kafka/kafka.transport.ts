@@ -1,4 +1,4 @@
-import { TransportInterface } from './transport.interface';
+import { TransportInterface } from '../transport.interface';
 import { Kafka, Producer, Consumer } from 'kafkajs';
 import {
   Inject,
@@ -7,7 +7,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { implementationOf } from '../common/di/decorators/implementationOf';
+import { implementationOf } from '../../common/di/decorators/implementationOf';
 
 @Injectable()
 @implementationOf(TransportInterface)
@@ -41,7 +41,11 @@ export class KafkaTransport implements TransportInterface, OnModuleInit {
     }
   }
 
-  public async publish<T>(topic: string, message: T): Promise<void> {
+  public async publish<T>(
+    topic: string,
+    message: T,
+    messageType: string,
+  ): Promise<void> {
     if (!this.producerConnected) {
       await this.producer.connect();
     }
@@ -57,6 +61,7 @@ export class KafkaTransport implements TransportInterface, OnModuleInit {
 
   public async subscribe<T>(
     topic: string,
+    messageType: string,
     cb: (message: T) => Promise<void>,
   ): Promise<void> {
     if (!this.consumers[topic]) {
