@@ -75,6 +75,9 @@ export class InMemoryConfiguration implements Configuration {
   RABBITMQ_URL = '';
 
   @IsString()
+  RABBITMQ_VIRTUAL_HOST = '/';
+
+  @IsString()
   RABBITMQ_LOGIN = '';
 
   @IsString()

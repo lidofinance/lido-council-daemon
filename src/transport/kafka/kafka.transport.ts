@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { TransportInterface } from '../transport.interface';
 import { Kafka, Producer, Consumer } from 'kafkajs';
 import {
@@ -8,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { implementationOf } from '../../common/di/decorators/implementationOf';
+import { MessageType } from '../../messages';
 
 @Injectable()
 @implementationOf(TransportInterface)
@@ -44,7 +46,7 @@ export class KafkaTransport implements TransportInterface, OnModuleInit {
   public async publish<T>(
     topic: string,
     message: T,
-    messageType: string,
+    messageType: MessageType,
   ): Promise<void> {
     if (!this.producerConnected) {
       await this.producer.connect();
