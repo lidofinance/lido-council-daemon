@@ -3,6 +3,7 @@ import { LoggerModule } from 'common/logger';
 import { ConfigModule } from 'common/config';
 import { KafkaTransport } from './kafka.transport';
 import { Kafka } from 'kafkajs';
+import { MessageType } from '../../messages';
 
 describe('KafkaTransport', () => {
   let transport: KafkaTransport;
@@ -35,12 +36,14 @@ describe('KafkaTransport', () => {
 
   describe('pubsub', () => {
     it('should send two messages to topic and read two messages from topic', async () => {
-      const receivedMessages = [];
+      const receivedMessages: any[] = [];
 
-      await transport.publish('test', { label: 'first' }, 'test');
-      await transport.publish('test', { label: 'second' }, 'test');
+      await transport.publish('test', { label: 'first' }, MessageType.PING);
+      await transport.publish('test', { label: 'second' }, MessageType.PING);
 
-      await transport.subscribe('test', async (msg) => receivedMessages.push(msg), 'test');
+      await transport.subscribe('test', MessageType.PING, async (msg) => {
+        receivedMessages.push(msg);
+      });
 
       await new Promise<void>(async (resolve) => {
         setTimeout(resolve, 3000);

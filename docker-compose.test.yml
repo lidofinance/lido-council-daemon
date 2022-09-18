@@ -19,3 +19,11 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
       KAFKA_MESSAGE_MAX_BYTES: 2000000
 
+  rabbit:
+    image: rabbitmq:3-management-alpine
+    container_name: 'rabbitmq'
+    ports:
+      - "15672:15672"
+    links:
+      - zookeeper
+

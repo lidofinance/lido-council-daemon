@@ -81,7 +81,11 @@ describe('MessagesService', () => {
 
       expect(mockGetTopic).toBeCalledTimes(1);
       expect(mockPublish).toBeCalledTimes(1);
-      expect(mockPublish).toBeCalledWith(expectedTopic, expectedMessage);
+      expect(mockPublish).toBeCalledWith(
+        expectedTopic,
+        expectedMessage,
+        undefined,
+      );
     });
   });
 });

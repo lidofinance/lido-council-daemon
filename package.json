@@ -47,6 +47,7 @@
     "ethers": "^5.4.7",
     "kafkajs": "^1.15.0",
     "nest-winston": "^1.6.1",
+    "node-fetch": "^3.2.10",
     "prom-client": "^14.0.0",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",

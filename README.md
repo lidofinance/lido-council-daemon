@@ -116,7 +116,7 @@ The account balance should have some ETH to send transactions. In regular mode, 
 
 ```env
 ...
-RABBITMQ_URL=wss://example.com/ws
+RABBITMQ_URL=https://example.com/
 RABBITMQ_LOGIN=jason
 RABBITMQ_PASSCODE=friday
 

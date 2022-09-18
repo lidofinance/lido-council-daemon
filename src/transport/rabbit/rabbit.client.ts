@@ -22,11 +22,48 @@ export default class RabbitClient {
     };
   }
 
-  public async publish(exchange: string, message: string, routingKey: string) {
+  public async createQueue(queueName: string) {
+    const getUrl = new URL(
+      `api/queues/${this.virtualHost}/${queueName}/`,
+      this.host,
+    );
+
+    return this.fetchService.fetchText(getUrl.href, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        auto_delete: false,
+        durable: true,
+        arguments: {},
+      }),
+    });
+  }
+
+  public async bindQueueToExchange(queueName: string, exchangeName: string) {
+    const getUrl = new URL(
+      `api/bindings/${this.virtualHost}/e/${exchangeName}/q/${queueName}/`,
+      this.host,
+    );
+
+    return this.fetchService.fetchText(getUrl.href, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        routing_key: queueName,
+        arguments: {},
+      }),
+    });
+  }
+
+  public async publish<T>(
+    exchange: string,
+    message: string,
+    routingKey: string,
+  ): Promise<T> {
     this.logger.debug?.('Publish message', { exchange, message, routingKey });
 
     const publishUrl = new URL(
-      `api/exchanges/${this.virtualHost}/${exchange}/publish/`,
+      `/api/exchanges/${this.virtualHost}/${exchange}/publish/`,
       this.host,
     ).href;
 
@@ -42,24 +79,26 @@ export default class RabbitClient {
     });
   }
 
-  public async get(routingKey: string, messagesCount: number) {
+  public async get(
+    routingKey: string,
+    messagesCount: number,
+  ): Promise<Record<any, any>[]> {
     this.logger.debug?.('Receive message', { routingKey, messagesCount });
 
     const getUrl = new URL(
       `api/queues/${this.virtualHost}/${routingKey}/get/`,
       this.host,
-    ).href;
+    );
 
-    return fetch(getUrl, {
-      method: 'GET',
+    return this.fetchService.fetchJson(getUrl.href, {
+      method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify({
-        count: {
-          count: messagesCount,
-          requeue: false,
-          encoding: 'auto',
-          truncate: 50000,
-        },
+        count: messagesCount,
+        requeue: false,
+        encoding: 'auto',
+        truncate: 50000,
+        ackmode: 'ack_requeue_false',
       }),
     });
   }
