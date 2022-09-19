@@ -14,12 +14,17 @@ export default class RabbitClient {
   }
 
   private getHeaders() {
-    return {
+    const headers = {
       'Content-Type': 'application/json',
-      Authorization:
-        'Basic ' +
-        Buffer.from(this.login + ':' + this.passcode).toString('base64'),
     };
+
+    if (this.login && this.passcode) {
+      headers['Authorization'] =
+        'Basic ' +
+        Buffer.from(this.login + ':' + this.passcode).toString('base64');
+    }
+
+    return headers;
   }
 
   public async createQueue(queueName: string) {

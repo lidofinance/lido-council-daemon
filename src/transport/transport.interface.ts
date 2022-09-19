@@ -12,7 +12,7 @@ export interface TransportInterface {
   ): Promise<void>;
   subscribe<T>(
     topic: string,
-    messageType: string,
+    messageType: MessageType,
     cb: (message: T) => Promise<void>,
   ): Promise<void>;
   disconnect(): Promise<void>;

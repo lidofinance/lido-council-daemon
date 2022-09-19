@@ -63,7 +63,7 @@ export class KafkaTransport implements TransportInterface, OnModuleInit {
 
   public async subscribe<T>(
     topic: string,
-    messageType: string,
+    messageType: MessageType,
     cb: (message: T) => Promise<void>,
   ): Promise<void> {
     if (!this.consumers[topic]) {

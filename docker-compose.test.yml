@@ -24,6 +24,4 @@ services:
     container_name: 'rabbitmq'
     ports:
       - "15672:15672"
-    links:
-      - zookeeper
 
