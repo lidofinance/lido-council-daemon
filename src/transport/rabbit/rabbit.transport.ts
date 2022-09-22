@@ -32,13 +32,17 @@ export default class RabbitTransport implements TransportInterface {
     messageType: MessageType,
     cb: (message) => Promise<void>,
   ): Promise<void> {
-    while (!this.closed) {
-      const message = await this.client.get(messageType, 1);
-      if (message.length) {
-        await cb(JSON.parse(message[0]['payload']));
-      } else {
-        await setTimeout(() => this.subscribe(topic, messageType, cb), 1000);
-      }
+    setInterval(() => this._subscribe(messageType, cb), 1000);
+  }
+
+  private async _subscribe(
+    messageType: MessageType,
+    cb: (message) => Promise<void>,
+  ): Promise<void> {
+    const messages = await this.client.get(messageType, 1000);
+
+    for (const message of messages) {
+      await cb(JSON.parse(message['payload']));
     }
   }
 }
