@@ -23,8 +23,8 @@ describe('RabbitTransport', () => {
             const rabbitClient = new RabbitClient(
               'http://127.0.0.1:15672/',
               '%2f',
-              'guest',
-              'guest',
+              'guest', // lgtm[js/hardcoded-credentials]
+              'guest', // lgtm[js/hardcoded-credentials]
               new Logger(),
               new FetchService(null, new MiddlewareService(undefined)),
             );

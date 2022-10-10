@@ -47,7 +47,7 @@ export class InMemoryConfiguration implements Configuration {
   BROKER_TOPIC = '';
 
   @IsString()
-  @IsIn(['kafka', 'rabbitmq', 'libp2p'])
+  @IsIn(['kafka', 'rabbitmq'])
   PUBSUB_SERVICE: PubsubService = 'rabbitmq';
 
   @IsString()
