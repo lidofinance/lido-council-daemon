@@ -6,11 +6,15 @@ import {
   IsOptional,
   IsString,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import { Injectable } from '@nestjs/common';
 import { Configuration, PubsubService } from './configuration';
 import { SASLMechanism } from '../../transport';
 import { implementationOf } from '../di/decorators/implementationOf';
+
+const RABBITMQ = 'rabbitmq';
+const KAFKA = 'kafka';
 
 @Injectable()
 @implementationOf(Configuration)
@@ -47,39 +51,56 @@ export class InMemoryConfiguration implements Configuration {
   BROKER_TOPIC = '';
 
   @IsString()
-  @IsIn(['kafka', 'rabbitmq'])
-  PUBSUB_SERVICE: PubsubService = 'rabbitmq';
+  @IsIn([KAFKA, RABBITMQ])
+  PUBSUB_SERVICE: PubsubService = RABBITMQ;
 
+  @ValidateIf((conf) => conf.PUBSUB_SERVICE === KAFKA)
+  @IsNotEmpty()
   @IsString()
   KAFKA_BROKER_ADDRESS_1 = '';
 
+  @ValidateIf((conf) => conf.PUBSUB_SERVICE === KAFKA)
   @IsString()
   KAFKA_BROKER_ADDRESS_2 = '';
 
+  @ValidateIf((conf) => conf.PUBSUB_SERVICE === KAFKA)
+  @IsNotEmpty()
   @Transform(({ value }) => (value.toLowerCase() == 'true' ? true : false), {
     toClassOnly: true,
   })
   KAFKA_SSL = false;
 
+  @ValidateIf((conf) => conf.PUBSUB_SERVICE === KAFKA)
+  @IsNotEmpty()
   @IsString()
   @IsIn(['plain', 'scram-sha-256', 'scram-sha-512'])
   KAFKA_SASL_MECHANISM: SASLMechanism = 'scram-sha-256';
 
+  @ValidateIf((conf) => conf.PUBSUB_SERVICE === KAFKA)
+  @IsNotEmpty()
   @IsString()
   KAFKA_USERNAME = '';
 
+  @ValidateIf((conf) => conf.PUBSUB_SERVICE === KAFKA)
+  @IsNotEmpty()
   @IsString()
   KAFKA_PASSWORD = '';
 
+  @ValidateIf((conf) => conf.PUBSUB_SERVICE === RABBITMQ)
+  @IsNotEmpty()
   @IsString()
   RABBITMQ_URL = '';
 
   @IsString()
   RABBITMQ_VIRTUAL_HOST = '%2f';
 
+  @ValidateIf((conf) => conf.PUBSUB_SERVICE === RABBITMQ)
+  @IsNotEmpty()
   @IsString()
   RABBITMQ_LOGIN = '';
 
+  @ValidateIf((conf) => conf.PUBSUB_SERVICE === RABBITMQ)
+  @IsNotEmpty()
   @IsString()
   RABBITMQ_PASSCODE = '';
 
