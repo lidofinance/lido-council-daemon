@@ -8,7 +8,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v2
       - name: Set up node
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
           node-version: 'lts/*'
           cache: 'yarn'
@@ -21,6 +21,9 @@ jobs:
 
   security:
     uses: lidofinance/linters/.github/workflows/security.yml@master
-  
+
   docker:
     uses: lidofinance/linters/.github/workflows/docker.yml@master
+
+  actions:
+    uses: lidofinance/linters/.github/workflows/actions.yml@master
