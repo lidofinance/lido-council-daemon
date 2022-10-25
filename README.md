@@ -138,7 +138,7 @@ If all goes well, it will be in the logs:
 
 ```log
 info: Account balance is sufficient {"balance":"1.0 ETH"}
-info: You address is in the Guardian List {"address":"0x0000000000000000000000000000000000000000"}
+info: Your address is in the Guardian List {"address":"0x0000000000000000000000000000000000000000"}
 ```
 
 At the first startup the daemon will collect historical data:
