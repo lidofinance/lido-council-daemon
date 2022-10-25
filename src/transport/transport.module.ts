@@ -6,15 +6,15 @@ import { TransportInterface } from './transport.interface';
 import { KafkaTransport } from './kafka/kafka.transport';
 import { KAFKA_LOG_PREFIX } from './kafka/kafka.constants';
 import { WalletModule, WalletService } from '../wallet';
-import RabbitTransport from './rabbit/rabbit.transport';
-import RabbitClient from './rabbit/rabbit.client';
-import { FetchModule, FetchService } from '@lido-nestjs/fetch';
+import StompClient from './stomp/stomp.client';
+
+import StompTransport from './stomp/stomp.transport';
 
 export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
 
 @Module({
   exports: [TransportInterface],
-  imports: [WalletModule, FetchModule.forFeature()],
+  imports: [WalletModule],
   providers: [
     {
       provide: TransportInterface,
@@ -22,7 +22,6 @@ export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
         config: Configuration,
         logger: LoggerService,
         walletService: WalletService,
-        fetchService: FetchService,
       ) => {
         if (config.PUBSUB_SERVICE == 'kafka') {
           const kafka = new Kafka({
@@ -47,24 +46,16 @@ export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
 
           return new KafkaTransport(logger, kafka);
         } else if (config.PUBSUB_SERVICE == `rabbitmq`) {
-          const client = new RabbitClient(
+          const stompClient = new StompClient(
             config.RABBITMQ_URL,
-            config.RABBITMQ_VIRTUAL_HOST,
             config.RABBITMQ_LOGIN,
             config.RABBITMQ_PASSCODE,
-            logger,
-            fetchService,
           );
 
-          return new RabbitTransport(logger, client);
+          return new StompTransport(stompClient);
         }
       },
-      inject: [
-        Configuration,
-        WINSTON_MODULE_NEST_PROVIDER,
-        WalletService,
-        FetchService,
-      ],
+      inject: [Configuration, WINSTON_MODULE_NEST_PROVIDER, WalletService],
     },
   ],
 })

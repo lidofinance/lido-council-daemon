@@ -22,7 +22,6 @@ export interface Configuration {
   KAFKA_USERNAME: string;
   KAFKA_PASSWORD: string;
   RABBITMQ_URL: string;
-  RABBITMQ_VIRTUAL_HOST: string;
   RABBITMQ_LOGIN: string;
   RABBITMQ_PASSCODE: string;
   REGISTRY_KEYS_QUERY_BATCH_SIZE: number;

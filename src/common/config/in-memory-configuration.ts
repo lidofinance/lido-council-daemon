@@ -91,9 +91,6 @@ export class InMemoryConfiguration implements Configuration {
   @IsString()
   RABBITMQ_URL = '';
 
-  @IsString()
-  RABBITMQ_VIRTUAL_HOST = '%2f';
-
   @ValidateIf((conf) => conf.PUBSUB_SERVICE === RABBITMQ)
   @IsNotEmpty()
   @IsString()

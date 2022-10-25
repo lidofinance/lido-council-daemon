@@ -1,51 +1,36 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { LoggerModule } from 'common/logger';
 import { ConfigModule } from 'common/config';
 import { MessageType } from '../../messages';
-import RabbitTransport from './rabbit.transport';
-import RabbitClient from './rabbit.client';
-import { FetchService } from '@lido-nestjs/fetch';
-import { Logger } from '@nestjs/common/services/logger.service';
-import { MiddlewareService } from '@lido-nestjs/middleware';
+import StompTransport from './stomp.transport';
+import StompClient from './stomp.client';
 
-describe('RabbitTransport', () => {
+describe('StompTransport', () => {
+  let transport: StompTransport;
   let moduleRef: TestingModule;
-  let transport: RabbitTransport;
 
   beforeEach(async () => {
     moduleRef = await Test.createTestingModule({
-      imports: [ConfigModule.forRoot(), LoggerModule],
+      imports: [ConfigModule.forRoot()],
       providers: [
-        RabbitTransport,
+        StompTransport,
         {
-          provide: RabbitClient,
+          provide: StompClient,
           useFactory: async () => {
-            const rabbitClient = new RabbitClient(
-              'http://127.0.0.1:15672/',
-              '%2f',
+            return new StompClient(
+              'ws://127.0.0.1:15674/ws',
               'guest', // lgtm[js/hardcoded-credentials]
               'guest', // lgtm[js/hardcoded-credentials]
-              new Logger(),
-              new FetchService(null, new MiddlewareService(undefined)),
             );
-
-            await rabbitClient.createQueue(MessageType.PING);
-            await rabbitClient.bindQueueToExchange(
-              MessageType.PING,
-              'amq.direct',
-            );
-
-            return rabbitClient;
           },
         },
       ],
     }).compile();
 
-    transport = moduleRef.get(RabbitTransport);
+    transport = moduleRef.get(StompTransport);
   });
 
   afterEach(async () => {
-    transport = moduleRef.get(RabbitTransport);
+    transport = moduleRef.get(StompTransport);
     await transport.disconnect();
   });
 
@@ -53,7 +38,11 @@ describe('RabbitTransport', () => {
     it('should send two messages to topic and read two messages from topic', async () => {
       const receivedMessages: any[] = [];
 
-      transport.subscribe('amq.direct', MessageType.PING, async (msg) => {
+      await new Promise<void>(async (resolve) => {
+        setTimeout(resolve, 1000);
+      });
+
+      await transport.subscribe('amq.direct', MessageType.PING, async (msg) => {
         receivedMessages.push(msg);
       });
 
@@ -69,7 +58,7 @@ describe('RabbitTransport', () => {
       );
 
       await new Promise<void>(async (resolve) => {
-        setTimeout(resolve, 3000);
+        setTimeout(resolve, 2000);
       });
 
       expect(receivedMessages.length).toBe(2);
