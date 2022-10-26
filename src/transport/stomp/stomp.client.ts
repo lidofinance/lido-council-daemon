@@ -23,7 +23,7 @@ export default class StompClient {
     ) => frame,
     private errorCallback: (frame: StompFrame) => void = (frame) => frame,
   ) {
-    this.ws = new WebSocket.Client(url);
+    this.ws = new WebSocket.Client(url, null, { ping: 1 });
     this.ws.on('open', this.onOpen.bind(this));
     this.ws.on('message', this.onMessage.bind(this));
     this.ws.on('close', this.onClose.bind(this));
@@ -31,7 +31,7 @@ export default class StompClient {
 
   private async transmit(command, headers, body = '') {
     const msg = StompFrame.marshall(command, headers, body);
-    this.ws.send(msg);
+    this.ws.send(msg.toString());
   }
 
   private onOpen(event) {
