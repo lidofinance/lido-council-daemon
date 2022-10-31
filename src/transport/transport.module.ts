@@ -4,11 +4,12 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Configuration } from 'common/config';
 import { TransportInterface } from './transport.interface';
 import { KafkaTransport } from './kafka/kafka.transport';
-import { KAFKA_LOG_PREFIX } from './kafka/kafka.constants';
+import { KAFKA_LOG_PREFIX, RABBIT_LOG_PREFIX } from './kafka/kafka.constants';
 import { WalletModule, WalletService } from '../wallet';
 import StompClient from './stomp/stomp.client';
 
 import StompTransport from './stomp/stomp.transport';
+import { StompException } from './stomp/stomp.exceptions';
 
 export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
 
@@ -50,6 +51,13 @@ export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
             config.RABBITMQ_URL,
             config.RABBITMQ_LOGIN,
             config.RABBITMQ_PASSCODE,
+            (frame) => {
+              logger.log(RABBIT_LOG_PREFIX, frame.body);
+            },
+            (frame) => {
+              logger.error(RABBIT_LOG_PREFIX, frame.body);
+              throw new StompException(`Stomp error. ${frame.body}`);
+            },
           );
 
           return new StompTransport(stompClient);

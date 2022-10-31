@@ -1,7 +1,8 @@
-import { StompFrame, StompFrameException } from './stomp.frame';
+import { StompFrame } from './stomp.frame';
 import { sleep } from '../../utils';
 import { TimeoutError } from '@nestjs/terminus';
 import { WebSocket } from 'faye-websocket';
+import { StompFrameException } from './stomp.exceptions';
 
 // https://stomp.github.io/stomp-specification-1.1.html#Overview
 const VERSIONS = '1.0,1.1';

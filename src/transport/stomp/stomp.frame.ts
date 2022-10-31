@@ -1,4 +1,4 @@
-export class StompFrameException extends Error {}
+import { StompFrameException } from './stomp.exceptions';
 
 const FRAME_BYTE: Record<string, string> = {
   LF: '\x0A',
