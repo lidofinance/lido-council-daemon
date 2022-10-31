@@ -1,7 +1,7 @@
 import { StompFrame } from './stomp.frame';
 import { sleep } from '../../utils';
 import { TimeoutError } from '@nestjs/terminus';
-import { WebSocket } from 'faye-websocket';
+import { WebSocket } from 'ws';
 import { StompFrameException } from './stomp.exceptions';
 
 // https://stomp.github.io/stomp-specification-1.1.html#Overview
@@ -24,10 +24,20 @@ export default class StompClient {
     ) => frame,
     private errorCallback: (frame: StompFrame) => void = (frame) => frame,
   ) {
-    this.ws = new WebSocket.Client(url, null, { ping: 1 });
-    this.ws.on('open', this.onOpen.bind(this));
-    this.ws.on('message', this.onMessage.bind(this));
-    this.ws.on('close', this.onClose.bind(this));
+    this.ws = this.createWebSocket(url);
+  }
+
+  private createWebSocket(url) {
+    const ws: WebSocket = new WebSocket(url);
+    ws.on('open', this.onOpen.bind(this));
+    ws.on('message', this.onMessage.bind(this));
+    ws.on('close', this.onClose.bind(this));
+    ws.on('error', this.onError.bind(this));
+    return ws;
+  }
+
+  private async onError(event) {
+    await this.onClose(event);
   }
 
   private async transmit(command, headers, body = '') {
@@ -35,16 +45,33 @@ export default class StompClient {
     this.ws.send(msg.toString());
   }
 
-  private onOpen(event) {
+  private onOpen() {
     this.opened = true;
   }
 
-  private onClose(event) {
+  private async onClose(event) {
     this.cleanUp();
+    await sleep(10000);
+    try {
+      await this._reconnect(event);
+    } catch (error) {
+      await this.onClose(event);
+    }
+  }
+
+  private async _reconnect(event) {
+    try {
+      this.ws = this.createWebSocket(this.url);
+      await this.connect();
+    } catch (error) {
+      await this.onClose(event);
+    }
   }
 
   private cleanUp() {
+    this.ws.close();
     this.connected = false;
+    this.opened = false;
   }
 
   public async connect(headers = {}, timeout = 10000) {
@@ -80,16 +107,17 @@ export default class StompClient {
 
   public disconnect(headers: Record<string, string> = {}) {
     this.transmit('DISCONNECT', headers);
-
-    this.ws.close();
     this.cleanUp();
   }
 
-  public send(
+  public async send(
     destination: string,
     headers: Record<string, string> = {},
     body = '',
   ) {
+    while (!this.opened || !this.connected) {
+      await sleep(1000);
+    }
     headers['destination'] = destination;
     return this.transmit('SEND', headers, body);
   }
@@ -132,7 +160,7 @@ export default class StompClient {
     let frame: StompFrame;
 
     try {
-      frame = StompFrame.unmarshallSingle(event.data);
+      frame = StompFrame.unmarshallSingle(event.toString());
     } catch (e) {
       if (!(e instanceof StompFrameException)) {
         throw e;

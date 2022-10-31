@@ -16,21 +16,11 @@ export default class StompTransport implements TransportInterface {
     await this.client.disconnect();
   }
 
-  private checkConnection() {
-    if (!this.client.opened) {
-      throw new StompClientNoConnectionException(
-        'STOMP client is not connected.',
-      );
-    }
-  }
-
   public async publish<T>(
     topic: string,
     message: T,
     messageType: string,
   ): Promise<void> {
-    this.checkConnection();
-
     const destination = `/exchange/${topic}/${messageType}`;
     await this.client.send(destination, {}, JSON.stringify(message));
   }
@@ -40,8 +30,6 @@ export default class StompTransport implements TransportInterface {
     messageType: string,
     cb: (message: T) => Promise<void>,
   ): Promise<void> {
-    this.checkConnection();
-
     const destination = `/exchange/${topic}/${messageType}`;
     this.client.subscribe(destination, (frame) => {
       cb(JSON.parse(frame.body));
