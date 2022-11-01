@@ -9,6 +9,8 @@ import { TransportInterface } from 'transport';
 import { PrometheusModule } from 'common/prometheus';
 import { MessagesModule } from 'messages';
 
+jest.mock('../transport/stomp/stomp.client');
+
 describe('MessagesService', () => {
   let providerService: ProviderService;
   let messagesService: MessagesService;

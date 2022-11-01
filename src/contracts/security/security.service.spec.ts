@@ -15,6 +15,8 @@ import { PrometheusModule } from 'common/prometheus';
 import { SecurityService } from './security.service';
 import { SecurityModule } from './security.module';
 
+jest.mock('../../transport/stomp/stomp.client');
+
 describe('SecurityService', () => {
   const address1 = hexZeroPad('0x1', 20);
   const address2 = hexZeroPad('0x2', 20);
