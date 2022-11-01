@@ -3,6 +3,7 @@ import { sleep } from '../../utils';
 import { TimeoutError } from '@nestjs/terminus';
 import { WebSocket } from 'ws';
 import { StompFrameException } from './stomp.exceptions';
+import { LoggerService } from '@nestjs/common';
 
 // https://stomp.github.io/stomp-specification-1.1.html#Overview
 const VERSIONS = '1.0,1.1';
@@ -10,7 +11,7 @@ const VERSIONS = '1.0,1.1';
 export default class StompClient {
   private ws: WebSocket;
 
-  opened = false;
+  private opened = false;
   private connected = false;
   private counter = 0;
   private subscriptions: Record<string, (frame: StompFrame) => void> = {};
@@ -23,6 +24,7 @@ export default class StompClient {
       frame: StompFrame | boolean,
     ) => frame,
     private errorCallback: (frame: StompFrame) => void = (frame) => frame,
+    private logger: LoggerService,
   ) {
     this.ws = this.createWebSocket(url);
   }
@@ -36,10 +38,6 @@ export default class StompClient {
     return ws;
   }
 
-  private async onError(event) {
-    await this.onClose(event);
-  }
-
   private async transmit(command, headers, body = '') {
     const msg = StompFrame.marshall(command, headers, body);
     this.ws.send(msg.toString());
@@ -50,28 +48,33 @@ export default class StompClient {
   }
 
   private async onClose(event) {
-    this.cleanUp();
-    await sleep(10000);
-    try {
-      await this._reconnect(event);
-    } catch (error) {
-      await this.onClose(event);
-    }
+    this.logger.warn('WS connection is closed', { closeReason: event.body });
+    await this.reconnect();
   }
 
-  private async _reconnect(event) {
+  private async onError(event) {
+    this.logger.warn('WS connection error', { error: event.body });
+    await this.reconnect();
+  }
+
+  private async reconnect() {
+    this.cleanUp();
+    await sleep(10000);
+
     try {
       this.ws = this.createWebSocket(this.url);
       await this.connect();
     } catch (error) {
-      await this.onClose(event);
+      await this.reconnect();
     }
   }
 
   private cleanUp() {
-    this.ws.close();
     this.connected = false;
     this.opened = false;
+    try {
+      this.ws.close();
+    } catch (error) {}
   }
 
   public async connect(headers = {}, timeout = 10000) {

@@ -18,8 +18,6 @@ jobs:
         run: yarn lint
       - name: Run tests
         run: yarn test
-        env:
-          RABBITMQ_URL: ${{ secrets.RABBITMQ_URL }}
 
   security:
     uses: lidofinance/linters/.github/workflows/security.yml@master
