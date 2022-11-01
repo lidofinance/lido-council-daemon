@@ -20,6 +20,10 @@ describe('StompTransport', () => {
               'ws://127.0.0.1:15674/ws',
               'guest', // lgtm[js/hardcoded-credentials]
               'guest', // lgtm[js/hardcoded-credentials]
+              // eslint-disable-next-line @typescript-eslint/no-empty-function
+              () => {},
+              // eslint-disable-next-line @typescript-eslint/no-empty-function
+              () => {},
             );
           },
         },

@@ -24,7 +24,7 @@ export default class StompClient {
       frame: StompFrame | boolean,
     ) => frame,
     private errorCallback: (frame: StompFrame) => void = (frame) => frame,
-    private logger: LoggerService,
+    private logger?: LoggerService,
   ) {
     this.ws = this.createWebSocket(url);
   }
@@ -48,12 +48,12 @@ export default class StompClient {
   }
 
   private async onClose(event) {
-    this.logger.warn('WS connection is closed', { closeReason: event.body });
+    this.logger?.warn('WS connection is closed', { closeReason: event.body });
     await this.reconnect();
   }
 
   private async onError(event) {
-    this.logger.warn('WS connection error', { error: event.body });
+    this.logger?.warn('WS connection error', { error: event.body });
     await this.reconnect();
   }
 
