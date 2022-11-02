@@ -58,7 +58,7 @@ describe('KafkaTransport', () => {
       await transport.publish('test', { label: 'second' }, MessageType.PING);
 
       await new Promise<void>(async (resolve) => {
-        setTimeout(resolve, 3000);
+        setTimeout(resolve, 5000);
       });
 
       expect(receivedMessages.length).toBe(2);
