@@ -1,5 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
+import { LoggerModule } from 'common/logger';
+import { sleep } from 'utils';
 import { MessageType } from '../../messages';
 import StompTransport from './stomp.transport';
 import StompClient from './stomp.client';
@@ -10,7 +12,7 @@ describe('StompTransport', () => {
 
   beforeEach(async () => {
     moduleRef = await Test.createTestingModule({
-      imports: [ConfigModule.forRoot()],
+      imports: [ConfigModule.forRoot(), LoggerModule],
       providers: [
         StompTransport,
         {
@@ -20,10 +22,8 @@ describe('StompTransport', () => {
               'ws://127.0.0.1:15674/ws',
               'guest', // lgtm[js/hardcoded-credentials]
               'guest', // lgtm[js/hardcoded-credentials]
-              // eslint-disable-next-line @typescript-eslint/no-empty-function
-              () => {},
-              // eslint-disable-next-line @typescript-eslint/no-empty-function
-              () => {},
+              () => void 0,
+              () => void 0,
             );
           },
         },
@@ -42,9 +42,7 @@ describe('StompTransport', () => {
     it('should send two messages to topic and read two messages from topic', async () => {
       const receivedMessages: any[] = [];
 
-      await new Promise<void>(async (resolve) => {
-        setTimeout(resolve, 1000);
-      });
+      await sleep(2000);
 
       await transport.subscribe('amq.direct', MessageType.PING, async (msg) => {
         receivedMessages.push(msg);
@@ -61,9 +59,7 @@ describe('StompTransport', () => {
         MessageType.PING,
       );
 
-      await new Promise<void>(async (resolve) => {
-        setTimeout(resolve, 2000);
-      });
+      await sleep(2000);
 
       expect(receivedMessages.length).toBe(2);
       expect(receivedMessages[0]).toHaveProperty('label');

@@ -38,7 +38,11 @@ export default class StompClient {
     return ws;
   }
 
-  private async transmit(command, headers, body = '') {
+  private async transmit(
+    command: string,
+    headers: Record<string, string>,
+    body = '',
+  ) {
     const msg = StompFrame.marshall(command, headers, body);
     this.ws.send(msg.toString());
   }
@@ -47,13 +51,18 @@ export default class StompClient {
     this.opened = true;
   }
 
-  private async onClose(event) {
-    this.logger?.warn('WS connection is closed', { closeReason: event.body });
+  private async onClose(code: number, reason: Buffer) {
+    const closeReason = reason.toString();
+
+    const isClosedNormally = code === 1000;
+    if (isClosedNormally) return;
+
+    this.logger?.warn('WS connection is closed', { code, closeReason });
     await this.reconnect();
   }
 
-  private async onError(event) {
-    this.logger?.warn('WS connection error', { error: event.body });
+  private async onError(error: Error) {
+    this.logger?.warn('WS connection error', { error });
     await this.reconnect();
   }
 
@@ -108,8 +117,8 @@ export default class StompClient {
     }
   }
 
-  public disconnect(headers: Record<string, string> = {}) {
-    this.transmit('DISCONNECT', headers);
+  public async disconnect(headers: Record<string, string> = {}) {
+    await this.transmit('DISCONNECT', headers);
     this.cleanUp();
   }
 

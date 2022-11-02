@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { LoggerService } from '@nestjs/common';
 import { LoggerModule } from 'common/logger';
 import { ConfigModule } from 'common/config';
+import { sleep } from 'utils';
 import { MockProviderModule } from 'provider';
 import { KafkaTransport } from './kafka.transport';
 import { Kafka } from 'kafkajs';
@@ -57,9 +58,7 @@ describe('KafkaTransport', () => {
       await transport.publish('test', { label: 'first' }, MessageType.PING);
       await transport.publish('test', { label: 'second' }, MessageType.PING);
 
-      await new Promise<void>(async (resolve) => {
-        setTimeout(resolve, 5000);
-      });
+      await sleep(5000);
 
       expect(receivedMessages.length).toBe(2);
       expect(receivedMessages[0]).toHaveProperty('label');
