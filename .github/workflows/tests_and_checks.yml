@@ -18,10 +18,8 @@ jobs:
         run: yarn lint
       - name: Run tests
         run: yarn test
-
-      - name: Create e2e docker containers
-        run: docker-compose up -d
-
+      - name: Run e2e transports
+        run: docker-compose -f docker-compose.test.yml up -d
       - name: Run e2e tests
         run: yarn test:e2e
 
