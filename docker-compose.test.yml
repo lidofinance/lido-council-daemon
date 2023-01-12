@@ -43,27 +43,8 @@ services:
     volumes:
       - ./.volumes/pgdata-${KEYS_API_CHAIN_ID}/:/var/lib/postgresql/data
 
-  no_keys_service_prometheus:
-    image: prom/prometheus:v2.17.2
-    container_name: no_keys_service_prometheus
-    ports:
-      - 9090:9090
-    volumes:
-      - ./config/:/etc/prometheus/
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-
-  no_keys_service_grafana:
-    image: grafana/grafana-oss:9.1.5
-    container_name: no_keys_service_grafana
-    restart: unless-stopped
-    ports:
-      - 8001:3000
-    volumes:
-      - ./.volumes/grafana/var:/var/lib/grafana
-
   no_keys_service_api:
-    image: lidofinance/lido-node-operators-keys-api:staging
+    image: lidofinance/lido-node-operators-keys-api:dev
     container_name: no_keys_service_api
     ports:
       - '3001:3001'
