@@ -146,11 +146,21 @@ export class SecurityService {
   /**
    * Returns the current state of deposits
    */
-  public async isDepositsPaused(blockTag?: BlockTag): Promise<boolean> {
-    const contract = await this.repositoryService.getCachedSecurityContract();
-    const isPaused = await contract.isPaused({ blockTag: blockTag as any });
+  public async isDepositsPaused(
+    stakingModuleId: number,
+    blockTag?: BlockTag,
+  ): Promise<boolean> {
+    const stakingRouterContract =
+      await this.repositoryService.getCachedStakingRouterAbiContract();
 
-    return isPaused;
+    const isActive = await stakingRouterContract.getStakingModuleIsActive(
+      stakingModuleId,
+      {
+        blockTag: blockTag as any,
+      },
+    );
+
+    return !isActive;
   }
 
   /**
@@ -161,6 +171,7 @@ export class SecurityService {
   @OneAtTime()
   public async pauseDeposits(
     blockNumber: number,
+    stakingModuleId: number,
     signature: Signature,
   ): Promise<ContractReceipt | void> {
     this.logger.warn('Try to pause deposits');
@@ -169,7 +180,11 @@ export class SecurityService {
     const contract = await this.getContractWithSigner();
 
     const { r, _vs: vs } = signature;
-    const tx = await contract.pauseDeposits(blockNumber, { r, vs });
+
+    const tx = await contract.pauseDeposits(blockNumber, stakingModuleId, {
+      r,
+      vs,
+    });
 
     this.logger.warn('Pause transaction sent', { txHash: tx.hash });
     this.logger.warn('Waiting for block confirmation');

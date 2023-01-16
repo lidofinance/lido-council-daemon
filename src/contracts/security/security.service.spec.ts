@@ -4,7 +4,7 @@ import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { MockProviderModule, ProviderService } from 'provider';
 import { WalletService } from 'wallet';
-import { SecurityAbi__factory } from 'generated';
+import { SecurityAbi__factory, StakingRouterAbi__factory } from 'generated';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { Interface } from '@ethersproject/abi';
 import { BigNumber } from '@ethersproject/bignumber';
@@ -16,6 +16,8 @@ import { SecurityService } from './security.service';
 import { SecurityModule } from './security.module';
 
 jest.mock('../../transport/stomp/stomp.client');
+
+const TEST_MODULE_ID = 1;
 
 describe('SecurityService', () => {
   const address1 = hexZeroPad('0x1', 20);
@@ -223,11 +225,11 @@ describe('SecurityService', () => {
       const mockProviderCall = jest
         .spyOn(providerService.provider, 'call')
         .mockImplementation(async () => {
-          const iface = new Interface(SecurityAbi__factory.abi);
-          return iface.encodeFunctionResult('isPaused', [expected]);
+          const iface = new Interface(StakingRouterAbi__factory.abi);
+          return iface.encodeFunctionResult('isActive', [expected]);
         });
 
-      const isPaused = await securityService.isDepositsPaused();
+      const isPaused = await securityService.isDepositsPaused(TEST_MODULE_ID);
       expect(isPaused).toBe(expected);
       expect(mockProviderCall).toBeCalledTimes(1);
     });
@@ -265,7 +267,11 @@ describe('SecurityService', () => {
     });
 
     it('should call contract method', async () => {
-      await securityService.pauseDeposits(blockNumber, signature);
+      await securityService.pauseDeposits(
+        blockNumber,
+        TEST_MODULE_ID,
+        signature,
+      );
 
       expect(mockPauseDeposits).toBeCalledTimes(1);
       expect(mockWait).toBeCalledTimes(1);
@@ -275,8 +281,8 @@ describe('SecurityService', () => {
 
     it('should exit if the previous call is not completed', async () => {
       await Promise.all([
-        securityService.pauseDeposits(blockNumber, signature),
-        securityService.pauseDeposits(blockNumber, signature),
+        securityService.pauseDeposits(blockNumber, TEST_MODULE_ID, signature),
+        securityService.pauseDeposits(blockNumber, TEST_MODULE_ID, signature),
       ]);
 
       expect(mockPauseDeposits).toBeCalledTimes(1);

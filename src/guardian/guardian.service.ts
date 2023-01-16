@@ -34,7 +34,8 @@ import {
 } from 'common/prometheus';
 import { Counter, Gauge, Histogram } from 'prom-client';
 import { APP_NAME, APP_VERSION } from 'app.constants';
-
+// TODO: rework after keys api
+const TEMP_MODULE_ID = 1;
 @Injectable()
 export class GuardianService implements OnModuleInit {
   constructor(
@@ -102,7 +103,7 @@ export class GuardianService implements OnModuleInit {
    */
   public subscribeToEthereumUpdates() {
     const provider = this.providerService.provider;
-
+    // TODO: keys-api — cron job
     provider.on('block', () => this.handleNewBlock());
     this.logger.log('GuardianService subscribed to Ethereum events');
   }
@@ -120,6 +121,7 @@ export class GuardianService implements OnModuleInit {
     await Promise.all([
       this.checkKeysIntersections(blockData),
       this.depositService.handleNewBlock(blockData),
+      // TODO: keys-api
       this.registryService.handleNewBlock(blockData),
       this.pingMessageBroker(blockData),
     ]);
@@ -172,7 +174,7 @@ export class GuardianService implements OnModuleInit {
         this.depositService.getDepositRoot({ blockHash }),
         this.depositService.getAllDepositedEvents(blockNumber, blockHash),
         this.securityService.getGuardianIndex({ blockHash }),
-        this.securityService.isDepositsPaused({ blockHash }),
+        this.securityService.isDepositsPaused(TEMP_MODULE_ID, { blockHash }),
       ]);
 
       endTimer();
@@ -361,7 +363,7 @@ export class GuardianService implements OnModuleInit {
 
     // Call pause without waiting for completion
     this.securityService
-      .pauseDeposits(blockNumber, signature)
+      .pauseDeposits(blockNumber, TEMP_MODULE_ID, signature)
       .catch((error) => this.logger.error(error));
 
     await this.sendMessageFromGuardian(pauseMessage);
