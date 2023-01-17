@@ -20,6 +20,10 @@ import {
   WALLET_MIN_BALANCE,
   WALLET_PRIVATE_KEY,
 } from './wallet.constants';
+import {
+  SignDepositDataParams,
+  SignPauseDataParams,
+} from './wallet.interfaces';
 
 @Injectable()
 export class WalletService implements OnModuleInit {
@@ -114,23 +118,33 @@ export class WalletService implements OnModuleInit {
 
   /**
    * Signs a message to deposit buffered ethers
-   * @param prefix - unique prefix from the contract for this type of message
-   * @param depositRoot - current deposit root from the deposit contract
-   * @param keysOpIndex - current index of keys operations from the registry contract
-   * @param blockNumber - current block number
-   * @param blockHash - current block hash
+   * @param signDepositDataParams - parameters for signing deposit message
+   * @param signDepositDataParams.prefix - unique prefix from the contract for this type of message
+   * @param signDepositDataParams.depositRoot - current deposit root from the deposit contract
+   * @param signDepositDataParams.keysOpIndex - current index of keys operations from the registry contract
+   * @param signDepositDataParams.blockNumber - current block number
+   * @param signDepositDataParams.blockHash - current block hash
+   * @param signDepositDataParams.stakingModuleId - target module id
    * @returns signature
    */
-  public async signDepositData(
-    prefix: string,
-    depositRoot: string,
-    keysOpIndex: number,
-    blockNumber: number,
-    blockHash: string,
-  ): Promise<Signature> {
+  public async signDepositData({
+    prefix,
+    blockNumber,
+    blockHash,
+    depositRoot,
+    keysOpIndex,
+    stakingModuleId,
+  }: SignDepositDataParams): Promise<Signature> {
     const encodedData = defaultAbiCoder.encode(
-      ['bytes32', 'bytes32', 'uint256', 'uint256', 'bytes32'],
-      [prefix, depositRoot, keysOpIndex, blockNumber, blockHash],
+      ['bytes32', 'uint256', 'bytes32', 'bytes32', 'uint24', 'uint256'],
+      [
+        prefix,
+        blockNumber,
+        blockHash,
+        depositRoot,
+        stakingModuleId,
+        keysOpIndex,
+      ],
     );
 
     const messageHash = keccak256(encodedData);
@@ -139,17 +153,20 @@ export class WalletService implements OnModuleInit {
 
   /**
    * Signs a message to pause deposits
-   * @param prefix - unique prefix from the contract for this type of message
-   * @param blockNumber - block number that is signed
+   * @param signPauseDataParams - parameters for signing pause message
+   * @param signPauseDataParams.prefix - unique prefix from the contract for this type of message
+   * @param signPauseDataParams.blockNumber - block number that is signed
+   * @param signPauseDataParams.stakingModuleId - target staking module id
    * @returns signature
    */
-  public async signPauseData(
-    prefix: string,
-    blockNumber: number,
-  ): Promise<Signature> {
+  public async signPauseData({
+    prefix,
+    blockNumber,
+    stakingModuleId,
+  }: SignPauseDataParams): Promise<Signature> {
     const encodedData = defaultAbiCoder.encode(
-      ['bytes32', 'uint256'],
-      [prefix, blockNumber],
+      ['bytes32', 'uint256', 'uint24'],
+      [prefix, blockNumber, stakingModuleId],
     );
 
     const messageHash = keccak256(encodedData);

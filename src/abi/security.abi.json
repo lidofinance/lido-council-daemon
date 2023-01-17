@@ -9,10 +9,9 @@
       },
       {
         "internalType": "address",
-        "name": "_nodeOperatorsRegistry",
+        "name": "_stakingRouter",
         "type": "address"
       },
-      { "internalType": "uint256", "name": "_networkId", "type": "uint256" },
       {
         "internalType": "uint256",
         "name": "_maxDepositsPerBlock",
@@ -36,10 +35,16 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
         "name": "guardian",
         "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint24",
+        "name": "stakingModuleId",
+        "type": "uint24"
       }
     ],
     "name": "DepositsPaused",
@@ -47,7 +52,14 @@
   },
   {
     "anonymous": false,
-    "inputs": [],
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint24",
+        "name": "stakingModuleId",
+        "type": "uint24"
+      }
+    ],
     "name": "DepositsUnpaused",
     "type": "event"
   },
@@ -126,19 +138,6 @@
         "type": "address"
       }
     ],
-    "name": "NodeOperatorsRegistryChanged",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "newValue",
-        "type": "address"
-      }
-    ],
     "name": "OwnerChanged",
     "type": "event"
   },
@@ -165,14 +164,22 @@
   {
     "inputs": [],
     "name": "DEPOSIT_CONTRACT",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "outputs": [
+      {
+        "internalType": "contract IDepositContract",
+        "name": "",
+        "type": "address"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "LIDO",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "outputs": [
+      { "internalType": "contract ILido", "name": "", "type": "address" }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
@@ -180,6 +187,19 @@
     "inputs": [],
     "name": "PAUSE_MESSAGE_PREFIX",
     "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "STAKING_ROUTER",
+    "outputs": [
+      {
+        "internalType": "contract IStakingRouter",
+        "name": "",
+        "type": "address"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
@@ -204,7 +224,9 @@
     "type": "function"
   },
   {
-    "inputs": [],
+    "inputs": [
+      { "internalType": "uint24", "name": "stakingModuleId", "type": "uint24" }
+    ],
     "name": "canDeposit",
     "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
     "stateMutability": "view",
@@ -212,10 +234,12 @@
   },
   {
     "inputs": [
-      { "internalType": "bytes32", "name": "depositRoot", "type": "bytes32" },
-      { "internalType": "uint256", "name": "keysOpIndex", "type": "uint256" },
       { "internalType": "uint256", "name": "blockNumber", "type": "uint256" },
       { "internalType": "bytes32", "name": "blockHash", "type": "bytes32" },
+      { "internalType": "bytes32", "name": "depositRoot", "type": "bytes32" },
+      { "internalType": "uint24", "name": "stakingModuleId", "type": "uint24" },
+      { "internalType": "uint256", "name": "keysOpIndex", "type": "uint256" },
+      { "internalType": "bytes", "name": "depositCalldata", "type": "bytes" },
       {
         "components": [
           { "internalType": "bytes32", "name": "r", "type": "bytes32" },
@@ -258,13 +282,6 @@
   },
   {
     "inputs": [],
-    "name": "getLastDepositBlock",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
     "name": "getMaxDeposits",
     "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
     "stateMutability": "view",
@@ -274,13 +291,6 @@
     "inputs": [],
     "name": "getMinDepositBlockDistance",
     "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getNodeOperatorsRegistry",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
     "stateMutability": "view",
     "type": "function"
   },
@@ -308,15 +318,9 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "isPaused",
-    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [
       { "internalType": "uint256", "name": "blockNumber", "type": "uint256" },
+      { "internalType": "uint24", "name": "stakingModuleId", "type": "uint24" },
       {
         "components": [
           { "internalType": "bytes32", "name": "r", "type": "bytes32" },
@@ -373,15 +377,6 @@
     "inputs": [
       { "internalType": "address", "name": "newValue", "type": "address" }
     ],
-    "name": "setNodeOperatorsRegistry",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      { "internalType": "address", "name": "newValue", "type": "address" }
-    ],
     "name": "setOwner",
     "outputs": [],
     "stateMutability": "nonpayable",
@@ -397,7 +392,9 @@
     "type": "function"
   },
   {
-    "inputs": [],
+    "inputs": [
+      { "internalType": "uint24", "name": "stakingModuleId", "type": "uint24" }
+    ],
     "name": "unpauseDeposits",
     "outputs": [],
     "stateMutability": "nonpayable",

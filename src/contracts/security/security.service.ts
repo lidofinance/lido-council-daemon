@@ -122,45 +122,66 @@ export class SecurityService {
     keysOpIndex: number,
     blockNumber: number,
     blockHash: string,
+    stakingModuleId: number,
   ): Promise<Signature> {
-    const messagePrefix = await this.getAttestMessagePrefix();
+    const prefix = await this.getAttestMessagePrefix();
 
-    return await this.walletService.signDepositData(
-      messagePrefix,
+    return await this.walletService.signDepositData({
+      prefix,
       depositRoot,
       keysOpIndex,
       blockNumber,
       blockHash,
-    );
+      stakingModuleId,
+    });
   }
 
   /**
    * Signs a message to pause deposits with the prefix from the contract
    */
-  public async signPauseData(blockNumber: number): Promise<Signature> {
-    const messagePrefix = await this.getPauseMessagePrefix();
+  public async signPauseData(
+    blockNumber: number,
+    stakingModuleId: number,
+  ): Promise<Signature> {
+    const prefix = await this.getPauseMessagePrefix();
 
-    return await this.walletService.signPauseData(messagePrefix, blockNumber);
+    return await this.walletService.signPauseData({
+      prefix,
+      blockNumber,
+      stakingModuleId,
+    });
   }
 
   /**
    * Returns the current state of deposits
    */
-  public async isDepositsPaused(blockTag?: BlockTag): Promise<boolean> {
-    const contract = await this.repositoryService.getCachedSecurityContract();
-    const isPaused = await contract.isPaused({ blockTag: blockTag as any });
+  public async isDepositsPaused(
+    stakingModuleId: number,
+    blockTag?: BlockTag,
+  ): Promise<boolean> {
+    const stakingRouterContract =
+      await this.repositoryService.getCachedStakingRouterAbiContract();
 
-    return isPaused;
+    const isActive = await stakingRouterContract.getStakingModuleIsActive(
+      stakingModuleId,
+      {
+        blockTag: blockTag as any,
+      },
+    );
+
+    return !isActive;
   }
 
   /**
    * Sends a transaction to pause deposits
    * @param blockNumber - the block number for which the message is signed
+   * @param stakingModuleId - target staking module id
    * @param signature - message signature
    */
   @OneAtTime()
   public async pauseDeposits(
     blockNumber: number,
+    stakingModuleId: number,
     signature: Signature,
   ): Promise<ContractReceipt | void> {
     this.logger.warn('Try to pause deposits');
@@ -169,7 +190,11 @@ export class SecurityService {
     const contract = await this.getContractWithSigner();
 
     const { r, _vs: vs } = signature;
-    const tx = await contract.pauseDeposits(blockNumber, { r, vs });
+
+    const tx = await contract.pauseDeposits(blockNumber, stakingModuleId, {
+      r,
+      vs,
+    });
 
     this.logger.warn('Pause transaction sent', { txHash: tx.hash });
     this.logger.warn('Waiting for block confirmation');

@@ -118,6 +118,7 @@ export class RegistryService {
   public async getPubkeyLength(): Promise<number> {
     if (!this.cachedPubKeyLength) {
       const contract = await this.repositoryService.getCachedRegistryContract();
+      // TODO: after keys-api take from local constant
       const keyLength = await contract.PUBKEY_LENGTH();
       this.cachedPubKeyLength = keyLength.toNumber();
     }
@@ -139,12 +140,13 @@ export class RegistryService {
     ]);
 
     const overrides = { blockTag: blockTag as any, from: lido.address };
-    const [pubKeys] = await registry.callStatic.assignNextSigningKeys(
-      maxDepositKeys,
-      overrides,
-    );
+    // TODO: remove after keys api
+    // const [pubKeys] = await registry.callStatic.assignNextSigningKeys(
+    //   maxDepositKeys,
+    //   overrides,
+    // );
 
-    const splittedKeys = splitPubKeys(pubKeys, pubkeyLength);
+    const splittedKeys = splitPubKeys('', pubkeyLength);
     return splittedKeys;
   }
 

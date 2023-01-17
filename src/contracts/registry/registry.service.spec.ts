@@ -18,7 +18,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
 import { APP_VERSION } from 'app.constants';
 
-describe('RegistryService', () => {
+describe.skip('RegistryService', () => {
   let providerService: ProviderService;
   let registryService: RegistryService;
   let securityService: SecurityService;

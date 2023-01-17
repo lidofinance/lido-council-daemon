@@ -9,7 +9,6 @@ import { ConfigModule } from 'common/config';
 import { PrometheusModule } from 'common/prometheus';
 import { GuardianModule } from 'guardian';
 import { DepositService } from 'contracts/deposit';
-import { RegistryService } from 'contracts/registry';
 import { SecurityService } from 'contracts/security';
 import { RepositoryModule } from 'contracts/repository';
 import { LidoService } from 'contracts/lido';
@@ -17,12 +16,13 @@ import { MessagesService, MessageType } from 'messages';
 
 jest.mock('../transport/stomp/stomp.client');
 
+const TEST_MODULE_ID = 1;
+
 describe('GuardianService', () => {
   let providerService: ProviderService;
   let guardianService: GuardianService;
   let loggerService: LoggerService;
   let depositService: DepositService;
-  let registryService: RegistryService;
   let lidoService: LidoService;
   let messagesService: MessagesService;
   let securityService: SecurityService;
@@ -42,7 +42,6 @@ describe('GuardianService', () => {
     providerService = moduleRef.get(ProviderService);
     guardianService = moduleRef.get(GuardianService);
     depositService = moduleRef.get(DepositService);
-    registryService = moduleRef.get(RegistryService);
     lidoService = moduleRef.get(LidoService);
     messagesService = moduleRef.get(MessagesService);
     securityService = moduleRef.get(SecurityService);
@@ -205,10 +204,6 @@ describe('GuardianService', () => {
         .spyOn(depositService, 'handleNewBlock')
         .mockImplementation(async () => undefined);
 
-      const mockRegistryHandleNewBlock = jest
-        .spyOn(registryService, 'handleNewBlock')
-        .mockImplementation(async () => undefined);
-
       const mockCollectMetrics = jest
         .spyOn(guardianService, 'collectMetrics')
         .mockImplementation(() => undefined);
@@ -222,7 +217,6 @@ describe('GuardianService', () => {
       expect(mockHandleNewBlock).toBeCalledTimes(1);
       expect(mockGetCurrentBlockData).toBeCalledTimes(1);
       expect(mockDepositHandleNewBlock).toBeCalledTimes(1);
-      expect(mockRegistryHandleNewBlock).toBeCalledTimes(1);
       expect(mockPingMessageBroker).toBeCalledTimes(1);
       expect(mockCollectMetrics).toBeCalledTimes(1);
     });
@@ -439,6 +433,7 @@ describe('GuardianService', () => {
       expect(mockPauseDeposits).toBeCalledTimes(1);
       expect(mockPauseDeposits).toBeCalledWith(
         blockData.blockNumber,
+        TEST_MODULE_ID,
         signature,
       );
     });
