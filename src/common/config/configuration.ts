@@ -26,4 +26,6 @@ export interface Configuration {
   RABBITMQ_PASSCODE: string;
   REGISTRY_KEYS_QUERY_BATCH_SIZE: number;
   REGISTRY_KEYS_QUERY_CONCURRENCY: number;
+  KEYS_API_PORT: number;
+  KEYS_API_HOST: string;
 }

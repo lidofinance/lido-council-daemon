@@ -16,6 +16,7 @@ import {
   METRIC_INTERSECTIONS_TOTAL,
   METRIC_DEPOSITED_KEYS_TOTAL,
   METRIC_OPERATORS_KEYS_TOTAL,
+  METRIC_KEYS_API_REQUEST_DURATION,
 } from './prometheus.constants';
 
 export const PrometheusTransportMessageCounterProvider = makeCounterProvider({
@@ -84,4 +85,10 @@ export const PrometheusOperatorsKeysProvider = makeGaugeProvider({
   name: METRIC_OPERATORS_KEYS_TOTAL,
   help: 'Number of node operators keys',
   labelNames: ['type'] as const,
+});
+
+export const PrometheusKeysApiRequestsProvider = makeHistogramProvider({
+  name: METRIC_KEYS_API_REQUEST_DURATION,
+  help: 'Duration of data collection requests by keys-api',
+  buckets: [0.1, 0.2, 0.3, 0.6, 1, 1.5, 2, 5],
 });

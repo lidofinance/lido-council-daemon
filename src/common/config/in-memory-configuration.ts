@@ -112,4 +112,14 @@ export class InMemoryConfiguration implements Configuration {
   @Min(1)
   @Transform(({ value }) => parseInt(value, 10), { toClassOnly: true })
   REGISTRY_KEYS_QUERY_CONCURRENCY = 5;
+
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(1)
+  @Transform(({ value }) => parseInt(value, 10), { toClassOnly: true })
+  KEYS_API_PORT = 3001;
+
+  @IsOptional()
+  @IsString()
+  KEYS_API_HOST = 'http://localhost';
 }
