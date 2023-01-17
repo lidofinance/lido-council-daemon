@@ -29,8 +29,3 @@ services:
     ports:
       - "15674:15674"
       - "15672:15672"
-
-networks:
-  default:
-    external:
-      name: webproxy
