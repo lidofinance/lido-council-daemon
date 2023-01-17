@@ -141,12 +141,12 @@ export class RegistryService {
 
     const overrides = { blockTag: blockTag as any, from: lido.address };
     // TODO: remove after keys api
-    const [pubKeys] = await registry.callStatic.assignNextSigningKeys(
-      maxDepositKeys,
-      overrides,
-    );
+    // const [pubKeys] = await registry.callStatic.assignNextSigningKeys(
+    //   maxDepositKeys,
+    //   overrides,
+    // );
 
-    const splittedKeys = splitPubKeys(pubKeys, pubkeyLength);
+    const splittedKeys = splitPubKeys('', pubkeyLength);
     return splittedKeys;
   }
 

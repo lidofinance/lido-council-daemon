@@ -9,7 +9,7 @@ import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
 import { MockProviderModule, ProviderService } from 'provider';
 import { RepositoryService } from 'contracts/repository';
-import { LidoAbi__factory } from 'generated';
+import { SecurityAbi__factory } from 'generated';
 import { RepositoryModule } from './repository.module';
 
 describe('RepositoryService', () => {
@@ -199,23 +199,6 @@ describe('RepositoryService', () => {
     });
   });
 
-  describe('registry address', () => {
-    it('should return contract address', async () => {
-      const expected = hexZeroPad('0x1', 20);
-
-      const mockProviderCall = jest
-        .spyOn(providerService.provider, 'call')
-        .mockImplementation(async () => {
-          const iface = new Interface(LidoAbi__factory.abi);
-          return iface.encodeFunctionResult('getOperators', [expected]);
-        });
-
-      const address = await repositoryService.getRegistryAddress();
-      expect(address).toEqual(expected);
-      expect(mockProviderCall).toBeCalledTimes(1);
-    });
-  });
-
   describe('deposit address', () => {
     it('should return contract address', async () => {
       const expected = hexZeroPad('0x1', 20);
@@ -223,8 +206,8 @@ describe('RepositoryService', () => {
       const mockProviderCall = jest
         .spyOn(providerService.provider, 'call')
         .mockImplementation(async () => {
-          const iface = new Interface(LidoAbi__factory.abi);
-          return iface.encodeFunctionResult('getDepositContract', [expected]);
+          const iface = new Interface(SecurityAbi__factory.abi);
+          return iface.encodeFunctionResult('DEPOSIT_CONTRACT', [expected]);
         });
 
       const address = await repositoryService.getDepositAddress();

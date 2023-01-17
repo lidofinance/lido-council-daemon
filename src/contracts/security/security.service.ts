@@ -122,25 +122,34 @@ export class SecurityService {
     keysOpIndex: number,
     blockNumber: number,
     blockHash: string,
+    stakingModuleId: number,
   ): Promise<Signature> {
-    const messagePrefix = await this.getAttestMessagePrefix();
+    const prefix = await this.getAttestMessagePrefix();
 
-    return await this.walletService.signDepositData(
-      messagePrefix,
+    return await this.walletService.signDepositData({
+      prefix,
       depositRoot,
       keysOpIndex,
       blockNumber,
       blockHash,
-    );
+      stakingModuleId,
+    });
   }
 
   /**
    * Signs a message to pause deposits with the prefix from the contract
    */
-  public async signPauseData(blockNumber: number): Promise<Signature> {
-    const messagePrefix = await this.getPauseMessagePrefix();
+  public async signPauseData(
+    blockNumber: number,
+    stakingModuleId: number,
+  ): Promise<Signature> {
+    const prefix = await this.getPauseMessagePrefix();
 
-    return await this.walletService.signPauseData(messagePrefix, blockNumber);
+    return await this.walletService.signPauseData({
+      prefix,
+      blockNumber,
+      stakingModuleId,
+    });
   }
 
   /**
@@ -166,6 +175,7 @@ export class SecurityService {
   /**
    * Sends a transaction to pause deposits
    * @param blockNumber - the block number for which the message is signed
+   * @param stakingModuleId - target staking module id
    * @param signature - message signature
    */
   @OneAtTime()

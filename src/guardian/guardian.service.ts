@@ -343,7 +343,10 @@ export class GuardianService implements OnModuleInit {
       return;
     }
 
-    const signature = await this.securityService.signPauseData(blockNumber);
+    const signature = await this.securityService.signPauseData(
+      blockNumber,
+      TEMP_MODULE_ID,
+    );
 
     const pauseMessage: MessagePause = {
       type: MessageType.PAUSE,
@@ -400,6 +403,7 @@ export class GuardianService implements OnModuleInit {
       keysOpIndex,
       blockNumber,
       blockHash,
+      TEMP_MODULE_ID,
     );
 
     const depositMessage: MessageDeposit = {
