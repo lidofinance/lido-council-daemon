@@ -43,9 +43,9 @@ export class KeysApiService {
     return await this.fetch<SRModuleListResponse>('/v1/modules');
   }
 
-  public async getModuleKeys(stakingModuleId: number) {
+  public async getUnusedModuleKeys(stakingModuleId: number) {
     return await this.fetch<SRModuleKeysResponse>(
-      `/v1/modules/${stakingModuleId}/keys`,
+      `/v1/modules/${stakingModuleId}/keys?used=false`,
     );
   }
 }

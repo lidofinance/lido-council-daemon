@@ -4,13 +4,12 @@ import {
   LoggerService,
   OnModuleInit,
 } from '@nestjs/common';
-import { Block } from '@ethersproject/providers';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { SchedulerRegistry } from '@nestjs/schedule';
+import { CronJob } from 'cron';
 import { DepositService, VerifiedDepositEvent } from 'contracts/deposit';
-import { RegistryService } from 'contracts/registry';
 import { SecurityService } from 'contracts/security';
 import { LidoService } from 'contracts/lido';
-import { RepositoryService } from 'contracts/repository';
 import { ProviderService } from 'provider';
 import {
   MessageDeposit,
@@ -21,7 +20,10 @@ import {
   MessageType,
 } from 'messages';
 import { ContractsState, BlockData } from './interfaces';
-import { GUARDIAN_DEPOSIT_RESIGNING_BLOCKS } from './guardian.constants';
+import {
+  GUARDIAN_DEPOSIT_JOB_NAME,
+  GUARDIAN_DEPOSIT_RESIGNING_BLOCKS,
+} from './guardian.constants';
 import { OneAtTime } from 'common/decorators';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import {
@@ -34,10 +36,13 @@ import {
 } from 'common/prometheus';
 import { Counter, Gauge, Histogram } from 'prom-client';
 import { APP_NAME, APP_VERSION } from 'app.constants';
-// TODO: rework after keys api
-const TEMP_MODULE_ID = 1;
+import { StakingRouterService } from 'staking-router';
+import { SRModule } from 'keys-api/interfaces';
+
 @Injectable()
 export class GuardianService implements OnModuleInit {
+  protected lastProcessedStateMeta?: { blockHash: string; blockNumber: number };
+
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER)
     private logger: LoggerService,
@@ -60,13 +65,15 @@ export class GuardianService implements OnModuleInit {
     @InjectMetric(METRIC_INTERSECTIONS_TOTAL)
     private intersectionsCounter: Gauge<string>,
 
-    private registryService: RegistryService,
+    private schedulerRegistry: SchedulerRegistry,
+
     private depositService: DepositService,
     private securityService: SecurityService,
     private providerService: ProviderService,
     private messagesService: MessagesService,
-    private repositoryService: RepositoryService,
     private lidoService: LidoService,
+
+    private stakingRouterService: StakingRouterService,
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -77,7 +84,6 @@ export class GuardianService implements OnModuleInit {
         const blockHash = block.hash;
 
         await Promise.all([
-          this.registryService.initialize(),
           this.depositService.initialize(block.number),
           this.securityService.initialize({ blockHash }),
         ]);
@@ -86,11 +92,10 @@ export class GuardianService implements OnModuleInit {
           // The event cache is stored with an N block lag to avoid caching data from uncle blocks
           // so we don't worry about blockHash here
           this.depositService.updateEventsCache(),
-          this.registryService.updateNodeOperatorsCache({ blockHash }),
         ]);
 
         // Subscribes to events only after the cache is warmed up
-        this.subscribeToEthereumUpdates();
+        this.subscribeToModulesUpdates();
       } catch (error) {
         this.logger.error(error);
         process.exit(1);
@@ -101,11 +106,18 @@ export class GuardianService implements OnModuleInit {
   /**
    * Subscribes to the event of a new block appearance
    */
-  public subscribeToEthereumUpdates() {
-    const provider = this.providerService.provider;
-    // TODO: keys-api — cron job
-    provider.on('block', () => this.handleNewBlock());
+  public subscribeToModulesUpdates() {
+    const cron = new CronJob(5_000, () => {
+      this.handleNewBlock().catch((error) => {
+        this.logger.error(error);
+      });
+    });
+
     this.logger.log('GuardianService subscribed to Ethereum events');
+
+    cron.start();
+
+    this.schedulerRegistry.addCronJob(GUARDIAN_DEPOSIT_JOB_NAME, cron);
   }
 
   /**
@@ -114,20 +126,54 @@ export class GuardianService implements OnModuleInit {
   @OneAtTime()
   public async handleNewBlock(): Promise<void> {
     this.logger.log('New block cycle start');
+    const {
+      elBlockSnapshot: { blockHash, blockNumber },
+      data: stakingModules,
+    } = await this.stakingRouterService.getStakingModules();
 
-    const block = await this.providerService.getBlock();
-    const blockData = await this.getCurrentBlockData(block);
+    if (!this.isNeedToProcessNewState({ blockHash, blockNumber })) return;
 
-    await Promise.all([
-      this.checkKeysIntersections(blockData),
-      this.depositService.handleNewBlock(blockData),
-      // TODO: keys-api
-      this.registryService.handleNewBlock(blockData),
-      this.pingMessageBroker(blockData),
-    ]);
+    await Promise.all(
+      stakingModules.map(async (stakingRouterModule) => {
+        const blockData = await this.getCurrentBlockData({
+          blockHash,
+          blockNumber,
+          stakingRouterModule,
+        });
 
-    this.collectMetrics(blockData);
+        await Promise.all([
+          this.checkKeysIntersections(blockData),
+          this.depositService.handleNewBlock(blockData),
+          this.pingMessageBroker(blockData),
+        ]);
+
+        this.collectMetrics(blockData);
+      }),
+    );
+
+    this.setLastProcessedStateMeta({ blockHash, blockNumber });
+
     this.logger.log('New block cycle end');
+  }
+
+  public isNeedToProcessNewState(newMeta: {
+    blockHash: string;
+    blockNumber: number;
+  }) {
+    const lastMeta = this.lastProcessedStateMeta;
+    if (!lastMeta) return true;
+    if (lastMeta.blockNumber > newMeta.blockNumber) {
+      // TODO: error or return?
+      this.logger.warn('TODO', newMeta);
+    }
+    return lastMeta.blockHash !== newMeta.blockHash;
+  }
+
+  public setLastProcessedStateMeta(newMeta: {
+    blockHash: string;
+    blockNumber: number;
+  }) {
+    this.lastProcessedStateMeta = newMeta;
   }
 
   /**
@@ -150,46 +196,54 @@ export class GuardianService implements OnModuleInit {
    * to reduce the probability of getting data from different blocks
    * @returns collected data from the current block
    */
-  public async getCurrentBlockData(block: Block): Promise<BlockData> {
+  public async getCurrentBlockData({
+    blockNumber,
+    blockHash,
+    stakingRouterModule,
+  }: {
+    blockNumber: number;
+    blockHash: string;
+    stakingRouterModule: SRModule;
+  }): Promise<BlockData> {
     try {
       const endTimer = this.blockRequestsHistogram.startTimer();
 
       const guardianAddress = this.securityService.getGuardianAddress();
+      const {
+        data: {
+          keys,
+          module: { nonce },
+        },
+        meta: { elBlockSnapshot },
+      } = await this.stakingRouterService.getStakingModuleUnusedKeys(
+        stakingRouterModule,
+      );
+      // TODO: error catch
+      if (elBlockSnapshot.blockHash !== blockHash) throw Error('TODO');
 
-      const blockNumber = block.number;
-      const blockHash = block.hash;
-
-      const [
-        nodeOperatorsCache,
-        keysOpIndex,
-        nextSigningKeys,
-        depositRoot,
-        depositedEvents,
-        guardianIndex,
-        isDepositsPaused,
-      ] = await Promise.all([
-        this.registryService.getCachedNodeOperators(),
-        this.registryService.getKeysOpIndex({ blockHash }),
-        this.registryService.getNextSigningKeys({ blockHash }),
-        this.depositService.getDepositRoot({ blockHash }),
-        this.depositService.getAllDepositedEvents(blockNumber, blockHash),
-        this.securityService.getGuardianIndex({ blockHash }),
-        this.securityService.isDepositsPaused(TEMP_MODULE_ID, { blockHash }),
-      ]);
+      const [depositRoot, depositedEvents, guardianIndex, isDepositsPaused] =
+        await Promise.all([
+          this.depositService.getDepositRoot({ blockHash }),
+          this.depositService.getAllDepositedEvents(blockNumber, blockHash),
+          this.securityService.getGuardianIndex({ blockHash }),
+          this.securityService.isDepositsPaused(stakingRouterModule.id, {
+            blockHash,
+          }),
+        ]);
 
       endTimer();
 
       return {
+        nonce,
+        keys: keys.map((srKey) => srKey.key),
         blockNumber,
         blockHash,
         depositRoot,
-        keysOpIndex,
-        nextSigningKeys,
-        nodeOperatorsCache,
         depositedEvents,
         guardianAddress,
         guardianIndex,
         isDepositsPaused,
+        srModuleId: stakingRouterModule.id,
       };
     } catch (error) {
       this.blockErrorsCounter.inc();
@@ -204,16 +258,15 @@ export class GuardianService implements OnModuleInit {
   public async checkKeysIntersections(blockData: BlockData): Promise<void> {
     const { blockHash } = blockData;
 
-    const nextKeysIntersections = this.getNextKeysIntersections(blockData);
-    const cachedKeysIntersections = this.getCachedKeysIntersections(blockData);
-    const intersections = nextKeysIntersections.concat(cachedKeysIntersections);
+    const keysIntersections = this.getKeysIntersections(blockData);
+
     const filteredIntersections = await this.excludeEligibleIntersections(
-      intersections,
+      keysIntersections,
       blockData,
     );
     const isFilteredIntersectionsFound = filteredIntersections.length > 0;
 
-    this.collectIntersectionsMetrics(intersections, filteredIntersections);
+    this.collectIntersectionsMetrics(keysIntersections, filteredIntersections);
 
     if (blockData.isDepositsPaused) {
       this.logger.warn('Deposits are paused', { blockHash });
@@ -233,64 +286,21 @@ export class GuardianService implements OnModuleInit {
    * @param blockData - collected data from the current block
    * @returns list of keys that were deposited earlier
    */
-  public getNextKeysIntersections(
-    blockData: BlockData,
-  ): VerifiedDepositEvent[] {
+  public getKeysIntersections(blockData: BlockData): VerifiedDepositEvent[] {
     const { blockHash } = blockData;
-    const { depositedEvents, nextSigningKeys } = blockData;
-    const { depositRoot, keysOpIndex } = blockData;
+    const { depositedEvents, keys } = blockData;
+    const { depositRoot, nonce } = blockData;
 
-    const nextSigningKeysSet = new Set(nextSigningKeys);
+    const keysSet = new Set(keys);
     const intersections = depositedEvents.events.filter(({ pubkey }) =>
-      nextSigningKeysSet.has(pubkey),
+      keysSet.has(pubkey),
     );
 
     if (intersections.length) {
       this.logger.warn('Already deposited keys found in the next Lido keys', {
         blockHash,
         depositRoot,
-        keysOpIndex,
-        intersections,
-      });
-    }
-
-    return intersections;
-  }
-
-  /**
-   * Finds the intersection of all unused lido keys in the list of all previously deposited keys
-   * It may not run every block if the cache is being updated.
-   * @param blockData - collected data from the current block
-   * @returns list of keys that were deposited earlier
-   */
-  public getCachedKeysIntersections(
-    blockData: BlockData,
-  ): VerifiedDepositEvent[] {
-    const { blockHash } = blockData;
-    const { keysOpIndex, depositRoot, depositedEvents } = blockData;
-    const cache = blockData.nodeOperatorsCache;
-
-    const isSameKeysOpIndex = cache.keysOpIndex === keysOpIndex;
-    const isSameDepositRoot = cache.depositRoot === depositRoot;
-    const isCacheUpToDate = isSameKeysOpIndex && isSameDepositRoot;
-
-    // Skip checking until the next cache update
-    if (!isCacheUpToDate) return [];
-
-    const unusedOperatorsKeys = cache.operators.flatMap((operator) =>
-      operator.keys.filter(({ used }) => used === false).map(({ key }) => key),
-    );
-    const unusedOperatorsKeysSet = new Set(unusedOperatorsKeys);
-
-    const intersections = depositedEvents.events.filter(({ pubkey }) =>
-      unusedOperatorsKeysSet.has(pubkey),
-    );
-
-    if (intersections.length) {
-      this.logger.warn('Already deposited keys found in operators cache', {
-        blockHash,
-        keysOpIndex,
-        depositRoot,
+        nonce,
         intersections,
       });
     }
@@ -335,7 +345,8 @@ export class GuardianService implements OnModuleInit {
       guardianIndex,
       isDepositsPaused,
       depositRoot,
-      keysOpIndex,
+      nonce,
+      srModuleId,
     } = blockData;
 
     if (isDepositsPaused) {
@@ -345,13 +356,13 @@ export class GuardianService implements OnModuleInit {
 
     const signature = await this.securityService.signPauseData(
       blockNumber,
-      TEMP_MODULE_ID,
+      srModuleId,
     );
 
     const pauseMessage: MessagePause = {
       type: MessageType.PAUSE,
       depositRoot,
-      keysOpIndex,
+      nonce,
       guardianAddress,
       guardianIndex,
       blockNumber,
@@ -366,7 +377,7 @@ export class GuardianService implements OnModuleInit {
 
     // Call pause without waiting for completion
     this.securityService
-      .pauseDeposits(blockNumber, TEMP_MODULE_ID, signature)
+      .pauseDeposits(blockNumber, srModuleId, signature)
       .catch((error) => this.logger.error(error));
 
     await this.sendMessageFromGuardian(pauseMessage);
@@ -381,12 +392,13 @@ export class GuardianService implements OnModuleInit {
       blockNumber,
       blockHash,
       depositRoot,
-      keysOpIndex,
+      nonce,
       guardianAddress,
       guardianIndex,
+      srModuleId,
     } = blockData;
 
-    const currentContractState = { keysOpIndex, depositRoot, blockNumber };
+    const currentContractState = { nonce, depositRoot, blockNumber };
     const lastContractsState = this.lastContractsState;
 
     this.lastContractsState = currentContractState;
@@ -400,16 +412,16 @@ export class GuardianService implements OnModuleInit {
 
     const signature = await this.securityService.signDepositData(
       depositRoot,
-      keysOpIndex,
+      nonce,
       blockNumber,
       blockHash,
-      TEMP_MODULE_ID,
+      srModuleId,
     );
 
     const depositMessage: MessageDeposit = {
       type: MessageType.DEPOSIT,
       depositRoot,
-      keysOpIndex,
+      nonce,
       blockNumber,
       blockHash,
       guardianAddress,
@@ -440,7 +452,7 @@ export class GuardianService implements OnModuleInit {
   ): boolean {
     if (!firstState || !secondState) return false;
     if (firstState.depositRoot !== secondState.depositRoot) return false;
-    if (firstState.keysOpIndex !== secondState.keysOpIndex) return false;
+    if (firstState.nonce !== secondState.nonce) return false;
     if (
       Math.floor(firstState.blockNumber / GUARDIAN_DEPOSIT_RESIGNING_BLOCKS) !==
       Math.floor(secondState.blockNumber / GUARDIAN_DEPOSIT_RESIGNING_BLOCKS)
@@ -531,19 +543,10 @@ export class GuardianService implements OnModuleInit {
    * @param blockData - collected data from the current block
    */
   public collectOperatorMetrics(blockData: BlockData): void {
-    const { nodeOperatorsCache, nextSigningKeys } = blockData;
+    const { keys } = blockData;
 
-    const { operators } = nodeOperatorsCache;
-    const operatorsKeys = operators.flatMap(({ keys }) => keys);
-    const operatorsKeysUsed = operatorsKeys.filter(({ used }) => !!used);
-    const operatorsKeysUnused = operatorsKeys.filter(({ used }) => !used);
-    const operatorsKeysUsedTotal = operatorsKeysUsed.length;
-    const operatorsKeysUnusedTotal = operatorsKeysUnused.length;
-
-    this.operatorsKeysCounter.set({ type: 'total' }, operatorsKeys.length);
-    this.operatorsKeysCounter.set({ type: 'used' }, operatorsKeysUsedTotal);
-    this.operatorsKeysCounter.set({ type: 'unused' }, operatorsKeysUnusedTotal);
-    this.operatorsKeysCounter.set({ type: 'next' }, nextSigningKeys.length);
+    const operatorsKeysTotal = keys.length;
+    this.operatorsKeysCounter.set({ type: 'total' }, operatorsKeysTotal);
   }
 
   /**

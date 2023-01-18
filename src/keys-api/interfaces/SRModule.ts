@@ -16,7 +16,7 @@ export type SRModule = {
    */
   stakingModuleAddress: string;
   /**
-   * rewarf fee of the module
+   * reward fee of the module
    */
   moduleFee: number;
   /**
