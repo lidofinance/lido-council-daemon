@@ -43,15 +43,6 @@ export class StakingRouterService {
     if (!cache) return true;
 
     const prevNonce = cache.data.module.nonce;
-
-    if (cache.data.module.nonce < nextNonce) {
-      this.logger.warn('Next nonce lower than previous', {
-        prevNonce,
-        nextNonce,
-      });
-      return false;
-    }
-
     return prevNonce !== nextNonce;
   }
 }

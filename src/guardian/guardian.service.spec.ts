@@ -1,7 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { LoggerModule } from 'common/logger';
 import { MockProviderModule } from 'provider';
-import { ProviderService } from 'provider';
 import { GuardianService } from './guardian.service';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
@@ -13,13 +12,37 @@ import { SecurityService } from 'contracts/security';
 import { RepositoryModule } from 'contracts/repository';
 import { LidoService } from 'contracts/lido';
 import { MessagesService, MessageType } from 'messages';
+import { StakingRouterService } from 'staking-router';
 
 jest.mock('../transport/stomp/stomp.client');
 
 const TEST_MODULE_ID = 1;
 
+const stakingModuleResponse = {
+  data: [
+    {
+      nonce: 0,
+      type: 'string',
+      id: TEST_MODULE_ID,
+      stakingModuleAddress: 'string',
+      moduleFee: 0,
+      treasuryFee: 0,
+      targetShare: 0,
+      status: 0,
+      name: 'string',
+      lastDepositAt: 0,
+      lastDepositBlock: 0,
+    },
+  ],
+  elBlockSnapshot: {
+    blockNumber: 0,
+    blockHash: 'string',
+    timestamp: 0,
+  },
+};
+
 describe('GuardianService', () => {
-  let providerService: ProviderService;
+  let stakingRouterService: StakingRouterService;
   let guardianService: GuardianService;
   let loggerService: LoggerService;
   let depositService: DepositService;
@@ -39,7 +62,7 @@ describe('GuardianService', () => {
       ],
     }).compile();
 
-    providerService = moduleRef.get(ProviderService);
+    stakingRouterService = moduleRef.get(StakingRouterService);
     guardianService = moduleRef.get(GuardianService);
     depositService = moduleRef.get(DepositService);
     lidoService = moduleRef.get(LidoService);
@@ -57,27 +80,15 @@ describe('GuardianService', () => {
     it.todo('should subscribe to updates');
   });
 
-  describe('subscribeToEthereumUpdates', () => {
-    it('should subscribe to updates', () => {
-      const mockOn = jest
-        .spyOn(providerService.provider, 'on')
-        .mockImplementation(() => undefined as any);
-
-      guardianService.subscribeToEthereumUpdates();
-      expect(mockOn).toBeCalledTimes(1);
-      expect(mockOn).toBeCalledWith('block', expect.any(Function));
-    });
-  });
-
-  describe('getNextKeysIntersections', () => {
+  describe('getKeysIntersections', () => {
     it('should find the keys when they match', () => {
-      const nextSigningKeys = ['0x1'];
+      const unusedKeys = ['0x1'];
       const depositedKeys = ['0x1'];
       const depositedEvents = {
         events: depositedKeys.map((pubkey) => ({ pubkey } as any)),
       };
-      const blockData = { nextSigningKeys, depositedEvents } as any;
-      const matched = guardianService.getNextKeysIntersections(blockData);
+      const blockData = { unusedKeys, depositedEvents } as any;
+      const matched = guardianService.getKeysIntersections(blockData);
 
       expect(matched).toBeInstanceOf(Array);
       expect(matched).toHaveLength(1);
@@ -85,91 +96,26 @@ describe('GuardianService', () => {
     });
 
     it('should not find the keys when they don’t match', () => {
-      const nextSigningKeys = ['0x2'];
+      const unusedKeys = ['0x2'];
       const depositedKeys = ['0x1'];
       const depositedEvents = {
         events: depositedKeys.map((pubkey) => ({ pubkey } as any)),
       };
-      const blockData = { nextSigningKeys, depositedEvents } as any;
-      const matched = guardianService.getNextKeysIntersections(blockData);
+      const blockData = { unusedKeys, depositedEvents } as any;
+      const matched = guardianService.getKeysIntersections(blockData);
 
       expect(matched).toBeInstanceOf(Array);
       expect(matched).toHaveLength(0);
     });
 
     it('should work if array is empty', () => {
-      const nextSigningKeys = [];
+      const unusedKeys = [];
       const depositedKeys = ['0x1'];
       const depositedEvents = {
         events: depositedKeys.map((pubkey) => ({ pubkey } as any)),
       };
-      const blockData = { nextSigningKeys, depositedEvents } as any;
-      const matched = guardianService.getNextKeysIntersections(blockData);
-
-      expect(matched).toBeInstanceOf(Array);
-      expect(matched).toHaveLength(0);
-    });
-  });
-
-  describe('getCachedKeysIntersections', () => {
-    const pubkey = '0x1';
-    const keysOpIndex = 1;
-    const nodeOperatorsCache = {
-      keysOpIndex,
-      operators: [{ keys: [{ key: pubkey, used: false }] }],
-    };
-    const depositedKeys = [pubkey];
-    const depositedEvents = {
-      events: depositedKeys.map((pubkey) => ({ pubkey } as any)),
-    };
-
-    it('should find the keys when they match', () => {
-      const blockData = {
-        keysOpIndex,
-        nodeOperatorsCache,
-        depositedEvents,
-      } as any;
-      const matched = guardianService.getCachedKeysIntersections(blockData);
-
-      expect(matched).toBeInstanceOf(Array);
-      expect(matched).toHaveLength(1);
-      expect(matched).toContainEqual({ pubkey });
-    });
-
-    it('should not find the keys when they don’t match', () => {
-      const blockData = {
-        keysOpIndex,
-        nodeOperatorsCache,
-        depositedEvents: { events: [{ key: '0x2' }] },
-      } as any;
-      const matched = guardianService.getCachedKeysIntersections(blockData);
-
-      expect(matched).toBeInstanceOf(Array);
-      expect(matched).toHaveLength(0);
-    });
-
-    it('should ignore used keys', () => {
-      const blockData = {
-        keysOpIndex,
-        nodeOperatorsCache: {
-          ...nodeOperatorsCache,
-          operators: [{ keys: [{ key: pubkey, used: true }] }],
-        },
-        depositedEvents,
-      } as any;
-      const matched = guardianService.getCachedKeysIntersections(blockData);
-
-      expect(matched).toBeInstanceOf(Array);
-      expect(matched).toHaveLength(0);
-    });
-
-    it('should work if events array is empty', () => {
-      const blockData = {
-        keysOpIndex,
-        nodeOperatorsCache,
-        depositedEvents: { events: [] },
-      } as any;
-      const matched = guardianService.getCachedKeysIntersections(blockData);
+      const blockData = { unusedKeys, depositedEvents } as any;
+      const matched = guardianService.getKeysIntersections(blockData);
 
       expect(matched).toBeInstanceOf(Array);
       expect(matched).toHaveLength(0);
@@ -184,9 +130,9 @@ describe('GuardianService', () => {
     it('should exit if the previous call is not completed', async () => {
       const blockData = {} as any;
 
-      const mockProviderCall = jest
-        .spyOn(providerService, 'getBlock')
-        .mockImplementation(async () => ({ number: 1, hash: '0x01' } as any));
+      const getStakingModulesMock = jest
+        .spyOn(stakingRouterService, 'getStakingModules')
+        .mockImplementation(async () => stakingModuleResponse);
 
       const mockHandleNewBlock = jest
         .spyOn(guardianService, 'checkKeysIntersections')
@@ -213,7 +159,7 @@ describe('GuardianService', () => {
         guardianService.handleNewBlock(),
       ]);
 
-      expect(mockProviderCall).toBeCalledTimes(1);
+      expect(getStakingModulesMock).toBeCalledTimes(1);
       expect(mockHandleNewBlock).toBeCalledTimes(1);
       expect(mockGetCurrentBlockData).toBeCalledTimes(1);
       expect(mockDepositHandleNewBlock).toBeCalledTimes(1);
@@ -235,7 +181,7 @@ describe('GuardianService', () => {
     };
     const nodeOperatorsCache = {
       depositRoot: '0x2345',
-      keysOpIndex: 1,
+      nonce: 1,
       operators: [],
       version: '1',
     };
@@ -244,18 +190,19 @@ describe('GuardianService', () => {
       blockNumber: 1,
       blockHash: '0x1234',
       depositRoot: '0x2345',
-      keysOpIndex: 1,
+      nonce: 1,
       nextSigningKeys: [] as string[],
       nodeOperatorsCache,
       depositedEvents,
       guardianAddress: '0x3456',
       guardianIndex: 1,
       isDepositsPaused: false,
+      srModuleId: 1,
     };
 
     it('should call handleKeysIntersections if next keys are found in the deposit contract', async () => {
       const depositedKey = depositedPubKeys[0];
-      const nextSigningKeys = [depositedKey];
+      const unusedKeys = [depositedKey];
       const events = currentBlockData.depositedEvents.events.map(
         ({ ...data }) => ({ ...data, wc: attackerWC } as any),
       );
@@ -263,7 +210,7 @@ describe('GuardianService', () => {
       const blockData = {
         ...currentBlockData,
         depositedEvents: { ...currentBlockData.depositedEvents, events },
-        nextSigningKeys,
+        unusedKeys,
       };
 
       const mockHandleCorrectKeys = jest
@@ -288,8 +235,8 @@ describe('GuardianService', () => {
 
     it('should call handleCorrectKeys if Lido next keys are not found in the deposit contract', async () => {
       const notDepositedKey = '0x2345';
-      const nextSigningKeys = [notDepositedKey];
-      const blockData = { ...currentBlockData, nextSigningKeys };
+      const unusedKeys = [notDepositedKey];
+      const blockData = { ...currentBlockData, unusedKeys };
 
       const mockHandleCorrectKeys = jest
         .spyOn(guardianService, 'handleCorrectKeys')
@@ -310,7 +257,7 @@ describe('GuardianService', () => {
   describe('handleCorrectKeys', () => {
     const signature = {} as any;
     const currentContractState = {
-      keysOpIndex: 1,
+      nonce: 1,
       depositRoot: '0x1',
       blockNumber: 1,
     };
@@ -410,7 +357,7 @@ describe('GuardianService', () => {
 
   describe('handleKeysIntersections', () => {
     const signature = {} as any;
-    const blockData = { blockNumber: 1 } as any;
+    const blockData = { blockNumber: 1, srModuleId: TEST_MODULE_ID } as any;
     const type = MessageType.PAUSE;
 
     beforeEach(async () => {
@@ -458,7 +405,7 @@ describe('GuardianService', () => {
 
   describe('isSameContractsStates', () => {
     it('should return true if states are the same', () => {
-      const state = { depositRoot: '0x1', keysOpIndex: 1, blockNumber: 100 };
+      const state = { depositRoot: '0x1', nonce: 1, blockNumber: 100 };
       const result = guardianService.isSameContractsStates(
         { ...state },
         { ...state },
@@ -467,7 +414,7 @@ describe('GuardianService', () => {
     });
 
     it('should return true if blockNumbers are close', () => {
-      const state = { depositRoot: '0x1', keysOpIndex: 1, blockNumber: 100 };
+      const state = { depositRoot: '0x1', nonce: 1, blockNumber: 100 };
       const result = guardianService.isSameContractsStates(state, {
         ...state,
         blockNumber: state.blockNumber + 1,
@@ -476,7 +423,7 @@ describe('GuardianService', () => {
     });
 
     it('should return false if blockNumbers are too far', () => {
-      const state = { depositRoot: '0x1', keysOpIndex: 1, blockNumber: 100 };
+      const state = { depositRoot: '0x1', nonce: 1, blockNumber: 100 };
       const result = guardianService.isSameContractsStates(state, {
         ...state,
         blockNumber: state.blockNumber + 200,
@@ -485,7 +432,7 @@ describe('GuardianService', () => {
     });
 
     it('should return false if depositRoot are different', () => {
-      const state = { depositRoot: '0x1', keysOpIndex: 1, blockNumber: 100 };
+      const state = { depositRoot: '0x1', nonce: 1, blockNumber: 100 };
       const result = guardianService.isSameContractsStates(state, {
         ...state,
         depositRoot: '0x2',
@@ -493,11 +440,11 @@ describe('GuardianService', () => {
       expect(result).toBeFalsy();
     });
 
-    it('should return false if keysOpIndex are different', () => {
-      const state = { depositRoot: '0x1', keysOpIndex: 1, blockNumber: 100 };
+    it('should return false if nonce are different', () => {
+      const state = { depositRoot: '0x1', nonce: 1, blockNumber: 100 };
       const result = guardianService.isSameContractsStates(state, {
         ...state,
-        keysOpIndex: 2,
+        nonce: 2,
       });
       expect(result).toBeFalsy();
     });

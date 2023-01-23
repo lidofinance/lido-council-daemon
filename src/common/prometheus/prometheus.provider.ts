@@ -91,4 +91,5 @@ export const PrometheusKeysApiRequestsProvider = makeHistogramProvider({
   name: METRIC_KEYS_API_REQUEST_DURATION,
   help: 'Duration of data collection requests by keys-api',
   buckets: [0.1, 0.2, 0.3, 0.6, 1, 1.5, 2, 5],
+  labelNames: ['result', 'status'] as const,
 });

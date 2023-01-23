@@ -51,7 +51,6 @@ export class WalletService implements OnModuleInit {
    */
   public subscribeToEthereumUpdates() {
     const provider = this.providerService.provider;
-    // TODO: is need to update?
     provider.on('block', async (blockNumber) => {
       if (blockNumber % WALLET_BALANCE_UPDATE_BLOCK_RATE !== 0) return;
       this.updateBalance().catch((error) => this.logger.error(error));

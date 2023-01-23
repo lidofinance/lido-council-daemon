@@ -87,33 +87,6 @@ describe('RepositoryService', () => {
     });
   });
 
-  describe('registry contract', () => {
-    let mockGetAddress;
-
-    beforeEach(() => {
-      mockGetAddress = jest
-        .spyOn(repositoryService, 'getRegistryAddress')
-        .mockImplementationOnce(async () => address1);
-    });
-
-    it('should return contract instance', async () => {
-      const contract = await repositoryService.getCachedRegistryContract();
-      expect(contract).toBeInstanceOf(Contract);
-    });
-
-    it('should call getRegistryAddress once', async () => {
-      await repositoryService.getCachedRegistryContract();
-      await repositoryService.getCachedRegistryContract();
-      expect(mockGetAddress).toBeCalledTimes(1);
-    });
-
-    it('should cache instance', async () => {
-      const contract1 = await repositoryService.getCachedRegistryContract();
-      const contract2 = await repositoryService.getCachedRegistryContract();
-      expect(contract1).toEqual(contract2);
-    });
-  });
-
   describe('deposit contract', () => {
     let mockGetAddress;
 

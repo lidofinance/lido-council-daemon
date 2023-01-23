@@ -8,7 +8,7 @@ export interface BlockData {
   guardianAddress: string;
   guardianIndex: number;
   isDepositsPaused: boolean;
-  keys: string[];
+  unusedKeys: string[];
   nonce: number;
   srModuleId: number;
 }

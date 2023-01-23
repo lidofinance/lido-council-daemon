@@ -35,4 +35,5 @@ export interface MessagePause extends MessageRequiredFields {
   blockNumber: number;
   blockHash: string;
   signature: Signature;
+  srModuleId: number;
 }

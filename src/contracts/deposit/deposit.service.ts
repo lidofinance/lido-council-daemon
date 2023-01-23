@@ -31,7 +31,7 @@ export class DepositService {
     private cacheService: CacheService<VerifiedDepositEventsCache>,
     private blsService: BlsService,
   ) {}
-  // TODO: move decorator to main fn
+
   @OneAtTime()
   public async handleNewBlock({ blockNumber }: BlockData): Promise<void> {
     if (blockNumber % DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE !== 0) return;

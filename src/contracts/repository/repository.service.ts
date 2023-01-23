@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { Cache } from 'common/decorators';
 import { LidoAbi, LidoAbi__factory } from 'generated';
 import { SecurityAbi, SecurityAbi__factory } from 'generated';
-import { RegistryAbi, RegistryAbi__factory } from 'generated';
 import { DepositAbi, DepositAbi__factory } from 'generated';
 import { StakingRouterAbi, StakingRouterAbi__factory } from 'generated';
 import { ProviderService } from 'provider';
@@ -35,18 +34,6 @@ export class RepositoryService {
     const provider = this.providerService.provider;
 
     return SecurityAbi__factory.connect(securityAddress, provider);
-  }
-
-  /**
-   * Returns an instance of the Node Operators Registry contract
-   */
-  @Cache()
-  // TODO: remove
-  public async getCachedRegistryContract(): Promise<RegistryAbi> {
-    const aclAddress = await this.getRegistryAddress();
-    const provider = this.providerService.provider;
-
-    return RegistryAbi__factory.connect(aclAddress, provider);
   }
 
   /**
@@ -94,20 +81,10 @@ export class RepositoryService {
     const securityContract = await this.getCachedSecurityContract();
     return await securityContract.STAKING_ROUTER();
   }
-  /**
-   * Returns Node Operators Registry contract address
-   */
-  // TODO: remove cause keys-api
-  public async getRegistryAddress(): Promise<string> {
-    // const lidoContract = await this.getCachedLidoContract();
-    // return await lidoContract.getOperators();
-    return '0x0000000000000000000000000000000000000001';
-  }
 
   /**
    * Returns Deposit contract address
    */
-  // TODO: REMOVE BSC KEYS API
   public async getDepositAddress(): Promise<string> {
     const securityContract = await this.getCachedSecurityContract();
     return await securityContract.DEPOSIT_CONTRACT();
