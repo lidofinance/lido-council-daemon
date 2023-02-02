@@ -1,7 +1,11 @@
 [
   {
     "inputs": [
-      { "internalType": "address", "name": "_lido", "type": "address" },
+      {
+        "internalType": "address",
+        "name": "_lido",
+        "type": "address"
+      },
       {
         "internalType": "address",
         "name": "_depositContract",
@@ -30,6 +34,11 @@
     ],
     "stateMutability": "nonpayable",
     "type": "constructor"
+  },
+  {
+    "inputs": [],
+    "name": "ErrorStakingModuleIdTooLarge",
+    "type": "error"
   },
   {
     "anonymous": false,
@@ -157,7 +166,13 @@
   {
     "inputs": [],
     "name": "ATTEST_MESSAGE_PREFIX",
-    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
@@ -178,7 +193,11 @@
     "inputs": [],
     "name": "LIDO",
     "outputs": [
-      { "internalType": "contract ILido", "name": "", "type": "address" }
+      {
+        "internalType": "contract ILido",
+        "name": "",
+        "type": "address"
+      }
     ],
     "stateMutability": "view",
     "type": "function"
@@ -186,7 +205,13 @@
   {
     "inputs": [],
     "name": "PAUSE_MESSAGE_PREFIX",
-    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
@@ -205,8 +230,16 @@
   },
   {
     "inputs": [
-      { "internalType": "address", "name": "addr", "type": "address" },
-      { "internalType": "uint256", "name": "newQuorum", "type": "uint256" }
+      {
+        "internalType": "address",
+        "name": "addr",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newQuorum",
+        "type": "uint256"
+      }
     ],
     "name": "addGuardian",
     "outputs": [],
@@ -215,8 +248,16 @@
   },
   {
     "inputs": [
-      { "internalType": "address[]", "name": "addresses", "type": "address[]" },
-      { "internalType": "uint256", "name": "newQuorum", "type": "uint256" }
+      {
+        "internalType": "address[]",
+        "name": "addresses",
+        "type": "address[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newQuorum",
+        "type": "uint256"
+      }
     ],
     "name": "addGuardians",
     "outputs": [],
@@ -225,25 +266,67 @@
   },
   {
     "inputs": [
-      { "internalType": "uint24", "name": "stakingModuleId", "type": "uint24" }
+      {
+        "internalType": "uint256",
+        "name": "stakingModuleId",
+        "type": "uint256"
+      }
     ],
     "name": "canDeposit",
-    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "blockNumber", "type": "uint256" },
-      { "internalType": "bytes32", "name": "blockHash", "type": "bytes32" },
-      { "internalType": "bytes32", "name": "depositRoot", "type": "bytes32" },
-      { "internalType": "uint24", "name": "stakingModuleId", "type": "uint24" },
-      { "internalType": "uint256", "name": "keysOpIndex", "type": "uint256" },
-      { "internalType": "bytes", "name": "depositCalldata", "type": "bytes" },
+      {
+        "internalType": "uint256",
+        "name": "blockNumber",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "blockHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "depositRoot",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint256",
+        "name": "stakingModuleId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "keysOpIndex",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes",
+        "name": "depositCalldata",
+        "type": "bytes"
+      },
       {
         "components": [
-          { "internalType": "bytes32", "name": "r", "type": "bytes32" },
-          { "internalType": "bytes32", "name": "vs", "type": "bytes32" }
+          {
+            "internalType": "bytes32",
+            "name": "r",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "vs",
+            "type": "bytes32"
+          }
         ],
         "internalType": "struct DepositSecurityModule.Signature[]",
         "name": "sortedGuardianSignatures",
@@ -257,17 +340,33 @@
   },
   {
     "inputs": [
-      { "internalType": "address", "name": "addr", "type": "address" }
+      {
+        "internalType": "address",
+        "name": "addr",
+        "type": "address"
+      }
     ],
     "name": "getGuardianIndex",
-    "outputs": [{ "internalType": "int256", "name": "", "type": "int256" }],
+    "outputs": [
+      {
+        "internalType": "int256",
+        "name": "",
+        "type": "int256"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "getGuardianQuorum",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
@@ -275,7 +374,11 @@
     "inputs": [],
     "name": "getGuardians",
     "outputs": [
-      { "internalType": "address[]", "name": "", "type": "address[]" }
+      {
+        "internalType": "address[]",
+        "name": "",
+        "type": "address[]"
+      }
     ],
     "stateMutability": "view",
     "type": "function"
@@ -283,48 +386,98 @@
   {
     "inputs": [],
     "name": "getMaxDeposits",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "getMinDepositBlockDistance",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "getOwner",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "getPauseIntentValidityPeriodBlocks",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
-      { "internalType": "address", "name": "addr", "type": "address" }
+      {
+        "internalType": "address",
+        "name": "addr",
+        "type": "address"
+      }
     ],
     "name": "isGuardian",
-    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "blockNumber", "type": "uint256" },
-      { "internalType": "uint24", "name": "stakingModuleId", "type": "uint24" },
+      {
+        "internalType": "uint256",
+        "name": "blockNumber",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "stakingModuleId",
+        "type": "uint256"
+      },
       {
         "components": [
-          { "internalType": "bytes32", "name": "r", "type": "bytes32" },
-          { "internalType": "bytes32", "name": "vs", "type": "bytes32" }
+          {
+            "internalType": "bytes32",
+            "name": "r",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "vs",
+            "type": "bytes32"
+          }
         ],
         "internalType": "struct DepositSecurityModule.Signature",
         "name": "sig",
@@ -338,8 +491,16 @@
   },
   {
     "inputs": [
-      { "internalType": "address", "name": "addr", "type": "address" },
-      { "internalType": "uint256", "name": "newQuorum", "type": "uint256" }
+      {
+        "internalType": "address",
+        "name": "addr",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newQuorum",
+        "type": "uint256"
+      }
     ],
     "name": "removeGuardian",
     "outputs": [],
@@ -348,7 +509,11 @@
   },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "newValue", "type": "uint256" }
+      {
+        "internalType": "uint256",
+        "name": "newValue",
+        "type": "uint256"
+      }
     ],
     "name": "setGuardianQuorum",
     "outputs": [],
@@ -357,7 +522,11 @@
   },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "newValue", "type": "uint256" }
+      {
+        "internalType": "uint256",
+        "name": "newValue",
+        "type": "uint256"
+      }
     ],
     "name": "setMaxDeposits",
     "outputs": [],
@@ -366,7 +535,11 @@
   },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "newValue", "type": "uint256" }
+      {
+        "internalType": "uint256",
+        "name": "newValue",
+        "type": "uint256"
+      }
     ],
     "name": "setMinDepositBlockDistance",
     "outputs": [],
@@ -375,7 +548,11 @@
   },
   {
     "inputs": [
-      { "internalType": "address", "name": "newValue", "type": "address" }
+      {
+        "internalType": "address",
+        "name": "newValue",
+        "type": "address"
+      }
     ],
     "name": "setOwner",
     "outputs": [],
@@ -384,7 +561,11 @@
   },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "newValue", "type": "uint256" }
+      {
+        "internalType": "uint256",
+        "name": "newValue",
+        "type": "uint256"
+      }
     ],
     "name": "setPauseIntentValidityPeriodBlocks",
     "outputs": [],
@@ -393,7 +574,11 @@
   },
   {
     "inputs": [
-      { "internalType": "uint24", "name": "stakingModuleId", "type": "uint24" }
+      {
+        "internalType": "uint256",
+        "name": "stakingModuleId",
+        "type": "uint256"
+      }
     ],
     "name": "unpauseDeposits",
     "outputs": [],
