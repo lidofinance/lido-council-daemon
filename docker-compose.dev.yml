@@ -1,26 +1,6 @@
 version: '3.7'
 
 services:
-  # zookeeper:
-  #   image: wurstmeister/zookeeper
-  #   ports:
-  #     - "2181:2181"
-
-  # kafka:
-  #   image: wurstmeister/kafka:2.13-2.7.1
-  #   ports:
-  #     - "9092:9092"
-  #   links:
-  #     - zookeeper
-  #   environment:
-  #     KAFKA_ADVERTISED_HOST_NAME: 127.0.0.1
-  #     KAFKA_CREATE_TOPICS: "test:1:1"
-  #     KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-  #     KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
-  #     KAFKA_MESSAGE_MAX_BYTES: 2000000
-  #   depends_on:
-  #     - zookeeper
-
   rabbit:
     build:
       context: .
@@ -30,9 +10,9 @@ services:
       - "15674:15674"
       - "15672:15672"
 
-  no_keys_service_db:
+  keys_api_service_db:
     image: postgres:14-alpine
-    container_name: no_keys_service_db
+    container_name: keys_api_service_db
     restart: unless-stopped
     environment:
       - POSTGRES_DB=${KEYS_API_DB_NAME}
@@ -43,13 +23,13 @@ services:
     volumes:
       - ./.volumes/pgdata-${KEYS_API_CHAIN_ID}/:/var/lib/postgresql/data
 
-  no_keys_service_api:
-    image: lidofinance/lido-node-operators-keys-api:dev
-    container_name: no_keys_service_api
+  keys_api_service_api:
+    image: lidofinance/lido-keys-api:dev
+    container_name: keys_api_service_api
     ports:
-      - '3001:3001'
+      - '${KEYS_API_PORT}:3001'
     environment:
-      - PORT=${KEYS_API_PORT}
+      - PORT=3001
       - CORS_WHITELIST_REGEXP=${KEYS_API_CORS_WHITELIST_REGEXP}
       - GLOBAL_THROTTLE_TTL=${KEYS_API_GLOBAL_THROTTLE_TTL}
       - GLOBAL_THROTTLE_LIMIT=${KEYS_API_GLOBAL_THROTTLE_LIMIT}
@@ -57,16 +37,12 @@ services:
       - LOG_LEVEL=${LOG_LEVEL}
       - LOG_FORMAT=${LOG_FORMAT}
       - CHAIN_ID=${KEYS_API_CHAIN_ID}
-      - PROVIDERS_URLS=${RPC_URL}
+      - PROVIDERS_URLS=${KEYS_API_EL_PROVIDERS_URLS}
+      - CL_API_URLS=${KEYS_API_CL_PROVIDERS_URLS}
       - DB_NAME=${KEYS_API_DB_NAME}
       - DB_PORT=5432
-      - DB_HOST=no_keys_service_db
+      - DB_HOST=keys_api_service_db
       - DB_USER=${KEYS_API_DB_USER}
       - DB_PASSWORD=${KEYS_API_DB_PASSWORD}
     depends_on:
-      - no_keys_service_db
-
-networks:
-  default:
-    external:
-      name: webproxy
+      - keys_api_service_db
