@@ -66,25 +66,25 @@ export const PrometheusBuildInfoGaugeProvider = makeCounterProvider({
 export const PrometheusValidatedDepositsProvider = makeGaugeProvider({
   name: METRIC_VALIDATED_DEPOSITS_TOTAL,
   help: 'Number of deposits by validation',
-  labelNames: ['type'] as const,
+  labelNames: ['type', 'stakingModuleId'] as const,
 });
 
 export const PrometheusIntersectionsProvider = makeGaugeProvider({
   name: METRIC_INTERSECTIONS_TOTAL,
   help: 'Number of keys intersections',
-  labelNames: ['type'] as const,
+  labelNames: ['type', 'stakingModuleId'] as const,
 });
 
 export const PrometheusDepositedKeysProvider = makeGaugeProvider({
   name: METRIC_DEPOSITED_KEYS_TOTAL,
   help: 'Number of keys in the deposit contract',
-  labelNames: ['type'] as const,
+  labelNames: ['type', 'stakingModuleId'] as const,
 });
 
 export const PrometheusOperatorsKeysProvider = makeGaugeProvider({
   name: METRIC_OPERATORS_KEYS_TOTAL,
   help: 'Number of node operators keys',
-  labelNames: ['type'] as const,
+  labelNames: ['type', 'stakingModuleId'] as const,
 });
 
 export const PrometheusKeysApiRequestsProvider = makeHistogramProvider({

@@ -7,8 +7,4 @@ export interface BlockData {
   depositedEvents: VerifiedDepositEventGroup;
   guardianAddress: string;
   guardianIndex: number;
-  isDepositsPaused: boolean;
-  unusedKeys: string[];
-  nonce: number;
-  srModuleId: number;
 }

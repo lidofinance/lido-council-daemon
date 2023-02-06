@@ -33,7 +33,7 @@ export class DepositService {
   ) {}
 
   @OneAtTime()
-  public async handleNewBlock({ blockNumber }: BlockData): Promise<void> {
+  public async handleNewBlock(blockNumber: number): Promise<void> {
     if (blockNumber % DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE !== 0) return;
 
     // The event cache is stored with an N block lag to avoid caching data from uncle blocks

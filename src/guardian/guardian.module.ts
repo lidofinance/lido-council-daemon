@@ -6,6 +6,10 @@ import { MessagesModule } from 'messages';
 import { GuardianService } from './guardian.service';
 import { StakingRouterModule } from 'staking-router';
 import { ScheduleModule } from 'common/schedule';
+import { BlockGuardModule } from './block-guard/block-guard.module';
+import { StakingModuleGuardModule } from './staking-module-guard';
+import { GuardianMessageModule } from './guardian-message';
+import { GuardianMetricsModule } from './guardian-metrics';
 
 @Module({
   imports: [
@@ -15,6 +19,10 @@ import { ScheduleModule } from 'common/schedule';
     MessagesModule,
     StakingRouterModule,
     ScheduleModule,
+    BlockGuardModule,
+    StakingModuleGuardModule,
+    GuardianMessageModule,
+    GuardianMetricsModule,
   ],
   providers: [GuardianService],
   exports: [GuardianService],
