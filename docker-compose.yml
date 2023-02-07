@@ -15,7 +15,7 @@ services:
       - "KAFKA_USERNAME=<kafka user>"
       - "KAFKA_PASSWORD=<kafka password>"
       - "KAFKA_BROKER_ADDRESS_1=<kafka address>"
-      - "KAFKA_TOPIC=defender"
+      - "BROKER_TOPIC=defender"
       - "WALLET_PRIVATE_KEY"
 
     # volumes can be omitted if needed

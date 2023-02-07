@@ -15,6 +15,8 @@ import { RepositoryModule } from 'contracts/repository';
 import { LidoService } from 'contracts/lido';
 import { MessagesService, MessageType } from 'messages';
 
+jest.mock('../transport/stomp/stomp.client');
+
 describe('GuardianService', () => {
   let providerService: ProviderService;
   let guardianService: GuardianService;

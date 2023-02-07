@@ -31,7 +31,7 @@ export class SecurityService {
     if (guardianIndex === -1) {
       this.logger.warn(`Your address is not in the Guardian List`, { address });
     } else {
-      this.logger.log(`You address is in the Guardian List`, { address });
+      this.logger.log(`Your address is in the Guardian List`, { address });
     }
   }
 

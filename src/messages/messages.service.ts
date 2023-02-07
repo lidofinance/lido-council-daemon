@@ -24,7 +24,7 @@ export class MessagesService {
   public async getMessageTopic(): Promise<string> {
     const chainId = await this.providerService.getChainId();
     const prefix = getMessageTopicPrefix(chainId);
-    const topic = this.config.KAFKA_TOPIC;
+    const topic = this.config.BROKER_TOPIC;
 
     return `${prefix}-${topic}`;
   }
@@ -36,9 +36,10 @@ export class MessagesService {
     message: T,
   ): Promise<void> {
     const topic = await this.getMessageTopic();
-    await this.transportService.publish(topic, message);
-
     const messageType = message.type;
+
+    await this.transportService.publish(topic, message, messageType);
+
     this.messageCounter.labels({ messageType }).inc();
   }
 }

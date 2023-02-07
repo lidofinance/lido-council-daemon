@@ -22,12 +22,10 @@ docker run -i -t \
   -e LOG_LEVEL='debug' \
   -e LOG_FORMAT='simple' \
   -e RPC_URL='<rpc url>' \
-  -e KAFKA_SSL='true' \
-  -e KAFKA_SASL_MECHANISM='plain' \
-  -e KAFKA_USERNAME='<kafka user>' \
-  -e KAFKA_PASSWORD='<kafka password>' \
-  -e KAFKA_BROKER_ADDRESS_1='<kafka address>' \
-  -e KAFKA_TOPIC=defender \
+  -e RABBITMQ_URL='<rabbitmq url that supports ws>' \
+  -e RABBITMQ_LOGIN='<rabbitmq username>' \
+  -e RABBITMQ_PASSCODE='<rabbitmq passcode>' \
+  -e BROKER_TOPIC=defender \
   -e WALLET_PRIVATE_KEY \
   lidofinance/lido-council-daemon@sha256:9943ed50556fc8bf75c1179023c33dc30ef9efc6ee4f4f29bfed2fc5bc23ad64
 ```
@@ -76,12 +74,26 @@ $ yarn start:prod
 
 ## Environment variables
 
-The following variables are required for the daemon to work:
+One of transports are required for the daemon to work:
 
-### Kafka
+### RabbitMQ
 
 ```env
 ...
+PUBSUB_SERVICE=rabbitmq
+
+RABBITMQ_URL=<rabbitmq url that supports ws>
+RABBITMQ_LOGIN=<rabbitmq login>
+RABBITMQ_PASSCODE=<rabbitmq password>
+...
+```
+
+### Kafka (deprecated)
+
+```env
+...
+PUBSUB_SERVICE=kafka
+
 KAFKA_USERNAME=<kafka username>
 KAFKA_PASSWORD=<kafka password>
 KAFKA_BROKER_ADDRESS_1=<kafka broker address with port>
@@ -104,9 +116,9 @@ The account balance should have some ETH to send transactions. In regular mode, 
 
 ```env
 ...
-KAFKA_USERNAME=john
-KAFKA_PASSWORD=pemberton
-KAFKA_BROKER_ADDRESS_1=node-address-22.confluent.kafka.cloud:9092
+RABBITMQ_URL=https://example.com/
+RABBITMQ_LOGIN=jason
+RABBITMQ_PASSCODE=friday
 
 WALLET_PRIVATE_KEY=0x8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f
 ...
@@ -126,7 +138,7 @@ If all goes well, it will be in the logs:
 
 ```log
 info: Account balance is sufficient {"balance":"1.0 ETH"}
-info: You address is in the Guardian List {"address":"0x0000000000000000000000000000000000000000"}
+info: Your address is in the Guardian List {"address":"0x0000000000000000000000000000000000000000"}
 ```
 
 At the first startup the daemon will collect historical data:
@@ -192,4 +204,4 @@ To create new release:
 1. When action execution is finished, navigate to Repo => Pull requests
 1. Find pull request named "chore(release): X.X.X" review and merge it with "Rebase and merge" (or "Squash and merge")
 1. After merge release action will be triggered automatically
-1. Navigate to Repo => Actions and see last actions logs for further details 
+1. Navigate to Repo => Actions and see last actions logs for further details

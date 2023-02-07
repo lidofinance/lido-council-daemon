@@ -9,6 +9,8 @@ import { TransportInterface } from 'transport';
 import { PrometheusModule } from 'common/prometheus';
 import { MessagesModule } from 'messages';
 
+jest.mock('../transport/stomp/stomp.client');
+
 describe('MessagesService', () => {
   let providerService: ProviderService;
   let messagesService: MessagesService;
@@ -81,7 +83,11 @@ describe('MessagesService', () => {
 
       expect(mockGetTopic).toBeCalledTimes(1);
       expect(mockPublish).toBeCalledTimes(1);
-      expect(mockPublish).toBeCalledWith(expectedTopic, expectedMessage);
+      expect(mockPublish).toBeCalledWith(
+        expectedTopic,
+        expectedMessage,
+        undefined,
+      );
     });
   });
 });

@@ -44,4 +44,4 @@ jobs:
           APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
           TARGET_REPO: "lidofinance/infra-mainnet"
           TAG: "${{ steps.tag_name.outputs.TAG }}"
-          TARGET_WORKFLOW: "build_mainnet_council_daemon.yaml"
+          TARGET_WORKFLOW: "build_mainnet_council_daemon_staking_router.yaml"

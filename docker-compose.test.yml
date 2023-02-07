@@ -19,3 +19,11 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
       KAFKA_MESSAGE_MAX_BYTES: 2000000
 
+  rabbit:
+    build:
+      context: .
+      dockerfile: Dockerfile.test.yml
+    container_name: 'rabbitmq'
+    ports:
+      - "15674:15674"
+      - "15672:15672"
