@@ -58,13 +58,13 @@ describe('KafkaTransport', () => {
       await transport.publish('test', { label: 'first' }, MessageType.PING);
       await transport.publish('test', { label: 'second' }, MessageType.PING);
 
-      await sleep(5000);
+      await sleep(10_000);
 
       expect(receivedMessages.length).toBe(2);
       expect(receivedMessages[0]).toHaveProperty('label');
       expect(receivedMessages[0].label).toBe('first');
       expect(receivedMessages[1]).toHaveProperty('label');
       expect(receivedMessages[1].label).toBe('second');
-    }, 10_000);
+    }, 20_000);
   });
 });
