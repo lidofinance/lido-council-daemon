@@ -96,7 +96,7 @@ describe('GuardianService', () => {
 
       const getBlockGuardServiceMock = jest
         .spyOn(blockGuardService, 'isNeedToProcessNewState')
-        .mockImplementation(() => true);
+        .mockImplementation(() => false);
 
       await Promise.all([
         guardianService.handleNewBlock(),
