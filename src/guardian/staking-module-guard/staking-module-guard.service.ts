@@ -36,21 +36,10 @@ export class StakingModuleGuardService {
         keys,
         module: { nonce },
       },
-      meta: { elBlockSnapshot },
     } = await this.stakingRouterService.getStakingModuleUnusedKeys(
+      blockHash,
       stakingRouterModule,
     );
-
-    if (elBlockSnapshot.blockHash !== blockHash) {
-      this.logger.log('Blockhash of the received keys', {
-        snapshotBlockHash: elBlockSnapshot.blockHash,
-        blockHash,
-      });
-
-      throw Error(
-        'Blockhash of the received keys does not match the current blockhash',
-      );
-    }
 
     const isDepositsPaused = await this.securityService.isDepositsPaused(
       stakingRouterModule.id,
