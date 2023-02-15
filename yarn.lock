@@ -1013,12 +1013,12 @@
   resolved "https://registry.npmjs.org/@lido-nestjs/middleware/-/middleware-1.1.1.tgz#ffe6cb343f5e81282b70f8746879f3cf506ac3d5"
   integrity sha512-0y9e7ydM3NkAhoiiv/tSsBu8KLbvPJ19QPRiAYBy33y8Fv5PPjypA3qAG03ImBQ3qFXAp29ZUrSs18vkACf8Ng==
 
-"@lido-sdk/constants@^1.2.0":
-  version "1.2.0"
-  resolved "https://registry.yarnpkg.com/@lido-sdk/constants/-/constants-1.2.0.tgz#e9eb1830f762ff901dd4c27bad2ddfca1335931c"
-  integrity sha512-PAWXerRFn3/qnaEvPhN+69yCZT1b4KFtJWe1JN3+bLVThYyAkj6zK73HHCCm4idPHl+nustcSMnU15GNUjqZ9A==
+"@lido-sdk/constants@^1.8.0":
+  version "1.8.0"
+  resolved "https://registry.yarnpkg.com/@lido-sdk/constants/-/constants-1.8.0.tgz#6f0e0c0380c2ca0e4e88e2c6a77cbc087298dee6"
+  integrity sha512-yLFXMB7Gxe2haDHp73M4QCXBtRun51zjcxfoeebwtZblrPViRpvBCDzVfQjtcU0sPQ4D4Xs07RhRlFul9x6SBw==
   dependencies:
-    tiny-invariant "1"
+    tiny-invariant "^1.1.0"
 
 "@nestjs/cli@^8.2.5":
   version "8.2.5"
@@ -5886,10 +5886,10 @@ timers-ext@^0.1.7:
     es5-ext "~0.10.46"
     next-tick "1"
 
-tiny-invariant@1:
-  version "1.1.0"
-  resolved "https://registry.yarnpkg.com/tiny-invariant/-/tiny-invariant-1.1.0.tgz#634c5f8efdc27714b7f386c35e6760991d230875"
-  integrity sha512-ytxQvrb1cPc9WBEI/HSeYYoGD0kWnGEOR8RY6KomWLBVhqz0RgTwVO9dLrGz7dC+nN9llyI7OKAgRq8Vq4ZBSw==
+tiny-invariant@^1.1.0:
+  version "1.3.1"
+  resolved "https://registry.yarnpkg.com/tiny-invariant/-/tiny-invariant-1.3.1.tgz#8560808c916ef02ecfd55e66090df23a4b7aa642"
+  integrity sha512-AD5ih2NlSssTCwsMznbvwMZpJ1cbhkGd2uueNxzv2jDlEeZdU04JQfRnggJQ8DrcVBGjAsCKwFBbDlVNtEMlzw==
 
 tmp@^0.0.33:
   version "0.0.33"
