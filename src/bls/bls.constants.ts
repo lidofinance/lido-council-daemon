@@ -4,11 +4,13 @@ import { ByteVectorType, UintNumberType } from '@chainsafe/ssz';
 export const Bytes4 = new ByteVectorType(4);
 export const Bytes48 = new ByteVectorType(48);
 export const Bytes32 = new ByteVectorType(32);
+export const Bytes96 = new ByteVectorType(96);
 
 export const UintNum64 = new UintNumberType(8);
 
 export const Root = Bytes32;
 export const BLSPubkey = Bytes48;
+export const BLSSignature = Bytes96;
 export const Version = Bytes4;
 export const Domain = Bytes32;
 
