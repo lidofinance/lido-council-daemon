@@ -177,7 +177,7 @@ const mockKeysApi = (
 
   jest
     .spyOn(keysApiService, 'getUnusedModuleKeys')
-    .mockImplementation(async (_stakingModuleId: number) => ({
+    .mockImplementation(async () => ({
       data: {
         keys: [mockedKey],
         module: mockedModule,
