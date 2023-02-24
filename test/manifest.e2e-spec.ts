@@ -316,6 +316,17 @@ describe('ganache e2e tests', () => {
       const balance = await provider.getBalance(walletService.address);
       expect(balance.gte(WeiPerEther.mul(34))).toBe(true);
     });
+
+    it('needed contract should not be already on pause', async () => {
+      const routerContract = StakingRouterAbi__factory.connect(
+        STAKING_ROUTER,
+        providerService.provider,
+      );
+      const isOnPause = await routerContract.getStakingModuleIsDepositsPaused(
+        1,
+      );
+      expect(isOnPause).toBe(false);
+    });
   });
 
   describe('node operator deposit frontrun', () => {
