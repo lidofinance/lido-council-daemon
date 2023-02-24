@@ -388,6 +388,6 @@ describe('ganache e2e tests', () => {
       expect(isOnPause).toBe(true);
 
       // Node can be without cache, account for that
-    }, 10000);
+    }, 30000);
   });
 });
