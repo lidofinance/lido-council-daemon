@@ -138,17 +138,10 @@ const computeRoot = (depositMessage: {
 };
 
 const mockKeysApi = (
+  sig: Uint8Array,
   block: ethers.providers.Block,
   keysApiService: KeysApiService,
 ) => {
-  const goodDepositMessage = {
-    pubkey: pk,
-    withdrawalCredentials: fromHexString(GOOD_WC),
-    amount: 32000000000, // gwei!
-  };
-  const goodSigningRoot = computeRoot(goodDepositMessage);
-  const goodSig = sk.sign(goodSigningRoot).toBytes();
-
   const mockedModule = {
     nonce: 6046,
     type: 'grouped-onchain-v1',
@@ -171,7 +164,7 @@ const mockKeysApi = (
 
   const mockedKey = {
     key: toHexString(pk),
-    depositSignature: toHexString(goodSig),
+    depositSignature: toHexString(sig),
     operatorIndex: 0,
     used: false,
     index: 0,
@@ -309,8 +302,6 @@ describe('ganache e2e tests', () => {
       const forkBlock = await tempProvider.getBlock(FORK_BLOCK);
       const currentBlock = await tempProvider.getBlock('latest');
 
-      mockKeysApi(currentBlock, keysApiService);
-
       const goodDepositMessage = {
         pubkey: pk,
         withdrawalCredentials: fromHexString(GOOD_WC),
@@ -318,6 +309,8 @@ describe('ganache e2e tests', () => {
       };
       const goodSigningRoot = computeRoot(goodDepositMessage);
       const goodSig = sk.sign(goodSigningRoot).toBytes();
+
+      mockKeysApi(goodSig, currentBlock, keysApiService);
 
       await depositService.setCachedEvents({
         events: [
@@ -374,7 +367,7 @@ describe('ganache e2e tests', () => {
 
       // Mock Keys API again on new block
       const newBlock = await providerService.provider.getBlock('latest');
-      mockKeysApi(newBlock, keysApiService);
+      mockKeysApi(goodSig, newBlock, keysApiService);
 
       // Pause deposits
       await guardianService.handleNewBlock();
