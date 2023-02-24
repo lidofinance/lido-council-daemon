@@ -347,7 +347,9 @@ describe('ganache e2e tests', () => {
       const badDepositRoot = DepositData.hashTreeRoot(badDepositData);
 
       if (!process.env.WALLET_PRIVATE_KEY) {
-        process.exit();
+        throw new Error(
+          'Private key is not set. Please provide WALLET_PRIVATE_KEY as an env variable.',
+        );
       }
       const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
 
