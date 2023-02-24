@@ -205,16 +205,16 @@ describe('ganache e2e tests', () => {
   let blsService: BlsService;
   let server: ReturnType<typeof makeServer>;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
     await server.listen(GANACHE_PORT);
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     await server.close();
   });
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Prepare a signer for the unlocked Ganache account
     if (!process.env.WALLET_PRIVATE_KEY) {
       throw new Error(
@@ -261,36 +261,6 @@ describe('ganache e2e tests', () => {
     blsService = moduleRef.get(BlsService);
     await blsService.onModuleInit();
 
-    const forkBlock = await tempProvider.getBlock(FORK_BLOCK);
-    const newBlock = await tempProvider.getBlock('latest');
-
-    mockKeysApi(newBlock, keysApiService);
-
-    const goodDepositMessage = {
-      pubkey: pk,
-      withdrawalCredentials: fromHexString(GOOD_WC),
-      amount: 32000000000, // gwei!
-    };
-    const goodSigningRoot = computeRoot(goodDepositMessage);
-    const goodSig = sk.sign(goodSigningRoot).toBytes();
-
-    await depositService.setCachedEvents({
-      events: [
-        {
-          valid: true,
-          pubkey: toHexString(pk),
-          amount: '32000000000',
-          wc: GOOD_WC,
-          signature: toHexString(goodSig),
-          tx: '0x123',
-          blockHash: forkBlock.hash,
-          blockNumber: forkBlock.number,
-        },
-      ],
-      startBlock: newBlock.number,
-      endBlock: newBlock.number,
-    });
-
     jest
       .spyOn(lidoService, 'getWithdrawalCredentials')
       .mockImplementation(async () => GOOD_WC);
@@ -333,6 +303,39 @@ describe('ganache e2e tests', () => {
 
   describe('node operator deposit frontrun', () => {
     it('main attack scenario', async () => {
+      const tempProvider = new ethers.providers.JsonRpcProvider(
+        `http://127.0.0.1:${GANACHE_PORT}`,
+      );
+      const forkBlock = await tempProvider.getBlock(FORK_BLOCK);
+      const currentBlock = await tempProvider.getBlock('latest');
+
+      mockKeysApi(currentBlock, keysApiService);
+
+      const goodDepositMessage = {
+        pubkey: pk,
+        withdrawalCredentials: fromHexString(GOOD_WC),
+        amount: 32000000000, // gwei!
+      };
+      const goodSigningRoot = computeRoot(goodDepositMessage);
+      const goodSig = sk.sign(goodSigningRoot).toBytes();
+
+      await depositService.setCachedEvents({
+        events: [
+          {
+            valid: true,
+            pubkey: toHexString(pk),
+            amount: '32000000000',
+            wc: GOOD_WC,
+            signature: toHexString(goodSig),
+            tx: '0x123',
+            blockHash: forkBlock.hash,
+            blockNumber: forkBlock.number,
+          },
+        ],
+        startBlock: currentBlock.number,
+        endBlock: currentBlock.number,
+      });
+
       // Check if the service is ok and ready to go
       await guardianService.handleNewBlock();
 
