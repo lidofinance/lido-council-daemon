@@ -8,7 +8,7 @@ import {
   MessagesService,
   MessageType,
 } from 'messages';
-import { BlockData, StakingModuleData } from '../interfaces';
+import { BlockData } from '../interfaces';
 import { APP_NAME, APP_VERSION } from 'app.constants';
 
 @Injectable()
@@ -21,10 +21,11 @@ export class GuardianMessageService {
 
   /**
    * Sends a ping message to the message broker
+   * @param stakingModuleIds - all staking router ids
    * @param blockData - collected data from the current block
    */
   public async pingMessageBroker(
-    { stakingModuleId }: StakingModuleData,
+    stakingModuleIds: number[],
     blockData: BlockData,
   ): Promise<void> {
     const { blockNumber, guardianIndex, guardianAddress } = blockData;
@@ -34,7 +35,7 @@ export class GuardianMessageService {
       blockNumber,
       guardianIndex,
       guardianAddress,
-      stakingModuleId,
+      stakingModuleIds,
     });
   }
 

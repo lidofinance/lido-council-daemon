@@ -59,7 +59,7 @@ export class GuardianService implements OnModuleInit {
         // The event cache is stored with an N block lag to avoid caching data from uncle blocks
         // so we don't worry about blockHash here
         await this.depositService.updateEventsCache();
-        // Subscribes to events only after the cache is warmed up
+
         this.subscribeToModulesUpdates();
       } catch (error) {
         this.logger.error(error);
@@ -69,7 +69,7 @@ export class GuardianService implements OnModuleInit {
   }
 
   /**
-   * Subscribes to the event of a new block appearance
+   * Subscribes to the staking router modules updates
    */
   public subscribeToModulesUpdates() {
     const cron = new CronJob(GUARDIAN_DEPOSIT_JOB_DURATION, () => {
@@ -90,7 +90,7 @@ export class GuardianService implements OnModuleInit {
    */
   @OneAtTime()
   public async handleNewBlock(): Promise<void> {
-    this.logger.log('New block cycle start');
+    this.logger.log('New staking router state cycle start');
 
     const {
       elBlockSnapshot: { blockHash, blockNumber },
@@ -118,16 +118,10 @@ export class GuardianService implements OnModuleInit {
             blockHash,
           );
 
-        await Promise.all([
-          this.stakingModuleGuardService.checkKeysIntersections(
-            stakingModuleData,
-            blockData,
-          ),
-          this.guardianMessageService.pingMessageBroker(
-            stakingModuleData,
-            blockData,
-          ),
-        ]);
+        await this.stakingModuleGuardService.checkKeysIntersections(
+          stakingModuleData,
+          blockData,
+        );
 
         this.guardianMetricsService.collectMetrics(
           stakingModuleData,
@@ -136,11 +130,16 @@ export class GuardianService implements OnModuleInit {
       }),
     );
 
+    await this.guardianMessageService.pingMessageBroker(
+      stakingModules.map(({ id }) => id),
+      blockData,
+    );
+
     this.blockGuardService.setLastProcessedStateMeta({
       blockHash,
       blockNumber,
     });
 
-    this.logger.log('New block cycle end');
+    this.logger.log('New staking router state cycle end');
   }
 }

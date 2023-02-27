@@ -17,7 +17,6 @@ import {
 import { OneAtTime } from 'common/decorators';
 import { RepositoryService } from 'contracts/repository';
 import { CacheService } from 'cache';
-import { BlockData } from 'guardian';
 import { BlockTag } from 'provider';
 import { BlsService } from 'bls';
 import { APP_VERSION } from 'app.constants';

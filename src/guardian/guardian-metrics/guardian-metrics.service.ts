@@ -76,7 +76,6 @@ export class GuardianMetricsService {
 
     const depositedKeys = events.map(({ pubkey }) => pubkey);
     const depositedKeysSet = new Set(depositedKeys);
-    const depositedDubsTotal = depositedKeys.length - depositedKeysSet.size;
 
     this.depositedKeysCounter.set(
       { type: 'total', stakingModuleId },
@@ -85,10 +84,6 @@ export class GuardianMetricsService {
     this.depositedKeysCounter.set(
       { type: 'unique', stakingModuleId },
       depositedKeysSet.size,
-    );
-    this.depositedKeysCounter.set(
-      { type: 'duplicates', stakingModuleId },
-      depositedDubsTotal,
     );
   }
 

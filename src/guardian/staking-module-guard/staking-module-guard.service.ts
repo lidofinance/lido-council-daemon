@@ -69,6 +69,7 @@ export class StakingModuleGuardService {
     blockData: BlockData,
   ): Promise<void> {
     const { blockHash } = blockData;
+    const { stakingModuleId } = stakingModuleData;
 
     const keysIntersections = this.getKeysIntersections(
       stakingModuleData,
@@ -88,7 +89,7 @@ export class StakingModuleGuardService {
     );
 
     if (stakingModuleData.isDepositsPaused) {
-      this.logger.warn('Deposits are paused', { blockHash });
+      this.logger.warn('Deposits are paused', { blockHash, stakingModuleId });
       return;
     }
 
@@ -110,7 +111,7 @@ export class StakingModuleGuardService {
     blockData: BlockData,
   ): VerifiedDepositEvent[] {
     const { blockHash, depositRoot, depositedEvents } = blockData;
-    const { nonce, unusedKeys } = stakingModuleData;
+    const { nonce, unusedKeys, stakingModuleId } = stakingModuleData;
 
     const unusedKeysSet = new Set(unusedKeys);
     const intersections = depositedEvents.events.filter(({ pubkey }) =>
@@ -118,11 +119,12 @@ export class StakingModuleGuardService {
     );
 
     if (intersections.length) {
-      this.logger.warn('Already deposited keys found in the next Lido keys', {
+      this.logger.warn('Already deposited keys found in the module keys', {
         blockHash,
         depositRoot,
         nonce,
         intersections,
+        stakingModuleId,
       });
     }
 

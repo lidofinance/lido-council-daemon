@@ -63,9 +63,8 @@ export class BlockGuardService {
     blockNumber: number;
     blockHash: string;
   }): Promise<BlockData> {
+    const endTimer = this.blockRequestsHistogram.startTimer();
     try {
-      const endTimer = this.blockRequestsHistogram.startTimer();
-
       const guardianAddress = this.securityService.getGuardianAddress();
 
       const [depositRoot, depositedEvents, guardianIndex] = await Promise.all([
@@ -74,8 +73,6 @@ export class BlockGuardService {
         this.securityService.getGuardianIndex({ blockHash }),
         this.depositService.handleNewBlock(blockNumber),
       ]);
-
-      endTimer();
 
       return {
         blockNumber,
@@ -88,6 +85,8 @@ export class BlockGuardService {
     } catch (error) {
       this.blockErrorsCounter.inc();
       throw error;
+    } finally {
+      endTimer();
     }
   }
 }

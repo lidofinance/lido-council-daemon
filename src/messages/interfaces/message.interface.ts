@@ -4,7 +4,6 @@ export interface MessageRequiredFields {
   type: MessageType;
   guardianAddress: string;
   guardianIndex: number;
-  stakingModuleId: number;
 }
 
 export enum MessageType {
@@ -19,6 +18,7 @@ export interface MessageDeposit extends MessageRequiredFields {
   blockNumber: number;
   blockHash: string;
   signature: Signature;
+  stakingModuleId: number;
 }
 
 export interface MessageMeta {
@@ -36,4 +36,5 @@ export interface MessagePause extends MessageRequiredFields {
   blockNumber: number;
   blockHash: string;
   signature: Signature;
+  stakingModuleId: number;
 }
