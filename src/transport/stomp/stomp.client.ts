@@ -92,7 +92,7 @@ export default class StompClient {
     try {
       this.ws.close();
     } catch (error) {
-      console.log(error, 'error!');
+      this.logger?.error('Socket closing error', error);
     }
   }
 

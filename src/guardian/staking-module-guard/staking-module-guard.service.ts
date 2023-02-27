@@ -27,6 +27,9 @@ export class StakingModuleGuardService {
     private guardianMessageService: GuardianMessageService,
   ) {}
 
+  private lastContractsStateByModuleId: Record<number, ContractsState | null> =
+    {};
+
   public async getStakingRouterModuleData(
     stakingRouterModule: SRModule,
     blockHash: string,
@@ -170,7 +173,10 @@ export class StakingModuleGuardService {
     const { isDepositsPaused, nonce, stakingModuleId } = stakingModuleData;
 
     if (isDepositsPaused) {
-      this.logger.warn('Deposits are already paused', { blockHash });
+      this.logger.warn('Deposits are already paused', {
+        blockHash,
+        stakingModuleId,
+      });
       return;
     }
 
@@ -190,10 +196,10 @@ export class StakingModuleGuardService {
       stakingModuleId,
     };
 
-    this.logger.warn(
-      'Suspicious case detected, initialize the protocol pause',
-      { blockHash },
-    );
+    this.logger.warn('Suspicious case detected, initialize the module pause', {
+      blockHash,
+      stakingModuleId,
+    });
 
     // Call pause without waiting for completion
     this.securityService
@@ -222,9 +228,11 @@ export class StakingModuleGuardService {
     const { nonce, stakingModuleId } = stakingModuleData;
 
     const currentContractState = { nonce, depositRoot, blockNumber };
-    const lastContractsState = this.lastContractsState;
 
-    this.lastContractsState = currentContractState;
+    const lastContractsState =
+      this.lastContractsStateByModuleId[stakingModuleId];
+
+    this.lastContractsStateByModuleId[stakingModuleId] = currentContractState;
 
     const isSameContractsState = this.isSameContractsStates(
       currentContractState,
@@ -260,8 +268,6 @@ export class StakingModuleGuardService {
 
     await this.guardianMessageService.sendDepositMessage(depositMessage);
   }
-
-  private lastContractsState: ContractsState | null = null;
 
   /**
    * Compares the states of the contracts to decide if the message needs to be re-signed
