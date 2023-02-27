@@ -104,7 +104,7 @@ export class GuardianMetricsService {
   /**
    * Collects metrics about keys intersections
    * @param all - all intersections
-   * @param filtered - all intersections
+   * @param filtered - filtered intersections
    */
   public collectIntersectionsMetrics(
     stakingModuleId: number,

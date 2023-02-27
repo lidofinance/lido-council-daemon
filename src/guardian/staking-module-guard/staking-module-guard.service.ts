@@ -172,15 +172,7 @@ export class StakingModuleGuardService {
       depositRoot,
     } = blockData;
 
-    const { isDepositsPaused, nonce, stakingModuleId } = stakingModuleData;
-
-    if (isDepositsPaused) {
-      this.logger.warn('Deposits are already paused', {
-        blockHash,
-        stakingModuleId,
-      });
-      return;
-    }
+    const { nonce, stakingModuleId } = stakingModuleData;
 
     const signature = await this.securityService.signPauseData(
       blockNumber,
