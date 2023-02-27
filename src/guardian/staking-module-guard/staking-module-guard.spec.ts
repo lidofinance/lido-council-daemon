@@ -155,7 +155,7 @@ describe('GuardianService', () => {
       srModuleId: 1,
     };
 
-    it('should call handleKeysIntersections if next keys are found in the deposit contract', async () => {
+    it('should call handleKeysIntersections if unused keys are found in the deposit contract', async () => {
       const depositedKey = depositedPubKeys[0];
       const unusedKeys = [depositedKey];
       const events = currentBlockData.depositedEvents.events.map(
@@ -194,7 +194,7 @@ describe('GuardianService', () => {
       expect(mockGetWithdrawalCredentials).toBeCalledTimes(1);
     });
 
-    it('should call handleCorrectKeys if Lido next keys are not found in the deposit contract', async () => {
+    it('should call handleCorrectKeys if Lido unused keys are not found in the deposit contract', async () => {
       const notDepositedKey = '0x2345';
       const unusedKeys = [notDepositedKey];
       const blockData = { ...currentBlockData, unusedKeys };

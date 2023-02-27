@@ -101,7 +101,7 @@ export class GuardianMetricsService {
 
     const operatorsKeysTotal = unusedKeys.length;
     this.operatorsKeysCounter.set(
-      { type: 'total', stakingModuleId },
+      { type: 'unused', stakingModuleId },
       operatorsKeysTotal,
     );
   }
