@@ -375,7 +375,7 @@ describe('ganache e2e tests', () => {
       await guardianService.handleNewBlock();
 
       // Wait for confirmation
-      await new Promise((res) => setTimeout(res, 1000));
+      await new Promise((res) => setTimeout(res, 3000));
 
       // Check if on pause now
       const routerContract = StakingRouterAbi__factory.connect(
