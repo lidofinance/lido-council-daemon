@@ -17,7 +17,6 @@ import {
 import { OneAtTime } from 'common/decorators';
 import { RepositoryService } from 'contracts/repository';
 import { CacheService } from 'cache';
-import { BlockData } from 'guardian';
 import { BlockTag } from 'provider';
 import { BlsService } from 'bls';
 import { APP_VERSION } from 'app.constants';
@@ -33,7 +32,7 @@ export class DepositService {
   ) {}
 
   @OneAtTime()
-  public async handleNewBlock({ blockNumber }: BlockData): Promise<void> {
+  public async handleNewBlock(blockNumber: number): Promise<void> {
     if (blockNumber % DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE !== 0) return;
 
     // The event cache is stored with an N block lag to avoid caching data from uncle blocks

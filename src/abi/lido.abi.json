@@ -9,71 +9,6 @@
     "type": "function"
   },
   {
-    "constant": false,
-    "inputs": [
-      {
-        "name": "_clValidators",
-        "type": "uint256"
-      },
-      {
-        "name": "_clBalance",
-        "type": "uint256"
-      },
-      {
-        "name": "_withdrawalVaultBalance",
-        "type": "uint256"
-      },
-      {
-        "name": "_elRewardsVaultBalance",
-        "type": "uint256"
-      },
-      {
-        "name": "_requestIdToFinalizeUpTo",
-        "type": "uint256"
-      },
-      {
-        "name": "_finalizationShareRate",
-        "type": "uint256"
-      }
-    ],
-    "name": "handleOracleReport",
-    "outputs": [
-      {
-        "name": "totalPooledEther",
-        "type": "uint256"
-      },
-      {
-        "name": "totalShares",
-        "type": "uint256"
-      },
-      {
-        "name": "withdrawals",
-        "type": "uint256"
-      },
-      {
-        "name": "elRewards",
-        "type": "uint256"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "constant": false,
-    "inputs": [
-      {
-        "name": "_maxTokenPositiveRebase",
-        "type": "uint256"
-      }
-    ],
-    "name": "setMaxPositiveTokenRebase",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "constant": true,
     "inputs": [],
     "name": "name",
@@ -136,48 +71,6 @@
   {
     "constant": true,
     "inputs": [],
-    "name": "getStakingRouter",
-    "outputs": [
-      {
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "getVersion",
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "getWithdrawalQueue",
-    "outputs": [
-      {
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
     "name": "STAKING_CONTROL_ROLE",
     "outputs": [
       {
@@ -225,20 +118,6 @@
   {
     "constant": true,
     "inputs": [],
-    "name": "MANAGE_MAX_POSITIVE_TOKEN_REBASE_ROLE",
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
     "name": "isStakingPaused",
     "outputs": [
       {
@@ -275,20 +154,6 @@
     ],
     "payable": false,
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
-    "name": "getMaxPositiveTokenRebase",
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -357,6 +222,24 @@
     "type": "function"
   },
   {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "_lidoLocator",
+        "type": "address"
+      },
+      {
+        "name": "_eip712StETH",
+        "type": "address"
+      }
+    ],
+    "name": "finalizeUpgrade_v2",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "constant": true,
     "inputs": [],
     "name": "decimals",
@@ -385,44 +268,6 @@
     "type": "function"
   },
   {
-    "constant": false,
-    "inputs": [
-      {
-        "name": "_oracle",
-        "type": "address"
-      },
-      {
-        "name": "_treasury",
-        "type": "address"
-      },
-      {
-        "name": "_stakingRouter",
-        "type": "address"
-      },
-      {
-        "name": "_dsm",
-        "type": "address"
-      },
-      {
-        "name": "_executionLayerRewardsVault",
-        "type": "address"
-      },
-      {
-        "name": "_withdrawalQueue",
-        "type": "address"
-      },
-      {
-        "name": "_eip712StETH",
-        "type": "address"
-      }
-    ],
-    "name": "initialize",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "constant": true,
     "inputs": [],
     "name": "DOMAIN_SEPARATOR",
@@ -448,6 +293,20 @@
     ],
     "payable": false,
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "_newDepositedValidators",
+        "type": "uint256"
+      }
+    ],
+    "name": "unsafeChangeDepositedValidators",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -531,25 +390,29 @@
   },
   {
     "constant": false,
+    "inputs": [
+      {
+        "name": "_lidoLocator",
+        "type": "address"
+      },
+      {
+        "name": "_eip712StETH",
+        "type": "address"
+      }
+    ],
+    "name": "initialize",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": false,
     "inputs": [],
     "name": "receiveELRewards",
     "outputs": [],
     "payable": true,
     "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "constant": false,
-    "inputs": [
-      {
-        "name": "_withdrawalQueue",
-        "type": "address"
-      }
-    ],
-    "name": "setWithdrawalQueue",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -578,20 +441,6 @@
     ],
     "payable": false,
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": false,
-    "inputs": [
-      {
-        "name": "_dsm",
-        "type": "address"
-      }
-    ],
-    "name": "setDepositSecurityModule",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -633,17 +482,30 @@
     "type": "function"
   },
   {
-    "constant": true,
-    "inputs": [],
-    "name": "getELRewardsVault",
+    "constant": false,
+    "inputs": [
+      {
+        "name": "_sender",
+        "type": "address"
+      },
+      {
+        "name": "_recipient",
+        "type": "address"
+      },
+      {
+        "name": "_sharesAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "transferSharesFrom",
     "outputs": [
       {
         "name": "",
-        "type": "address"
+        "type": "uint256"
       }
     ],
     "payable": false,
-    "stateMutability": "view",
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -672,6 +534,28 @@
     "outputs": [],
     "payable": false,
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "getFeeDistribution",
+    "outputs": [
+      {
+        "name": "treasuryFeeBasisPoints",
+        "type": "uint16"
+      },
+      {
+        "name": "insuranceFeeBasisPoints",
+        "type": "uint16"
+      },
+      {
+        "name": "operatorsFeeBasisPoints",
+        "type": "uint16"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -743,20 +627,6 @@
   {
     "constant": true,
     "inputs": [],
-    "name": "MANAGE_PROTOCOL_CONTRACTS_ROLE",
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": true,
-    "inputs": [],
     "name": "appId",
     "outputs": [
       {
@@ -785,7 +655,7 @@
   {
     "constant": true,
     "inputs": [],
-    "name": "getInitializationBlock",
+    "name": "getContractVersion",
     "outputs": [
       {
         "name": "",
@@ -799,11 +669,11 @@
   {
     "constant": true,
     "inputs": [],
-    "name": "getDepositSecurityModule",
+    "name": "getInitializationBlock",
     "outputs": [
       {
         "name": "",
-        "type": "address"
+        "type": "uint256"
       }
     ],
     "payable": false,
@@ -990,29 +860,17 @@
     "type": "function"
   },
   {
-    "constant": false,
-    "inputs": [
+    "constant": true,
+    "inputs": [],
+    "name": "UNSAFE_CHANGE_DEPOSITED_VALIDATORS_ROLE",
+    "outputs": [
       {
-        "name": "_stakingRouter",
-        "type": "address"
-      },
-      {
-        "name": "_dsm",
-        "type": "address"
-      },
-      {
-        "name": "_eip712StETH",
-        "type": "address"
-      },
-      {
-        "name": "_withdrawalQueue",
-        "type": "address"
+        "name": "",
+        "type": "bytes32"
       }
     ],
-    "name": "finalizeUpgrade_v2",
-    "outputs": [],
     "payable": false,
-    "stateMutability": "nonpayable",
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1039,6 +897,65 @@
   },
   {
     "constant": false,
+    "inputs": [
+      {
+        "name": "_reportTimestamp",
+        "type": "uint256"
+      },
+      {
+        "name": "_timeElapsed",
+        "type": "uint256"
+      },
+      {
+        "name": "_clValidators",
+        "type": "uint256"
+      },
+      {
+        "name": "_clBalance",
+        "type": "uint256"
+      },
+      {
+        "name": "_withdrawalVaultBalance",
+        "type": "uint256"
+      },
+      {
+        "name": "_elRewardsVaultBalance",
+        "type": "uint256"
+      },
+      {
+        "name": "_lastFinalizableRequestId",
+        "type": "uint256"
+      },
+      {
+        "name": "_simulatedShareRate",
+        "type": "uint256"
+      }
+    ],
+    "name": "handleOracleReport",
+    "outputs": [
+      {
+        "name": "postTotalPooledEther",
+        "type": "uint256"
+      },
+      {
+        "name": "postTotalShares",
+        "type": "uint256"
+      },
+      {
+        "name": "withdrawals",
+        "type": "uint256"
+      },
+      {
+        "name": "elRewards",
+        "type": "uint256"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": false,
     "inputs": [],
     "name": "removeStakingLimit",
     "outputs": [],
@@ -1047,31 +964,26 @@
     "type": "function"
   },
   {
+    "constant": false,
+    "inputs": [],
+    "name": "receiveStakingRouterDepositRemainder",
+    "outputs": [],
+    "payable": true,
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
     "constant": true,
     "inputs": [],
-    "name": "BURN_ROLE",
+    "name": "getFee",
     "outputs": [
       {
-        "name": "",
-        "type": "bytes32"
+        "name": "totalFee",
+        "type": "uint16"
       }
     ],
     "payable": false,
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": false,
-    "inputs": [
-      {
-        "name": "_stakingRouter",
-        "type": "address"
-      }
-    ],
-    "name": "setStakingRouter",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -1178,25 +1090,31 @@
     "type": "function"
   },
   {
-    "constant": false,
-    "inputs": [
+    "constant": true,
+    "inputs": [],
+    "name": "getLidoLocator",
+    "outputs": [
       {
-        "name": "_oracle",
-        "type": "address"
-      },
-      {
-        "name": "_treasury",
-        "type": "address"
-      },
-      {
-        "name": "_executionLayerRewardsVault",
+        "name": "",
         "type": "address"
       }
     ],
-    "name": "setProtocolContracts",
-    "outputs": [],
     "payable": false,
-    "stateMutability": "nonpayable",
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "canDeposit",
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1214,35 +1132,17 @@
     "type": "function"
   },
   {
-    "constant": false,
+    "constant": true,
     "inputs": [],
-    "name": "receiveStakingRouter",
-    "outputs": [],
-    "payable": true,
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "constant": false,
-    "inputs": [
-      {
-        "name": "_account",
-        "type": "address"
-      },
-      {
-        "name": "_sharesAmount",
-        "type": "uint256"
-      }
-    ],
-    "name": "burnShares",
+    "name": "getDepositableEther",
     "outputs": [
       {
-        "name": "newTotalShares",
+        "name": "depositableEth",
         "type": "uint256"
       }
     ],
     "payable": false,
-    "stateMutability": "nonpayable",
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1288,47 +1188,9 @@
     "type": "function"
   },
   {
-    "constant": true,
-    "inputs": [],
-    "name": "getWithdrawalVault",
-    "outputs": [
-      {
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "payable": true,
     "stateMutability": "payable",
     "type": "fallback"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "name": "version",
-        "type": "uint256"
-      }
-    ],
-    "name": "ContractVersionSet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [],
-    "name": "Stopped",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [],
-    "name": "Resumed",
-    "type": "event"
   },
   {
     "anonymous": false,
@@ -1369,22 +1231,125 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
-        "name": "oracle",
-        "type": "address"
+        "indexed": true,
+        "name": "reportTimestamp",
+        "type": "uint256"
       },
       {
         "indexed": false,
-        "name": "treasury",
-        "type": "address"
+        "name": "preCLValidators",
+        "type": "uint256"
       },
       {
         "indexed": false,
-        "name": "executionLayerRewardsVault",
+        "name": "postCLValidators",
+        "type": "uint256"
+      }
+    ],
+    "name": "CLValidatorsUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "name": "depositedValidators",
+        "type": "uint256"
+      }
+    ],
+    "name": "DepositedValidatorsChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "name": "reportTimestamp",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "name": "preCLBalance",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "name": "postCLBalance",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "name": "withdrawalsWithdrawn",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "name": "executionLayerRewardsWithdrawn",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "name": "postBufferedEther",
+        "type": "uint256"
+      }
+    ],
+    "name": "ETHDistributed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "name": "reportTimestamp",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "name": "timeElapsed",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "name": "preTotalShares",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "name": "preTotalEther",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "name": "postTotalShares",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "name": "postTotalEther",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "name": "sharesMintedAsFees",
+        "type": "uint256"
+      }
+    ],
+    "name": "TokenRebased",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "name": "lidoLocator",
         "type": "address"
       }
     ],
-    "name": "ProtocolContactsSet",
+    "name": "LidoLocatorSet",
     "type": "event"
   },
   {
@@ -1404,11 +1369,11 @@
     "inputs": [
       {
         "indexed": false,
-        "name": "maxPositiveTokenRebase",
+        "name": "amount",
         "type": "uint256"
       }
     ],
-    "name": "MaxPositiveTokenRebaseSet",
+    "name": "WithdrawalsReceived",
     "type": "event"
   },
   {
@@ -1454,55 +1419,7 @@
         "type": "uint256"
       }
     ],
-    "name": "WithdrawalsReceived",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "name": "dsmAddress",
-        "type": "address"
-      }
-    ],
-    "name": "DepositSecurityModuleSet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "name": "stakingRouterAddress",
-        "type": "address"
-      }
-    ],
-    "name": "StakingRouterSet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "name": "withdrawalQueueAddress",
-        "type": "address"
-      }
-    ],
-    "name": "WithdrawalQueueSet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "StakingRouterTransferReceived",
+    "name": "StakingRouterDepositRemainderReceived",
     "type": "event"
   },
   {
@@ -1617,6 +1534,18 @@
   },
   {
     "anonymous": false,
+    "inputs": [],
+    "name": "Stopped",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [],
+    "name": "Resumed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
     "inputs": [
       {
         "indexed": true,
@@ -1657,6 +1586,18 @@
       }
     ],
     "name": "Approval",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "name": "version",
+        "type": "uint256"
+      }
+    ],
+    "name": "ContractVersionSet",
     "type": "event"
   }
 ]

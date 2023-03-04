@@ -135,7 +135,7 @@ export class WalletService implements OnModuleInit {
     stakingModuleId,
   }: SignDepositDataParams): Promise<Signature> {
     const encodedData = defaultAbiCoder.encode(
-      ['bytes32', 'uint256', 'bytes32', 'bytes32', 'uint24', 'uint256'],
+      ['bytes32', 'uint256', 'bytes32', 'bytes32', 'uint256', 'uint256'],
       [
         prefix,
         blockNumber,
@@ -164,7 +164,7 @@ export class WalletService implements OnModuleInit {
     stakingModuleId,
   }: SignPauseDataParams): Promise<Signature> {
     const encodedData = defaultAbiCoder.encode(
-      ['bytes32', 'uint256', 'uint24'],
+      ['bytes32', 'uint256', 'uint256'],
       [prefix, blockNumber, stakingModuleId],
     );
 

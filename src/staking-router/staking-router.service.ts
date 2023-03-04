@@ -17,11 +17,27 @@ export class StakingRouterService {
     return await this.keysApiService.getModulesList();
   }
 
-  public async getStakingModuleUnusedKeys({ id, nonce }: SRModule) {
+  public async getStakingModuleUnusedKeys(
+    blockHash: string,
+    { id, nonce }: SRModule,
+  ) {
     if (!this.isNeedToUpdateState(id, nonce))
       return this.getStakingRouterKeysCache(id);
 
     const srResponse = await this.keysApiService.getUnusedModuleKeys(id);
+    const srModuleBlockHash = srResponse.meta.elBlockSnapshot.blockHash;
+
+    if (srModuleBlockHash !== blockHash) {
+      this.logger.log('Blockhash of the received keys', {
+        srModuleBlockHash,
+        blockHash,
+      });
+
+      throw Error(
+        'Blockhash of the received keys does not match the current blockhash',
+      );
+    }
+
     this.setStakingRouterCache(id, srResponse);
 
     return srResponse;

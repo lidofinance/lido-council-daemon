@@ -18,6 +18,7 @@ export interface MessageDeposit extends MessageRequiredFields {
   blockNumber: number;
   blockHash: string;
   signature: Signature;
+  stakingModuleId: number;
 }
 
 export interface MessageMeta {
@@ -35,5 +36,5 @@ export interface MessagePause extends MessageRequiredFields {
   blockNumber: number;
   blockHash: string;
   signature: Signature;
-  srModuleId: number;
+  stakingModuleId: number;
 }

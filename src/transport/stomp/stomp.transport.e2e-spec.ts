@@ -66,6 +66,6 @@ describe('StompTransport', () => {
       expect(receivedMessages[0].label).toBe('first');
       expect(receivedMessages[1]).toHaveProperty('label');
       expect(receivedMessages[1].label).toBe('second');
-    });
+    }, 20_000);
   });
 });

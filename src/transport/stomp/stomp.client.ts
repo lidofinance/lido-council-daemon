@@ -7,6 +7,7 @@ import { LoggerService } from '@nestjs/common';
 
 // https://stomp.github.io/stomp-specification-1.1.html#Overview
 const VERSIONS = '1.0,1.1';
+const STOMP_DIED_ERROR = 'STOMP died';
 
 export default class StompClient {
   private ws: WebSocket;
@@ -44,7 +45,9 @@ export default class StompClient {
     body = '',
   ) {
     const msg = StompFrame.marshall(command, headers, body);
-    this.ws.send(msg.toString());
+    return new Promise((res, rej) => {
+      this.ws.send(msg.toString(), (error) => (error ? rej(error) : res(null)));
+    });
   }
 
   private onOpen() {
@@ -52,12 +55,15 @@ export default class StompClient {
   }
 
   private async onClose(code: number, reason: Buffer) {
-    const closeReason = reason.toString();
-
-    const isClosedNormally = code === 1000;
+    const closeReasonMessage = reason.toString();
+    this.logger?.warn('WS connection is closed', { code, closeReasonMessage });
+    // check code and closeReasonMessage because we have a case
+    // with 1000 and closeReasonMessage as STOMP_DIED_ERROR
+    // and we need to reconnect in this case
+    const isClosedNormally =
+      code === 1000 && closeReasonMessage !== STOMP_DIED_ERROR;
     if (isClosedNormally) return;
 
-    this.logger?.warn('WS connection is closed', { code, closeReason });
     await this.reconnect();
   }
 
@@ -67,6 +73,8 @@ export default class StompClient {
   }
 
   private async reconnect() {
+    this.logger?.warn('WS connection is reconnecting');
+
     this.cleanUp();
     await sleep(10000);
 
@@ -83,7 +91,9 @@ export default class StompClient {
     this.opened = false;
     try {
       this.ws.close();
-    } catch (error) {}
+    } catch (error) {
+      this.logger?.error('Socket closing error', error);
+    }
   }
 
   public async connect(headers = {}, timeout = 10000) {
@@ -101,7 +111,7 @@ export default class StompClient {
       headers['passcode'] = this.passcode;
     }
 
-    this.transmit('CONNECT', headers);
+    await this.transmit('CONNECT', headers);
   }
 
   private async _connect(timeout: number) {
@@ -131,14 +141,14 @@ export default class StompClient {
       await sleep(1000);
     }
     headers['destination'] = destination;
-    return this.transmit('SEND', headers, body);
+    return await this.transmit('SEND', headers, body);
   }
 
-  public subscribe(
+  public async subscribe(
     destination: string,
-    callback: (frame) => void,
+    callback: (frame: StompFrame) => void,
     headers: Record<string, string> = {},
-  ): string {
+  ) {
     if (!('id' in headers)) {
       headers['id'] = `sub-${this.counter}`;
       this.counter += 1;
@@ -147,25 +157,25 @@ export default class StompClient {
     headers['destination'] = destination;
     this.subscriptions[headers['id']] = callback;
 
-    this.transmit('SUBSCRIBE', headers);
+    await this.transmit('SUBSCRIBE', headers);
 
     return headers['id'];
   }
 
-  public unsubscribe(subscriptionId: string): void {
+  public async unsubscribe(subscriptionId: string) {
     delete this.subscriptions[subscriptionId];
-    this.transmit('UNSUBSCRIBE', { id: subscriptionId });
+    await this.transmit('UNSUBSCRIBE', { id: subscriptionId });
   }
 
-  private acknowledged(
+  private async acknowledged(
     acknowledgedType: 'ACK' | 'NACK',
     messageId: string,
     subscriptionId: string,
     headers: Record<string, string> = {},
-  ): void {
+  ) {
     headers['message-id'] = messageId;
     headers['subscription'] = subscriptionId;
-    this.transmit(acknowledgedType, headers);
+    await this.transmit(acknowledgedType, headers);
   }
 
   private onMessage(event): void {
@@ -190,11 +200,11 @@ export default class StompClient {
         const onReceive = this.subscriptions[subscription];
         const messageId = frame.headers['message-id'];
 
-        const ack = (headers: Record<string, string> = {}) => {
-          this.acknowledged('ACK', messageId, subscription, headers);
+        const ack = async (headers: Record<string, string> = {}) => {
+          await this.acknowledged('ACK', messageId, subscription, headers);
         };
-        const nack = (headers: Record<string, string> = {}) => {
-          this.acknowledged('NACK', messageId, subscription, headers);
+        const nack = async (headers: Record<string, string> = {}) => {
+          await this.acknowledged('NACK', messageId, subscription, headers);
         };
 
         frame.ack = ack;

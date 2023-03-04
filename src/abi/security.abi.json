@@ -37,7 +37,107 @@
   },
   {
     "inputs": [],
-    "name": "ErrorStakingModuleIdTooLarge",
+    "name": "DepositInactiveModule",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "DepositNoQuorum",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "DepositNonceChanged",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "DepositRootChanged",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "DepositTooFrequent",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "DepositUnexpectedBlockHash",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "addr",
+        "type": "address"
+      }
+    ],
+    "name": "DuplicateAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidSignature",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "addr",
+        "type": "address"
+      }
+    ],
+    "name": "NotAGuardian",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "caller",
+        "type": "address"
+      }
+    ],
+    "name": "NotAnOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "PauseIntentExpired",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "SignatureNotSorted",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "StakingModuleIdTooLarge",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "field",
+        "type": "string"
+      }
+    ],
+    "name": "ZeroAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "parameter",
+        "type": "string"
+      }
+    ],
+    "name": "ZeroParameter",
     "type": "error"
   },
   {
@@ -307,7 +407,7 @@
       },
       {
         "internalType": "uint256",
-        "name": "keysOpIndex",
+        "name": "nonce",
         "type": "uint256"
       },
       {
