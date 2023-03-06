@@ -571,4 +571,79 @@ describe('ganache e2e tests', () => {
     },
     TESTS_TIMEOUT,
   );
+
+  test(
+    'good scenario',
+    async () => {
+      const tempProvider = new ethers.providers.JsonRpcProvider(
+        `http://127.0.0.1:${GANACHE_PORT}`,
+      );
+      const currentBlock = await tempProvider.getBlock('latest');
+
+      const goodDepositMessage = {
+        pubkey: pk,
+        withdrawalCredentials: fromHexString(GOOD_WC),
+        amount: 32000000000, // gwei!
+      };
+      const goodSigningRoot = computeRoot(goodDepositMessage);
+      const goodSig = sk.sign(goodSigningRoot).toBytes();
+
+      mockKeysApi(goodSig, currentBlock, keysApiService);
+
+      const goodDepositData = {
+        ...goodDepositMessage,
+        signature: goodSig,
+      };
+      const goodDepositRoot = DepositData.hashTreeRoot(goodDepositData);
+
+      await depositService.setCachedEvents({
+        events: [],
+        startBlock: currentBlock.number,
+        endBlock: currentBlock.number,
+      });
+
+      // Check if the service is ok and ready to go
+      await guardianService.handleNewBlock();
+
+      if (!process.env.WALLET_PRIVATE_KEY) {
+        process.exit();
+      }
+      const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
+
+      // Make a bad deposit
+      const signer = wallet.connect(providerService.provider);
+      const depositContract = DepositAbi__factory.connect(
+        DEPOSIT_CONTRACT,
+        signer,
+      );
+      await depositContract.deposit(
+        goodDepositData.pubkey,
+        goodDepositData.withdrawalCredentials,
+        goodDepositData.signature,
+        goodDepositRoot,
+        { value: ethers.constants.WeiPerEther.mul(32) },
+      );
+
+      // Mock Keys API again on new block
+      const newBlock = await providerService.provider.getBlock('latest');
+      mockKeysApi(goodSig, newBlock, keysApiService);
+
+      // Pause deposits
+      await guardianService.handleNewBlock();
+
+      // Wait for confirmation
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_CONFIRMATION));
+
+      // Check if on pause now
+      const routerContract = StakingRouterAbi__factory.connect(
+        STAKING_ROUTER,
+        providerService.provider,
+      );
+      const isOnPause = await routerContract.getStakingModuleIsDepositsPaused(
+        1,
+      );
+      expect(isOnPause).toBe(false);
+    },
+    TESTS_TIMEOUT,
+  );
 });
