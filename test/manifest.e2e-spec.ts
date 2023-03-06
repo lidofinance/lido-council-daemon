@@ -61,6 +61,7 @@ import { ProviderService } from '../src/provider';
 import { GanacheProviderModule } from '../src/provider';
 
 import { BlsService } from '../src/bls';
+import { GuardianMessageService } from '../src/guardian/guardian-message';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -204,6 +205,7 @@ describe('ganache e2e tests', () => {
   let depositService: DepositService;
   let blsService: BlsService;
   let server: ReturnType<typeof makeServer>;
+  let guardianMessageService: GuardianMessageService;
 
   beforeEach(async () => {
     server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
@@ -256,6 +258,7 @@ describe('ganache e2e tests', () => {
     guardianService = moduleRef.get(GuardianService);
     lidoService = moduleRef.get(LidoService);
     depositService = moduleRef.get(DepositService);
+    guardianMessageService = moduleRef.get(GuardianMessageService);
 
     // Initialising needed service instead of the whole app
     blsService = moduleRef.get(BlsService);
@@ -264,6 +267,16 @@ describe('ganache e2e tests', () => {
     jest
       .spyOn(lidoService, 'getWithdrawalCredentials')
       .mockImplementation(async () => GOOD_WC);
+
+    jest
+      .spyOn(guardianMessageService, 'pingMessageBroker')
+      .mockImplementation(() => Promise.resolve());
+    jest
+      .spyOn(guardianMessageService, 'sendDepositMessage')
+      .mockImplementation(() => Promise.resolve());
+    jest
+      .spyOn(guardianMessageService, 'sendPauseMessage')
+      .mockImplementation(() => Promise.resolve());
   });
 
   describe('node checks', () => {
