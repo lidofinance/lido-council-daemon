@@ -618,7 +618,7 @@ describe('ganache e2e tests', () => {
       }
       const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
 
-      // Make a bad deposit
+      // Make a deposit
       const signer = wallet.connect(providerService.provider);
       const depositContract = DepositAbi__factory.connect(
         DEPOSIT_CONTRACT,
@@ -649,6 +649,97 @@ describe('ganache e2e tests', () => {
         1,
       );
       expect(isOnPause).toBe(false);
+    },
+    TESTS_TIMEOUT,
+  );
+
+  test(
+    'reorganization',
+    async () => {
+      const tempProvider = new ethers.providers.JsonRpcProvider(
+        `http://127.0.0.1:${GANACHE_PORT}`,
+      );
+      const currentBlock = await tempProvider.getBlock('latest');
+
+      const goodDepositMessage = {
+        pubkey: pk,
+        withdrawalCredentials: fromHexString(GOOD_WC),
+        amount: 32000000000, // gwei!
+      };
+      const goodSigningRoot = computeRoot(goodDepositMessage);
+      const goodSig = sk.sign(goodSigningRoot).toBytes();
+
+      mockKeysApi([goodSig], currentBlock, keysApiService);
+
+      const goodDepositData = {
+        ...goodDepositMessage,
+        signature: goodSig,
+      };
+      const goodDepositRoot = DepositData.hashTreeRoot(goodDepositData);
+
+      await depositService.setCachedEvents({
+        events: [],
+        startBlock: currentBlock.number,
+        endBlock: currentBlock.number,
+      });
+
+      // Check if the service is ok and ready to go
+      await guardianService.handleNewBlock();
+
+      // Wait for possible changes
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+      const routerContract = StakingRouterAbi__factory.connect(
+        STAKING_ROUTER,
+        providerService.provider,
+      );
+      const isOnPauseBefore =
+        await routerContract.getStakingModuleIsDepositsPaused(1);
+      expect(isOnPauseBefore).toBe(false);
+
+      if (!process.env.WALLET_PRIVATE_KEY) {
+        process.exit();
+      }
+      const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
+
+      // Make a deposit
+      const signer = wallet.connect(providerService.provider);
+      const depositContract = DepositAbi__factory.connect(
+        DEPOSIT_CONTRACT,
+        signer,
+      );
+      await depositContract.deposit(
+        goodDepositData.pubkey,
+        goodDepositData.withdrawalCredentials,
+        goodDepositData.signature,
+        goodDepositRoot,
+        { value: ethers.constants.WeiPerEther.mul(32) },
+      );
+
+      // Mock Keys API again on new block, but now mark as used
+      const newBlock = await providerService.provider.getBlock('latest');
+      mockKeysApi([goodSig], newBlock, keysApiService, true);
+
+      // Run a cycle and wait for possible changes
+      await guardianService.handleNewBlock();
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+      const isOnPauseMiddle =
+        await routerContract.getStakingModuleIsDepositsPaused(1);
+      expect(isOnPauseMiddle).toBe(false);
+
+      // Simulating a reorg
+      await server.close();
+      server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
+      await server.listen(GANACHE_PORT);
+
+      // Changing keys api keys to used=false
+      mockKeysApi([goodSig], newBlock, keysApiService, false);
+
+      // Check if on pause now
+      const isOnPauseAfter =
+        await routerContract.getStakingModuleIsDepositsPaused(1);
+      expect(isOnPauseAfter).toBe(false);
     },
     TESTS_TIMEOUT,
   );
