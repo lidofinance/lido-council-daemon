@@ -66,10 +66,10 @@ import { BlsService } from '../src/bls';
 jest.mock('../src/transport/stomp/stomp.client.ts');
 
 // Node can be without cache and environment in actions is slow, account for that
-const TESTS_TIMEOUT = 30000;
+const TESTS_TIMEOUT = 30_000;
 
 // Needs to be higher on gh actions for reliable runs
-const SLEEP_FOR_CONFIRMATION = 3000;
+const SLEEP_FOR_RESULT = 3_000;
 
 // Addresses
 const SECURITY_MODULE = '0x48bEdD13FF63F7Cd4d349233B6a57Bff285f8E32';
@@ -379,11 +379,9 @@ describe('ganache e2e tests', () => {
       const newBlock = await providerService.provider.getBlock('latest');
       mockKeysApi([goodSig], newBlock, keysApiService);
 
-      // Run the cycle
+      // Run a cycle and wait for possible changes
       await guardianService.handleNewBlock();
-
-      // Wait for confirmation
-      await new Promise((res) => setTimeout(res, SLEEP_FOR_CONFIRMATION));
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       // Check if on pause now
       const routerContract = StakingRouterAbi__factory.connect(
@@ -464,11 +462,9 @@ describe('ganache e2e tests', () => {
       const newBlock = await providerService.provider.getBlock('latest');
       mockKeysApi([goodSig], newBlock, keysApiService);
 
-      // Run the cycle
+      // Run a cycle and wait for possible changes
       await guardianService.handleNewBlock();
-
-      // Wait for confirmation
-      await new Promise((res) => setTimeout(res, SLEEP_FOR_CONFIRMATION));
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       // Check if on pause now
       const routerContract = StakingRouterAbi__factory.connect(
@@ -554,11 +550,9 @@ describe('ganache e2e tests', () => {
       const newBlock = await providerService.provider.getBlock('latest');
       mockKeysApi([goodSig], newBlock, keysApiService);
 
-      // Run the cycle
+      // Run a cycle and wait for possible changes
       await guardianService.handleNewBlock();
-
-      // Wait for confirmation
-      await new Promise((res) => setTimeout(res, SLEEP_FOR_CONFIRMATION));
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       // Check if on pause now
       const routerContract = StakingRouterAbi__factory.connect(
@@ -629,11 +623,9 @@ describe('ganache e2e tests', () => {
       const newBlock = await providerService.provider.getBlock('latest');
       mockKeysApi([goodSig], newBlock, keysApiService);
 
-      // Run the cycle
+      // Run a cycle and wait for possible changes
       await guardianService.handleNewBlock();
-
-      // Wait for confirmation
-      await new Promise((res) => setTimeout(res, SLEEP_FOR_CONFIRMATION));
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       // Check if on pause now
       const routerContract = StakingRouterAbi__factory.connect(
