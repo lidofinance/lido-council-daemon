@@ -379,7 +379,7 @@ describe('ganache e2e tests', () => {
       const newBlock = await providerService.provider.getBlock('latest');
       mockKeysApi([goodSig], newBlock, keysApiService);
 
-      // Pause deposits
+      // Run the cycle
       await guardianService.handleNewBlock();
 
       // Wait for confirmation
@@ -464,7 +464,7 @@ describe('ganache e2e tests', () => {
       const newBlock = await providerService.provider.getBlock('latest');
       mockKeysApi([goodSig], newBlock, keysApiService);
 
-      // Pause deposits
+      // Run the cycle
       await guardianService.handleNewBlock();
 
       // Wait for confirmation
@@ -554,7 +554,7 @@ describe('ganache e2e tests', () => {
       const newBlock = await providerService.provider.getBlock('latest');
       mockKeysApi([goodSig], newBlock, keysApiService);
 
-      // Pause deposits
+      // Run the cycle
       await guardianService.handleNewBlock();
 
       // Wait for confirmation
@@ -629,7 +629,7 @@ describe('ganache e2e tests', () => {
       const newBlock = await providerService.provider.getBlock('latest');
       mockKeysApi([goodSig], newBlock, keysApiService);
 
-      // Pause deposits
+      // Run the cycle
       await guardianService.handleNewBlock();
 
       // Wait for confirmation
