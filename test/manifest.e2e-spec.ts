@@ -65,6 +65,9 @@ import { BlsService } from '../src/bls';
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
 
+// Node can be without cache and environment in actions is slow, account for that
+const TESTS_TIMEOUT = 30000;
+
 // Addresses
 const SECURITY_MODULE = '0x48bEdD13FF63F7Cd4d349233B6a57Bff285f8E32';
 const SECURITY_MODULE_OWNER = '0xa5F1d7D49F581136Cf6e58B32cBE9a2039C48bA1';
@@ -294,8 +297,9 @@ describe('ganache e2e tests', () => {
     });
   });
 
-  describe('node operator deposit frontrun', () => {
-    it('main attack scenario', async () => {
+  test(
+    'node operator deposit frontrun',
+    async () => {
       const tempProvider = new ethers.providers.JsonRpcProvider(
         `http://127.0.0.1:${GANACHE_PORT}`,
       );
@@ -386,8 +390,7 @@ describe('ganache e2e tests', () => {
         1,
       );
       expect(isOnPause).toBe(true);
-
-      // Node can be without cache, account for that
-    }, 30000);
-  });
+    },
+    TESTS_TIMEOUT,
+  );
 });
