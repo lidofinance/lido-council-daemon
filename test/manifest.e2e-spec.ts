@@ -68,6 +68,9 @@ jest.mock('../src/transport/stomp/stomp.client.ts');
 // Node can be without cache and environment in actions is slow, account for that
 const TESTS_TIMEOUT = 30000;
 
+// Needs to be higher on gh actions for reliable runs
+const SLEEP_FOR_CONFIRMATION = 3000;
+
 // Addresses
 const SECURITY_MODULE = '0x48bEdD13FF63F7Cd4d349233B6a57Bff285f8E32';
 const SECURITY_MODULE_OWNER = '0xa5F1d7D49F581136Cf6e58B32cBE9a2039C48bA1';
@@ -379,7 +382,7 @@ describe('ganache e2e tests', () => {
       await guardianService.handleNewBlock();
 
       // Wait for confirmation
-      await new Promise((res) => setTimeout(res, 3000));
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_CONFIRMATION));
 
       // Check if on pause now
       const routerContract = StakingRouterAbi__factory.connect(
