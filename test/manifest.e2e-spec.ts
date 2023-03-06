@@ -396,4 +396,89 @@ describe('ganache e2e tests', () => {
     },
     TESTS_TIMEOUT,
   );
+
+  test(
+    'failed 1eth deposit attack to stop deposits (free money)',
+    async () => {
+      const tempProvider = new ethers.providers.JsonRpcProvider(
+        `http://127.0.0.1:${GANACHE_PORT}`,
+      );
+      const currentBlock = await tempProvider.getBlock('latest');
+
+      const goodDepositMessage = {
+        pubkey: pk,
+        withdrawalCredentials: fromHexString(GOOD_WC),
+        amount: 32000000000, // gwei!
+      };
+      const goodSigningRoot = computeRoot(goodDepositMessage);
+      const goodSig = sk.sign(goodSigningRoot).toBytes();
+
+      mockKeysApi(goodSig, currentBlock, keysApiService);
+
+      await depositService.setCachedEvents({
+        events: [],
+        startBlock: currentBlock.number,
+        endBlock: currentBlock.number,
+      });
+
+      // Check if the service is ok and ready to go
+      await guardianService.handleNewBlock();
+
+      const badDepositMessage = {
+        pubkey: pk,
+        withdrawalCredentials: fromHexString(GOOD_WC),
+        amount: 1000000000, // gwei!
+      };
+      const badSigningRoot = computeRoot(badDepositMessage);
+      const badSig = sk.sign(badSigningRoot).toBytes();
+
+      const badDepositData = {
+        ...badDepositMessage,
+        signature: badSig,
+      };
+      const badDepositRoot = DepositData.hashTreeRoot(badDepositData);
+
+      if (!process.env.WALLET_PRIVATE_KEY) {
+        throw new Error(
+          'Private key is not set. Please provide WALLET_PRIVATE_KEY as an env variable.',
+        );
+      }
+      const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
+
+      // Make a bad deposit
+      const signer = wallet.connect(providerService.provider);
+      const depositContract = DepositAbi__factory.connect(
+        DEPOSIT_CONTRACT,
+        signer,
+      );
+      await depositContract.deposit(
+        badDepositData.pubkey,
+        badDepositData.withdrawalCredentials,
+        badDepositData.signature,
+        badDepositRoot,
+        { value: ethers.constants.WeiPerEther.mul(1) },
+      );
+
+      // Mock Keys API again on new block
+      const newBlock = await providerService.provider.getBlock('latest');
+      mockKeysApi(goodSig, newBlock, keysApiService);
+
+      // Pause deposits
+      await guardianService.handleNewBlock();
+
+      // Wait for confirmation
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_CONFIRMATION));
+
+      // Check if on pause now
+      const routerContract = StakingRouterAbi__factory.connect(
+        STAKING_ROUTER,
+        providerService.provider,
+      );
+      const isOnPause = await routerContract.getStakingModuleIsDepositsPaused(
+        1,
+      );
+      expect(isOnPause).toBe(false);
+    },
+    TESTS_TIMEOUT,
+  );
 });
