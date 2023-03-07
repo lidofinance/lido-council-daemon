@@ -2,11 +2,30 @@ import { Test } from '@nestjs/testing';
 
 // Global Helpers
 import { ethers } from 'ethers';
-import { Type, fromHexString, toHexString } from '@chainsafe/ssz';
+import { fromHexString, toHexString } from '@chainsafe/ssz';
+
+// Helpers
+import { computeRoot, mockKeysApi } from './helpers';
 
 // Constants
-import { CHAINS } from '@lido-sdk/constants';
 import { WeiPerEther } from '@ethersproject/constants';
+import {
+  TESTS_TIMEOUT,
+  SLEEP_FOR_RESULT,
+  SECURITY_MODULE,
+  SECURITY_MODULE_OWNER,
+  STAKING_ROUTER,
+  DEPOSIT_CONTRACT,
+  GOOD_WC,
+  BAD_WC,
+  CHAIN_ID,
+  FORK_BLOCK,
+  UNLOCKED_ACCOUNTS,
+  GANACHE_PORT,
+  NO_PRIVKEY_MESSAGE,
+  sk,
+  pk,
+} from './constants';
 
 // Ganache
 import { makeServer } from './server';
@@ -19,18 +38,8 @@ import {
 } from './../src/generated';
 
 // BLS helpers
-import { SecretKey } from '@chainsafe/blst';
-import {
-  DOMAIN_DEPOSIT,
-  GENESIS_FORK_VERSION_BY_CHAIN_ID,
-  ZERO_HASH,
-} from './../src/bls/bls.constants';
-import {
-  DepositMessage,
-  DepositData,
-  ForkData,
-  SigningData,
-} from './../src/bls/bls.containers';
+
+import { DepositData } from './../src/bls/bls.containers';
 
 // App modules and services
 
@@ -65,139 +74,6 @@ import { GuardianMessageService } from '../src/guardian/guardian-message';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
-
-// Node can be without cache and environment in actions is slow, account for that
-const TESTS_TIMEOUT = 30_000;
-
-// Needs to be higher on gh actions for reliable runs
-const SLEEP_FOR_RESULT = 3_000;
-
-// Addresses
-const SECURITY_MODULE = '0x48bEdD13FF63F7Cd4d349233B6a57Bff285f8E32';
-const SECURITY_MODULE_OWNER = '0xa5F1d7D49F581136Cf6e58B32cBE9a2039C48bA1';
-const STAKING_ROUTER = '0xDd7d15490748a803AeC6987046311AF76a5A6502';
-const DEPOSIT_CONTRACT = '0x4242424242424242424242424242424242424242';
-const NOP_REGISTRY = '0x8a1E2986E52b441058325c315f83C9D4129bDF72';
-
-// Withdrawal credentials
-const GOOD_WC =
-  '0x0100000000000000000000008c5cba32b36fcbc04e7b15ba9b2fe14057590c6e';
-const BAD_WC =
-  '0x0100000000000000000000008c5cba32b36fcbc04e7b15ba9b2fe14057590c7e';
-
-// Fork node config
-const CHAIN_ID = CHAINS.Zhejiang;
-const FORK_BLOCK = 128976;
-const UNLOCKED_ACCOUNTS = [SECURITY_MODULE_OWNER];
-const GANACHE_PORT = 8545;
-
-// BLS key for the validator
-const BLS_PRIV_KEY =
-  '1c6f88347d1286690c42ad2886b6b782d4884e00eabed174696de345696cfa65';
-const sk = SecretKey.fromBytes(fromHexString(BLS_PRIV_KEY));
-const pk = sk.toPublicKey().toBytes();
-
-const NO_PRIVKEY_MESSAGE =
-  'Private key is not set. Please provide WALLET_PRIVATE_KEY as an env variable.';
-
-const computeDomain = (
-  domainType: Uint8Array,
-  forkVersion: Uint8Array,
-  genesisValidatorRoot: Uint8Array,
-): Uint8Array => {
-  const forkDataRoot = computeForkDataRoot(forkVersion, genesisValidatorRoot);
-
-  const domain = new Uint8Array(32);
-  domain.set(domainType, 0);
-  domain.set(forkDataRoot.slice(0, 28), 4);
-  return domain;
-};
-
-const computeForkDataRoot = (
-  currentVersion: Uint8Array,
-  genesisValidatorsRoot: Uint8Array,
-): Uint8Array => {
-  return ForkData.hashTreeRoot({ currentVersion, genesisValidatorsRoot });
-};
-
-const computeSigningRoot = <T>(
-  type: Type<T>,
-  sszObject: T,
-  domain: Uint8Array,
-): Uint8Array => {
-  const objectRoot = type.hashTreeRoot(sszObject);
-  return SigningData.hashTreeRoot({ objectRoot, domain });
-};
-
-const computeRoot = (depositMessage: {
-  pubkey: Uint8Array;
-  withdrawalCredentials: Uint8Array;
-  amount: number;
-}) => {
-  const forkVersion = GENESIS_FORK_VERSION_BY_CHAIN_ID[CHAIN_ID];
-
-  const domain = computeDomain(DOMAIN_DEPOSIT, forkVersion, ZERO_HASH);
-
-  const signingRoot = computeSigningRoot(
-    DepositMessage,
-    depositMessage,
-    domain,
-  );
-
-  return signingRoot;
-};
-
-const mockKeysApi = (
-  sig: Uint8Array[],
-  block: ethers.providers.Block,
-  keysApiService: KeysApiService,
-  used = false,
-) => {
-  const mockedModule = {
-    nonce: 6046,
-    type: 'grouped-onchain-v1',
-    id: 1,
-    stakingModuleAddress: NOP_REGISTRY,
-    moduleFee: 10,
-    treasuryFee: 10,
-    targetShare: 10,
-    status: 1,
-    name: 'NodeOperatorRegistry',
-    lastDepositAt: block.timestamp,
-    lastDepositBlock: block.number,
-  };
-
-  const mockedMeta = {
-    blockNumber: block.number,
-    blockHash: block.hash,
-    timestamp: block.timestamp,
-  };
-
-  const mockedKeys = sig.map((x) => ({
-    key: toHexString(pk),
-    depositSignature: toHexString(x),
-    operatorIndex: 0,
-    used,
-    index: 0,
-  }));
-
-  jest.spyOn(keysApiService, 'getModulesList').mockImplementation(async () => ({
-    data: [mockedModule],
-    elBlockSnapshot: mockedMeta,
-  }));
-
-  jest
-    .spyOn(keysApiService, 'getUnusedModuleKeys')
-    .mockImplementation(async () => ({
-      data: {
-        keys: mockedKeys,
-        module: mockedModule,
-      },
-      meta: {
-        elBlockSnapshot: mockedMeta,
-      },
-    }));
-};
 
 describe('ganache e2e tests', () => {
   let server: ReturnType<typeof makeServer>;
