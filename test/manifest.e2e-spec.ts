@@ -197,6 +197,8 @@ const mockKeysApi = (
 };
 
 describe('ganache e2e tests', () => {
+  let server: ReturnType<typeof makeServer>;
+
   let providerService: ProviderService;
   let walletService: WalletService;
   let keysApiService: KeysApiService;
@@ -204,7 +206,6 @@ describe('ganache e2e tests', () => {
   let lidoService: LidoService;
   let depositService: DepositService;
   let blsService: BlsService;
-  let server: ReturnType<typeof makeServer>;
   let guardianMessageService: GuardianMessageService;
 
   beforeEach(async () => {
