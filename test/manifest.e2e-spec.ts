@@ -400,10 +400,10 @@ describe('ganache e2e tests', () => {
       await guardianService.handleNewBlock();
       expect(sendPauseMessage).toHaveBeenCalledWith(
         expect.objectContaining({
-          blockNumber: 128979,
+          blockNumber: newBlock.number,
           depositRoot:
             '0xb4827084631b100631bb3806585a1cb388c38b23da5898fb0f000394c63e3758',
-          guardianAddress: '0x02E30650fa27ef949b2E2D655Ff7CDccd09b124E',
+          guardianAddress: wallet.address,
           guardianIndex: 1,
           stakingModuleId: 1,
         }),
@@ -655,14 +655,15 @@ describe('ganache e2e tests', () => {
 
       expect(sendDepositMessage).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          blockNumber: 128979,
+          blockNumber: newBlock.number,
           depositRoot:
             '0xc8b8f5d9954a880b7938cafcc048334493f49c5ef32da8ff7ce0b9d35f63856c',
-          guardianAddress: '0x02E30650fa27ef949b2E2D655Ff7CDccd09b124E',
+          guardianAddress: wallet.address,
           guardianIndex: 1,
           stakingModuleId: 1,
         }),
       );
+
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       // Check if on pause now
