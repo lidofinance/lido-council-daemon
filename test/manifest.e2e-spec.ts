@@ -97,6 +97,9 @@ const BLS_PRIV_KEY =
 const sk = SecretKey.fromBytes(fromHexString(BLS_PRIV_KEY));
 const pk = sk.toPublicKey().toBytes();
 
+const NO_PRIVKEY_MESSAGE =
+  'Private key is not set. Please provide WALLET_PRIVATE_KEY as an env variable.';
+
 const computeDomain = (
   domainType: Uint8Array,
   forkVersion: Uint8Array,
@@ -222,11 +225,7 @@ describe('ganache e2e tests', () => {
 
   beforeEach(async () => {
     // Prepare a signer for the unlocked Ganache account
-    if (!process.env.WALLET_PRIVATE_KEY) {
-      throw new Error(
-        'Private key is not set. Please provide WALLET_PRIVATE_KEY as an env variable.',
-      );
-    }
+    if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
     const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
     const tempProvider = new ethers.providers.JsonRpcProvider(
       `http://127.0.0.1:${GANACHE_PORT}`,
@@ -371,11 +370,7 @@ describe('ganache e2e tests', () => {
       };
       const badDepositDataRoot = DepositData.hashTreeRoot(badDepositData);
 
-      if (!process.env.WALLET_PRIVATE_KEY) {
-        throw new Error(
-          'Private key is not set. Please provide WALLET_PRIVATE_KEY as an env variable.',
-        );
-      }
+      if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
       const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
 
       // Make a bad deposit
@@ -464,11 +459,7 @@ describe('ganache e2e tests', () => {
       };
       const badDepositDataRoot = DepositData.hashTreeRoot(badDepositData);
 
-      if (!process.env.WALLET_PRIVATE_KEY) {
-        throw new Error(
-          'Private key is not set. Please provide WALLET_PRIVATE_KEY as an env variable.',
-        );
-      }
+      if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
       const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
 
       // Make a bad deposit
@@ -554,9 +545,7 @@ describe('ganache e2e tests', () => {
       };
       const badDepositDataRoot = DepositData.hashTreeRoot(badDepositData);
 
-      if (!process.env.WALLET_PRIVATE_KEY) {
-        process.exit();
-      }
+      if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
       const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
 
       // Make a bad deposit
@@ -627,9 +616,7 @@ describe('ganache e2e tests', () => {
       // Check if the service is ok and ready to go
       await guardianService.handleNewBlock();
 
-      if (!process.env.WALLET_PRIVATE_KEY) {
-        process.exit();
-      }
+      if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
       const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
 
       // Make a deposit
@@ -723,9 +710,7 @@ describe('ganache e2e tests', () => {
         await routerContract.getStakingModuleIsDepositsPaused(1);
       expect(isOnPauseBefore).toBe(false);
 
-      if (!process.env.WALLET_PRIVATE_KEY) {
-        process.exit();
-      }
+      if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
       const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
 
       // Make a deposit
