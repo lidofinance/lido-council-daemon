@@ -208,6 +208,9 @@ describe('ganache e2e tests', () => {
   let blsService: BlsService;
   let guardianMessageService: GuardianMessageService;
 
+  let sendDepositMessage: jest.SpyInstance;
+  let sendPauseMessage: jest.SpyInstance;
+
   beforeEach(async () => {
     server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
     await server.listen(GANACHE_PORT);
@@ -272,10 +275,10 @@ describe('ganache e2e tests', () => {
     jest
       .spyOn(guardianMessageService, 'pingMessageBroker')
       .mockImplementation(() => Promise.resolve());
-    jest
+    sendDepositMessage = jest
       .spyOn(guardianMessageService, 'sendDepositMessage')
       .mockImplementation(() => Promise.resolve());
-    jest
+    sendPauseMessage = jest
       .spyOn(guardianMessageService, 'sendPauseMessage')
       .mockImplementation(() => Promise.resolve());
   });
@@ -395,6 +398,16 @@ describe('ganache e2e tests', () => {
 
       // Run a cycle and wait for possible changes
       await guardianService.handleNewBlock();
+      expect(sendPauseMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blockNumber: 128979,
+          depositRoot:
+            '0xb4827084631b100631bb3806585a1cb388c38b23da5898fb0f000394c63e3758',
+          guardianAddress: '0x02E30650fa27ef949b2E2D655Ff7CDccd09b124E',
+          guardianIndex: 1,
+          stakingModuleId: 1,
+        }),
+      );
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       // Check if on pause now
@@ -639,6 +652,17 @@ describe('ganache e2e tests', () => {
 
       // Run a cycle and wait for possible changes
       await guardianService.handleNewBlock();
+
+      expect(sendDepositMessage).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          blockNumber: 128979,
+          depositRoot:
+            '0xc8b8f5d9954a880b7938cafcc048334493f49c5ef32da8ff7ce0b9d35f63856c',
+          guardianAddress: '0x02E30650fa27ef949b2E2D655Ff7CDccd09b124E',
+          guardianIndex: 1,
+          stakingModuleId: 1,
+        }),
+      );
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       // Check if on pause now
