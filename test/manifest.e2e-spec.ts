@@ -369,7 +369,7 @@ describe('ganache e2e tests', () => {
         ...badDepositMessage,
         signature: badSig,
       };
-      const badDepositRoot = DepositData.hashTreeRoot(badDepositData);
+      const badDepositDataRoot = DepositData.hashTreeRoot(badDepositData);
 
       if (!process.env.WALLET_PRIVATE_KEY) {
         throw new Error(
@@ -388,7 +388,7 @@ describe('ganache e2e tests', () => {
         badDepositData.pubkey,
         badDepositData.withdrawalCredentials,
         badDepositData.signature,
-        badDepositRoot,
+        badDepositDataRoot,
         { value: ethers.constants.WeiPerEther.mul(1) },
       );
 
@@ -462,7 +462,7 @@ describe('ganache e2e tests', () => {
         ...badDepositMessage,
         signature: badSig,
       };
-      const badDepositRoot = DepositData.hashTreeRoot(badDepositData);
+      const badDepositDataRoot = DepositData.hashTreeRoot(badDepositData);
 
       if (!process.env.WALLET_PRIVATE_KEY) {
         throw new Error(
@@ -481,7 +481,7 @@ describe('ganache e2e tests', () => {
         badDepositData.pubkey,
         badDepositData.withdrawalCredentials,
         badDepositData.signature,
-        badDepositRoot,
+        badDepositDataRoot,
         { value: ethers.constants.WeiPerEther.mul(1) },
       );
 
@@ -552,7 +552,7 @@ describe('ganache e2e tests', () => {
         ...badDepositMessage,
         signature: weirdSig,
       };
-      const badDepositRoot = DepositData.hashTreeRoot(badDepositData);
+      const badDepositDataRoot = DepositData.hashTreeRoot(badDepositData);
 
       if (!process.env.WALLET_PRIVATE_KEY) {
         process.exit();
@@ -569,7 +569,7 @@ describe('ganache e2e tests', () => {
         badDepositData.pubkey,
         badDepositData.withdrawalCredentials,
         badDepositData.signature,
-        badDepositRoot,
+        badDepositDataRoot,
         { value: ethers.constants.WeiPerEther.mul(1) },
       );
 
@@ -616,7 +616,7 @@ describe('ganache e2e tests', () => {
         ...goodDepositMessage,
         signature: goodSig,
       };
-      const goodDepositRoot = DepositData.hashTreeRoot(goodDepositData);
+      const goodDepositDataRoot = DepositData.hashTreeRoot(goodDepositData);
 
       await depositService.setCachedEvents({
         events: [],
@@ -642,7 +642,7 @@ describe('ganache e2e tests', () => {
         goodDepositData.pubkey,
         goodDepositData.withdrawalCredentials,
         goodDepositData.signature,
-        goodDepositRoot,
+        goodDepositDataRoot,
         { value: ethers.constants.WeiPerEther.mul(32) },
       );
 
@@ -700,7 +700,7 @@ describe('ganache e2e tests', () => {
         ...goodDepositMessage,
         signature: goodSig,
       };
-      const goodDepositRoot = DepositData.hashTreeRoot(goodDepositData);
+      const goodDepositDataRoot = DepositData.hashTreeRoot(goodDepositData);
 
       await depositService.setCachedEvents({
         events: [],
@@ -737,7 +737,7 @@ describe('ganache e2e tests', () => {
         goodDepositData.pubkey,
         goodDepositData.withdrawalCredentials,
         goodDepositData.signature,
-        goodDepositRoot,
+        goodDepositDataRoot,
         { value: ethers.constants.WeiPerEther.mul(32) },
       );
 
