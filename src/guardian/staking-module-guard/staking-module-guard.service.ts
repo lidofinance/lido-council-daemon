@@ -226,12 +226,12 @@ export class StakingModuleGuardService {
     const lastContractsState =
       this.lastContractsStateByModuleId[stakingModuleId];
 
-    this.lastContractsStateByModuleId[stakingModuleId] = currentContractState;
-
     const isSameContractsState = this.isSameContractsStates(
       currentContractState,
       lastContractsState,
     );
+
+    this.lastContractsStateByModuleId[stakingModuleId] = currentContractState;
 
     if (isSameContractsState) return;
 
