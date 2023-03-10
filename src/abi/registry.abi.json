@@ -76,16 +76,17 @@
     "constant": false,
     "inputs": [
       {
-        "name": "_locator",
-        "type": "address"
-      },
-      {
-        "name": "_type",
-        "type": "bytes32"
+        "name": "_nodeOperatorId",
+        "type": "uint256"
       }
     ],
-    "name": "finalizeUpgrade_v2",
-    "outputs": [],
+    "name": "clearNodeOperatorPenalty",
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool"
+      }
+    ],
     "payable": false,
     "stateMutability": "nonpayable",
     "type": "function"
@@ -270,19 +271,19 @@
     "constant": false,
     "inputs": [
       {
-        "name": "_nodeOperatorId",
+        "name": "_locator",
+        "type": "address"
+      },
+      {
+        "name": "_type",
+        "type": "bytes32"
+      },
+      {
+        "name": "_stuckPenaltyDelay",
         "type": "uint256"
-      },
-      {
-        "name": "_isTargetLimitActive",
-        "type": "bool"
-      },
-      {
-        "name": "_targetLimit",
-        "type": "uint64"
       }
     ],
-    "name": "updateTargetValidatorsLimits",
+    "name": "initialize",
     "outputs": [],
     "payable": false,
     "stateMutability": "nonpayable",
@@ -463,15 +464,6 @@
     "type": "function"
   },
   {
-    "constant": false,
-    "inputs": [],
-    "name": "onAllValidatorCountersUpdated",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "constant": true,
     "inputs": [],
     "name": "getActiveNodeOperatorsCount",
@@ -551,6 +543,20 @@
         "type": "uint256"
       }
     ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "onRewardsMinted",
+    "outputs": [],
     "payable": false,
     "stateMutability": "view",
     "type": "function"
@@ -658,6 +664,28 @@
     "type": "function"
   },
   {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "_locator",
+        "type": "address"
+      },
+      {
+        "name": "_type",
+        "type": "bytes32"
+      },
+      {
+        "name": "_stuckPenaltyDelay",
+        "type": "uint256"
+      }
+    ],
+    "name": "finalizeUpgrade_v2",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "constant": true,
     "inputs": [],
     "name": "getStakingModuleSummary",
@@ -677,6 +705,42 @@
     ],
     "payable": false,
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "_nodeOperatorIds",
+        "type": "bytes"
+      },
+      {
+        "name": "_exitedValidatorsCounts",
+        "type": "bytes"
+      }
+    ],
+    "name": "updateExitedValidatorsCount",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "_nodeOperatorIds",
+        "type": "bytes"
+      },
+      {
+        "name": "_stuckValidatorsCounts",
+        "type": "bytes"
+      }
+    ],
+    "name": "updateStuckValidatorsCount",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -764,6 +828,28 @@
     ],
     "payable": false,
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "_nodeOperatorId",
+        "type": "uint256"
+      },
+      {
+        "name": "_isTargetLimitActive",
+        "type": "bool"
+      },
+      {
+        "name": "_targetLimit",
+        "type": "uint256"
+      }
+    ],
+    "name": "updateTargetValidatorsLimits",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -880,24 +966,6 @@
     "constant": false,
     "inputs": [
       {
-        "name": "_locator",
-        "type": "address"
-      },
-      {
-        "name": "_type",
-        "type": "bytes32"
-      }
-    ],
-    "name": "initialize",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "constant": false,
-    "inputs": [
-      {
         "name": "_depositsCount",
         "type": "uint256"
       },
@@ -908,10 +976,6 @@
     ],
     "name": "obtainDepositData",
     "outputs": [
-      {
-        "name": "depositsCount",
-        "type": "uint256"
-      },
       {
         "name": "publicKeys",
         "type": "bytes"
@@ -1029,18 +1093,9 @@
     "type": "function"
   },
   {
-    "constant": false,
-    "inputs": [
-      {
-        "name": "_nodeOperatorId",
-        "type": "uint256"
-      },
-      {
-        "name": "_exitedValidatorsCount",
-        "type": "uint256"
-      }
-    ],
-    "name": "updateExitedValidatorsCount",
+    "constant": true,
+    "inputs": [],
+    "name": "MAX_STUCK_PENALTY_DELAY",
     "outputs": [
       {
         "name": "",
@@ -1048,22 +1103,13 @@
       }
     ],
     "payable": false,
-    "stateMutability": "nonpayable",
+    "stateMutability": "view",
     "type": "function"
   },
   {
     "constant": false,
-    "inputs": [
-      {
-        "name": "_nodeOperatorId",
-        "type": "uint256"
-      },
-      {
-        "name": "_stuckValidatorsCount",
-        "type": "uint256"
-      }
-    ],
-    "name": "updateStuckValidatorsCount",
+    "inputs": [],
+    "name": "onExitedAndStuckValidatorsCountsUpdated",
     "outputs": [],
     "payable": false,
     "stateMutability": "nonpayable",
@@ -1102,20 +1148,6 @@
     "type": "function"
   },
   {
-    "constant": true,
-    "inputs": [
-      {
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "name": "handleRewardsMinted",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "constant": false,
     "inputs": [
       {
@@ -1145,6 +1177,25 @@
       {
         "name": "",
         "type": "bytes32"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [
+      {
+        "name": "_nodeOperatorId",
+        "type": "uint256"
+      }
+    ],
+    "name": "isOperatorPenaltyCleared",
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool"
       }
     ],
     "payable": false,
@@ -1256,18 +1307,6 @@
       }
     ],
     "name": "KeysOpIndexSet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "name": "version",
-        "type": "uint256"
-      }
-    ],
-    "name": "ContractVersionSet",
     "type": "event"
   },
   {
@@ -1395,17 +1434,12 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
-        "name": "nodeOperatorId",
-        "type": "uint256"
-      },
-      {
         "indexed": false,
-        "name": "stuckValidatorsCount",
+        "name": "stuckPenaltyDelay",
         "type": "uint256"
       }
     ],
-    "name": "StuckValidatorsCountChanged",
+    "name": "StuckPenaltyDelayChanged",
     "type": "event"
   },
   {
@@ -1418,11 +1452,21 @@
       },
       {
         "indexed": false,
-        "name": "RefundedValidatorsCount",
+        "name": "stuckValidatorsCount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "name": "refundedValidatorsCount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "name": "stuckPenaltyEndTimestamp",
         "type": "uint256"
       }
     ],
-    "name": "RefundedValidatorsCountChanged",
+    "name": "StuckPenaltyStateChanged",
     "type": "event"
   },
   {
@@ -1457,6 +1501,18 @@
       }
     ],
     "name": "NodeOperatorPenalized",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "name": "version",
+        "type": "uint256"
+      }
+    ],
+    "name": "ContractVersionSet",
     "type": "event"
   },
   {

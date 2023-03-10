@@ -16,6 +16,22 @@
     "type": "error"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "firstArrayLength",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "secondArrayLength",
+        "type": "uint256"
+      }
+    ],
+    "name": "ArraysLengthMismatch",
+    "type": "error"
+  },
+  {
     "inputs": [],
     "name": "DepositContractZeroAddress",
     "type": "error"
@@ -41,8 +57,62 @@
     "type": "error"
   },
   {
-    "inputs": [],
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "etherValue",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "depositsCount",
+        "type": "uint256"
+      }
+    ],
+    "name": "InvalidDepositsValue",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "actual",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "expected",
+        "type": "uint256"
+      }
+    ],
+    "name": "InvalidPublicKeysBatchLength",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "code",
+        "type": "uint256"
+      }
+    ],
     "name": "InvalidReportData",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "actual",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "expected",
+        "type": "uint256"
+      }
+    ],
+    "name": "InvalidSignaturesBatchLength",
     "type": "error"
   },
   {
@@ -52,12 +122,7 @@
   },
   {
     "inputs": [],
-    "name": "NotExpectedBalance",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "StakingModuleIdTooLarge",
+    "name": "StakingModuleAddressExists",
     "type": "error"
   },
   {
@@ -160,6 +225,44 @@
       }
     ],
     "name": "ContractVersionSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "stakingModuleId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "lowLevelRevertData",
+        "type": "bytes"
+      }
+    ],
+    "name": "ExitedAndStuckValidatorsCountsUpdateFailed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "stakingModuleId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "lowLevelRevertData",
+        "type": "bytes"
+      }
+    ],
+    "name": "RewardsMintedReportFailed",
     "type": "event"
   },
   {
@@ -407,6 +510,25 @@
     "type": "event"
   },
   {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "stakingModuleId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "lowLevelRevertData",
+        "type": "bytes"
+      }
+    ],
+    "name": "WithdrawalsCredentialsChangeFailed",
+    "type": "event"
+  },
+  {
     "inputs": [],
     "name": "DEFAULT_ADMIN_ROLE",
     "outputs": [
@@ -453,6 +575,32 @@
         "internalType": "bytes32",
         "name": "",
         "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "MAX_STAKING_MODULES_COUNT",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "MAX_STAKING_MODULE_NAME_LENGTH",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -586,7 +734,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_maxDepositsCount",
+        "name": "_depositsCount",
         "type": "uint256"
       },
       {
@@ -601,13 +749,7 @@
       }
     ],
     "name": "deposit",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "depositsCount",
-        "type": "uint256"
-      }
-    ],
+    "outputs": [],
     "stateMutability": "payable",
     "type": "function"
   },
@@ -848,7 +990,7 @@
     "name": "getLido",
     "outputs": [
       {
-        "internalType": "contract ILido",
+        "internalType": "address",
         "name": "",
         "type": "address"
       }
@@ -1491,6 +1633,11 @@
         "internalType": "uint256",
         "name": "_stakingModuleId",
         "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_maxDepositsValue",
+        "type": "uint256"
       }
     ],
     "name": "getStakingModuleMaxDepositsCount",
@@ -1781,6 +1928,13 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "onValidatorsCountsByNodeOperatorReportingFinished",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -2006,7 +2160,7 @@
             "type": "uint256"
           }
         ],
-        "internalType": "struct StakingRouter.ValidatorsCountCorrection",
+        "internalType": "struct StakingRouter.ValidatorsCountsCorrection",
         "name": "_correction",
         "type": "tuple"
       }
@@ -2081,6 +2235,34 @@
       }
     ],
     "name": "updateStakingModule",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_stakingModuleId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_nodeOperatorId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "_isTargetLimitActive",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_targetLimit",
+        "type": "uint256"
+      }
+    ],
+    "name": "updateTargetValidatorsLimits",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

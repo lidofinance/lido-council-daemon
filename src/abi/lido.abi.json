@@ -158,20 +158,6 @@
   },
   {
     "constant": true,
-    "inputs": [],
-    "name": "TOTAL_BASIS_POINTS",
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "payable": false,
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "constant": true,
     "inputs": [
       {
         "name": "_script",
@@ -402,8 +388,8 @@
     ],
     "name": "initialize",
     "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
+    "payable": true,
+    "stateMutability": "payable",
     "type": "function"
   },
   {
@@ -655,6 +641,32 @@
   {
     "constant": true,
     "inputs": [],
+    "name": "eip712Domain",
+    "outputs": [
+      {
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "name": "version",
+        "type": "string"
+      },
+      {
+        "name": "chainId",
+        "type": "uint256"
+      },
+      {
+        "name": "verifyingContract",
+        "type": "address"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
     "name": "getContractVersion",
     "outputs": [
       {
@@ -715,6 +727,20 @@
     ],
     "payable": false,
     "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [],
+    "name": "getEIP712StETH",
+    "outputs": [
+      {
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "payable": false,
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -897,6 +923,15 @@
   },
   {
     "constant": false,
+    "inputs": [],
+    "name": "removeStakingLimit",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": false,
     "inputs": [
       {
         "name": "_reportTimestamp",
@@ -923,8 +958,12 @@
         "type": "uint256"
       },
       {
-        "name": "_lastFinalizableRequestId",
+        "name": "_sharesRequestedToBurn",
         "type": "uint256"
+      },
+      {
+        "name": "_withdrawalFinalizationBatches",
+        "type": "uint256[]"
       },
       {
         "name": "_simulatedShareRate",
@@ -934,42 +973,12 @@
     "name": "handleOracleReport",
     "outputs": [
       {
-        "name": "postTotalPooledEther",
-        "type": "uint256"
-      },
-      {
-        "name": "postTotalShares",
-        "type": "uint256"
-      },
-      {
-        "name": "withdrawals",
-        "type": "uint256"
-      },
-      {
-        "name": "elRewards",
-        "type": "uint256"
+        "name": "postRebaseAmounts",
+        "type": "uint256[4]"
       }
     ],
     "payable": false,
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "constant": false,
-    "inputs": [],
-    "name": "removeStakingLimit",
-    "outputs": [],
-    "payable": false,
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "constant": false,
-    "inputs": [],
-    "name": "receiveStakingRouterDepositRemainder",
-    "outputs": [],
-    "payable": true,
-    "stateMutability": "payable",
     "type": "function"
   },
   {
@@ -1137,7 +1146,7 @@
     "name": "getDepositableEther",
     "outputs": [
       {
-        "name": "depositableEth",
+        "name": "",
         "type": "uint256"
       }
     ],
@@ -1408,18 +1417,6 @@
       }
     ],
     "name": "Unbuffered",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "StakingRouterDepositRemainderReceived",
     "type": "event"
   },
   {
