@@ -71,7 +71,6 @@ export class BlockGuardService {
         this.depositService.getDepositRoot({ blockHash }),
         this.depositService.getAllDepositedEvents(blockNumber, blockHash),
         this.securityService.getGuardianIndex({ blockHash }),
-        this.depositService.handleNewBlock(blockNumber),
       ]);
 
       return {

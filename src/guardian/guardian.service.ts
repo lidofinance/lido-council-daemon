@@ -105,6 +105,8 @@ export class GuardianService implements OnModuleInit {
     )
       return;
 
+    await this.depositService.handleNewBlock(blockNumber);
+
     const blockData = await this.blockGuardService.getCurrentBlockData({
       blockHash,
       blockNumber,
