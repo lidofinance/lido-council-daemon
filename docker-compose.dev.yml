@@ -38,7 +38,7 @@ services:
       - LOG_FORMAT=${LOG_FORMAT}
       - CHAIN_ID=${KEYS_API_CHAIN_ID}
       - PROVIDERS_URLS=${KEYS_API_EL_PROVIDERS_URLS}
-      - CL_API_URLS=${KEYS_API_CL_PROVIDERS_URLS}
+      - VALIDATOR_REGISTRY_ENABLE=false
       - DB_NAME=${KEYS_API_DB_NAME}
       - DB_PORT=5432
       - DB_HOST=keys_api_service_db
