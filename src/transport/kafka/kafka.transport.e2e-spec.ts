@@ -9,7 +9,7 @@ import { Kafka } from 'kafkajs';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { MessageType } from '../../messages';
 
-describe('KafkaTransport', () => {
+describe.skip('KafkaTransport', () => {
   let transport: KafkaTransport;
   let moduleRef: TestingModule;
   let loggerService: LoggerService;

@@ -19,3 +19,5 @@ export const METRIC_INTERSECTIONS_TOTAL = `${METRICS_PREFIX}intersections_total`
 
 export const METRIC_DEPOSITED_KEYS_TOTAL = `${METRICS_PREFIX}deposited_keys_total`;
 export const METRIC_OPERATORS_KEYS_TOTAL = `${METRICS_PREFIX}operators_keys_total`;
+
+export const METRIC_KEYS_API_REQUEST_DURATION = `${METRICS_PREFIX}keys_api_requests_duration_seconds`;

@@ -31,7 +31,7 @@ export default class StompTransport implements TransportInterface {
     cb: (message: T) => Promise<void>,
   ): Promise<void> {
     const destination = `/exchange/${topic}/${messageType}`;
-    this.client.subscribe(destination, (frame) => {
+    await this.client.subscribe(destination, (frame) => {
       cb(JSON.parse(frame.body));
     });
   }

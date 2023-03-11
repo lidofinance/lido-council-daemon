@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { Cache } from 'common/decorators';
 import { LidoAbi, LidoAbi__factory } from 'generated';
 import { SecurityAbi, SecurityAbi__factory } from 'generated';
-import { RegistryAbi, RegistryAbi__factory } from 'generated';
 import { DepositAbi, DepositAbi__factory } from 'generated';
+import { StakingRouterAbi, StakingRouterAbi__factory } from 'generated';
 import { ProviderService } from 'provider';
 import {
   getDepositSecurityAddress,
@@ -37,17 +37,6 @@ export class RepositoryService {
   }
 
   /**
-   * Returns an instance of the Node Operators Registry contract
-   */
-  @Cache()
-  public async getCachedRegistryContract(): Promise<RegistryAbi> {
-    const aclAddress = await this.getRegistryAddress();
-    const provider = this.providerService.provider;
-
-    return RegistryAbi__factory.connect(aclAddress, provider);
-  }
-
-  /**
    * Returns an instance of the Deposit contract
    */
   @Cache()
@@ -56,6 +45,17 @@ export class RepositoryService {
     const provider = this.providerService.provider;
 
     return DepositAbi__factory.connect(depositAddress, provider);
+  }
+
+  /**
+   * Returns an instance of the Staking Router contract
+   */
+  @Cache()
+  public async getCachedStakingRouterAbiContract(): Promise<StakingRouterAbi> {
+    const depositAddress = await this.getStakingRouterAddress();
+    const provider = this.providerService.provider;
+
+    return StakingRouterAbi__factory.connect(depositAddress, provider);
   }
 
   /**
@@ -75,18 +75,18 @@ export class RepositoryService {
   }
 
   /**
-   * Returns Node Operators Registry contract address
+   * Returns Staking Router contract address
    */
-  public async getRegistryAddress(): Promise<string> {
-    const lidoContract = await this.getCachedLidoContract();
-    return await lidoContract.getOperators();
+  public async getStakingRouterAddress(): Promise<string> {
+    const securityContract = await this.getCachedSecurityContract();
+    return await securityContract.STAKING_ROUTER();
   }
 
   /**
    * Returns Deposit contract address
    */
   public async getDepositAddress(): Promise<string> {
-    const lidoContract = await this.getCachedLidoContract();
-    return await lidoContract.getDepositContract();
+    const securityContract = await this.getCachedSecurityContract();
+    return await securityContract.DEPOSIT_CONTRACT();
   }
 }

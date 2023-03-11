@@ -1,0 +1,48 @@
+version: '3.7'
+
+services:
+  rabbit:
+    build:
+      context: .
+      dockerfile: Dockerfile.test.yml
+    container_name: 'rabbitmq'
+    ports:
+      - "15674:15674"
+      - "15672:15672"
+
+  keys_api_service_db:
+    image: postgres:14-alpine
+    container_name: keys_api_service_db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${KEYS_API_DB_NAME}
+      - POSTGRES_USER=${KEYS_API_DB_USER}
+      - POSTGRES_PASSWORD=${KEYS_API_DB_PASSWORD}
+    ports:
+      - ${KEYS_API_DB_PORT}:5432
+    volumes:
+      - ./.volumes/pgdata-${KEYS_API_CHAIN_ID}/:/var/lib/postgresql/data
+
+  keys_api_service_api:
+    image: lidofinance/lido-keys-api:dev
+    container_name: keys_api_service_api
+    ports:
+      - '${KEYS_API_PORT}:3001'
+    environment:
+      - PORT=3001
+      - CORS_WHITELIST_REGEXP=${KEYS_API_CORS_WHITELIST_REGEXP}
+      - GLOBAL_THROTTLE_TTL=${KEYS_API_GLOBAL_THROTTLE_TTL}
+      - GLOBAL_THROTTLE_LIMIT=${KEYS_API_GLOBAL_THROTTLE_LIMIT}
+      - GLOBAL_CACHE_TTL=${KEYS_API_GLOBAL_CACHE_TTL}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_FORMAT=${LOG_FORMAT}
+      - CHAIN_ID=${KEYS_API_CHAIN_ID}
+      - PROVIDERS_URLS=${KEYS_API_EL_PROVIDERS_URLS}
+      - VALIDATOR_REGISTRY_ENABLE=false
+      - DB_NAME=${KEYS_API_DB_NAME}
+      - DB_PORT=5432
+      - DB_HOST=keys_api_service_db
+      - DB_USER=${KEYS_API_DB_USER}
+      - DB_PASSWORD=${KEYS_API_DB_PASSWORD}
+    depends_on:
+      - keys_api_service_db
