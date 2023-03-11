@@ -4,7 +4,7 @@ import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { MockProviderModule, ProviderService } from 'provider';
 import { WalletService } from 'wallet';
-import { SecurityAbi__factory } from 'generated';
+import { SecurityAbi__factory, StakingRouterAbi__factory } from 'generated';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { Interface } from '@ethersproject/abi';
 import { BigNumber } from '@ethersproject/bignumber';
@@ -16,6 +16,8 @@ import { SecurityService } from './security.service';
 import { SecurityModule } from './security.module';
 
 jest.mock('../../transport/stomp/stomp.client');
+
+const TEST_MODULE_ID = 1;
 
 describe('SecurityService', () => {
   const address1 = hexZeroPad('0x1', 20);
@@ -169,7 +171,13 @@ describe('SecurityService', () => {
       const keysOpIndex = 1;
       const blockNumber = 1;
       const blockHash = hexZeroPad('0x3', 32);
-      const args = [depositRoot, keysOpIndex, blockNumber, blockHash] as const;
+      const args = [
+        depositRoot,
+        keysOpIndex,
+        blockNumber,
+        blockHash,
+        TEST_MODULE_ID,
+      ] as const;
 
       const mockGetAttestMessagePrefix = jest
         .spyOn(securityService, 'getAttestMessagePrefix')
@@ -179,7 +187,14 @@ describe('SecurityService', () => {
 
       const signature = await securityService.signDepositData(...args);
       expect(mockGetAttestMessagePrefix).toBeCalledTimes(1);
-      expect(signDepositData).toBeCalledWith(prefix, ...args);
+      expect(signDepositData).toBeCalledWith({
+        prefix,
+        depositRoot,
+        keysOpIndex,
+        blockNumber,
+        blockHash,
+        stakingModuleId: TEST_MODULE_ID,
+      });
       expect(signature).toEqual(
         expect.objectContaining({
           _vs: expect.any(String),
@@ -202,9 +217,17 @@ describe('SecurityService', () => {
 
       const signPauseData = jest.spyOn(walletService, 'signPauseData');
 
-      const signature = await securityService.signPauseData(blockNumber);
+      const signature = await securityService.signPauseData(
+        blockNumber,
+        TEST_MODULE_ID,
+      );
       expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
-      expect(signPauseData).toBeCalledWith(prefix, blockNumber);
+      expect(signPauseData).toBeCalledWith({
+        blockNumber: 1,
+        prefix:
+          '0x0000000000000000000000000000000000000000000000000000000000000001',
+        stakingModuleId: 1,
+      });
       expect(signature).toEqual(
         expect.objectContaining({
           _vs: expect.any(String),
@@ -220,16 +243,18 @@ describe('SecurityService', () => {
     it('should call contract method', async () => {
       const expected = true;
 
-      const mockProviderCall = jest
+      const mockProviderCalla = jest
         .spyOn(providerService.provider, 'call')
         .mockImplementation(async () => {
-          const iface = new Interface(SecurityAbi__factory.abi);
-          return iface.encodeFunctionResult('isPaused', [expected]);
+          const iface = new Interface(StakingRouterAbi__factory.abi);
+          return iface.encodeFunctionResult('getStakingModuleIsActive', [
+            expected,
+          ]);
         });
 
-      const isPaused = await securityService.isDepositsPaused();
-      expect(isPaused).toBe(expected);
-      expect(mockProviderCall).toBeCalledTimes(1);
+      const isPaused = await securityService.isDepositsPaused(TEST_MODULE_ID);
+      expect(isPaused).toBe(!expected);
+      expect(mockProviderCalla).toBeCalledTimes(2);
     });
   });
 
@@ -261,11 +286,18 @@ describe('SecurityService', () => {
           async () => ({ pauseDeposits: mockPauseDeposits } as any),
         );
 
-      signature = await securityService.signPauseData(blockNumber);
+      signature = await securityService.signPauseData(
+        blockNumber,
+        TEST_MODULE_ID,
+      );
     });
 
     it('should call contract method', async () => {
-      await securityService.pauseDeposits(blockNumber, signature);
+      await securityService.pauseDeposits(
+        blockNumber,
+        TEST_MODULE_ID,
+        signature,
+      );
 
       expect(mockPauseDeposits).toBeCalledTimes(1);
       expect(mockWait).toBeCalledTimes(1);
@@ -275,8 +307,8 @@ describe('SecurityService', () => {
 
     it('should exit if the previous call is not completed', async () => {
       await Promise.all([
-        securityService.pauseDeposits(blockNumber, signature),
-        securityService.pauseDeposits(blockNumber, signature),
+        securityService.pauseDeposits(blockNumber, TEST_MODULE_ID, signature),
+        securityService.pauseDeposits(blockNumber, TEST_MODULE_ID, signature),
       ]);
 
       expect(mockPauseDeposits).toBeCalledTimes(1);

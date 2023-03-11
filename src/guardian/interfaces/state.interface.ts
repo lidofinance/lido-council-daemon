@@ -1,5 +1,5 @@
 export interface ContractsState {
   blockNumber: number;
-  keysOpIndex: number;
+  nonce: number;
   depositRoot: string;
 }

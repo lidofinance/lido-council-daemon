@@ -14,10 +14,11 @@ export enum MessageType {
 
 export interface MessageDeposit extends MessageRequiredFields {
   depositRoot: string;
-  keysOpIndex: number;
+  nonce: number;
   blockNumber: number;
   blockHash: string;
   signature: Signature;
+  stakingModuleId: number;
 }
 
 export interface MessageMeta {
@@ -31,8 +32,9 @@ export interface MessageApp {
 
 export interface MessagePause extends MessageRequiredFields {
   depositRoot: string;
-  keysOpIndex: number;
+  nonce: number;
   blockNumber: number;
   blockHash: string;
   signature: Signature;
+  stakingModuleId: number;
 }

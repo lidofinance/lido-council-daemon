@@ -9,10 +9,14 @@ export class StompFrame {
   /**
    * Use ack and nack to confirm delivery outside client.
    */
-  public ack: (headers?: Record<string, string>) => void = (
+  public ack: (
+    headers?: Record<string, string>,
+  ) => Promise<void | Record<string, string>> = async (
     headers: Record<string, string> = {},
   ) => headers;
-  public nack: (headers?: Record<string, string>) => void = (
+  public nack: (
+    headers?: Record<string, string>,
+  ) => Promise<void | Record<string, string>> = async (
     headers: Record<string, string> = {},
   ) => headers;
 
