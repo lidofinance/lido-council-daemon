@@ -1,9 +1,10 @@
-import { CacheModule, Global, Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
+import { LocatorModule } from './locator/locator.module';
 import { RepositoryService } from './repository.service';
 
 @Global()
 @Module({
-  imports: [CacheModule.register({ max: 100, ttl: 0 })],
+  imports: [LocatorModule],
   providers: [RepositoryService],
   exports: [RepositoryService],
 })

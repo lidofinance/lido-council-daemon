@@ -4,7 +4,7 @@ import aiohttp
 import aiofiles
 
 sync_config = {
-    'branch': 'feature/shapella-upgrade',
+    'branch': 'ad7dff9858cfb88d220f32e7e80111aa11c26e86',
     'repo': 'lidofinance/lido-dao',
     'syncMap': [
         {
@@ -21,6 +21,10 @@ sync_config = {
         }, {
             'local': 'src/abi/security.abi.json',
             'remote': 'lib/abi/DepositSecurityModule.json'
+        },
+        {
+            'local': 'src/abi/locator.abi.json',
+            'remote': 'lib/abi/LidoLocator.json'
         }
     ],
 }

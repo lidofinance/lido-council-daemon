@@ -10,7 +10,7 @@ export class LidoService {
    * Returns withdrawal credentials from the contract
    */
   public async getWithdrawalCredentials(blockTag?: BlockTag): Promise<string> {
-    const contract = await this.repositoryService.getCachedLidoContract();
+    const contract = await this.repositoryService.getLidoContract();
 
     return await contract.getWithdrawalCredentials({
       blockTag: blockTag as any,

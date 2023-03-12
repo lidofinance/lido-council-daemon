@@ -1,92 +1,177 @@
-import { Injectable } from '@nestjs/common';
-import { Cache } from 'common/decorators';
-import { LidoAbi, LidoAbi__factory } from 'generated';
+import { Inject, Injectable, LoggerService } from '@nestjs/common';
+import {
+  LidoAbi,
+  LidoAbi__factory,
+  LocatorAbi,
+  LocatorAbi__factory,
+} from 'generated';
 import { SecurityAbi, SecurityAbi__factory } from 'generated';
 import { DepositAbi, DepositAbi__factory } from 'generated';
 import { StakingRouterAbi, StakingRouterAbi__factory } from 'generated';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { ProviderService } from 'provider';
+import { LocatorService } from './locator/locator.service';
 import {
-  getDepositSecurityAddress,
-  getLidoAddress,
+  DEPOSIT_ABI,
+  DSM_ABI,
+  LIDO_ABI,
+  STAKING_ROUTER_ABI,
 } from './repository.constants';
 
 @Injectable()
 export class RepositoryService {
-  constructor(private providerService: ProviderService) {}
+  constructor(
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
+    private providerService: ProviderService,
+    private locatorService: LocatorService,
+  ) {}
+  private contractsCache: Record<
+    string,
+    LidoAbi | LocatorAbi | SecurityAbi | DepositAbi | StakingRouterAbi
+  > = {};
 
   /**
-   * Returns an instance of the Lido contract
+   * Init cache for each contract
    */
-  @Cache()
-  public async getCachedLidoContract(): Promise<LidoAbi> {
-    const lidoAddress = await this.getLidoAddress();
+  public async initCachedContracts() {
+    const lidoLocator = await this.getLidoLocatorAbiContract();
+
+    const lidoAddress = await this.locatorService.getLidoAddress(lidoLocator);
+    const dsmAddress = await this.locatorService.getDSMAddress(lidoLocator);
+
+    await this.initCachedLidoContract(lidoAddress);
+    await this.initCachedDSMContract(dsmAddress);
+    await this.initCachedDepositContract();
+    await this.initCachedStakingRouterAbiContract(lidoLocator);
+  }
+
+  /**
+   * Get Lido contract impl
+   */
+  public getLidoContract(): LidoAbi {
+    return this.getFromCache(LIDO_ABI) as LidoAbi;
+  }
+
+  /**
+   * Get DSM contract impl
+   */
+  public getDSMContract(): SecurityAbi {
+    return this.getFromCache(DSM_ABI) as SecurityAbi;
+  }
+
+  /**
+   * Get Deposit contract impl
+   */
+  public getDepositContract(): DepositAbi {
+    return this.getFromCache(DEPOSIT_ABI) as DepositAbi;
+  }
+
+  /**
+   * Get SR contract impl
+   */
+  public getStakingRouterContract(): StakingRouterAbi {
+    return this.getFromCache(STAKING_ROUTER_ABI) as StakingRouterAbi;
+  }
+
+  /**
+   * Get cached contract impl
+   */
+  private getFromCache(abiKey: string) {
+    const contract = this.contractsCache[abiKey];
+    if (contract) return contract;
+    throw new Error(`Not found ABI for key: ${abiKey}`);
+  }
+
+  /**
+   * Set contract impl and log on event
+   */
+  private setImplementation(
+    address: string,
+    contractKey: string,
+    impl: LidoAbi | LocatorAbi | SecurityAbi | DepositAbi | StakingRouterAbi,
+  ) {
+    if (!this.contractsCache[contractKey]) {
+      this.logger.log('Init implementation', { address, contractKey });
+    }
+
+    if (
+      this.contractsCache[contractKey] &&
+      this.contractsCache[contractKey].address !== address
+    ) {
+      this.logger.log('Implementation was changed', { address, contractKey });
+    }
+
+    this.contractsCache[contractKey] = impl;
+  }
+
+  /**
+   * Init cache for Lido contract
+   */
+  private async initCachedLidoContract(lidoAddress: string): Promise<void> {
     const provider = this.providerService.provider;
 
-    return LidoAbi__factory.connect(lidoAddress, provider);
+    this.setImplementation(
+      lidoAddress,
+      LIDO_ABI,
+      LidoAbi__factory.connect(lidoAddress, provider),
+    );
   }
 
   /**
-   * Returns an instance of the Deposit Security contract
+   * Init cache for DSM contract
    */
-  @Cache()
-  public async getCachedSecurityContract(): Promise<SecurityAbi> {
-    const securityAddress = await this.getDepositSecurityAddress();
+  private async initCachedDSMContract(dsmAddress: string): Promise<void> {
     const provider = this.providerService.provider;
 
-    return SecurityAbi__factory.connect(securityAddress, provider);
+    this.setImplementation(
+      dsmAddress,
+      DSM_ABI,
+      SecurityAbi__factory.connect(dsmAddress, provider),
+    );
   }
 
   /**
-   * Returns an instance of the Deposit contract
+   * Init cache for Deposit contract
    */
-  @Cache()
-  public async getCachedDepositContract(): Promise<DepositAbi> {
-    const depositAddress = await this.getDepositAddress();
+  private async initCachedDepositContract(): Promise<void> {
+    const securityContract = this.getDSMContract();
+    const depositAddress = await this.locatorService.getDepositAddress(
+      securityContract,
+    );
+
     const provider = this.providerService.provider;
 
-    return DepositAbi__factory.connect(depositAddress, provider);
+    this.setImplementation(
+      depositAddress,
+      DEPOSIT_ABI,
+      DepositAbi__factory.connect(depositAddress, provider),
+    );
   }
 
   /**
-   * Returns an instance of the Staking Router contract
+   * Init cache for SR contract
    */
-  @Cache()
-  public async getCachedStakingRouterAbiContract(): Promise<StakingRouterAbi> {
-    const depositAddress = await this.getStakingRouterAddress();
+  private async initCachedStakingRouterAbiContract(
+    lidoLocator: LocatorAbi,
+  ): Promise<void> {
+    const stakingRouterAddress =
+      await this.locatorService.getStakingRouterAddress(lidoLocator);
     const provider = this.providerService.provider;
 
-    return StakingRouterAbi__factory.connect(depositAddress, provider);
+    this.setImplementation(
+      stakingRouterAddress,
+      STAKING_ROUTER_ABI,
+      StakingRouterAbi__factory.connect(stakingRouterAddress, provider),
+    );
   }
 
   /**
-   * Returns Lido contract address
+   * Get Lido locator contract
    */
-  public async getLidoAddress(): Promise<string> {
-    const chainId = await this.providerService.getChainId();
-    return getLidoAddress(chainId);
-  }
+  private async getLidoLocatorAbiContract() {
+    const locatorAddress = await this.locatorService.getLocatorAddress();
+    const provider = this.providerService.provider;
 
-  /**
-   * Returns Deposit Security contract address
-   */
-  public async getDepositSecurityAddress(): Promise<string> {
-    const chainId = await this.providerService.getChainId();
-    return getDepositSecurityAddress(chainId);
-  }
-
-  /**
-   * Returns Staking Router contract address
-   */
-  public async getStakingRouterAddress(): Promise<string> {
-    const securityContract = await this.getCachedSecurityContract();
-    return await securityContract.STAKING_ROUTER();
-  }
-
-  /**
-   * Returns Deposit contract address
-   */
-  public async getDepositAddress(): Promise<string> {
-    const securityContract = await this.getCachedSecurityContract();
-    return await securityContract.DEPOSIT_CONTRACT();
+    return LocatorAbi__factory.connect(locatorAddress, provider);
   }
 }

@@ -217,7 +217,7 @@ export class DepositService {
     startBlock: number,
     endBlock: number,
   ): Promise<VerifiedDepositEventGroup> {
-    const contract = await this.repositoryService.getCachedDepositContract();
+    const contract = await this.repositoryService.getDepositContract();
     const filter = contract.filters.DepositEvent();
     const rawEvents = await contract.queryFilter(filter, startBlock, endBlock);
     const events = rawEvents.map((rawEvent) => {
@@ -349,7 +349,7 @@ export class DepositService {
    * Returns a deposit root
    */
   public async getDepositRoot(blockTag?: BlockTag): Promise<string> {
-    const contract = await this.repositoryService.getCachedDepositContract();
+    const contract = await this.repositoryService.getDepositContract();
     const depositRoot = await contract.get_deposit_root({
       blockTag: blockTag as any,
     });
