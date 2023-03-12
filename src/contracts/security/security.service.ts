@@ -42,7 +42,7 @@ export class SecurityService {
     const wallet = this.walletService.wallet;
     const provider = this.providerService.provider;
     const walletWithProvider = wallet.connect(provider);
-    const contract = await this.repositoryService.getDSMContract();
+    const contract = await this.repositoryService.getCachedDSMContract();
     const contractWithSigner = contract.connect(walletWithProvider);
 
     return contractWithSigner;
@@ -52,7 +52,7 @@ export class SecurityService {
    */
   public async getAttestMessagePrefix(): Promise<string> {
     if (!this.cachedAttestMessagePrefix) {
-      const contract = await this.repositoryService.getDSMContract();
+      const contract = await this.repositoryService.getCachedDSMContract();
       const messagePrefix = await contract.ATTEST_MESSAGE_PREFIX();
       this.cachedAttestMessagePrefix = messagePrefix;
     }
@@ -65,7 +65,7 @@ export class SecurityService {
    */
   public async getPauseMessagePrefix(): Promise<string> {
     if (!this.cachedPauseMessagePrefix) {
-      const contract = await this.repositoryService.getDSMContract();
+      const contract = await this.repositoryService.getCachedDSMContract();
       const messagePrefix = await contract.PAUSE_MESSAGE_PREFIX();
       this.cachedPauseMessagePrefix = messagePrefix;
     }
@@ -77,7 +77,7 @@ export class SecurityService {
    * Returns the maximum number of deposits per transaction from the contract
    */
   public async getMaxDeposits(blockTag?: BlockTag): Promise<number> {
-    const contract = await this.repositoryService.getDSMContract();
+    const contract = await this.repositoryService.getCachedDSMContract();
     const maxDeposits = await contract.getMaxDeposits({
       blockTag: blockTag as any,
     });
@@ -89,7 +89,7 @@ export class SecurityService {
    * Returns the guardian list from the contract
    */
   public async getGuardians(blockTag?: BlockTag): Promise<string[]> {
-    const contract = await this.repositoryService.getDSMContract();
+    const contract = await this.repositoryService.getCachedDSMContract();
     const guardians = await contract.getGuardians({
       blockTag: blockTag as any,
     });
@@ -160,7 +160,7 @@ export class SecurityService {
     blockTag?: BlockTag,
   ): Promise<boolean> {
     const stakingRouterContract =
-      await this.repositoryService.getStakingRouterContract();
+      await this.repositoryService.getCachedStakingRouterContract();
 
     const isActive = await stakingRouterContract.getStakingModuleIsActive(
       stakingModuleId,

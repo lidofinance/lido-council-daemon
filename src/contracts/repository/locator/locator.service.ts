@@ -1,48 +1,55 @@
 import { Injectable } from '@nestjs/common';
-import { LocatorAbi, SecurityAbi } from 'generated';
-import { ProviderService } from 'provider';
+import { LocatorAbi, LocatorAbi__factory } from 'generated';
+import { BlockTag, ProviderService } from 'provider';
 import { getLidoLocatorAddress } from './locator.constants';
 
 @Injectable()
 export class LocatorService {
   constructor(private providerService: ProviderService) {}
-
+  private cachedLidoLocatorContract: LocatorAbi | undefined;
   /**
    * Returns DSM contract address
    */
-  public async getDSMAddress(lidoLocator: LocatorAbi): Promise<string> {
-    return await lidoLocator.depositSecurityModule();
+  public async getDSMAddress(blockTag: BlockTag): Promise<string> {
+    const lidoLocator = await this.getLidoLocatorAbiContract();
+    return await lidoLocator.depositSecurityModule({
+      blockTag: blockTag as any,
+    });
   }
 
   /**
    * Returns Lido contract address
    */
-  public async getLidoAddress(lidoLocator: LocatorAbi): Promise<string> {
-    return await lidoLocator.lido();
+  public async getLidoAddress(blockTag: BlockTag): Promise<string> {
+    const lidoLocator = await this.getLidoLocatorAbiContract();
+    return await lidoLocator.lido({ blockTag: blockTag as any });
   }
-
   /**
    * Returns StakingRouter contract address
    */
-  public async getStakingRouterAddress(
-    lidoLocator: LocatorAbi,
-  ): Promise<string> {
-    return await lidoLocator.stakingRouter();
+  public async getStakingRouterAddress(blockTag: BlockTag): Promise<string> {
+    const lidoLocator = await this.getLidoLocatorAbiContract();
+    return await lidoLocator.stakingRouter({ blockTag: blockTag as any });
   }
-
   /**
-   * Returns Deposit contract address
+   * Get Lido locator contract
    */
-  public async getDepositAddress(
-    securityContract: SecurityAbi,
-  ): Promise<string> {
-    return await securityContract.DEPOSIT_CONTRACT();
+  public async getLidoLocatorAbiContract(): Promise<LocatorAbi> {
+    if (this.cachedLidoLocatorContract) return this.cachedLidoLocatorContract;
+    const locatorAddress = await this.getLocatorAddress();
+    const provider = this.providerService.provider;
+
+    this.cachedLidoLocatorContract = LocatorAbi__factory.connect(
+      locatorAddress,
+      provider,
+    );
+    return this.cachedLidoLocatorContract;
   }
 
   /**
    * Returns Lido locator contract address
    */
-  public async getLocatorAddress(): Promise<string> {
+  private async getLocatorAddress(): Promise<string> {
     const chainId = await this.providerService.getChainId();
     return getLidoLocatorAddress(chainId);
   }

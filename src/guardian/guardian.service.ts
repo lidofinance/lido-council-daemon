@@ -53,7 +53,7 @@ export class GuardianService implements OnModuleInit {
         const block = await this.providerService.getBlock();
         const blockHash = block.hash;
 
-        await this.repositoryService.initCachedContracts();
+        await this.repositoryService.initCachedContracts({ blockHash });
 
         await Promise.all([
           this.depositService.initialize(block.number),
@@ -96,12 +96,12 @@ export class GuardianService implements OnModuleInit {
   public async handleNewBlock(): Promise<void> {
     this.logger.log('New staking router state cycle start');
 
-    await this.repositoryService.initCachedContracts();
-
     const {
       elBlockSnapshot: { blockHash, blockNumber },
       data: stakingModules,
     } = await this.stakingRouterService.getStakingModules();
+
+    await this.repositoryService.initCachedContracts({ blockHash });
 
     if (
       !this.blockGuardService.isNeedToProcessNewState({

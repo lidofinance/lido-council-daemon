@@ -1,15 +1,10 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
-import {
-  LidoAbi,
-  LidoAbi__factory,
-  LocatorAbi,
-  LocatorAbi__factory,
-} from 'generated';
+import { LidoAbi, LidoAbi__factory, LocatorAbi } from 'generated';
 import { SecurityAbi, SecurityAbi__factory } from 'generated';
 import { DepositAbi, DepositAbi__factory } from 'generated';
 import { StakingRouterAbi, StakingRouterAbi__factory } from 'generated';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { ProviderService } from 'provider';
+import { BlockTag, ProviderService } from 'provider';
 import { LocatorService } from './locator/locator.service';
 import {
   DEPOSIT_ABI,
@@ -25,51 +20,47 @@ export class RepositoryService {
     private providerService: ProviderService,
     private locatorService: LocatorService,
   ) {}
-  private contractsCache: Record<
+  private tempContractsCache: Record<
     string,
-    LidoAbi | LocatorAbi | SecurityAbi | DepositAbi | StakingRouterAbi
+    LidoAbi | LocatorAbi | SecurityAbi | StakingRouterAbi
   > = {};
+  private permanentContractsCache: Record<string, DepositAbi> = {};
 
   /**
    * Init cache for each contract
    */
-  public async initCachedContracts() {
-    const lidoLocator = await this.getLidoLocatorAbiContract();
-
-    const lidoAddress = await this.locatorService.getLidoAddress(lidoLocator);
-    const dsmAddress = await this.locatorService.getDSMAddress(lidoLocator);
-
-    await this.initCachedLidoContract(lidoAddress);
-    await this.initCachedDSMContract(dsmAddress);
-    await this.initCachedDepositContract();
-    await this.initCachedStakingRouterAbiContract(lidoLocator);
+  public async initCachedContracts(blockTag: BlockTag) {
+    await this.initCachedLidoContract(blockTag);
+    await this.initCachedDSMContract(blockTag);
+    await this.initCachedDepositContract(blockTag);
+    await this.initCachedStakingRouterAbiContract(blockTag);
   }
 
   /**
    * Get Lido contract impl
    */
-  public getLidoContract(): LidoAbi {
+  public getCachedLidoContract(): LidoAbi {
     return this.getFromCache(LIDO_ABI) as LidoAbi;
   }
 
   /**
    * Get DSM contract impl
    */
-  public getDSMContract(): SecurityAbi {
+  public getCachedDSMContract(): SecurityAbi {
     return this.getFromCache(DSM_ABI) as SecurityAbi;
   }
 
   /**
    * Get Deposit contract impl
    */
-  public getDepositContract(): DepositAbi {
-    return this.getFromCache(DEPOSIT_ABI) as DepositAbi;
+  public getCachedDepositContract(): DepositAbi {
+    return this.permanentContractsCache[DEPOSIT_ABI] as DepositAbi;
   }
 
   /**
    * Get SR contract impl
    */
-  public getStakingRouterContract(): StakingRouterAbi {
+  public getCachedStakingRouterContract(): StakingRouterAbi {
     return this.getFromCache(STAKING_ROUTER_ABI) as StakingRouterAbi;
   }
 
@@ -77,71 +68,80 @@ export class RepositoryService {
    * Get cached contract impl
    */
   private getFromCache(abiKey: string) {
-    const contract = this.contractsCache[abiKey];
+    const contract = this.tempContractsCache[abiKey];
     if (contract) return contract;
     throw new Error(`Not found ABI for key: ${abiKey}`);
   }
 
   /**
-   * Set contract impl and log on event
+   * Set contract cache and log on event
    */
-  private setImplementation(
+  private setContractCache(
     address: string,
     contractKey: string,
-    impl: LidoAbi | LocatorAbi | SecurityAbi | DepositAbi | StakingRouterAbi,
+    impl: LidoAbi | LocatorAbi | SecurityAbi | StakingRouterAbi,
   ) {
-    if (!this.contractsCache[contractKey]) {
+    if (!this.tempContractsCache[contractKey]) {
       this.logger.log('Init implementation', { address, contractKey });
     }
 
     if (
-      this.contractsCache[contractKey] &&
-      this.contractsCache[contractKey].address !== address
+      this.tempContractsCache[contractKey] &&
+      this.tempContractsCache[contractKey].address !== address
     ) {
       this.logger.log('Implementation was changed', { address, contractKey });
     }
 
-    this.contractsCache[contractKey] = impl;
+    this.tempContractsCache[contractKey] = impl;
+  }
+
+  private setPermanentContractCache(
+    address: string,
+    contractKey: string,
+    impl: DepositAbi,
+  ) {
+    this.logger.log('Init implementation', { address, contractKey });
+    this.permanentContractsCache[contractKey] = impl;
   }
 
   /**
    * Init cache for Lido contract
    */
-  private async initCachedLidoContract(lidoAddress: string): Promise<void> {
+  private async initCachedLidoContract(blockTag: BlockTag): Promise<void> {
+    const address = await this.locatorService.getLidoAddress(blockTag);
     const provider = this.providerService.provider;
 
-    this.setImplementation(
-      lidoAddress,
+    this.setContractCache(
+      address,
       LIDO_ABI,
-      LidoAbi__factory.connect(lidoAddress, provider),
+      LidoAbi__factory.connect(address, provider),
     );
   }
 
   /**
    * Init cache for DSM contract
    */
-  private async initCachedDSMContract(dsmAddress: string): Promise<void> {
+  private async initCachedDSMContract(blockTag: BlockTag): Promise<void> {
+    const address = await this.locatorService.getDSMAddress(blockTag);
     const provider = this.providerService.provider;
 
-    this.setImplementation(
-      dsmAddress,
+    this.setContractCache(
+      address,
       DSM_ABI,
-      SecurityAbi__factory.connect(dsmAddress, provider),
+      SecurityAbi__factory.connect(address, provider),
     );
   }
 
   /**
    * Init cache for Deposit contract
    */
-  private async initCachedDepositContract(): Promise<void> {
-    const securityContract = this.getDSMContract();
-    const depositAddress = await this.locatorService.getDepositAddress(
-      securityContract,
-    );
+  private async initCachedDepositContract(blockTag: BlockTag): Promise<void> {
+    if (this.permanentContractsCache[DEPOSIT_ABI]) return;
+    const depositAddress = await this.getDepositAddress(blockTag);
 
     const provider = this.providerService.provider;
 
-    this.setImplementation(
+    this.setPermanentContractCache(
       depositAddress,
       DEPOSIT_ABI,
       DepositAbi__factory.connect(depositAddress, provider),
@@ -152,13 +152,13 @@ export class RepositoryService {
    * Init cache for SR contract
    */
   private async initCachedStakingRouterAbiContract(
-    lidoLocator: LocatorAbi,
+    blockTag: BlockTag,
   ): Promise<void> {
     const stakingRouterAddress =
-      await this.locatorService.getStakingRouterAddress(lidoLocator);
+      await this.locatorService.getStakingRouterAddress(blockTag);
     const provider = this.providerService.provider;
 
-    this.setImplementation(
+    this.setContractCache(
       stakingRouterAddress,
       STAKING_ROUTER_ABI,
       StakingRouterAbi__factory.connect(stakingRouterAddress, provider),
@@ -166,12 +166,11 @@ export class RepositoryService {
   }
 
   /**
-   * Get Lido locator contract
+   * Returns Deposit contract address
    */
-  private async getLidoLocatorAbiContract() {
-    const locatorAddress = await this.locatorService.getLocatorAddress();
-    const provider = this.providerService.provider;
+  public async getDepositAddress(blockTag: BlockTag): Promise<string> {
+    const contract = await this.getCachedDSMContract();
 
-    return LocatorAbi__factory.connect(locatorAddress, provider);
+    return contract.DEPOSIT_CONTRACT({ blockTag: blockTag as any });
   }
 }
