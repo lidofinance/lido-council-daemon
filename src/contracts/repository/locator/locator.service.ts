@@ -22,7 +22,6 @@ export class LocatorService {
    */
   public async getLidoAddress(blockTag: BlockTag): Promise<string> {
     const lidoLocator = await this.getLidoLocatorAbiContract();
-    console.log("???????")
     return await lidoLocator.lido({ blockTag: blockTag as any });
   }
   /**

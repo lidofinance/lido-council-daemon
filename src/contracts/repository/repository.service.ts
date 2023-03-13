@@ -31,6 +31,7 @@ export class RepositoryService {
    */
   public async initCachedContracts(blockTag: BlockTag) {
     await this.initCachedLidoContract(blockTag);
+    // order is important: deposit contract depends on dsm
     await this.initCachedDSMContract(blockTag);
     await this.initCachedDepositContract(blockTag);
     await this.initCachedStakingRouterAbiContract(blockTag);
