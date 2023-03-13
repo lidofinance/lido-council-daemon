@@ -19,7 +19,6 @@ import { StakingModuleGuardModule } from './staking-module-guard';
 import { BlockGuardModule, BlockGuardService } from './block-guard';
 import { ScheduleModule } from 'common/schedule';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
-import { LocatorModule } from 'contracts/repository/locator/locator.module';
 
 jest.mock('../transport/stomp/stomp.client');
 
@@ -51,16 +50,16 @@ const stakingModuleResponse = {
 const mockLocator = (locator: LocatorService) => {
   const lidoAddr = jest
     .spyOn(locator, 'getLidoAddress')
-    .mockImplementationOnce(async () => '0x' + '1'.repeat(40));
+    .mockImplementation(async () => '0x' + '1'.repeat(40));
   const DSMAddr = jest
     .spyOn(locator, 'getDSMAddress')
-    .mockImplementationOnce(async () => '0x' + '2'.repeat(40));
+    .mockImplementation(async () => '0x' + '2'.repeat(40));
   const SRAddr = jest
     .spyOn(locator, 'getStakingRouterAddress')
-    .mockImplementationOnce(async () => '0x' + '3'.repeat(40));
+    .mockImplementation(async () => '0x' + '3'.repeat(40));
   const locatorAddr = jest
     .spyOn(locator, 'getLocatorAddress')
-    .mockImplementationOnce(async () => '0x' + '4'.repeat(40));
+    .mockImplementation(async () => '0x' + '4'.repeat(40));
 
   return { lidoAddr, locatorAddr, SRAddr, DSMAddr };
 };
@@ -69,7 +68,7 @@ const mockRepository = async (repositoryService: RepositoryService) => {
   const address1 = '0x' + '5'.repeat(40);
   const depositAddr = jest
     .spyOn(repositoryService, 'getDepositAddress')
-    .mockImplementationOnce(async () => address1);
+    .mockImplementation(async () => address1);
 
   await repositoryService.initCachedContracts('latest');
   jest.spyOn(repositoryService, 'getCachedLidoContract');
@@ -110,8 +109,8 @@ describe('GuardianService', () => {
         GuardianMetricsModule,
       ],
     })
-      // .overrideProvider(RepositoryService)
-      // .useClass(RepositoryService)
+      // .overrideProvider(LocatorService)
+      // .useClass(LocatorService)
       // .useValue(mockRepository(new RepositoryService(moduleRef.get(WINSTON_MODULE_NEST_PROVIDER), )))
       .compile();
 
@@ -131,6 +130,7 @@ describe('GuardianService', () => {
 
     mockLocator(locatorService);
     await mockRepository(repositoryService);
+    // console.log(repositoryService)
   });
 
   it('should exit if the previous call is not completed', async () => {

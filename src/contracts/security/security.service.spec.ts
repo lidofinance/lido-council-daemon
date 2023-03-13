@@ -21,17 +21,17 @@ jest.mock('../../transport/stomp/stomp.client');
 const mockLocator = (locator: LocatorService) => {
   const lidoAddr = jest
     .spyOn(locator, 'getLidoAddress')
-    .mockImplementationOnce(async () => '0x' + '1'.repeat(40));
+    .mockImplementation(async () => '0x' + '1'.repeat(40));
 
   const DSMAddr = jest
     .spyOn(locator, 'getDSMAddress')
-    .mockImplementationOnce(async () => '0x' + '2'.repeat(40));
+    .mockImplementation(async () => '0x' + '2'.repeat(40));
   const SRAddr = jest
     .spyOn(locator, 'getStakingRouterAddress')
-    .mockImplementationOnce(async () => '0x' + '3'.repeat(40));
+    .mockImplementation(async () => '0x' + '3'.repeat(40));
   const locatorAddr = jest
     .spyOn(locator, 'getLocatorAddress')
-    .mockImplementationOnce(async () => '0x' + '4'.repeat(40));
+    .mockImplementation(async () => '0x' + '4'.repeat(40));
 
   return { lidoAddr, locatorAddr, SRAddr, DSMAddr };
 };
@@ -41,7 +41,7 @@ const mockRepository = async (repositoryService: RepositoryService) => {
 
   const depositAddr = jest
     .spyOn(repositoryService, 'getDepositAddress')
-    .mockImplementationOnce(async () => address1);
+    .mockImplementation(async () => address1);
 
   await repositoryService.initCachedContracts({ blockHash: '111' });
   jest.spyOn(repositoryService, 'getCachedLidoContract');

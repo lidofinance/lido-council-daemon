@@ -23,8 +23,40 @@ import { LoggerModule } from 'common/logger';
 import { ConfigModule } from 'common/config';
 import { APP_VERSION } from 'app.constants';
 import { BlsService } from 'bls';
+import { LocatorService } from 'contracts/repository/locator/locator.service';
 
 const mockSleep = sleep as jest.MockedFunction<typeof sleep>;
+
+const mockLocator = (locator: LocatorService) => {
+  const lidoAddr = jest
+    .spyOn(locator, 'getLidoAddress')
+    .mockImplementation(async () => '0x' + '1'.repeat(40));
+
+  const DSMAddr = jest
+    .spyOn(locator, 'getDSMAddress')
+    .mockImplementation(async () => '0x' + '2'.repeat(40));
+  const SRAddr = jest
+    .spyOn(locator, 'getStakingRouterAddress')
+    .mockImplementation(async () => '0x' + '3'.repeat(40));
+  const locatorAddr = jest
+    .spyOn(locator, 'getLocatorAddress')
+    .mockImplementation(async () => '0x' + '4'.repeat(40));
+
+  return { lidoAddr, locatorAddr, SRAddr, DSMAddr };
+};
+
+const mockRepository = async (repositoryService: RepositoryService) => {
+  const address1 = '0x' + '5'.repeat(40);
+
+  const depositAddr = jest
+    .spyOn(repositoryService, 'getDepositAddress')
+    .mockImplementation(async () => address1);
+
+  await repositoryService.initCachedContracts('latest');
+  jest.spyOn(repositoryService, 'getCachedLidoContract');
+
+  return { depositAddr };
+};
 
 describe('DepositService', () => {
   let providerService: ProviderService;
@@ -33,6 +65,7 @@ describe('DepositService', () => {
   let loggerService: LoggerService;
   let repositoryService: RepositoryService;
   let blsService: BlsService;
+  let locatorService: LocatorService;
 
   const depositAddress = '0x' + '1'.repeat(40);
 
@@ -55,9 +88,14 @@ describe('DepositService', () => {
     blsService = moduleRef.get(BlsService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
+    locatorService = moduleRef.get(LocatorService);
+
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
     jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
     jest.spyOn(loggerService, 'debug').mockImplementation(() => undefined);
+
+    mockLocator(locatorService);
+    await mockRepository(repositoryService);
 
     jest
       .spyOn(repositoryService, 'getDepositAddress')
