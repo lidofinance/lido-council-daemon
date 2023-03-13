@@ -60,7 +60,10 @@ export default class StompClient {
     // with 1000 and closeReasonMessage as STOMP_DIED_ERROR
     // and we need to reconnect in this case
     if (closeReasonMessage === STOMP_DIED_ERROR) {
-      this.logger?.log('WS connection is closed', { code, closeReasonMessage });
+      this.logger?.debug?.('WS connection is closed', {
+        code,
+        closeReasonMessage,
+      });
     } else {
       this.logger?.warn('WS connection is closed', {
         code,
