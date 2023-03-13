@@ -56,10 +56,20 @@ export default class StompClient {
 
   private async onClose(code: number, reason: Buffer) {
     const closeReasonMessage = reason.toString();
-    this.logger?.warn('WS connection is closed', { code, closeReasonMessage });
     // check code and closeReasonMessage because we have a case
     // with 1000 and closeReasonMessage as STOMP_DIED_ERROR
     // and we need to reconnect in this case
+    if (closeReasonMessage === STOMP_DIED_ERROR) {
+      this.logger?.debug?.('WS connection is closed', {
+        code,
+        closeReasonMessage,
+      });
+    } else {
+      this.logger?.warn('WS connection is closed', {
+        code,
+        closeReasonMessage,
+      });
+    }
     const isClosedNormally =
       code === 1000 && closeReasonMessage !== STOMP_DIED_ERROR;
     if (isClosedNormally) return;
