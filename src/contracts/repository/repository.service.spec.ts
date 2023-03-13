@@ -7,6 +7,7 @@ import { MockProviderModule } from 'provider';
 import { RepositoryService } from 'contracts/repository';
 import { RepositoryModule } from './repository.module';
 import { LocatorService } from './locator/locator.service';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 const mockLocator = (locator: LocatorService) => {
   const lidoAddr = jest
@@ -56,6 +57,10 @@ describe('RepositoryService', () => {
 
     repositoryService = moduleRef.get(RepositoryService);
     locatorService = moduleRef.get(LocatorService);
+
+    jest
+      .spyOn(moduleRef.get(WINSTON_MODULE_NEST_PROVIDER), 'log')
+      .mockImplementation(() => undefined);
   });
 
   describe('lido contract', () => {

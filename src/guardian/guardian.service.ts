@@ -100,8 +100,12 @@ export class GuardianService implements OnModuleInit {
       elBlockSnapshot: { blockHash, blockNumber },
       data: stakingModules,
     } = await this.stakingRouterService.getStakingModules();
-
-    await this.repositoryService.initCachedContracts({ blockHash });
+    console.log(blockHash);
+    try {
+      await this.repositoryService.initCachedContracts({ blockHash });
+    } catch (error) {
+      console.log(error);
+    }
 
     if (
       !this.blockGuardService.isNeedToProcessNewState({
