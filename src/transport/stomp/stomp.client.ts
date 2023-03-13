@@ -83,7 +83,7 @@ export default class StompClient {
   }
 
   private async reconnect() {
-    this.logger?.warn('WS connection is reconnecting');
+    this.logger?.log('WS connection is reconnecting');
 
     this.cleanUp();
     await sleep(10000);
