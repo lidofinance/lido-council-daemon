@@ -9,6 +9,7 @@ import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
 import { DepositService } from 'contracts/deposit';
 import { SecurityService } from 'contracts/security';
+import { RepositoryService } from 'contracts/repository';
 import { ProviderService } from 'provider';
 import {
   GUARDIAN_DEPOSIT_JOB_DURATION,
@@ -29,6 +30,7 @@ export class GuardianService implements OnModuleInit {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER)
     private logger: LoggerService,
+    private repositoryService: RepositoryService,
 
     private schedulerRegistry: SchedulerRegistry,
 
@@ -50,6 +52,8 @@ export class GuardianService implements OnModuleInit {
       try {
         const block = await this.providerService.getBlock();
         const blockHash = block.hash;
+
+        await this.repositoryService.initCachedContracts({ blockHash });
 
         await Promise.all([
           this.depositService.initialize(block.number),
@@ -96,6 +100,8 @@ export class GuardianService implements OnModuleInit {
       elBlockSnapshot: { blockHash, blockNumber },
       data: stakingModules,
     } = await this.stakingRouterService.getStakingModules();
+
+    await this.repositoryService.initCachedContracts({ blockHash });
 
     if (
       !this.blockGuardService.isNeedToProcessNewState({

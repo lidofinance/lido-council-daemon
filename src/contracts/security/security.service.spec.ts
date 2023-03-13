@@ -6,6 +6,7 @@ import { MockProviderModule, ProviderService } from 'provider';
 import { WalletService } from 'wallet';
 import { SecurityAbi__factory, StakingRouterAbi__factory } from 'generated';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
+import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { Interface } from '@ethersproject/abi';
 import { BigNumber } from '@ethersproject/bignumber';
 import { hexZeroPad } from '@ethersproject/bytes';
@@ -17,14 +18,43 @@ import { SecurityModule } from './security.module';
 
 jest.mock('../../transport/stomp/stomp.client');
 
+const mockLocator = (locator: LocatorService) => {
+  const lidoAddr = jest
+    .spyOn(locator, 'getLidoAddress')
+    .mockImplementation(async () => '0x' + '1'.repeat(40));
+
+  const DSMAddr = jest
+    .spyOn(locator, 'getDSMAddress')
+    .mockImplementation(async () => '0x' + '2'.repeat(40));
+  const SRAddr = jest
+    .spyOn(locator, 'getStakingRouterAddress')
+    .mockImplementation(async () => '0x' + '3'.repeat(40));
+  const locatorAddr = jest
+    .spyOn(locator, 'getLocatorAddress')
+    .mockImplementation(async () => '0x' + '4'.repeat(40));
+
+  return { lidoAddr, locatorAddr, SRAddr, DSMAddr };
+};
+
+const mockRepository = async (repositoryService: RepositoryService) => {
+  const address1 = '0x' + '5'.repeat(40);
+
+  const depositAddr = jest
+    .spyOn(repositoryService, 'getDepositAddress')
+    .mockImplementation(async () => address1);
+
+  await repositoryService.initCachedContracts({ blockHash: '111' });
+  jest.spyOn(repositoryService, 'getCachedLidoContract');
+
+  return { depositAddr };
+};
+
 const TEST_MODULE_ID = 1;
 
 describe('SecurityService', () => {
   const address1 = hexZeroPad('0x1', 20);
   const address2 = hexZeroPad('0x2', 20);
   const address3 = hexZeroPad('0x3', 20);
-
-  const securityAddress = '0x' + '1'.repeat(40);
 
   let securityService: SecurityService;
   let providerService: ProviderService;
@@ -51,9 +81,10 @@ describe('SecurityService', () => {
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
     jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
-    jest
-      .spyOn(repositoryService, 'getDepositSecurityAddress')
-      .mockImplementation(async () => securityAddress);
+    jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
+
+    mockLocator(moduleRef.get(LocatorService));
+    await mockRepository(repositoryService);
   });
 
   describe('getAttestMessagePrefix', () => {
@@ -254,7 +285,7 @@ describe('SecurityService', () => {
 
       const isPaused = await securityService.isDepositsPaused(TEST_MODULE_ID);
       expect(isPaused).toBe(!expected);
-      expect(mockProviderCalla).toBeCalledTimes(2);
+      expect(mockProviderCalla).toBeCalledTimes(1);
     });
   });
 
