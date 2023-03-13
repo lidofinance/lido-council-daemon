@@ -49,7 +49,7 @@ export class LocatorService {
   /**
    * Returns Lido locator contract address
    */
-  private async getLocatorAddress(): Promise<string> {
+  public async getLocatorAddress(): Promise<string> {
     const chainId = await this.providerService.getChainId();
     return getLidoLocatorAddress(chainId);
   }

@@ -76,7 +76,7 @@ export class RepositoryService {
   /**
    * Set contract cache and log on event
    */
-  private setContractCache(
+  public setContractCache(
     address: string,
     contractKey: string,
     impl: LidoAbi | LocatorAbi | SecurityAbi | StakingRouterAbi,
@@ -138,7 +138,6 @@ export class RepositoryService {
   private async initCachedDepositContract(blockTag: BlockTag): Promise<void> {
     if (this.permanentContractsCache[DEPOSIT_ABI]) return;
     const depositAddress = await this.getDepositAddress(blockTag);
-
     const provider = this.providerService.provider;
 
     this.setPermanentContractCache(
