@@ -16,7 +16,7 @@ services:
       - ./.volumes/pgdata-${CHAIN_ID}/:/var/lib/postgresql/data
 
   keys_api_service_api:
-    image: lidofinance/lido-keys-api:dev@sha256:7092dd8b1be0a288abc8a1c37c1602d7c2d140f29a50c19528afd1cde5fd8814
+    image: lidofinance/lido-keys-api@sha256:996476f3c272fd74ba89b8e46ec2510bc5c07831ebb276ad661ddb00971f1a21
     platform: linux/amd64
     container_name: keys_api_service_api
     ports:
