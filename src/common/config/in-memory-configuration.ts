@@ -48,7 +48,7 @@ export class InMemoryConfiguration implements Configuration {
   KAFKA_CLIENT_ID = '';
 
   @IsString()
-  BROKER_TOPIC = '';
+  BROKER_TOPIC = 'defender';
 
   @IsString()
   @IsIn([KAFKA, RABBITMQ])
