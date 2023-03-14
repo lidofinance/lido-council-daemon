@@ -148,8 +148,8 @@ services:
     depends_on:
       - keys_api_service_db
 
-  council-daemon:
-    image: lidofinance/lido-council-daemon:dev
+  council_daemon:
+    image: lidofinance/lido-council-daemon@sha256:f9b1715aa4367821676a9cada0b6d159ace24a7f446da81e9c2838031e7bb5a9
     ports:
       - "127.0.0.1:${PORT}:3000" # port is used for prometheus metrics
     environment:
