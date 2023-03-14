@@ -1,80 +1,8 @@
-## Lido Council Daemon
+# Lido Council Daemon
 
 The daemon monitors the keys in the deposit contract and compares them with Lido's unused keys. The result of the comparison is signed with the private key and sent to the message broker. If the daemon finds a match, it tries to stop the deposits by sending a transaction calling the `pauseDeposits` method on the `Deposit Security Module` contract.
 
-## Running the app
-
-There are several ways to run a daemon:
-
-### 1. Use image from Docker hub
-
-You can pull image from dockerhub and run it manually or via docker-compose
-(`docker-compose.yml` can be found in repository root).
-Volumes can be omitted if needed.
-
-```bash
-docker pull lidofinance/lido-council-daemon@sha256:9943ed50556fc8bf75c1179023c33dc30ef9efc6ee4f4f29bfed2fc5bc23ad64
-
-docker run -i -t \
-  -v ${PWD}/.volumes/council/cache:/council/cache/ \
-  -p 3000:3000/tcp \
-  -e PORT='3000' \
-  -e LOG_LEVEL='debug' \
-  -e LOG_FORMAT='simple' \
-  -e RPC_URL='<rpc url>' \
-  -e RABBITMQ_URL='<rabbitmq url that supports ws>' \
-  -e RABBITMQ_LOGIN='<rabbitmq username>' \
-  -e RABBITMQ_PASSCODE='<rabbitmq passcode>' \
-  -e BROKER_TOPIC=defender \
-  -e WALLET_PRIVATE_KEY \
-  lidofinance/lido-council-daemon@sha256:9943ed50556fc8bf75c1179023c33dc30ef9efc6ee4f4f29bfed2fc5bc23ad64
-```
-
-### 2. Build Docker image locally
-
-To build `lidofinance/lido-council-daemon` docker image locally, simply run:
-
-```bash
-yarn docker:build
-```
-
-### 3. Build the app locally
-
-Step 1. Copy the contents of `sample.env` to `.env` file
-
-```bash
-cp sample.env .env
-```
-
-Step 2. Change the environment variables values in the previously created `.env` file. Read more in the [environment variables](#environment-variables) section
-
-Step 3. Install dependencies
-
-```bash
-$ yarn install
-```
-
-Step 4. Generate types from ABI
-
-```bash
-$ yarn typechain
-```
-
-Step 5. Build the app
-
-```bash
-$ yarn build
-```
-
-Step 6. Run the app
-
-```bash
-$ yarn start:prod
-```
-
 ## Environment variables
-
-One of transports are required for the daemon to work:
 
 ### RabbitMQ
 
@@ -85,18 +13,6 @@ PUBSUB_SERVICE=rabbitmq
 RABBITMQ_URL=<rabbitmq url that supports ws>
 RABBITMQ_LOGIN=<rabbitmq login>
 RABBITMQ_PASSCODE=<rabbitmq password>
-...
-```
-
-### Kafka (deprecated)
-
-```env
-...
-PUBSUB_SERVICE=kafka
-
-KAFKA_USERNAME=<kafka username>
-KAFKA_PASSWORD=<kafka password>
-KAFKA_BROKER_ADDRESS_1=<kafka broker address with port>
 ...
 ```
 
@@ -112,18 +28,161 @@ The private key can be omitted, in which case a random key will be generated and
 
 The account balance should have some ETH to send transactions. In regular mode, the daemon does not spend any funds. The transaction will be sent only if a potential attack is detected. 1 ETH is enough.
 
-### Example
 
+### Keys-api configuration
+Now we use the Keys-API to download the keys. Below you can see a sample configuration for the Keys-API:
 ```env
-...
-RABBITMQ_URL=https://example.com/
-RABBITMQ_LOGIN=jason
-RABBITMQ_PASSCODE=friday
+# Keys API
+KEYS_API_PORT=3001
 
-WALLET_PRIVATE_KEY=0x8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f
-...
+# chain id
+# for mainnet 1
+# for testnet 5
+CHAIN_ID=5
+
+RPC_URL=
+
+# KeysAPI DB config
+KEYS_API_DB_NAME=keys_service_db
+KEYS_API_DB_PORT=5452
+KEYS_API_DB_HOST=localhost
+KEYS_API_DB_USER=test
+KEYS_API_DB_PASSWORD=test
+
 ```
 
+The Keys-API is publicly available and you can read more at this link: https://github.com/lidofinance/lido-keys-api
+
+### Example ENV config file
+
+<details>
+
+<summary>sample.env</summary>
+
+```
+# App
+PORT=3000
+
+# Log level: debug, info, notice, warning or error
+LOG_LEVEL=info
+
+# Log format: simple or json
+LOG_FORMAT=simple
+
+# Pubsub (default: rabbitmq)
+PUBSUB_SERVICE=rabbitmq
+
+# RabbitMQ
+RABBITMQ_URL=wss://rabbitmq_url
+RABBITMQ_LOGIN=test
+RABBITMQ_PASSCODE=test
+
+# Private key
+# Used to sign transactions and stop the protocol.
+# Make sure there are enough ETH on the balance to send a transaction to stop the protocol
+WALLET_PRIVATE_KEY=0x0000000000000000000000000000000000000000000000000000000000000001
+
+KEYS_API_HOST=http://keys_api_service_api
+
+# Keys API
+KEYS_API_PORT=3001
+
+# chain id
+# for mainnet 1
+# for testnet 5
+CHAIN_ID=5
+
+RPC_URL=
+
+# KeysAPI DB config
+KEYS_API_DB_NAME=keys_service_db
+KEYS_API_DB_PORT=5452
+KEYS_API_DB_HOST=localhost
+KEYS_API_DB_USER=test
+KEYS_API_DB_PASSWORD=test
+
+```
+</details>
+
+## Running the application
+At this point, it is most convenient to run the application with docker-compose. Below is a configuration template for running the entire application:
+
+<details>
+
+<summary>docker-compose.yml</summary>
+
+```yaml=
+version: '3.7'
+
+services:
+  keys_api_service_db:
+    image: postgres:14-alpine
+    container_name: keys_api_service_db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${KEYS_API_DB_NAME}
+      - POSTGRES_USER=${KEYS_API_DB_USER}
+      - POSTGRES_PASSWORD=${KEYS_API_DB_PASSWORD}
+    ports:
+      - ${KEYS_API_DB_PORT}:5432
+    volumes:
+      - ./.volumes/pgdata-${CHAIN_ID}/:/var/lib/postgresql/data
+
+  keys_api_service_api:
+    image: lidofinance/lido-keys-api@sha256:996476f3c272fd74ba89b8e46ec2510bc5c07831ebb276ad661ddb00971f1a21
+    container_name: keys_api_service_api
+    ports:
+      - '127.0.0.1:${KEYS_API_PORT}:3001'
+    environment:
+      - PORT=3001
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_FORMAT=${LOG_FORMAT}
+      - CHAIN_ID=${CHAIN_ID}
+      - PROVIDERS_URLS=${RPC_URL}
+      - VALIDATOR_REGISTRY_ENABLE=false
+      - DB_NAME=${KEYS_API_DB_NAME}
+      - DB_PORT=5432
+      - DB_HOST=keys_api_service_db
+      - DB_USER=${KEYS_API_DB_USER}
+      - DB_PASSWORD=${KEYS_API_DB_PASSWORD}
+    depends_on:
+      - keys_api_service_db
+
+  council-daemon:
+    image: lidofinance/lido-council-daemon:dev
+    ports:
+      - "127.0.0.1:${PORT}:3000" # port is used for prometheus metrics
+    environment:
+      - PORT=3000
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_FORMAT=${LOG_FORMAT}
+      - RPC_URL=${RPC_URL}
+      - WALLET_PRIVATE_KEY=${WALLET_PRIVATE_KEY}
+      - KEYS_API_HOST=${KEYS_API_HOST}
+      - KEYS_API_PORT=${KEYS_API_PORT}
+      - PUBSUB_SERVICE=rabbitmq
+      - RABBITMQ_URL=${RABBITMQ_URL}
+      - RABBITMQ_LOGIN=${RABBITMQ_LOGIN}
+      - RABBITMQ_PASSCODE=${RABBITMQ_PASSCODE}
+    depends_on:
+      - keys_api_service_api
+    volumes:
+      - ./.volumes/cache/:/council/cache/
+
+```
+</details>
+
+### Run with docker-compose
+After updating the docker-compose file and the .env configuration file, simply enter the command:
+
+```bash
+docker-compose up -d
+```
+
+Next, we can read the log:
+```bash
+docker-compose logs -f
+```
 ## Logs
 
 On startup, the daemon checks if the provided wallet address belongs to the list of guardians, as well as account balance. If something goes wrong you will see warnings:
@@ -157,6 +216,21 @@ info: No problems found {"type":"deposit","depositRoot":"0xc2c9308fa425a64ef9cac
 debug: Fresh events are fetched {"startBlock":5679829,"endBlock":5679979,"events":7}
 ```
 
+Init contracts addresses
+
+```log
+info: Contract initial address {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:LidoAbi"}
+info: Contract initial address {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:SecurityAbi"}
+info: Contract initial address {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:StakingRouterAbi"}
+```
+
+If contract addresses changed
+
+```log
+info: Contract address was changed {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:LidoAbi"}
+info: Contract address was changed {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:SecurityAbi"}
+info: Contract address was changed {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:StakingRouterAbi"}
+```
 ## Development
 
 ```bash
@@ -193,15 +267,3 @@ $ yarn test:e2e
 # test coverage
 $ yarn test:cov
 ```
-
-## Release flow
-
-To create new release:
-
-1. Merge all changes to the `main` branch
-1. Navigate to Repo => Actions
-1. Run action "Prepare release" action against `main` branch
-1. When action execution is finished, navigate to Repo => Pull requests
-1. Find pull request named "chore(release): X.X.X" review and merge it with "Rebase and merge" (or "Squash and merge")
-1. After merge release action will be triggered automatically
-1. Navigate to Repo => Actions and see last actions logs for further details

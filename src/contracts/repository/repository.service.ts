@@ -83,14 +83,14 @@ export class RepositoryService {
     impl: LidoAbi | LocatorAbi | SecurityAbi | StakingRouterAbi,
   ) {
     if (!this.tempContractsCache[contractKey]) {
-      this.logger.log('Init implementation', { address, contractKey });
+      this.logger.log('Contract initial address', { address, contractKey });
     }
 
     if (
       this.tempContractsCache[contractKey] &&
       this.tempContractsCache[contractKey].address !== address
     ) {
-      this.logger.log('Implementation was changed', { address, contractKey });
+      this.logger.log('Contract address was changed', { address, contractKey });
     }
 
     this.tempContractsCache[contractKey] = impl;
@@ -101,7 +101,7 @@ export class RepositoryService {
     contractKey: string,
     impl: DepositAbi,
   ) {
-    this.logger.log('Init implementation', { address, contractKey });
+    this.logger.log('Contract initial address', { address, contractKey });
     this.permanentContractsCache[contractKey] = impl;
   }
 
