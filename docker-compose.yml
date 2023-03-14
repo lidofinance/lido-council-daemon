@@ -34,7 +34,7 @@ services:
     depends_on:
       - keys_api_service_db
 
-  council-daemon:
+  council_daemon:
     image: lidofinance/lido-council-daemon:dev
     ports:
       - "127.0.0.1:${PORT}:3000" # port is used for prometheus metrics
@@ -44,8 +44,8 @@ services:
       - LOG_FORMAT=${LOG_FORMAT}
       - RPC_URL=${RPC_URL}
       - WALLET_PRIVATE_KEY=${WALLET_PRIVATE_KEY}
-      - KEYS_API_HOST=${KEYS_API_HOST}
-      - KEYS_API_PORT=${KEYS_API_PORT}
+      - KEYS_API_HOST=http://keys_api_service_api
+      - KEYS_API_PORT=3001
       - PUBSUB_SERVICE=rabbitmq
       - RABBITMQ_URL=${RABBITMQ_URL}
       - RABBITMQ_LOGIN=${RABBITMQ_LOGIN}
