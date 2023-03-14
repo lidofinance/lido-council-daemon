@@ -40,12 +40,18 @@ export class KeysApiService {
   }
 
   public async getModulesList() {
-    return await this.fetch<SRModuleListResponse>('/v1/modules');
+    const result = await this.fetch<SRModuleListResponse>('/v1/modules');
+    if (!result.data?.length || !result.elBlockSnapshot)
+      throw Error('Keys API not synced, please wait');
+    return result;
   }
 
   public async getUnusedModuleKeys(stakingModuleId: number) {
-    return await this.fetch<SRModuleKeysResponse>(
+    const result = await this.fetch<SRModuleKeysResponse>(
       `/v1/modules/${stakingModuleId}/keys?used=false`,
     );
+    if (!result.data || !result.meta)
+      throw Error('Keys API not synced, please wait');
+    return result;
   }
 }

@@ -1,17 +1,9 @@
 version: '3.7'
 
 services:
-  rabbit:
-    build:
-      context: .
-      dockerfile: Dockerfile.test.yml
-    container_name: 'rabbitmq'
-    ports:
-      - "15674:15674"
-      - "15672:15672"
-
   keys_api_service_db:
     image: postgres:14-alpine
+    platform: linux/arm64/v8
     container_name: keys_api_service_db
     restart: unless-stopped
     environment:
@@ -21,23 +13,20 @@ services:
     ports:
       - ${KEYS_API_DB_PORT}:5432
     volumes:
-      - ./.volumes/pgdata-${KEYS_API_CHAIN_ID}/:/var/lib/postgresql/data
+      - ./.volumes/pgdata-${CHAIN_ID}/:/var/lib/postgresql/data
 
   keys_api_service_api:
-    image: lidofinance/lido-keys-api:dev
+    image: lidofinance/lido-keys-api:dev@sha256:7092dd8b1be0a288abc8a1c37c1602d7c2d140f29a50c19528afd1cde5fd8814
+    platform: linux/amd64
     container_name: keys_api_service_api
     ports:
-      - '${KEYS_API_PORT}:3001'
+      - '127.0.0.1:${KEYS_API_PORT}:3001'
     environment:
       - PORT=3001
-      - CORS_WHITELIST_REGEXP=${KEYS_API_CORS_WHITELIST_REGEXP}
-      - GLOBAL_THROTTLE_TTL=${KEYS_API_GLOBAL_THROTTLE_TTL}
-      - GLOBAL_THROTTLE_LIMIT=${KEYS_API_GLOBAL_THROTTLE_LIMIT}
-      - GLOBAL_CACHE_TTL=${KEYS_API_GLOBAL_CACHE_TTL}
       - LOG_LEVEL=${LOG_LEVEL}
       - LOG_FORMAT=${LOG_FORMAT}
-      - CHAIN_ID=${KEYS_API_CHAIN_ID}
-      - PROVIDERS_URLS=${KEYS_API_EL_PROVIDERS_URLS}
+      - CHAIN_ID=${CHAIN_ID}
+      - PROVIDERS_URLS=${RPC_URL}
       - VALIDATOR_REGISTRY_ENABLE=false
       - DB_NAME=${KEYS_API_DB_NAME}
       - DB_PORT=5432
@@ -46,3 +35,25 @@ services:
       - DB_PASSWORD=${KEYS_API_DB_PASSWORD}
     depends_on:
       - keys_api_service_db
+
+  council-daemon:
+    image: lidofinance/lido-council-daemon:dev
+    platform: linux/amd64
+    ports:
+      - "${PORT}:3000" # port is used for prometheus metrics
+    environment:
+      - PORT=${PORT}
+      - LOG_LEVEL=debug
+      - LOG_FORMAT=json
+      - RPC_URL=${RPC_URL}
+      - WALLET_PRIVATE_KEY=${WALLET_PRIVATE_KEY}
+      - KEYS_API_HOST=${KEYS_API_HOST}
+      - KEYS_API_PORT=${KEYS_API_PORT}
+      - PUBSUB_SERVICE=rabbitmq
+      - RABBITMQ_URL=${RABBITMQ_URL}
+      - RABBITMQ_LOGIN=${RABBITMQ_LOGIN}
+      - RABBITMQ_PASSCODE=${RABBITMQ_PASSCODE}
+    depends_on:
+      - keys_api_service_api
+    volumes:
+      - ./.volumes/cache/:/council/cache/

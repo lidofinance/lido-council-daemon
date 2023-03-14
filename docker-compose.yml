@@ -1,24 +1,56 @@
 version: '3.7'
 
 services:
-  council-daemon:
-    image: lidofinance/lido-council-daemon@sha256:9943ed50556fc8bf75c1179023c33dc30ef9efc6ee4f4f29bfed2fc5bc23ad64
-    ports:
-      - "3000:3000" # port is used for prometheus metrics
+  keys_api_service_db:
+    image: postgres:14-alpine
+    container_name: keys_api_service_db
+    restart: unless-stopped
     environment:
-      - "PORT=3000"
-      - "LOG_LEVEL=debug"
-      - "LOG_FORMAT=simple"
-      - "RPC_URL=<rpc url>"
-      - "KAFKA_SSL=true"
-      - "KAFKA_SASL_MECHANISM=plain"
-      - "KAFKA_USERNAME=<kafka user>"
-      - "KAFKA_PASSWORD=<kafka password>"
-      - "KAFKA_BROKER_ADDRESS_1=<kafka address>"
-      - "BROKER_TOPIC=defender"
-      - "WALLET_PRIVATE_KEY"
+      - POSTGRES_DB=${KEYS_API_DB_NAME}
+      - POSTGRES_USER=${KEYS_API_DB_USER}
+      - POSTGRES_PASSWORD=${KEYS_API_DB_PASSWORD}
+    ports:
+      - ${KEYS_API_DB_PORT}:5432
+    volumes:
+      - ./.volumes/pgdata-${CHAIN_ID}/:/var/lib/postgresql/data
 
-    # volumes can be omitted if needed
+  keys_api_service_api:
+    image: lidofinance/lido-keys-api:dev
+    container_name: keys_api_service_api
+    ports:
+      - '127.0.0.1:${KEYS_API_PORT}:3001'
+    environment:
+      - PORT=3001
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_FORMAT=${LOG_FORMAT}
+      - CHAIN_ID=${CHAIN_ID}
+      - PROVIDERS_URLS=${RPC_URL}
+      - VALIDATOR_REGISTRY_ENABLE=false
+      - DB_NAME=${KEYS_API_DB_NAME}
+      - DB_PORT=5432
+      - DB_HOST=keys_api_service_db
+      - DB_USER=${KEYS_API_DB_USER}
+      - DB_PASSWORD=${KEYS_API_DB_PASSWORD}
+    depends_on:
+      - keys_api_service_db
+
+  council-daemon:
+    image: lidofinance/lido-council-daemon:dev
+    ports:
+      - "127.0.0.1:${PORT}:3000" # port is used for prometheus metrics
+    environment:
+      - PORT=3000
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_FORMAT=${LOG_FORMAT}
+      - RPC_URL=${RPC_URL}
+      - WALLET_PRIVATE_KEY=${WALLET_PRIVATE_KEY}
+      - KEYS_API_HOST=${KEYS_API_HOST}
+      - KEYS_API_PORT=${KEYS_API_PORT}
+      - PUBSUB_SERVICE=rabbitmq
+      - RABBITMQ_URL=${RABBITMQ_URL}
+      - RABBITMQ_LOGIN=${RABBITMQ_LOGIN}
+      - RABBITMQ_PASSCODE=${RABBITMQ_PASSCODE}
+    depends_on:
+      - keys_api_service_api
     volumes:
       - ./.volumes/cache/:/council/cache/
-
