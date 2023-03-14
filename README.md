@@ -73,7 +73,7 @@ LOG_FORMAT=simple
 PUBSUB_SERVICE=rabbitmq
 
 # RabbitMQ
-RABBITMQ_URL=rabbitmq_url
+RABBITMQ_URL=wss://rabbitmq_url
 RABBITMQ_LOGIN=test
 RABBITMQ_PASSCODE=test
 
@@ -214,6 +214,22 @@ debug: Fresh events are fetched {"startBlock":5679827,"endBlock":5679977,"events
 debug: Fresh events are fetched {"startBlock":5679828,"endBlock":5679978,"events":7}
 info: No problems found {"type":"deposit","depositRoot":"0xc2c9308fa425a64ef9cac1837412ba462b6429fce2f170184284a260b735638c","keysOpIndex":12,"blockNumber":5679978,"blockHash":"0x87762c941f653f2f70157f86deac78f19e4d1549e231a52d1191289592d1a0ab","guardianAddress":"0x3dc4cF780F2599B528F37dedB34449Fb65Ef7d4A","guardianIndex":0,"signature":{"r":"0x44fec2e6fd34e74b8f001ef0e5bbd2db6d3179925fb82cb43231e19af46f0ddd","s":"0x2ff4326af760e353803458b75279eb8f58e5735b3565ea16bcd0f773bce106a4","_vs":"0xaff4326af760e353803458b75279eb8f58e5735b3565ea16bcd0f773bce106a4","recoveryParam":1,"v":28}}
 debug: Fresh events are fetched {"startBlock":5679829,"endBlock":5679979,"events":7}
+```
+
+Init contracts addresses
+
+```log
+info: Contract initial address {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:LidoAbi"}
+info: Contract initial address {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:SecurityAbi"}
+info: Contract initial address {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:StakingRouterAbi"}
+```
+
+If contract addresses changed
+
+```log
+info: Contract address was changed {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:LidoAbi"}
+info: Contract address was changed {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:SecurityAbi"}
+info: Contract address was changed {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:StakingRouterAbi"}
 ```
 ## Development
 
