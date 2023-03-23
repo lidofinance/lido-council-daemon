@@ -41,13 +41,16 @@ export class RepositoryService {
   /**
    * Init cache for each contract or wait if it makes some error
    */
-  public async initOrWaitCachedContracts(blockTag: BlockTag) {
+  public async initOrWaitCachedContracts(blockTag?: BlockTag) {
     try {
-      await this.initCachedContracts(blockTag);
+      const _blockTag = blockTag || {
+        blockHash: (await this.providerService.getBlock()).hash,
+      };
+      await this.initCachedContracts(_blockTag);
     } catch (error) {
       this.logger.error('Init contracts error. Retry', error);
       await sleep(10_000);
-      await this.initOrWaitCachedContracts(blockTag);
+      await this.initOrWaitCachedContracts();
     }
   }
 
