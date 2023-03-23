@@ -7,13 +7,13 @@ import { LoggerService } from '@nestjs/common';
 
 // https://stomp.github.io/stomp-specification-1.1.html#Overview
 const VERSIONS = '1.0,1.1';
-const STOMP_DIED_ERROR = 'STOMP died';
 
 export default class StompClient {
   private ws: WebSocket;
 
   private opened = false;
   private connected = false;
+  private reconnectionPromise: Promise<void> | null = null;
   private counter = 0;
   private subscriptions: Record<string, (frame: StompFrame) => void> = {};
 
@@ -56,22 +56,14 @@ export default class StompClient {
 
   private async onClose(code: number, reason: Buffer) {
     const closeReasonMessage = reason.toString();
-    // check code and closeReasonMessage because we have a case
-    // with 1000 and closeReasonMessage as STOMP_DIED_ERROR
-    // and we need to reconnect in this case
-    if (closeReasonMessage === STOMP_DIED_ERROR) {
-      this.logger?.debug?.('WS connection is closed', {
-        code,
-        closeReasonMessage,
-      });
-    } else {
-      this.logger?.warn('WS connection is closed', {
-        code,
-        closeReasonMessage,
-      });
-    }
-    const isClosedNormally =
-      code === 1000 && closeReasonMessage !== STOMP_DIED_ERROR;
+    this.logger?.warn('WS connection is closed', {
+      code,
+      closeReasonMessage,
+    });
+
+    this.cleanUp();
+
+    const isClosedNormally = code === 1000;
     if (isClosedNormally) return;
 
     await this.reconnect();
@@ -82,18 +74,25 @@ export default class StompClient {
     await this.reconnect();
   }
 
-  private async reconnect() {
-    this.logger?.log('WS connection is reconnecting');
-
+  private async _reconnect(attempt = 0) {
     this.cleanUp();
     await sleep(10000);
+
+    this.logger?.log('WS connection is reconnecting', { attempt });
 
     try {
       this.ws = this.createWebSocket(this.url);
       await this.connect();
+      this.reconnectionPromise = null;
     } catch (error) {
-      await this.reconnect();
+      await this._reconnect(++attempt);
     }
+  }
+  private async reconnect() {
+    if (this.reconnectionPromise) return await this.reconnectionPromise;
+
+    this.reconnectionPromise = this._reconnect();
+    return await this.reconnectionPromise;
   }
 
   private cleanUp() {
@@ -111,7 +110,7 @@ export default class StompClient {
 
     headers['host'] = '/';
     headers['accept-version'] = VERSIONS;
-    headers['heart-beat'] = '10000,10000';
+    headers['heart-beat'] = '100000,100000';
 
     if (this.login != null) {
       headers['login'] = this.login;
@@ -147,8 +146,8 @@ export default class StompClient {
     headers: Record<string, string> = {},
     body = '',
   ) {
-    while (!this.opened || !this.connected) {
-      await sleep(1000);
+    if (!this.opened || !this.connected) {
+      await this.reconnect();
     }
     headers['destination'] = destination;
     return await this.transmit('SEND', headers, body);
