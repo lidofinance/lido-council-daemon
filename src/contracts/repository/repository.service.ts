@@ -5,6 +5,7 @@ import { DepositAbi, DepositAbi__factory } from 'generated';
 import { StakingRouterAbi, StakingRouterAbi__factory } from 'generated';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { BlockTag, ProviderService } from 'provider';
+import { sleep } from 'utils';
 import { LocatorService } from './locator/locator.service';
 import {
   DEPOSIT_ABI,
@@ -35,6 +36,19 @@ export class RepositoryService {
     await this.initCachedDSMContract(blockTag);
     await this.initCachedDepositContract(blockTag);
     await this.initCachedStakingRouterAbiContract(blockTag);
+  }
+
+  /**
+   * Init cache for each contract or wait if it makes some error
+   */
+  public async initOrWaitCachedContracts(blockTag: BlockTag) {
+    try {
+      await this.initCachedContracts(blockTag);
+    } catch (error) {
+      this.logger.error('Init contracts error. Retry', error);
+      await sleep(10_000);
+      await this.initOrWaitCachedContracts(blockTag);
+    }
   }
 
   /**

@@ -53,7 +53,7 @@ export class GuardianService implements OnModuleInit {
         const block = await this.providerService.getBlock();
         const blockHash = block.hash;
 
-        await this.repositoryService.initCachedContracts({ blockHash });
+        await this.repositoryService.initOrWaitCachedContracts({ blockHash });
 
         await Promise.all([
           this.depositService.initialize(block.number),
