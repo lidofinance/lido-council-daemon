@@ -88,6 +88,7 @@ export default class StompClient {
       await this._reconnect(++attempt);
     }
   }
+
   private async reconnect() {
     if (this.reconnectionPromise) return await this.reconnectionPromise;
 

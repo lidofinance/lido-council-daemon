@@ -96,58 +96,80 @@ export class GuardianService implements OnModuleInit {
   public async handleNewBlock(): Promise<void> {
     this.logger.log('New staking router state cycle start');
 
-    const {
-      elBlockSnapshot: { blockHash, blockNumber },
-      data: stakingModules,
-    } = await this.stakingRouterService.getStakingModules();
+    try {
+      const {
+        elBlockSnapshot: { blockHash, blockNumber },
+        data: stakingModules,
+      } = await this.stakingRouterService.getStakingModules();
 
-    await this.repositoryService.initCachedContracts({ blockHash });
+      await this.repositoryService.initCachedContracts({ blockHash });
 
-    if (
-      !this.blockGuardService.isNeedToProcessNewState({
+      if (
+        !this.blockGuardService.isNeedToProcessNewState({
+          blockHash,
+          blockNumber,
+        })
+      ) {
+        this.logger.debug?.(
+          `The block has not changed since the last cycle. Exit`,
+          {
+            blockHash,
+            blockNumber,
+          },
+        );
+        return;
+      }
+
+      this.logger.log('Staking modules loaded', {
+        modulesCount: stakingModules.length,
+      });
+
+      await this.depositService.handleNewBlock(blockNumber);
+
+      const blockData = await this.blockGuardService.getCurrentBlockData({
         blockHash,
         blockNumber,
-      })
-    )
-      return;
+      });
 
-    await this.depositService.handleNewBlock(blockNumber);
+      this.logger.debug?.('Current block data loaded', {
+        guardianIndex: blockData.guardianIndex,
+        blockNumber: blockData.blockNumber,
+        blockHash: blockData.blockHash,
+      });
 
-    const blockData = await this.blockGuardService.getCurrentBlockData({
-      blockHash,
-      blockNumber,
-    });
+      await Promise.all(
+        stakingModules.map(async (stakingRouterModule) => {
+          const stakingModuleData =
+            await this.stakingModuleGuardService.getStakingRouterModuleData(
+              stakingRouterModule,
+              blockHash,
+            );
 
-    await Promise.all(
-      stakingModules.map(async (stakingRouterModule) => {
-        const stakingModuleData =
-          await this.stakingModuleGuardService.getStakingRouterModuleData(
-            stakingRouterModule,
-            blockHash,
+          await this.stakingModuleGuardService.checkKeysIntersections(
+            stakingModuleData,
+            blockData,
           );
 
-        await this.stakingModuleGuardService.checkKeysIntersections(
-          stakingModuleData,
-          blockData,
-        );
+          this.guardianMetricsService.collectMetrics(
+            stakingModuleData,
+            blockData,
+          );
+        }),
+      );
 
-        this.guardianMetricsService.collectMetrics(
-          stakingModuleData,
-          blockData,
-        );
-      }),
-    );
+      await this.guardianMessageService.pingMessageBroker(
+        stakingModules.map(({ id }) => id),
+        blockData,
+      );
 
-    await this.guardianMessageService.pingMessageBroker(
-      stakingModules.map(({ id }) => id),
-      blockData,
-    );
-
-    this.blockGuardService.setLastProcessedStateMeta({
-      blockHash,
-      blockNumber,
-    });
-
-    this.logger.log('New staking router state cycle end');
+      this.blockGuardService.setLastProcessedStateMeta({
+        blockHash,
+        blockNumber,
+      });
+    } catch (error) {
+      this.logger.error('Staking router state update error', error);
+    } finally {
+      this.logger.log('New staking router state cycle end');
+    }
   }
 }
