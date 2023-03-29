@@ -25,6 +25,7 @@ export class RepositoryService {
     string,
     LidoAbi | LocatorAbi | SecurityAbi | StakingRouterAbi
   > = {};
+  private cachedDSMPrefixes: Record<string, string> = {};
   private permanentContractsCache: Record<string, DepositAbi> = {};
 
   /**
@@ -41,16 +42,15 @@ export class RepositoryService {
   /**
    * Init cache for each contract or wait if it makes some error
    */
-  public async initOrWaitCachedContracts(blockTag?: BlockTag) {
+  public async initOrWaitCachedContracts() {
+    const block = await this.providerService.getBlock();
     try {
-      const _blockTag = blockTag || {
-        blockHash: (await this.providerService.getBlock()).hash,
-      };
-      await this.initCachedContracts(_blockTag);
+      await this.initCachedContracts({ blockHash: block.hash });
+      return block;
     } catch (error) {
       this.logger.error('Init contracts error. Retry', error);
       await sleep(10_000);
-      await this.initOrWaitCachedContracts();
+      return await this.initOrWaitCachedContracts();
     }
   }
 
@@ -148,6 +148,15 @@ export class RepositoryService {
       DSM_ABI,
       SecurityAbi__factory.connect(address, provider),
     );
+
+    // prune dsm prefixes
+    this.cachedDSMPrefixes = {};
+
+    // re-init dsm prefixes
+    await Promise.all([
+      this.getAttestMessagePrefix(),
+      this.getPauseMessagePrefix(),
+    ]);
   }
 
   /**
@@ -180,6 +189,27 @@ export class RepositoryService {
       STAKING_ROUTER_ABI,
       StakingRouterAbi__factory.connect(stakingRouterAddress, provider),
     );
+  }
+
+  /**
+   * Returns a prefix from the contract with which the deposit message should be signed
+   */
+  public async getAttestMessagePrefix(): Promise<string> {
+    if (this.cachedDSMPrefixes.attest) return this.cachedDSMPrefixes.attest;
+    const contract = await this.getCachedDSMContract();
+    this.cachedDSMPrefixes.attest = await contract.ATTEST_MESSAGE_PREFIX();
+    return this.cachedDSMPrefixes.attest;
+  }
+
+  /**
+   * Returns a prefix from the contract with which the pause message should be signed
+   */
+  public async getPauseMessagePrefix(): Promise<string> {
+    if (this.cachedDSMPrefixes.pause) return this.cachedDSMPrefixes.pause;
+    const contract = await this.getCachedDSMContract();
+    this.cachedDSMPrefixes.pause = await contract.PAUSE_MESSAGE_PREFIX();
+
+    return this.cachedDSMPrefixes.pause;
   }
 
   /**

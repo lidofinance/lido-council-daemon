@@ -21,9 +21,6 @@ export class SecurityService {
     private walletService: WalletService,
   ) {}
 
-  private cachedAttestMessagePrefix: string | null = null;
-  private cachedPauseMessagePrefix: string | null = null;
-
   public async initialize(blockTag: BlockTag): Promise<void> {
     const guardianIndex = await this.getGuardianIndex(blockTag);
     const address = this.walletService.address;
@@ -46,31 +43,6 @@ export class SecurityService {
     const contractWithSigner = contract.connect(walletWithProvider);
 
     return contractWithSigner;
-  }
-  /**
-   * Returns a prefix from the contract with which the deposit message should be signed
-   */
-  public async getAttestMessagePrefix(): Promise<string> {
-    if (!this.cachedAttestMessagePrefix) {
-      const contract = await this.repositoryService.getCachedDSMContract();
-      const messagePrefix = await contract.ATTEST_MESSAGE_PREFIX();
-      this.cachedAttestMessagePrefix = messagePrefix;
-    }
-
-    return this.cachedAttestMessagePrefix;
-  }
-
-  /**
-   * Returns a prefix from the contract with which the pause message should be signed
-   */
-  public async getPauseMessagePrefix(): Promise<string> {
-    if (!this.cachedPauseMessagePrefix) {
-      const contract = await this.repositoryService.getCachedDSMContract();
-      const messagePrefix = await contract.PAUSE_MESSAGE_PREFIX();
-      this.cachedPauseMessagePrefix = messagePrefix;
-    }
-
-    return this.cachedPauseMessagePrefix;
   }
 
   /**
@@ -124,7 +96,7 @@ export class SecurityService {
     blockHash: string,
     stakingModuleId: number,
   ): Promise<Signature> {
-    const prefix = await this.getAttestMessagePrefix();
+    const prefix = await this.repositoryService.getAttestMessagePrefix();
 
     return await this.walletService.signDepositData({
       prefix,
@@ -143,7 +115,7 @@ export class SecurityService {
     blockNumber: number,
     stakingModuleId: number,
   ): Promise<Signature> {
-    const prefix = await this.getPauseMessagePrefix();
+    const prefix = await this.repositoryService.getPauseMessagePrefix();
 
     return await this.walletService.signPauseData({
       prefix,
