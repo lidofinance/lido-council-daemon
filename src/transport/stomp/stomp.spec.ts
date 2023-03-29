@@ -1,7 +1,14 @@
 import StompClient from './stomp.client';
+import { StompOptions } from './stomp.interface';
 import { WebSocketMock } from './stomp.mock';
 
 const wait = (ms = 100) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const DEFAULT_STOMP_OPTIONS: StompOptions = {
+  reconnectAttempts: 1,
+  reconnectTimeout: 10,
+  maxWaitSocketSession: 10_000,
+};
 
 describe('StompClient', () => {
   describe('regular cases', () => {
@@ -23,10 +30,7 @@ describe('StompClient', () => {
           server = new WebSocketMock();
           return server;
         },
-        options: {
-          reconnectAttempts: 1,
-          reconnectTimeout: 10,
-        },
+        options: DEFAULT_STOMP_OPTIONS,
       });
 
       await stompClient.connect();
@@ -109,6 +113,7 @@ describe('StompClient', () => {
             return server;
           },
           options: {
+            maxWaitSocketSession: 10_000,
             reconnectAttempts,
             reconnectTimeout: 10,
           },
@@ -153,6 +158,7 @@ describe('StompClient', () => {
             return server;
           },
           options: {
+            maxWaitSocketSession: 10_000,
             reconnectAttempts,
             reconnectTimeout: 10,
           },
@@ -197,6 +203,7 @@ describe('StompClient', () => {
             return server;
           },
           options: {
+            maxWaitSocketSession: 10_000,
             reconnectAttempts,
             reconnectTimeout: 10,
           },
@@ -245,6 +252,7 @@ describe('StompClient', () => {
             return server;
           },
           options: {
+            maxWaitSocketSession: 10_000,
             get reconnectAttempts() {
               realAttempts += 1;
               return reconnectAttempts;
@@ -291,6 +299,7 @@ describe('StompClient', () => {
             return server;
           },
           options: {
+            maxWaitSocketSession: 10_000,
             get reconnectAttempts() {
               realAttempts += 1;
               return reconnectAttempts;
@@ -337,6 +346,7 @@ describe('StompClient', () => {
             return server;
           },
           options: {
+            maxWaitSocketSession: 10_000,
             get reconnectAttempts() {
               realAttempts += 1;
               return reconnectAttempts;

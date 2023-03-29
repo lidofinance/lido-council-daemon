@@ -163,9 +163,11 @@ export default class StompClient {
   public async connect(headers = {}, timeout = 10000) {
     await this._connect(timeout);
 
+    const { maxWaitSocketSession } = this.options;
+
     headers['host'] = '/';
     headers['accept-version'] = VERSIONS;
-    headers['heart-beat'] = '100000,100000';
+    headers['heart-beat'] = `${maxWaitSocketSession},${maxWaitSocketSession}`;
 
     if (this.login != null) {
       headers['login'] = this.login;

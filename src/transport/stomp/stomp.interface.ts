@@ -10,6 +10,7 @@ export type GetWebSocket = (url: string) => WebSocket | WebSocketMock;
 export type StompOptions = {
   reconnectTimeout: number;
   reconnectAttempts: number;
+  maxWaitSocketSession: number;
 };
 
 export interface StompDependencies {
@@ -18,7 +19,7 @@ export interface StompDependencies {
   passcode: string | null;
   connectCallback: ConnectCallback;
   errorCallback: ErrorCallback;
-  getWebSocket: GetWebSocket;
+  getWebSocket?: GetWebSocket;
   logger?: LoggerService;
   options: StompOptions;
 }
