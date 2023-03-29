@@ -4,12 +4,20 @@ import { TimeoutError } from '@nestjs/terminus';
 import { WebSocket } from 'ws';
 import { StompFrameException } from './stomp.exceptions';
 import { LoggerService } from '@nestjs/common';
+import { WebSocketMock } from './stomp.mock';
+import {
+  ConnectCallback,
+  GetWebSocket,
+  ErrorCallback,
+  StompDependencies,
+  StompOptions,
+} from './stomp.interface';
 
 // https://stomp.github.io/stomp-specification-1.1.html#Overview
 const VERSIONS = '1.0,1.1';
 
 export default class StompClient {
-  private ws: WebSocket;
+  private ws: WebSocket | WebSocketMock;
 
   private opened = false;
   private connected = false;
@@ -17,21 +25,50 @@ export default class StompClient {
   private counter = 0;
   private subscriptions: Record<string, (frame: StompFrame) => void> = {};
 
-  public constructor(
-    private url: string,
-    private login: string | null = null,
-    private passcode: string | null = null,
-    private connectCallback: (frame: StompFrame) => void = (
-      frame: StompFrame | boolean,
-    ) => frame,
-    private errorCallback: (frame: StompFrame) => void = (frame) => frame,
-    private logger?: LoggerService,
-  ) {
+  private url: string;
+  private login: string | null;
+  private passcode: string | null;
+  private connectCallback: ConnectCallback;
+  private errorCallback: ErrorCallback;
+  private getWebSocket: GetWebSocket;
+  private logger?: LoggerService;
+  private options: StompOptions;
+
+  public constructor({
+    url,
+    login = null,
+    passcode = null,
+    connectCallback = (frame: StompFrame | boolean) => frame,
+    errorCallback = (frame) => frame,
+    getWebSocket = (url) => new WebSocket(url),
+    logger,
+    options,
+  }: StompDependencies) {
+    this.url = url;
+    this.login = login;
+    this.passcode = passcode;
+    this.connectCallback = connectCallback;
+    this.errorCallback = errorCallback;
+    this.getWebSocket = getWebSocket;
     this.ws = this.createWebSocket(url);
+    this.logger = logger;
+    this.options = options;
+  }
+
+  public isConnected() {
+    return this.connected;
+  }
+
+  public isOpened() {
+    return this.opened;
+  }
+
+  public getReconnectionPromise() {
+    return this.reconnectionPromise;
   }
 
   private createWebSocket(url) {
-    const ws: WebSocket = new WebSocket(url);
+    const ws: WebSocket | WebSocketMock = this.getWebSocket(url);
     ws.on('open', this.onOpen.bind(this));
     ws.on('message', this.onMessage.bind(this));
     ws.on('close', this.onClose.bind(this));
@@ -46,7 +83,9 @@ export default class StompClient {
   ) {
     const msg = StompFrame.marshall(command, headers, body);
     return new Promise((res, rej) => {
-      this.ws.send(msg.toString(), (error) => (error ? rej(error) : res(null)));
+      this.ws.send(msg.toString(), (error?: Error | undefined) =>
+        error ? rej(error) : res(null),
+      );
     });
   }
 
@@ -56,6 +95,7 @@ export default class StompClient {
 
   private async onClose(code: number, reason: Buffer) {
     const closeReasonMessage = reason.toString();
+
     this.logger?.warn('WS connection is closed', {
       code,
       closeReasonMessage,
@@ -65,18 +105,25 @@ export default class StompClient {
 
     const isClosedNormally = code === 1000;
     if (isClosedNormally) return;
-
-    await this.reconnect();
+    try {
+      await this.reconnect();
+    } catch (error) {
+      this.logger?.error('reconnect ws error', error);
+    }
   }
 
   private async onError(error: Error) {
     this.logger?.warn('WS connection error', { error });
-    await this.reconnect();
+    try {
+      await this.reconnect();
+    } catch (error) {
+      this.logger?.error('reconnect ws error', error);
+    }
   }
 
   private async _reconnect(attempt = 0) {
     this.cleanUp();
-    await sleep(10000);
+    await sleep(this.options.reconnectTimeout);
 
     this.logger?.log('WS connection is reconnecting', { attempt });
 
@@ -85,7 +132,12 @@ export default class StompClient {
       await this.connect();
       this.reconnectionPromise = null;
     } catch (error) {
-      await this._reconnect(++attempt);
+      attempt += 1;
+
+      if (attempt >= this.options.reconnectAttempts) {
+        throw error;
+      }
+      await this._reconnect(attempt);
     }
   }
 
@@ -128,6 +180,7 @@ export default class StompClient {
     let totalPassed = 0;
 
     while (!this.opened) {
+      // TODO
       await sleep(250);
       totalPassed += 250;
 
@@ -224,6 +277,7 @@ export default class StompClient {
       }
     } else if (frame.command == 'RECEIPT') {
     } else if (frame.command == 'ERROR') {
+      // TODO
       this.errorCallback(frame);
     }
   }

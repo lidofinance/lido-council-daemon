@@ -86,7 +86,7 @@ export class StompFrame {
   public static marshall(
     command: string,
     headers: { [key: string]: string },
-    body: string,
+    body = '',
   ): string {
     /**
      * Stringify STOMP Frame - prepare to send string via http.
