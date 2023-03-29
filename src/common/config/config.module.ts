@@ -12,13 +12,28 @@ dotenv.config({ path: resolve(appRoot.path, '.env') });
 
 @Module({})
 export class ConfigModule {
-  static async loadSecret(config: InMemoryConfiguration, envName: string): Promise<string> {
-    return config[envName] || (config[envName + '_FILE'] && readFileSync(config[envName + '_FILE'], 'utf-8').toString())
+  static async loadSecret(
+    config: InMemoryConfiguration,
+    envName: string,
+  ): Promise<string> {
+    return (
+      config[envName] ||
+      (config[envName + '_FILE'] &&
+        readFileSync(config[envName + '_FILE'], 'utf-8').toString())
+    );
   }
-  static async loadSecrets(config: InMemoryConfiguration): Promise<InMemoryConfiguration> {
-    config.RABBITMQ_PASSCODE = await this.loadSecret(config, 'RABBITMQ_PASSCODE')
-    config.WALLET_PRIVATE_KEY = await this.loadSecret(config, 'WALLET_PRIVATE_KEY')
-    return config
+  static async loadSecrets(
+    config: InMemoryConfiguration,
+  ): Promise<InMemoryConfiguration> {
+    config.RABBITMQ_PASSCODE = await this.loadSecret(
+      config,
+      'RABBITMQ_PASSCODE',
+    );
+    config.WALLET_PRIVATE_KEY = await this.loadSecret(
+      config,
+      'WALLET_PRIVATE_KEY',
+    );
+    return config;
   }
 
   static forRoot(): DynamicModule {
@@ -30,7 +45,7 @@ export class ConfigModule {
           provide: Configuration,
           useFactory: async () => {
             const prepConfig = plainToClass(InMemoryConfiguration, process.env);
-            const config = await this.loadSecrets(prepConfig)
+            const config = await this.loadSecrets(prepConfig);
             try {
               if (config.NODE_ENV === 'test') {
                 return config;
