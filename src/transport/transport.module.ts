@@ -66,7 +66,7 @@ export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
 
           const transport = new StompTransport(stompClient);
 
-          stompClient.connect().catch((error) => {
+          stompClient.connect()?.catch((error) => {
             logger.error('STOMP connection error', error);
           });
 
