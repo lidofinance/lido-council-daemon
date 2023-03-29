@@ -44,6 +44,11 @@ export class WebSocketMock extends EventEmitter {
     this.emit('message', packet);
   }
 
+  public emitServerError() {
+    const packet = StompFrame.marshall('ERROR', {});
+    this.emit('error', packet);
+  }
+
   public getLastMessage() {
     return this.messages.slice(-1)[0];
   }

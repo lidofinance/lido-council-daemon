@@ -9,7 +9,10 @@ export class StompClientNoConnectionException extends Error {}
 @implementationOf(TransportInterface)
 export default class StompTransport implements TransportInterface {
   public constructor(private client: StompClient) {
-    this.client.connect();
+    // TODO: logger
+    this.client.connect().catch((error) => {
+      console.log(error);
+    });
   }
 
   public async disconnect(): Promise<void> {

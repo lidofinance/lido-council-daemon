@@ -132,9 +132,11 @@ export default class StompClient {
       await this.connect();
       this.reconnectionPromise = null;
     } catch (error) {
+      const err = error as Error;
       attempt += 1;
 
       if (attempt >= this.options.reconnectAttempts) {
+        err['reconnectAttempts'] = attempt;
         throw error;
       }
       await this._reconnect(attempt);

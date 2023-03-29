@@ -4,7 +4,7 @@ import { WebSocketMock } from './stomp.mock';
 const wait = (ms = 100) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('StompClient', () => {
-  describe.skip('regular cases', () => {
+  describe('regular cases', () => {
     let server: WebSocketMock;
     let stompClient: StompClient;
     let connectCallback: any;
@@ -90,42 +90,132 @@ describe('StompClient', () => {
   describe('reconnection', () => {
     let server: WebSocketMock;
 
-    it('should works with limits by attempts', async () => {
-      let status = true;
-      const connectCallback = jest.fn();
-      const errorCallback = jest.fn();
-      const stompClient = new StompClient({
-        url: 'ws://localhost:1234',
-        login: null,
-        passcode: null,
-        connectCallback,
-        errorCallback,
-        getWebSocket() {
-          server = new WebSocketMock();
-          server.setServerStatus(status);
-          return server;
-        },
-        options: {
-          reconnectAttempts: 1,
-          reconnectTimeout: 10,
-        },
-      });
+    it.each([1, 2, 3])(
+      'by server close reason with attempts [%i]',
+      async (reconnectAttempts) => {
+        expect.assertions(6);
+        let status = true;
+        const connectCallback = jest.fn();
+        const errorCallback = jest.fn();
+        const stompClient = new StompClient({
+          url: 'ws://localhost:1234',
+          login: null,
+          passcode: null,
+          connectCallback,
+          errorCallback,
+          getWebSocket() {
+            server = new WebSocketMock();
+            server.setServerStatus(status);
+            return server;
+          },
+          options: {
+            reconnectAttempts,
+            reconnectTimeout: 10,
+          },
+        });
 
-      await stompClient.connect();
-      expect(connectCallback).toHaveBeenCalled();
-      expect(stompClient.isConnected()).toBeTruthy();
-      expect(stompClient.isOpened()).toBeTruthy();
-      status = false;
-      server.closeServer(1006);
-      // waiting for reconnection promise
-      await wait();
+        await stompClient.connect();
+        expect(connectCallback).toHaveBeenCalled();
+        expect(stompClient.isConnected()).toBeTruthy();
+        expect(stompClient.isOpened()).toBeTruthy();
+        status = false;
+        server.closeServer(1006);
+        // waiting for reconnection promise
+        await wait();
 
-      await expect(stompClient.getReconnectionPromise()).rejects.toThrow(
-        'network error',
-      );
-      expect(stompClient.isConnected()).toBeFalsy();
-      expect(stompClient.isOpened()).toBeTruthy();
-      expect.assertions(6);
-    });
+        await expect(
+          stompClient.getReconnectionPromise(),
+        ).rejects.toMatchObject({
+          message: 'network error',
+          reconnectAttempts,
+        });
+        expect(stompClient.isConnected()).toBeFalsy();
+        expect(stompClient.isOpened()).toBeTruthy();
+      },
+    );
+
+    it.each([1, 2, 3])(
+      'by server error reason with attempts [%i]',
+      async (reconnectAttempts) => {
+        expect.assertions(6);
+        let status = true;
+        const connectCallback = jest.fn();
+        const errorCallback = jest.fn();
+        const stompClient = new StompClient({
+          url: 'ws://localhost:1234',
+          login: null,
+          passcode: null,
+          connectCallback,
+          errorCallback,
+          getWebSocket() {
+            server = new WebSocketMock();
+            server.setServerStatus(status);
+            return server;
+          },
+          options: {
+            reconnectAttempts,
+            reconnectTimeout: 10,
+          },
+        });
+
+        await stompClient.connect();
+        expect(connectCallback).toHaveBeenCalled();
+        expect(stompClient.isConnected()).toBeTruthy();
+        expect(stompClient.isOpened()).toBeTruthy();
+        status = false;
+        server.emitServerError();
+        // waiting for reconnection promise
+        await wait();
+
+        await expect(
+          stompClient.getReconnectionPromise(),
+        ).rejects.toMatchObject({
+          message: 'network error',
+          reconnectAttempts,
+        });
+        expect(stompClient.isConnected()).toBeFalsy();
+        expect(stompClient.isOpened()).toBeTruthy();
+      },
+    );
+
+    it.each([1, 2, 3])(
+      'send message with attempts [%i]',
+      async (reconnectAttempts) => {
+        expect.assertions(6);
+        let status = true;
+        const connectCallback = jest.fn();
+        const errorCallback = jest.fn();
+        const stompClient = new StompClient({
+          url: 'ws://localhost:1234',
+          login: null,
+          passcode: null,
+          connectCallback,
+          errorCallback,
+          getWebSocket() {
+            server = new WebSocketMock();
+            server.setServerStatus(status);
+            return server;
+          },
+          options: {
+            reconnectAttempts,
+            reconnectTimeout: 10,
+          },
+        });
+
+        await stompClient.connect();
+        expect(connectCallback).toHaveBeenCalled();
+        expect(stompClient.isConnected()).toBeTruthy();
+        expect(stompClient.isOpened()).toBeTruthy();
+        status = false;
+        server.closeServer(1000);
+
+        await expect(stompClient.send('/some/path')).rejects.toMatchObject({
+          message: 'network error',
+          reconnectAttempts,
+        });
+        expect(stompClient.isConnected()).toBeFalsy();
+        expect(stompClient.isOpened()).toBeTruthy();
+      },
+    );
   });
 });
