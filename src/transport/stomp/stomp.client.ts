@@ -17,11 +17,11 @@ import {
 const VERSIONS = '1.0,1.1';
 
 export default class StompClient {
-  private ws: WebSocket | WebSocketMock;
+  private ws!: WebSocket | WebSocketMock;
 
   private opened = false;
   private connected = false;
-  private reconnectionPromise: Promise<void> | null = null;
+  private connectionPromise: Promise<void> | null = null;
   private counter = 0;
   private subscriptions: Record<string, (frame: StompFrame) => void> = {};
 
@@ -50,7 +50,7 @@ export default class StompClient {
     this.connectCallback = connectCallback;
     this.errorCallback = errorCallback;
     this.getWebSocket = getWebSocket;
-    this.ws = this.createWebSocket(url);
+
     this.logger = logger;
     this.options = options;
   }
@@ -63,8 +63,8 @@ export default class StompClient {
     return this.opened;
   }
 
-  public getReconnectionPromise() {
-    return this.reconnectionPromise;
+  public getConnectionPromise() {
+    return this.connectionPromise;
   }
 
   private createWebSocket(url) {
@@ -94,6 +94,7 @@ export default class StompClient {
   }
 
   private async onClose(code: number, reason: Buffer) {
+    if (this.connectionPromise) return;
     const closeReasonMessage = reason.toString();
 
     this.logger?.warn('WS connection is closed', {
@@ -108,46 +109,72 @@ export default class StompClient {
     try {
       await this.reconnect();
     } catch (error) {
-      this.logger?.error('reconnect ws error', error);
+      this.logger?.error('reconnect ws error', (error as Error).message);
     }
   }
 
   private async onError(error: Error) {
+    if (this.connectionPromise) return;
     this.logger?.warn('WS connection error', { error });
     try {
       await this.reconnect();
     } catch (error) {
-      this.logger?.error('reconnect ws error', error);
+      this.logger?.error('reconnect ws error', (error as Error).message);
     }
   }
 
-  private async _reconnect(attempt = 0) {
-    this.cleanUp();
-    await sleep(this.options.reconnectTimeout);
-
-    this.logger?.log('WS connection is reconnecting', { attempt });
-
+  private async connectWithRetry(attempt = 1) {
     try {
+      const { maxWaitSocketSession, webSocketConnectTimeout = 10_000 } =
+        this.options;
+
       this.ws = this.createWebSocket(this.url);
-      await this.connect();
-      this.reconnectionPromise = null;
+      await this.waitWsConnection(webSocketConnectTimeout);
+
+      const headers = {};
+      headers['host'] = '/';
+      headers['accept-version'] = VERSIONS;
+      headers['heart-beat'] = `${maxWaitSocketSession},${maxWaitSocketSession}`;
+
+      if (this.login != null) {
+        headers['login'] = this.login;
+      }
+
+      if (this.passcode != null) {
+        headers['passcode'] = this.passcode;
+      }
+
+      await this.transmit('CONNECT', headers);
+      this.connectionPromise = null;
     } catch (error) {
       const err = error as Error;
-      attempt += 1;
-
       if (attempt >= this.options.reconnectAttempts) {
         err['reconnectAttempts'] = attempt;
+        this.connectionPromise = null;
         throw error;
       }
-      await this._reconnect(attempt);
+      attempt += 1;
+      this.logger?.log('WS connection is reconnecting', { attempt });
+      this.cleanUp();
+      await sleep(this.options.reconnectTimeout);
+      await this.connectWithRetry(attempt);
     }
   }
 
   private async reconnect() {
-    if (this.reconnectionPromise) return await this.reconnectionPromise;
+    if (this.connectionPromise) return await this.connectionPromise;
 
-    this.reconnectionPromise = this._reconnect();
-    return await this.reconnectionPromise;
+    this.logger?.log('WS connection is reconnecting', { attempt: 1 });
+    this.cleanUp();
+    this.connectionPromise = this.connectWithRetry();
+    return await this.connectionPromise;
+  }
+
+  public async connect() {
+    if (this.connectionPromise) return await this.connectionPromise;
+
+    this.connectionPromise = this.connectWithRetry();
+    return await this.connectionPromise;
   }
 
   private cleanUp() {
@@ -160,31 +187,10 @@ export default class StompClient {
     }
   }
 
-  public async connect(headers = {}, timeout = 10000) {
-    await this._connect(timeout);
-
-    const { maxWaitSocketSession } = this.options;
-
-    headers['host'] = '/';
-    headers['accept-version'] = VERSIONS;
-    headers['heart-beat'] = `${maxWaitSocketSession},${maxWaitSocketSession}`;
-
-    if (this.login != null) {
-      headers['login'] = this.login;
-    }
-
-    if (this.passcode != null) {
-      headers['passcode'] = this.passcode;
-    }
-
-    await this.transmit('CONNECT', headers);
-  }
-
-  private async _connect(timeout: number) {
+  private async waitWsConnection(timeout: number) {
     let totalPassed = 0;
 
     while (!this.opened) {
-      // TODO
       await sleep(250);
       totalPassed += 250;
 

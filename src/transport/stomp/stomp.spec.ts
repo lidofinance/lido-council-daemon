@@ -66,7 +66,7 @@ describe('StompClient', () => {
       // waiting for reconnection promise
       await wait();
 
-      await stompClient.getReconnectionPromise();
+      await stompClient.getConnectionPromise();
 
       expect(stompClient.isConnected()).toBeTruthy();
       expect(stompClient.isOpened()).toBeTruthy();
@@ -128,9 +128,7 @@ describe('StompClient', () => {
         // waiting for reconnection promise
         await wait();
 
-        await expect(
-          stompClient.getReconnectionPromise(),
-        ).rejects.toMatchObject({
+        await expect(stompClient.getConnectionPromise()).rejects.toMatchObject({
           message: 'network error',
           reconnectAttempts,
         });
@@ -173,9 +171,7 @@ describe('StompClient', () => {
         // waiting for reconnection promise
         await wait();
 
-        await expect(
-          stompClient.getReconnectionPromise(),
-        ).rejects.toMatchObject({
+        await expect(stompClient.getConnectionPromise()).rejects.toMatchObject({
           message: 'network error',
           reconnectAttempts,
         });
@@ -270,7 +266,7 @@ describe('StompClient', () => {
         // waiting for reconnection promise
         await wait();
 
-        await stompClient.getReconnectionPromise();
+        await stompClient.getConnectionPromise();
         expect(realAttempts + 1).toBe(reconnectAttempts);
         expect(stompClient.isConnected()).toBeTruthy();
         expect(stompClient.isOpened()).toBeTruthy();
@@ -317,7 +313,7 @@ describe('StompClient', () => {
         // waiting for reconnection promise
         await wait();
 
-        await stompClient.getReconnectionPromise();
+        await stompClient.getConnectionPromise();
         expect(realAttempts + 1).toBe(reconnectAttempts);
         expect(stompClient.isConnected()).toBeTruthy();
         expect(stompClient.isOpened()).toBeTruthy();

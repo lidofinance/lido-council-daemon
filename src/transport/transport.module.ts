@@ -4,12 +4,15 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Configuration } from 'common/config';
 import { TransportInterface } from './transport.interface';
 import { KafkaTransport } from './kafka/kafka.transport';
-import { KAFKA_LOG_PREFIX, RABBIT_LOG_PREFIX } from './transport.constants';
+import {
+  KAFKA_LOG_PREFIX,
+  RABBIT_LOG_PREFIX,
+  STOMP_OPTIONS,
+} from './transport.constants';
 import { WalletModule, WalletService } from '../wallet';
 import StompClient from './stomp/stomp.client';
 
 import StompTransport from './stomp/stomp.transport';
-import { StompException } from './stomp/stomp.exceptions';
 
 export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
 
@@ -47,18 +50,19 @@ export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
 
           return new KafkaTransport(logger, kafka);
         } else if (config.PUBSUB_SERVICE == `rabbitmq`) {
-          const stompClient = new StompClient(
-            config.RABBITMQ_URL,
-            config.RABBITMQ_LOGIN,
-            config.RABBITMQ_PASSCODE,
-            () => {
+          const stompClient = new StompClient({
+            url: config.RABBITMQ_URL,
+            login: config.RABBITMQ_LOGIN,
+            passcode: config.RABBITMQ_PASSCODE,
+            connectCallback: () => {
               logger.log(RABBIT_LOG_PREFIX, 'RabbitMQ connected successfully.');
             },
-            (frame) => {
-              throw new StompException(`Stomp error. ${frame.body}`);
+            errorCallback: (frame) => {
+              logger.error('STOMP error', frame);
             },
             logger,
-          );
+            options: STOMP_OPTIONS,
+          });
           return new StompTransport(stompClient);
         }
       },
