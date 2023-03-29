@@ -63,7 +63,14 @@ export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
             logger,
             options: STOMP_OPTIONS,
           });
-          return new StompTransport(stompClient);
+
+          const transport = new StompTransport(stompClient);
+
+          stompClient.connect().catch((error) => {
+            logger.error('STOMP connection error', error);
+          });
+
+          return transport;
         }
       },
       inject: [Configuration, WINSTON_MODULE_NEST_PROVIDER, WalletService],

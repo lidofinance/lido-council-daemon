@@ -55,18 +55,35 @@ export default class StompClient {
     this.options = options;
   }
 
+  /**
+   * Getting RabbitMQ connection status
+   * @returns the connection status
+   */
   public isConnected() {
     return this.connected;
   }
 
+  /**
+   * Getting WS connection status
+   * @returns the connection status
+   */
   public isOpened() {
     return this.opened;
   }
 
+  /**
+   * Get connection Promise
+   * @returns promise, by subscribing to which you can expect the connection attempt to be completed
+   */
   public getConnectionPromise() {
     return this.connectionPromise;
   }
 
+  /**
+   * Creating a WS and subscribing to all necessary events
+   * @param url WS URL
+   * @returns WS
+   */
   private createWebSocket(url) {
     const ws: WebSocket | WebSocketMock = this.getWebSocket(url);
     ws.on('open', this.onOpen.bind(this));
@@ -76,6 +93,13 @@ export default class StompClient {
     return ws;
   }
 
+  /**
+   * Send STOMP command via WS
+   * @param command command name
+   * @param headers STOMP headers
+   * @param body command body
+   * @returns Promise
+   */
   private async transmit(
     command: string,
     headers: Record<string, string>,
@@ -89,10 +113,20 @@ export default class StompClient {
     });
   }
 
+  /**
+   * WS open handler
+   * @returns void
+   */
   private onOpen() {
     this.opened = true;
   }
 
+  /**
+   * WS close handler
+   * @param code error code
+   * @param reason reason message
+   * @returns void
+   */
   private async onClose(code: number, reason: Buffer) {
     if (this.connectionPromise) return;
     const closeReasonMessage = reason.toString();
@@ -113,6 +147,11 @@ export default class StompClient {
     }
   }
 
+  /**
+   * WS error handler
+   * @param error Error
+   * @returns void
+   */
   private async onError(error: Error) {
     if (this.connectionPromise) return;
     this.logger?.warn('WS connection error', { error });
@@ -123,6 +162,10 @@ export default class StompClient {
     }
   }
 
+  /**
+   * Connect to the websocket server and RabbitMQ server. Try to reconnect if an error occurs.
+   * @param attempt number current retry attempt
+   */
   private async connectWithRetry(attempt = 1) {
     try {
       const { maxWaitSocketSession, webSocketConnectTimeout = 10_000 } =
@@ -161,6 +204,10 @@ export default class StompClient {
     }
   }
 
+  /**
+   * Manual reconnection method
+   * @returns connectionPromise promise, by subscribing to which you can expect the connection attempt to be completed
+   */
   private async reconnect() {
     if (this.connectionPromise) return await this.connectionPromise;
 
@@ -170,6 +217,10 @@ export default class StompClient {
     return await this.connectionPromise;
   }
 
+  /**
+   * Manual connection method
+   * @returns connectionPromise promise, by subscribing to which you can expect the connection attempt to be completed
+   */
   public async connect() {
     if (this.connectionPromise) return await this.connectionPromise;
 
@@ -177,6 +228,9 @@ export default class StompClient {
     return await this.connectionPromise;
   }
 
+  /**
+   * Clearing internal state and closing the WebSocket connection
+   */
   private cleanUp() {
     this.connected = false;
     this.opened = false;
@@ -187,6 +241,10 @@ export default class StompClient {
     }
   }
 
+  /**
+   * Waiting for a WebSocket connection. Because WebSocket communication is built into the class constructor.
+   * @param timeout  connection timeout
+   */
   private async waitWsConnection(timeout: number) {
     let totalPassed = 0;
 
@@ -200,11 +258,22 @@ export default class StompClient {
     }
   }
 
+  /**
+   * Manually disconnecting from RabbitMQ and closing the WebSocket connection
+   * @param headers STOMP headers
+   */
   public async disconnect(headers: Record<string, string> = {}) {
     await this.transmit('DISCONNECT', headers);
     this.cleanUp();
   }
 
+  /**
+   * Send message to RabbitMQ
+   * @param destination channel
+   * @param headers STOMP headers
+   * @param body message body
+   * @returns Promise
+   */
   public async send(
     destination: string,
     headers: Record<string, string> = {},
@@ -239,7 +308,13 @@ export default class StompClient {
     delete this.subscriptions[subscriptionId];
     await this.transmit('UNSUBSCRIBE', { id: subscriptionId });
   }
-
+  /**
+   * ACK/NACK message
+   * @param acknowledgedType ACK | NACK
+   * @param messageId string
+   * @param subscriptionId string
+   * @param headers STOMP headers
+   */
   private async acknowledged(
     acknowledgedType: 'ACK' | 'NACK',
     messageId: string,
@@ -251,6 +326,11 @@ export default class StompClient {
     await this.transmit(acknowledgedType, headers);
   }
 
+  /**
+   * STOMP event handler
+   * @param event Stomp event
+   * @returns void
+   */
   private onMessage(event): void {
     let frame: StompFrame;
 
@@ -287,7 +367,6 @@ export default class StompClient {
       }
     } else if (frame.command == 'RECEIPT') {
     } else if (frame.command == 'ERROR') {
-      // TODO
       this.errorCallback(frame);
     }
   }

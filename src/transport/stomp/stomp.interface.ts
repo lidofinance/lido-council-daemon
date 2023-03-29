@@ -11,7 +11,7 @@ export type StompOptions = {
   reconnectTimeout: number;
   reconnectAttempts: number;
   maxWaitSocketSession: number;
-  webSocketConnectTimeout?: number
+  webSocketConnectTimeout?: number;
 };
 
 export interface StompDependencies {
