@@ -291,6 +291,10 @@ export default class StompClient {
     callback: (frame: StompFrame) => void,
     headers: Record<string, string> = {},
   ) {
+    if (!this.opened || !this.connected) {
+      await this.reconnect();
+    }
+
     if (!('id' in headers)) {
       headers['id'] = `sub-${this.counter}`;
       this.counter += 1;
