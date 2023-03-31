@@ -4,20 +4,20 @@ import { TimeoutError } from '@nestjs/terminus';
 import { WebSocket } from 'ws';
 import { StompFrameException } from './stomp.exceptions';
 import { LoggerService } from '@nestjs/common';
-import { WebSocketMock } from './stomp.mock';
 import {
   ConnectCallback,
   GetWebSocket,
   ErrorCallback,
   StompDependencies,
   StompOptions,
+  WebSocketServer,
 } from './stomp.interface';
 
 // https://stomp.github.io/stomp-specification-1.1.html#Overview
 const VERSIONS = '1.0,1.1';
 
 export default class StompClient {
-  private ws!: WebSocket | WebSocketMock;
+  private ws!: WebSocketServer;
 
   private opened = false;
   private connected = false;
@@ -85,7 +85,7 @@ export default class StompClient {
    * @returns WS
    */
   private createWebSocket(url) {
-    const ws: WebSocket | WebSocketMock = this.getWebSocket(url);
+    const ws: WebSocketServer = this.getWebSocket(url);
     ws.on('open', this.onOpen.bind(this));
     ws.on('message', this.onMessage.bind(this));
     ws.on('close', this.onClose.bind(this));
