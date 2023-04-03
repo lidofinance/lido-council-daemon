@@ -50,6 +50,7 @@ export class GuardianService implements OnModuleInit {
     // Does not wait for completion, to avoid blocking the app initialization
     (async () => {
       try {
+        // potentially very long await
         const block = await this.repositoryService.initOrWaitCachedContracts();
         const blockHash = block.hash;
 

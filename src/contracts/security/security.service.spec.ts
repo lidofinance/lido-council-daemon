@@ -32,8 +32,8 @@ describe('SecurityService', () => {
   let repositoryService: RepositoryService;
   let walletService: WalletService;
   let loggerService: LoggerService;
-  let mockGetAttestMessagePrefix: any;
-  let mockGetPauseMessagePrefix: any;
+  let mockGetAttestMessagePrefix: jest.SpyInstance<Promise<string>, []>;
+  let mockGetPauseMessagePrefix: jest.SpyInstance<Promise<string>, []>;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -262,6 +262,8 @@ describe('SecurityService', () => {
 
       expect(mockPauseDeposits).toBeCalledTimes(1);
       expect(mockWait).toBeCalledTimes(1);
+      // mockGetPauseMessagePrefix calls 3 times because
+      // we have more than one call under the hood
       // 1 - repository, 2 — signPauseData, 3 — pauseDeposits
       expect(mockGetPauseMessagePrefix).toBeCalledTimes(3);
       expect(mockGetContractWithSigner).toBeCalledTimes(1);
@@ -275,6 +277,8 @@ describe('SecurityService', () => {
 
       expect(mockPauseDeposits).toBeCalledTimes(1);
       expect(mockWait).toBeCalledTimes(1);
+      // mockGetPauseMessagePrefix calls 3 times because
+      // we have more than one call under the hood
       // 1 - repository, 2 — signPauseData, 3 — pauseDeposits
       expect(mockGetPauseMessagePrefix).toBeCalledTimes(3);
       expect(mockGetContractWithSigner).toBeCalledTimes(1);

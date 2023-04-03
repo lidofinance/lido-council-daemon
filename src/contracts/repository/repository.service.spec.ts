@@ -150,7 +150,8 @@ describe('RepositoryService', () => {
           const result = [expected];
           return iface.encodeFunctionResult('ATTEST_MESSAGE_PREFIX', result);
         });
-      const depositAddr = jest
+
+      jest
         .spyOn(repositoryService, 'getDepositAddress')
         .mockImplementation(async () => '0x' + '5'.repeat(40));
 
@@ -172,7 +173,8 @@ describe('RepositoryService', () => {
           const result = [expected];
           return iface.encodeFunctionResult('PAUSE_MESSAGE_PREFIX', result);
         });
-      const depositAddr = jest
+
+      jest
         .spyOn(repositoryService, 'getDepositAddress')
         .mockImplementation(async () => '0x' + '5'.repeat(40));
 

@@ -21,8 +21,8 @@ describe('StompTransport', () => {
           useFactory: async () => {
             const stomp = new StompClient({
               url: 'ws://127.0.0.1:15674/ws',
-              login: 'guest',
-              passcode: 'guest',
+              login: 'guest', // lgtm[js/hardcoded-credentials]
+              passcode: 'guest', // lgtm[js/hardcoded-credentials]
               connectCallback: () => void 0,
               errorCallback: () => void 0,
               options: STOMP_OPTIONS,

@@ -10,6 +10,7 @@ import { LocatorService } from './locator/locator.service';
 import {
   DEPOSIT_ABI,
   DSM_ABI,
+  INIT_CONTRACTS_TIMEOUT,
   LIDO_ABI,
   STAKING_ROUTER_ABI,
 } from './repository.constants';
@@ -49,7 +50,7 @@ export class RepositoryService {
       return block;
     } catch (error) {
       this.logger.error('Init contracts error. Retry', error);
-      await sleep(10_000);
+      await sleep(INIT_CONTRACTS_TIMEOUT);
       return await this.initOrWaitCachedContracts();
     }
   }
