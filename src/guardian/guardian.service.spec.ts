@@ -19,6 +19,8 @@ import { StakingModuleGuardModule } from './staking-module-guard';
 import { BlockGuardModule, BlockGuardService } from './block-guard';
 import { ScheduleModule } from 'common/schedule';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
+import { mockLocator } from 'contracts/repository/locator/locator.mock';
+import { mockRepository } from 'contracts/repository/repository.mock';
 
 jest.mock('../transport/stomp/stomp.client');
 
@@ -47,35 +49,6 @@ const stakingModuleResponse = {
   },
 };
 
-const mockLocator = (locator: LocatorService) => {
-  const lidoAddr = jest
-    .spyOn(locator, 'getLidoAddress')
-    .mockImplementation(async () => '0x' + '1'.repeat(40));
-  const DSMAddr = jest
-    .spyOn(locator, 'getDSMAddress')
-    .mockImplementation(async () => '0x' + '2'.repeat(40));
-  const SRAddr = jest
-    .spyOn(locator, 'getStakingRouterAddress')
-    .mockImplementation(async () => '0x' + '3'.repeat(40));
-  const locatorAddr = jest
-    .spyOn(locator, 'getLocatorAddress')
-    .mockImplementation(async () => '0x' + '4'.repeat(40));
-
-  return { lidoAddr, locatorAddr, SRAddr, DSMAddr };
-};
-
-const mockRepository = async (repositoryService: RepositoryService) => {
-  const address1 = '0x' + '5'.repeat(40);
-  const depositAddr = jest
-    .spyOn(repositoryService, 'getDepositAddress')
-    .mockImplementation(async () => address1);
-
-  await repositoryService.initCachedContracts('latest');
-  jest.spyOn(repositoryService, 'getCachedLidoContract');
-
-  return { depositAddr };
-};
-
 describe('GuardianService', () => {
   let stakingRouterService: StakingRouterService;
   let blockGuardService: BlockGuardService;
@@ -93,8 +66,7 @@ describe('GuardianService', () => {
         MockProviderModule.forRoot(),
         LoggerModule,
         PrometheusModule,
-        // LocatorModule,
-        // RepositoryModule,
+
         GuardianModule,
         RepositoryModule,
         DepositModule,
@@ -108,11 +80,7 @@ describe('GuardianService', () => {
         GuardianMessageModule,
         GuardianMetricsModule,
       ],
-    })
-      // .overrideProvider(LocatorService)
-      // .useClass(LocatorService)
-      // .useValue(mockRepository(new RepositoryService(moduleRef.get(WINSTON_MODULE_NEST_PROVIDER), )))
-      .compile();
+    }).compile();
 
     stakingRouterService = moduleRef.get(StakingRouterService);
     blockGuardService = moduleRef.get(BlockGuardService);
@@ -130,7 +98,6 @@ describe('GuardianService', () => {
 
     mockLocator(locatorService);
     await mockRepository(repositoryService);
-    // console.log(repositoryService)
   });
 
   it('should exit if the previous call is not completed', async () => {

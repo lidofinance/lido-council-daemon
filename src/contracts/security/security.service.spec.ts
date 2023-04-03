@@ -15,39 +15,10 @@ import { LoggerService } from '@nestjs/common';
 import { PrometheusModule } from 'common/prometheus';
 import { SecurityService } from './security.service';
 import { SecurityModule } from './security.module';
+import { mockLocator } from 'contracts/repository/locator/locator.mock';
+import { mockRepository } from 'contracts/repository/repository.mock';
 
 jest.mock('../../transport/stomp/stomp.client');
-
-const mockLocator = (locator: LocatorService) => {
-  const lidoAddr = jest
-    .spyOn(locator, 'getLidoAddress')
-    .mockImplementation(async () => '0x' + '1'.repeat(40));
-
-  const DSMAddr = jest
-    .spyOn(locator, 'getDSMAddress')
-    .mockImplementation(async () => '0x' + '2'.repeat(40));
-  const SRAddr = jest
-    .spyOn(locator, 'getStakingRouterAddress')
-    .mockImplementation(async () => '0x' + '3'.repeat(40));
-  const locatorAddr = jest
-    .spyOn(locator, 'getLocatorAddress')
-    .mockImplementation(async () => '0x' + '4'.repeat(40));
-
-  return { lidoAddr, locatorAddr, SRAddr, DSMAddr };
-};
-
-const mockRepository = async (repositoryService: RepositoryService) => {
-  const address1 = '0x' + '5'.repeat(40);
-
-  const depositAddr = jest
-    .spyOn(repositoryService, 'getDepositAddress')
-    .mockImplementation(async () => address1);
-
-  await repositoryService.initCachedContracts({ blockHash: '111' });
-  jest.spyOn(repositoryService, 'getCachedLidoContract');
-
-  return { depositAddr };
-};
 
 const TEST_MODULE_ID = 1;
 
@@ -61,6 +32,8 @@ describe('SecurityService', () => {
   let repositoryService: RepositoryService;
   let walletService: WalletService;
   let loggerService: LoggerService;
+  let mockGetAttestMessagePrefix: jest.SpyInstance<Promise<string>, []>;
+  let mockGetPauseMessagePrefix: jest.SpyInstance<Promise<string>, []>;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -84,43 +57,10 @@ describe('SecurityService', () => {
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
 
     mockLocator(moduleRef.get(LocatorService));
-    await mockRepository(repositoryService);
-  });
 
-  describe('getAttestMessagePrefix', () => {
-    it('should return message prefix', async () => {
-      const expected = '0x' + '1'.repeat(64);
-
-      const mockProviderCall = jest
-        .spyOn(providerService.provider, 'call')
-        .mockImplementation(async () => {
-          const iface = new Interface(SecurityAbi__factory.abi);
-          const result = [expected];
-          return iface.encodeFunctionResult('ATTEST_MESSAGE_PREFIX', result);
-        });
-
-      const prefix = await securityService.getAttestMessagePrefix();
-      expect(prefix).toBe(expected);
-      expect(mockProviderCall).toBeCalledTimes(1);
-    });
-  });
-
-  describe('getPauseMessagePrefix', () => {
-    it('should return message prefix', async () => {
-      const expected = '0x' + '1'.repeat(64);
-
-      const mockProviderCall = jest
-        .spyOn(providerService.provider, 'call')
-        .mockImplementation(async () => {
-          const iface = new Interface(SecurityAbi__factory.abi);
-          const result = [expected];
-          return iface.encodeFunctionResult('PAUSE_MESSAGE_PREFIX', result);
-        });
-
-      const prefix = await securityService.getPauseMessagePrefix();
-      expect(prefix).toBe(expected);
-      expect(mockProviderCall).toBeCalledTimes(1);
-    });
+    const repo = await mockRepository(repositoryService);
+    mockGetAttestMessagePrefix = repo.mockGetAttestMessagePrefix;
+    mockGetPauseMessagePrefix = repo.mockGetPauseMessagePrefix;
   });
 
   describe('getMaxDeposits', () => {
@@ -210,14 +150,11 @@ describe('SecurityService', () => {
         TEST_MODULE_ID,
       ] as const;
 
-      const mockGetAttestMessagePrefix = jest
-        .spyOn(securityService, 'getAttestMessagePrefix')
-        .mockImplementation(async () => prefix);
-
       const signDepositData = jest.spyOn(walletService, 'signDepositData');
 
       const signature = await securityService.signDepositData(...args);
-      expect(mockGetAttestMessagePrefix).toBeCalledTimes(1);
+      // 1 — repository, 2 — signDepositData
+      expect(mockGetAttestMessagePrefix).toBeCalledTimes(2);
       expect(signDepositData).toBeCalledWith({
         prefix,
         depositRoot,
@@ -239,12 +176,7 @@ describe('SecurityService', () => {
 
   describe('signPauseData', () => {
     it('should add prefix', async () => {
-      const prefix = hexZeroPad('0x1', 32);
       const blockNumber = 1;
-
-      const mockGetPauseMessagePrefix = jest
-        .spyOn(securityService, 'getPauseMessagePrefix')
-        .mockImplementation(async () => prefix);
 
       const signPauseData = jest.spyOn(walletService, 'signPauseData');
 
@@ -252,11 +184,12 @@ describe('SecurityService', () => {
         blockNumber,
         TEST_MODULE_ID,
       );
-      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
+      // 1 — repository, 2 — signDepositData
+      expect(mockGetPauseMessagePrefix).toBeCalledTimes(2);
       expect(signPauseData).toBeCalledWith({
         blockNumber: 1,
         prefix:
-          '0x0000000000000000000000000000000000000000000000000000000000000001',
+          '0x0000000000000000000000000000000000000000000000000000000000000002',
         stakingModuleId: 1,
       });
       expect(signature).toEqual(
@@ -291,7 +224,6 @@ describe('SecurityService', () => {
 
   describe('pauseDeposits', () => {
     const hash = hexZeroPad('0x1', 32);
-    const prefix = hexZeroPad('0x2', 32);
     const blockNumber = 10;
 
     let mockWait;
@@ -302,14 +234,12 @@ describe('SecurityService', () => {
 
     beforeEach(async () => {
       mockWait = jest.fn().mockImplementation(async () => undefined);
+      const repo = await mockRepository(repositoryService);
+      mockGetPauseMessagePrefix = repo.mockGetPauseMessagePrefix;
 
       mockPauseDeposits = jest
         .fn()
         .mockImplementation(async () => ({ wait: mockWait, hash }));
-
-      mockGetPauseMessagePrefix = jest
-        .spyOn(securityService, 'getPauseMessagePrefix')
-        .mockImplementation(async () => prefix);
 
       mockGetContractWithSigner = jest
         .spyOn(securityService, 'getContractWithSigner')
@@ -332,7 +262,10 @@ describe('SecurityService', () => {
 
       expect(mockPauseDeposits).toBeCalledTimes(1);
       expect(mockWait).toBeCalledTimes(1);
-      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
+      // mockGetPauseMessagePrefix calls 3 times because
+      // we have more than one call under the hood
+      // 1 - repository, 2 — signPauseData, 3 — pauseDeposits
+      expect(mockGetPauseMessagePrefix).toBeCalledTimes(3);
       expect(mockGetContractWithSigner).toBeCalledTimes(1);
     });
 
@@ -344,7 +277,10 @@ describe('SecurityService', () => {
 
       expect(mockPauseDeposits).toBeCalledTimes(1);
       expect(mockWait).toBeCalledTimes(1);
-      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
+      // mockGetPauseMessagePrefix calls 3 times because
+      // we have more than one call under the hood
+      // 1 - repository, 2 — signPauseData, 3 — pauseDeposits
+      expect(mockGetPauseMessagePrefix).toBeCalledTimes(3);
       expect(mockGetContractWithSigner).toBeCalledTimes(1);
     });
   });

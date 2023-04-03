@@ -5,6 +5,7 @@ import { sleep } from 'utils';
 import { MessageType } from '../../messages';
 import StompTransport from './stomp.transport';
 import StompClient from './stomp.client';
+import { STOMP_OPTIONS } from 'transport/transport.constants';
 
 describe('StompTransport', () => {
   let transport: StompTransport;
@@ -18,13 +19,19 @@ describe('StompTransport', () => {
         {
           provide: StompClient,
           useFactory: async () => {
-            return new StompClient(
-              'ws://127.0.0.1:15674/ws',
-              'guest', // lgtm[js/hardcoded-credentials]
-              'guest', // lgtm[js/hardcoded-credentials]
-              () => void 0,
-              () => void 0,
-            );
+            const stomp = new StompClient({
+              url: 'ws://127.0.0.1:15674/ws',
+              login: 'guest', // lgtm[js/hardcoded-credentials]
+              passcode: 'guest', // lgtm[js/hardcoded-credentials]
+              connectCallback: () => void 0,
+              errorCallback: () => void 0,
+              options: STOMP_OPTIONS,
+            });
+
+            stomp.connect().catch((error) => {
+              console.error(error);
+            });
+            return stomp;
           },
         },
       ],
@@ -42,11 +49,11 @@ describe('StompTransport', () => {
     it('should send two messages to topic and read two messages from topic', async () => {
       const receivedMessages: any[] = [];
 
-      await sleep(2000);
-
       await transport.subscribe('amq.direct', MessageType.PING, async (msg) => {
         receivedMessages.push(msg);
       });
+
+      await sleep(2000);
 
       await transport.publish(
         'amq.direct',

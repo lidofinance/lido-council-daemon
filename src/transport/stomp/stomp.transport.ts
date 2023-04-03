@@ -8,9 +8,7 @@ export class StompClientNoConnectionException extends Error {}
 @Injectable()
 @implementationOf(TransportInterface)
 export default class StompTransport implements TransportInterface {
-  public constructor(private client: StompClient) {
-    this.client.connect();
-  }
+  public constructor(private client: StompClient) {}
 
   public async disconnect(): Promise<void> {
     await this.client.disconnect();

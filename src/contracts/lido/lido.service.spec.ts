@@ -9,37 +9,8 @@ import { LidoService } from './lido.service';
 import { LidoModule } from './lido.module';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-
-const mockLocator = (locator: LocatorService) => {
-  const lidoAddr = jest
-    .spyOn(locator, 'getLidoAddress')
-    .mockImplementation(async () => '0x' + '1'.repeat(40));
-
-  const DSMAddr = jest
-    .spyOn(locator, 'getDSMAddress')
-    .mockImplementation(async () => '0x' + '2'.repeat(40));
-  const SRAddr = jest
-    .spyOn(locator, 'getStakingRouterAddress')
-    .mockImplementation(async () => '0x' + '3'.repeat(40));
-  const locatorAddr = jest
-    .spyOn(locator, 'getLocatorAddress')
-    .mockImplementation(async () => '0x' + '4'.repeat(40));
-
-  return { lidoAddr, locatorAddr, SRAddr, DSMAddr };
-};
-
-const mockRepository = async (repositoryService: RepositoryService) => {
-  const address1 = '0x' + '5'.repeat(40);
-
-  const depositAddr = jest
-    .spyOn(repositoryService, 'getDepositAddress')
-    .mockImplementation(async () => address1);
-
-  await repositoryService.initCachedContracts('latest');
-  jest.spyOn(repositoryService, 'getCachedLidoContract');
-
-  return { depositAddr };
-};
+import { mockLocator } from 'contracts/repository/locator/locator.mock';
+import { mockRepository } from 'contracts/repository/repository.mock';
 
 describe('SecurityService', () => {
   let lidoService: LidoService;
