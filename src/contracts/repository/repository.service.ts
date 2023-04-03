@@ -26,6 +26,8 @@ export class RepositoryService {
     string,
     LidoAbi | LocatorAbi | SecurityAbi | StakingRouterAbi
   > = {};
+  // store prefixes on the current state of the contracts.
+  // if the contracts are updated we will change these addresses too
   private cachedDSMPrefixes: Record<string, string> = {};
   private permanentContractsCache: Record<string, DepositAbi> = {};
 
