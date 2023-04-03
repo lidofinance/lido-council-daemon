@@ -41,8 +41,13 @@ export class InMemoryConfiguration implements Configuration {
   @IsString()
   RPC_URL = '';
 
+  @IsOptional()
   @IsString()
   WALLET_PRIVATE_KEY = '';
+
+  @IsOptional()
+  @IsString()
+  WALLET_PRIVATE_KEY_FILE = '';
 
   @IsString()
   KAFKA_CLIENT_ID = '';
@@ -96,10 +101,17 @@ export class InMemoryConfiguration implements Configuration {
   @IsString()
   RABBITMQ_LOGIN = '';
 
+  @IsOptional()
   @ValidateIf((conf) => conf.PUBSUB_SERVICE === RABBITMQ)
   @IsNotEmpty()
   @IsString()
   RABBITMQ_PASSCODE = '';
+
+  @IsOptional()
+  @ValidateIf((conf) => conf.PUBSUB_SERVICE === RABBITMQ)
+  @IsNotEmpty()
+  @IsString()
+  RABBITMQ_PASSCODE_FILE = '';
 
   @IsOptional()
   @IsNumber()

@@ -53,6 +53,7 @@ services:
       - RABBITMQ_URL=${RABBITMQ_URL}
       - RABBITMQ_LOGIN=${RABBITMQ_LOGIN}
       - RABBITMQ_PASSCODE=${RABBITMQ_PASSCODE}
+      - RABBITMQ_PASSCODE_FILE=${RABBITMQ_PASSCODE_FILE}
     depends_on:
       - keys_api_service_api
     volumes:
