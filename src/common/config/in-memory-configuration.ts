@@ -109,7 +109,6 @@ export class InMemoryConfiguration implements Configuration {
 
   @IsOptional()
   @ValidateIf((conf) => conf.PUBSUB_SERVICE === RABBITMQ)
-  @IsNotEmpty()
   @IsString()
   RABBITMQ_PASSCODE_FILE = '';
 
