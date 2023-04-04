@@ -41,12 +41,14 @@ export class InMemoryConfiguration implements Configuration {
   @IsString()
   RPC_URL = '';
 
-  @IsOptional()
+  @ValidateIf((conf) => !conf.WALLET_PRIVATE_KEY_FILE)
   @IsString()
+  @IsNotEmpty()
   WALLET_PRIVATE_KEY = '';
 
-  @IsOptional()
+  @ValidateIf((conf) => !conf.WALLET_PRIVATE_KEY)
   @IsString()
+  @IsNotEmpty()
   WALLET_PRIVATE_KEY_FILE = '';
 
   @IsString()
@@ -101,15 +103,18 @@ export class InMemoryConfiguration implements Configuration {
   @IsString()
   RABBITMQ_LOGIN = '';
 
-  @IsOptional()
-  @ValidateIf((conf) => conf.PUBSUB_SERVICE === RABBITMQ)
+  @ValidateIf(
+    (conf) => conf.PUBSUB_SERVICE === RABBITMQ && !conf.RABBITMQ_PASSCODE_FILE,
+  )
   @IsNotEmpty()
   @IsString()
   RABBITMQ_PASSCODE = '';
 
-  @IsOptional()
-  @ValidateIf((conf) => conf.PUBSUB_SERVICE === RABBITMQ)
+  @ValidateIf(
+    (conf) => conf.PUBSUB_SERVICE === RABBITMQ && !conf.RABBITMQ_PASSCODE,
+  )
   @IsString()
+  @IsNotEmpty()
   RABBITMQ_PASSCODE_FILE = '';
 
   @IsOptional()
