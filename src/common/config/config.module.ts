@@ -25,9 +25,12 @@ export class ConfigModule {
     const filePath = config[envVarFile];
 
     try {
-      return (await readFile(filePath, 'utf-8'))
+      const fileContent = (await readFile(filePath, 'utf-8'))
         .toString()
         .replace(/(\r\n|\n|\r)/gm, '');
+
+      delete config[envVarFile];
+      return fileContent;
     } catch (error) {
       const errorCode = (error as any).code;
 
