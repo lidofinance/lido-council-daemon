@@ -20,19 +20,31 @@ export class ConfigModule {
     if (config[envName]) {
       return config[envName];
     }
+
     const envVarFile = envName + '_FILE';
     const filePath = config[envVarFile];
+
     try {
       return (await readFile(filePath, 'utf-8'))
         .toString()
         .replace(/(\r\n|\n|\r)/gm, '');
     } catch (error) {
-      if ((error as any).code === 'ENOENT') {
-        throw new Error(
-          `Failed to load ENV variable to the path specified by ${envVarFile}`,
-        );
+      const errorCode = (error as any).code;
+
+      switch (errorCode) {
+        case 'ENOENT':
+          throw new Error(`Failed to load ENV variable from the ${envVarFile}`);
+        case 'EACCES':
+          throw new Error(
+            `Permission denied when trying to read the file specified by ${envVarFile}`,
+          );
+        case 'EMFILE':
+          throw new Error(
+            `Too many open files in the system when trying to read the file specified by ${envVarFile}`,
+          );
+        default:
+          throw error;
       }
-      throw error;
     }
   }
 
