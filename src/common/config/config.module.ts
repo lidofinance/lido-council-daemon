@@ -20,10 +20,20 @@ export class ConfigModule {
     if (config[envName]) {
       return config[envName];
     }
-    const filePath = config[envName + '_FILE'];
-    return (await readFile(filePath, 'utf-8'))
-      .toString()
-      .replace(/(\r\n|\n|\r)/gm, '');
+    const envVarFile = envName + '_FILE';
+    const filePath = config[envVarFile];
+    try {
+      return (await readFile(filePath, 'utf-8'))
+        .toString()
+        .replace(/(\r\n|\n|\r)/gm, '');
+    } catch (error) {
+      if ((error as any).code === 'ENOENT') {
+        throw new Error(
+          `Failed to load ENV variable to the path specified by ${envVarFile}`,
+        );
+      }
+      throw error;
+    }
   }
 
   static async loadSecrets(
