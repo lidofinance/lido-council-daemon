@@ -12,6 +12,7 @@ export interface Configuration {
   LOG_FORMAT: string;
   RPC_URL: string;
   WALLET_PRIVATE_KEY: string;
+  WALLET_PRIVATE_KEY_FILE: string;
   PUBSUB_SERVICE: PubsubService;
   KAFKA_CLIENT_ID: string;
   BROKER_TOPIC: string;
@@ -24,6 +25,7 @@ export interface Configuration {
   RABBITMQ_URL: string;
   RABBITMQ_LOGIN: string;
   RABBITMQ_PASSCODE: string;
+  RABBITMQ_PASSCODE_FILE: string;
   REGISTRY_KEYS_QUERY_BATCH_SIZE: number;
   REGISTRY_KEYS_QUERY_CONCURRENCY: number;
   KEYS_API_PORT: number;
