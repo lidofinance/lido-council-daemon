@@ -1,8 +1,25 @@
 # Lido Council Daemon
 
-The daemon monitors the keys in the deposit contract and compares them with Lido's unused keys. The result of the comparison is signed with the private key and sent to the message broker. If the daemon finds a match, it tries to stop the deposits by sending a transaction calling the `pauseDeposits` method on the `Deposit Security Module` contract.
+The Lido Council Daemon monitors deposit contract keys and compares them to Lido's unused keys. If a match is found, it attempts to pause deposits by sending a transaction to the `Deposit Security Module` contract. This document provides instructions for setting up and running the daemon, including necessary environment variables, an example configuration, and logging information.
 
-## Environment variables
+## Table of Contents
+
+- [Environment Variables](#environment-variables)
+  - [RabbitMQ](#rabbitmq)
+  - [Wallet Private Key](#wallet-private-key)
+  - [Keys-API Configuration](#keys-api-configuration)
+- [Example ENV Config File](#example-env-config-file)
+- [Running the Application](#running-the-application)
+  - [Run with Docker-Compose](#run-with-docker-compose)
+  - [Logs](#logs)
+- [Development](#development)
+- [Prometheus Metrics](#prometheus-metrics)
+- [Cache](#cache)
+- [Test](#test)
+
+## Environment Variables
+
+Several environment variables must be set for the daemon to function properly. These variables include RabbitMQ settings, wallet private key, and Keys-API configuration.
 
 ### RabbitMQ
 
@@ -16,7 +33,7 @@ RABBITMQ_PASSCODE=<rabbitmq password>
 ...
 ```
 
-### Wallet private key
+### Wallet Private Key
 
 ```env
 ...
@@ -24,13 +41,10 @@ WALLET_PRIVATE_KEY=<wallet private key>
 ...
 ```
 
-The private key can be omitted, in which case a random key will be generated and the daemon will run in test mode. But in production it is required.
+In production, the private key is required. If omitted, a random key will be generated, and the daemon will run in test mode. Ensure the account balance has enough ETH to send transactions. The daemon does not spend funds in regular mode, and transactions are sent only if a potential attack is detected. 1 ETH is sufficient.
 
-The account balance should have some ETH to send transactions. In regular mode, the daemon does not spend any funds. The transaction will be sent only if a potential attack is detected. 1 ETH is enough.
+### Keys-API Configuration
 
-
-### Keys-api configuration
-Now we use the Keys-API to download the keys. Below you can see a sample configuration for the Keys-API:
 ```env
 # Keys API
 KEYS_API_PORT=3001
@@ -51,9 +65,9 @@ KEYS_API_DB_PASSWORD=test
 
 ```
 
-The Keys-API is publicly available and you can read more at this link: https://github.com/lidofinance/lido-keys-api
+The Keys-API is publicly available, and more information can be found at https://github.com/lidofinance/lido-keys-api.
 
-### Example ENV config file
+### Example ENV Config File
 
 <details>
 
@@ -104,7 +118,7 @@ KEYS_API_DB_PASSWORD=test
 ```
 </details>
 
-## Running the application
+## Running the Application
 At this point, it is most convenient to run the application with docker-compose. Below is a configuration template for running the entire application:
 
 <details>
@@ -172,7 +186,8 @@ services:
 ```
 </details>
 
-### Run with docker-compose
+### Run with Docker-Compose
+
 After updating the docker-compose file and the .env configuration file, simply enter the command:
 
 ```bash
@@ -183,7 +198,8 @@ Next, we can read the log:
 ```bash
 docker-compose logs -f
 ```
-## Logs
+
+### Logs
 
 On startup, the daemon checks if the provided wallet address belongs to the list of guardians, as well as account balance. If something goes wrong you will see warnings:
 
@@ -231,6 +247,7 @@ info: Contract address was changed {"address":"0x0000000000000000000000000000000
 info: Contract address was changed {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:SecurityAbi"}
 info: Contract address was changed {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:StakingRouterAbi"}
 ```
+
 ## Development
 
 ```bash
@@ -241,7 +258,8 @@ $ yarn start
 $ yarn start:dev
 ```
 
-## Prometheus metrics
+
+## Prometheus Metrics
 
 Prometheus metrics are exposed via HTTP `/metrics` endpoint.
 
