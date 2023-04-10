@@ -143,7 +143,7 @@ services:
       - ./.volumes/pgdata-${CHAIN_ID}/:/var/lib/postgresql/data
 
   keys_api_service_api:
-    image: lidofinance/lido-keys-api@sha256:996476f3c272fd74ba89b8e46ec2510bc5c07831ebb276ad661ddb00971f1a21
+    image: lidofinance/lido-keys-api@sha256:fd264c3315197c5d70666ad98f182475d9b952342d09142b954f93e77ce3b71a
     container_name: keys_api_service_api
     ports:
       - '127.0.0.1:${KEYS_API_PORT}:3001'
@@ -163,7 +163,7 @@ services:
       - keys_api_service_db
 
   council_daemon:
-    image: lidofinance/lido-council-daemon@sha256:f9b1715aa4367821676a9cada0b6d159ace24a7f446da81e9c2838031e7bb5a9
+    image: lidofinance/lido-council-daemon@sha256:4fa0c4ebf56bf3382266debfc3d7e860530d7439129f0cc0f5fbdc8f3e1779eb
     ports:
       - "127.0.0.1:${PORT}:3000" # port is used for prometheus metrics
     environment:
