@@ -193,6 +193,11 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "UnrecoverableModuleError",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "string",
@@ -967,19 +972,6 @@
         "internalType": "uint256[]",
         "name": "allocations",
         "type": "uint256[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getExitedValidatorsCountAcrossAllModules",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -1907,6 +1899,25 @@
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "_stakingModuleId",
+        "type": "uint256"
+      }
+    ],
+    "name": "hasStakingModule",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "_admin",
         "type": "address"
@@ -2184,7 +2195,13 @@
       }
     ],
     "name": "updateExitedValidatorsCountByStakingModule",
-    "outputs": [],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable",
     "type": "function"
   },
