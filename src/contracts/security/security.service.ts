@@ -21,9 +21,6 @@ export class SecurityService {
     private walletService: WalletService,
   ) {}
 
-  private cachedAttestMessagePrefix: string | null = null;
-  private cachedPauseMessagePrefix: string | null = null;
-
   public async initialize(blockTag: BlockTag): Promise<void> {
     const guardianIndex = await this.getGuardianIndex(blockTag);
     const address = this.walletService.address;
@@ -31,7 +28,7 @@ export class SecurityService {
     if (guardianIndex === -1) {
       this.logger.warn(`Your address is not in the Guardian List`, { address });
     } else {
-      this.logger.log(`You address is in the Guardian List`, { address });
+      this.logger.log(`Your address is in the Guardian List`, { address });
     }
   }
 
@@ -42,42 +39,17 @@ export class SecurityService {
     const wallet = this.walletService.wallet;
     const provider = this.providerService.provider;
     const walletWithProvider = wallet.connect(provider);
-    const contract = await this.repositoryService.getCachedSecurityContract();
+    const contract = await this.repositoryService.getCachedDSMContract();
     const contractWithSigner = contract.connect(walletWithProvider);
 
     return contractWithSigner;
-  }
-  /**
-   * Returns a prefix from the contract with which the deposit message should be signed
-   */
-  public async getAttestMessagePrefix(): Promise<string> {
-    if (!this.cachedAttestMessagePrefix) {
-      const contract = await this.repositoryService.getCachedSecurityContract();
-      const messagePrefix = await contract.ATTEST_MESSAGE_PREFIX();
-      this.cachedAttestMessagePrefix = messagePrefix;
-    }
-
-    return this.cachedAttestMessagePrefix;
-  }
-
-  /**
-   * Returns a prefix from the contract with which the pause message should be signed
-   */
-  public async getPauseMessagePrefix(): Promise<string> {
-    if (!this.cachedPauseMessagePrefix) {
-      const contract = await this.repositoryService.getCachedSecurityContract();
-      const messagePrefix = await contract.PAUSE_MESSAGE_PREFIX();
-      this.cachedPauseMessagePrefix = messagePrefix;
-    }
-
-    return this.cachedPauseMessagePrefix;
   }
 
   /**
    * Returns the maximum number of deposits per transaction from the contract
    */
   public async getMaxDeposits(blockTag?: BlockTag): Promise<number> {
-    const contract = await this.repositoryService.getCachedSecurityContract();
+    const contract = await this.repositoryService.getCachedDSMContract();
     const maxDeposits = await contract.getMaxDeposits({
       blockTag: blockTag as any,
     });
@@ -89,7 +61,7 @@ export class SecurityService {
    * Returns the guardian list from the contract
    */
   public async getGuardians(blockTag?: BlockTag): Promise<string[]> {
-    const contract = await this.repositoryService.getCachedSecurityContract();
+    const contract = await this.repositoryService.getCachedDSMContract();
     const guardians = await contract.getGuardians({
       blockTag: blockTag as any,
     });
@@ -122,45 +94,66 @@ export class SecurityService {
     keysOpIndex: number,
     blockNumber: number,
     blockHash: string,
+    stakingModuleId: number,
   ): Promise<Signature> {
-    const messagePrefix = await this.getAttestMessagePrefix();
+    const prefix = await this.repositoryService.getAttestMessagePrefix();
 
-    return await this.walletService.signDepositData(
-      messagePrefix,
+    return await this.walletService.signDepositData({
+      prefix,
       depositRoot,
       keysOpIndex,
       blockNumber,
       blockHash,
-    );
+      stakingModuleId,
+    });
   }
 
   /**
    * Signs a message to pause deposits with the prefix from the contract
    */
-  public async signPauseData(blockNumber: number): Promise<Signature> {
-    const messagePrefix = await this.getPauseMessagePrefix();
+  public async signPauseData(
+    blockNumber: number,
+    stakingModuleId: number,
+  ): Promise<Signature> {
+    const prefix = await this.repositoryService.getPauseMessagePrefix();
 
-    return await this.walletService.signPauseData(messagePrefix, blockNumber);
+    return await this.walletService.signPauseData({
+      prefix,
+      blockNumber,
+      stakingModuleId,
+    });
   }
 
   /**
    * Returns the current state of deposits
    */
-  public async isDepositsPaused(blockTag?: BlockTag): Promise<boolean> {
-    const contract = await this.repositoryService.getCachedSecurityContract();
-    const isPaused = await contract.isPaused({ blockTag: blockTag as any });
+  public async isDepositsPaused(
+    stakingModuleId: number,
+    blockTag?: BlockTag,
+  ): Promise<boolean> {
+    const stakingRouterContract =
+      await this.repositoryService.getCachedStakingRouterContract();
 
-    return isPaused;
+    const isActive = await stakingRouterContract.getStakingModuleIsActive(
+      stakingModuleId,
+      {
+        blockTag: blockTag as any,
+      },
+    );
+
+    return !isActive;
   }
 
   /**
    * Sends a transaction to pause deposits
    * @param blockNumber - the block number for which the message is signed
+   * @param stakingModuleId - target staking module id
    * @param signature - message signature
    */
   @OneAtTime()
   public async pauseDeposits(
     blockNumber: number,
+    stakingModuleId: number,
     signature: Signature,
   ): Promise<ContractReceipt | void> {
     this.logger.warn('Try to pause deposits');
@@ -169,7 +162,11 @@ export class SecurityService {
     const contract = await this.getContractWithSigner();
 
     const { r, _vs: vs } = signature;
-    const tx = await contract.pauseDeposits(blockNumber, { r, vs });
+
+    const tx = await contract.pauseDeposits(blockNumber, stakingModuleId, {
+      r,
+      vs,
+    });
 
     this.logger.warn('Pause transaction sent', { txHash: tx.hash });
     this.logger.warn('Waiting for block confirmation');

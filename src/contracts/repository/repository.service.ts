@@ -1,92 +1,226 @@
-import { Injectable } from '@nestjs/common';
-import { Cache } from 'common/decorators';
-import { LidoAbi, LidoAbi__factory } from 'generated';
+import { Inject, Injectable, LoggerService } from '@nestjs/common';
+import { LidoAbi, LidoAbi__factory, LocatorAbi } from 'generated';
 import { SecurityAbi, SecurityAbi__factory } from 'generated';
-import { RegistryAbi, RegistryAbi__factory } from 'generated';
 import { DepositAbi, DepositAbi__factory } from 'generated';
-import { ProviderService } from 'provider';
+import { StakingRouterAbi, StakingRouterAbi__factory } from 'generated';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { BlockTag, ProviderService } from 'provider';
+import { sleep } from 'utils';
+import { LocatorService } from './locator/locator.service';
 import {
-  getDepositSecurityAddress,
-  getLidoAddress,
+  DEPOSIT_ABI,
+  DSM_ABI,
+  INIT_CONTRACTS_TIMEOUT,
+  LIDO_ABI,
+  STAKING_ROUTER_ABI,
 } from './repository.constants';
 
 @Injectable()
 export class RepositoryService {
-  constructor(private providerService: ProviderService) {}
+  constructor(
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
+    private providerService: ProviderService,
+    private locatorService: LocatorService,
+  ) {}
+  private tempContractsCache: Record<
+    string,
+    LidoAbi | LocatorAbi | SecurityAbi | StakingRouterAbi
+  > = {};
+  // store prefixes on the current state of the contracts.
+  // if the contracts are updated we will change these addresses too
+  private cachedDSMPrefixes: Record<string, string> = {};
+  private permanentContractsCache: Record<string, DepositAbi> = {};
 
   /**
-   * Returns an instance of the Lido contract
+   * Init cache for each contract
    */
-  @Cache()
-  public async getCachedLidoContract(): Promise<LidoAbi> {
-    const lidoAddress = await this.getLidoAddress();
+  public async initCachedContracts(blockTag: BlockTag) {
+    await this.initCachedLidoContract(blockTag);
+    // order is important: deposit contract depends on dsm
+    await this.initCachedDSMContract(blockTag);
+    await this.initCachedDepositContract(blockTag);
+    await this.initCachedStakingRouterAbiContract(blockTag);
+  }
+
+  /**
+   * Init cache for each contract or wait if it makes some error
+   */
+  public async initOrWaitCachedContracts() {
+    const block = await this.providerService.getBlock();
+    try {
+      await this.initCachedContracts({ blockHash: block.hash });
+      return block;
+    } catch (error) {
+      this.logger.error('Init contracts error. Retry', error);
+      await sleep(INIT_CONTRACTS_TIMEOUT);
+      return await this.initOrWaitCachedContracts();
+    }
+  }
+
+  /**
+   * Get Lido contract impl
+   */
+  public getCachedLidoContract(): LidoAbi {
+    return this.getFromCache(LIDO_ABI) as LidoAbi;
+  }
+
+  /**
+   * Get DSM contract impl
+   */
+  public getCachedDSMContract(): SecurityAbi {
+    return this.getFromCache(DSM_ABI) as SecurityAbi;
+  }
+
+  /**
+   * Get Deposit contract impl
+   */
+  public getCachedDepositContract(): DepositAbi {
+    return this.permanentContractsCache[DEPOSIT_ABI] as DepositAbi;
+  }
+
+  /**
+   * Get SR contract impl
+   */
+  public getCachedStakingRouterContract(): StakingRouterAbi {
+    return this.getFromCache(STAKING_ROUTER_ABI) as StakingRouterAbi;
+  }
+
+  /**
+   * Get cached contract impl
+   */
+  private getFromCache(abiKey: string) {
+    const contract = this.tempContractsCache[abiKey];
+    if (contract) return contract;
+    throw new Error(`Not found ABI for key: ${abiKey}`);
+  }
+
+  /**
+   * Set contract cache and log on event
+   */
+  public setContractCache(
+    address: string,
+    contractKey: string,
+    impl: LidoAbi | LocatorAbi | SecurityAbi | StakingRouterAbi,
+  ) {
+    if (!this.tempContractsCache[contractKey]) {
+      this.logger.log('Contract initial address', { address, contractKey });
+    }
+
+    if (
+      this.tempContractsCache[contractKey] &&
+      this.tempContractsCache[contractKey].address !== address
+    ) {
+      this.logger.log('Contract address was changed', { address, contractKey });
+    }
+
+    this.tempContractsCache[contractKey] = impl;
+  }
+
+  private setPermanentContractCache(
+    address: string,
+    contractKey: string,
+    impl: DepositAbi,
+  ) {
+    this.logger.log('Contract initial address', { address, contractKey });
+    this.permanentContractsCache[contractKey] = impl;
+  }
+
+  /**
+   * Init cache for Lido contract
+   */
+  private async initCachedLidoContract(blockTag: BlockTag): Promise<void> {
+    const address = await this.locatorService.getLidoAddress(blockTag);
     const provider = this.providerService.provider;
 
-    return LidoAbi__factory.connect(lidoAddress, provider);
+    this.setContractCache(
+      address,
+      LIDO_ABI,
+      LidoAbi__factory.connect(address, provider),
+    );
   }
 
   /**
-   * Returns an instance of the Deposit Security contract
+   * Init cache for DSM contract
    */
-  @Cache()
-  public async getCachedSecurityContract(): Promise<SecurityAbi> {
-    const securityAddress = await this.getDepositSecurityAddress();
+  private async initCachedDSMContract(blockTag: BlockTag): Promise<void> {
+    const address = await this.locatorService.getDSMAddress(blockTag);
     const provider = this.providerService.provider;
 
-    return SecurityAbi__factory.connect(securityAddress, provider);
+    this.setContractCache(
+      address,
+      DSM_ABI,
+      SecurityAbi__factory.connect(address, provider),
+    );
+
+    // prune dsm prefixes
+    this.cachedDSMPrefixes = {};
+
+    // re-init dsm prefixes
+    await Promise.all([
+      this.getAttestMessagePrefix(),
+      this.getPauseMessagePrefix(),
+    ]);
   }
 
   /**
-   * Returns an instance of the Node Operators Registry contract
+   * Init cache for Deposit contract
    */
-  @Cache()
-  public async getCachedRegistryContract(): Promise<RegistryAbi> {
-    const aclAddress = await this.getRegistryAddress();
+  private async initCachedDepositContract(blockTag: BlockTag): Promise<void> {
+    if (this.permanentContractsCache[DEPOSIT_ABI]) return;
+    const depositAddress = await this.getDepositAddress(blockTag);
     const provider = this.providerService.provider;
 
-    return RegistryAbi__factory.connect(aclAddress, provider);
+    this.setPermanentContractCache(
+      depositAddress,
+      DEPOSIT_ABI,
+      DepositAbi__factory.connect(depositAddress, provider),
+    );
   }
 
   /**
-   * Returns an instance of the Deposit contract
+   * Init cache for SR contract
    */
-  @Cache()
-  public async getCachedDepositContract(): Promise<DepositAbi> {
-    const depositAddress = await this.getDepositAddress();
+  private async initCachedStakingRouterAbiContract(
+    blockTag: BlockTag,
+  ): Promise<void> {
+    const stakingRouterAddress =
+      await this.locatorService.getStakingRouterAddress(blockTag);
     const provider = this.providerService.provider;
 
-    return DepositAbi__factory.connect(depositAddress, provider);
+    this.setContractCache(
+      stakingRouterAddress,
+      STAKING_ROUTER_ABI,
+      StakingRouterAbi__factory.connect(stakingRouterAddress, provider),
+    );
   }
 
   /**
-   * Returns Lido contract address
+   * Returns a prefix from the contract with which the deposit message should be signed
    */
-  public async getLidoAddress(): Promise<string> {
-    const chainId = await this.providerService.getChainId();
-    return getLidoAddress(chainId);
+  public async getAttestMessagePrefix(): Promise<string> {
+    if (this.cachedDSMPrefixes.attest) return this.cachedDSMPrefixes.attest;
+    const contract = await this.getCachedDSMContract();
+    this.cachedDSMPrefixes.attest = await contract.ATTEST_MESSAGE_PREFIX();
+    return this.cachedDSMPrefixes.attest;
   }
 
   /**
-   * Returns Deposit Security contract address
+   * Returns a prefix from the contract with which the pause message should be signed
    */
-  public async getDepositSecurityAddress(): Promise<string> {
-    const chainId = await this.providerService.getChainId();
-    return getDepositSecurityAddress(chainId);
-  }
+  public async getPauseMessagePrefix(): Promise<string> {
+    if (this.cachedDSMPrefixes.pause) return this.cachedDSMPrefixes.pause;
+    const contract = await this.getCachedDSMContract();
+    this.cachedDSMPrefixes.pause = await contract.PAUSE_MESSAGE_PREFIX();
 
-  /**
-   * Returns Node Operators Registry contract address
-   */
-  public async getRegistryAddress(): Promise<string> {
-    const lidoContract = await this.getCachedLidoContract();
-    return await lidoContract.getOperators();
+    return this.cachedDSMPrefixes.pause;
   }
 
   /**
    * Returns Deposit contract address
    */
-  public async getDepositAddress(): Promise<string> {
-    const lidoContract = await this.getCachedLidoContract();
-    return await lidoContract.getDepositContract();
+  public async getDepositAddress(blockTag: BlockTag): Promise<string> {
+    const contract = await this.getCachedDSMContract();
+
+    return contract.DEPOSIT_CONTRACT({ blockTag: blockTag as any });
   }
 }

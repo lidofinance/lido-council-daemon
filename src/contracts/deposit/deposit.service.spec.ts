@@ -23,6 +23,9 @@ import { LoggerModule } from 'common/logger';
 import { ConfigModule } from 'common/config';
 import { APP_VERSION } from 'app.constants';
 import { BlsService } from 'bls';
+import { LocatorService } from 'contracts/repository/locator/locator.service';
+import { mockLocator } from 'contracts/repository/locator/locator.mock';
+import { mockRepository } from 'contracts/repository/repository.mock';
 
 const mockSleep = sleep as jest.MockedFunction<typeof sleep>;
 
@@ -33,6 +36,7 @@ describe('DepositService', () => {
   let loggerService: LoggerService;
   let repositoryService: RepositoryService;
   let blsService: BlsService;
+  let locatorService: LocatorService;
 
   const depositAddress = '0x' + '1'.repeat(40);
 
@@ -55,9 +59,14 @@ describe('DepositService', () => {
     blsService = moduleRef.get(BlsService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
+    locatorService = moduleRef.get(LocatorService);
+
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
     jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
     jest.spyOn(loggerService, 'debug').mockImplementation(() => undefined);
+
+    mockLocator(locatorService);
+    await mockRepository(repositoryService);
 
     jest
       .spyOn(repositoryService, 'getDepositAddress')

@@ -12,6 +12,7 @@ import {
   PrometheusIntersectionsProvider,
   PrometheusDepositedKeysProvider,
   PrometheusOperatorsKeysProvider,
+  PrometheusKeysApiRequestsProvider,
 } from './prometheus.provider';
 import { METRICS_PREFIX, METRICS_URL } from './prometheus.constants';
 
@@ -36,6 +37,7 @@ const providers = [
   PrometheusIntersectionsProvider,
   PrometheusDepositedKeysProvider,
   PrometheusOperatorsKeysProvider,
+  PrometheusKeysApiRequestsProvider,
 ];
 
 PrometheusModule.global = true;

@@ -11,6 +11,7 @@ generated/
 
 # Env
 .env
+.env*
 
 # Logs
 logs
@@ -36,6 +37,7 @@ lerna-debug.log*
 *.launch
 .settings/
 *.sublime-workspace
+.vscode
 
 # IDE - VSCode
 .vscode/*

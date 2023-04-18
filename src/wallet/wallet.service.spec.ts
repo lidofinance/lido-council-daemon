@@ -12,6 +12,8 @@ import { WalletModule } from 'wallet';
 import { WALLET_PRIVATE_KEY } from './wallet.constants';
 import { WalletService } from './wallet.service';
 
+const TEST_MODULE_ID = 1;
+
 describe('WalletService', () => {
   const wallet = Wallet.createRandom();
   let walletService: WalletService;
@@ -74,13 +76,14 @@ describe('WalletService', () => {
       const keysOpIndex = 1;
       const blockNumber = 1;
       const blockHash = hexZeroPad('0x3', 32);
-      const signature = await walletService.signDepositData(
+      const signature = await walletService.signDepositData({
         prefix,
         depositRoot,
         keysOpIndex,
         blockNumber,
         blockHash,
-      );
+        stakingModuleId: TEST_MODULE_ID,
+      });
 
       expect(signature).toEqual(
         expect.objectContaining({
@@ -97,7 +100,11 @@ describe('WalletService', () => {
     it('should sign pause data', async () => {
       const prefix = hexZeroPad('0x1', 32);
       const blockNumber = 1;
-      const signature = await walletService.signPauseData(prefix, blockNumber);
+      const signature = await walletService.signPauseData({
+        prefix,
+        blockNumber,
+        stakingModuleId: TEST_MODULE_ID,
+      });
 
       expect(signature).toEqual(
         expect.objectContaining({
