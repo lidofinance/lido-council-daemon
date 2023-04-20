@@ -12,18 +12,11 @@ dotenv.config({ path: resolve(appRoot.path, '.env') });
 
 @Module({})
 export class ConfigModule {
-  static async loadEnvOrFile(
+  static async readFile(
+    filePath: string,
+    envVarFile: string,
     config: InMemoryConfiguration,
-    envName: string,
-  ): Promise<string> {
-    // ENV should be non empty string
-    if (config[envName]) {
-      return config[envName];
-    }
-
-    const envVarFile = envName + '_FILE';
-    const filePath = config[envVarFile];
-
+  ) {
     try {
       const fileContent = (await readFile(filePath, 'utf-8'))
         .toString()
@@ -49,6 +42,19 @@ export class ConfigModule {
           throw error;
       }
     }
+  }
+  static async loadEnvOrFile(
+    config: InMemoryConfiguration,
+    envName: string,
+  ): Promise<string> {
+    const envVarFile = envName + '_FILE';
+    const filePath = config[envVarFile];
+
+    if (filePath) {
+      return await this.readFile(filePath, envVarFile, config);
+    }
+
+    return config[envName];
   }
 
   static async loadSecrets(
