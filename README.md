@@ -138,12 +138,12 @@ services:
       - POSTGRES_USER=${KEYS_API_DB_USER}
       - POSTGRES_PASSWORD=${KEYS_API_DB_PASSWORD}
     ports:
-      - ${KEYS_API_DB_PORT}:5432
+       - '127.0.0.1:${KEYS_API_DB_PORT}:5432'
     volumes:
       - ./.volumes/pgdata-${CHAIN_ID}/:/var/lib/postgresql/data
 
   keys_api_service_api:
-    image: lidofinance/lido-keys-api@sha256:fd264c3315197c5d70666ad98f182475d9b952342d09142b954f93e77ce3b71a
+    image: lidofinance/lido-keys-api@sha256:563506329ebec7148cf80cabf5facdf1c09cc59ead9a8dfece2a38a441408ee0
     container_name: keys_api_service_api
     ports:
       - '127.0.0.1:${KEYS_API_PORT}:3001'
@@ -228,7 +228,7 @@ If the daemon works correctly, the logs will look like this:
 debug: Fresh events are fetched {"startBlock":5679826,"endBlock":5679976,"events":6}
 debug: Fresh events are fetched {"startBlock":5679827,"endBlock":5679977,"events":6}
 debug: Fresh events are fetched {"startBlock":5679828,"endBlock":5679978,"events":7}
-info: No problems found {"type":"deposit","depositRoot":"0xc2c9308fa425a64ef9cac1837412ba462b6429fce2f170184284a260b735638c","keysOpIndex":12,"blockNumber":5679978,"blockHash":"0x87762c941f653f2f70157f86deac78f19e4d1549e231a52d1191289592d1a0ab","guardianAddress":"0x3dc4cF780F2599B528F37dedB34449Fb65Ef7d4A","guardianIndex":0,"signature":{"r":"0x44fec2e6fd34e74b8f001ef0e5bbd2db6d3179925fb82cb43231e19af46f0ddd","s":"0x2ff4326af760e353803458b75279eb8f58e5735b3565ea16bcd0f773bce106a4","_vs":"0xaff4326af760e353803458b75279eb8f58e5735b3565ea16bcd0f773bce106a4","recoveryParam":1,"v":28}}
+info: No problems found {"type":"deposit","depositRoot":"0xc2c9308fa425a64ef9cac1837412ba462b6429fce2f170184284a260b735638c","nonce":12,"blockNumber":5679978,"blockHash":"0x87762c941f653f2f70157f86deac78f19e4d1549e231a52d1191289592d1a0ab","guardianAddress":"0x3dc4cF780F2599B528F37dedB34449Fb65Ef7d4A","guardianIndex":0,"signature":{"r":"0x44fec2e6fd34e74b8f001ef0e5bbd2db6d3179925fb82cb43231e19af46f0ddd","s":"0x2ff4326af760e353803458b75279eb8f58e5735b3565ea16bcd0f773bce106a4","_vs":"0xaff4326af760e353803458b75279eb8f58e5735b3565ea16bcd0f773bce106a4","recoveryParam":1,"v":28}}
 debug: Fresh events are fetched {"startBlock":5679829,"endBlock":5679979,"events":7}
 ```
 
