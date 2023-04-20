@@ -1,4 +1,4 @@
-# [1.7.0](https://github.com/lidofinance/lido-council-daemon/compare/1.6.0...1.7.0) (2023-04-20)
+# [1.8.0](https://github.com/lidofinance/lido-council-daemon/compare/1.6.0...1.8.0) (2023-04-20)
 
 
 ### Bug Fixes
