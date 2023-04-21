@@ -1,3 +1,7 @@
+## [1.8.1](https://github.com/lidofinance/lido-council-daemon/compare/1.8.0...1.8.1) (2023-04-21)
+
+
+
 # [1.8.0](https://github.com/lidofinance/lido-council-daemon/compare/1.6.0...1.8.0) (2023-04-20)
 
 
@@ -188,21 +192,6 @@
 
 * not root docker user ([0423948](https://github.com/lidofinance/lido-council-daemon/commit/04239489a42e7b0ce301f1ec57e7aa79c38dd6fe))
 * replace with user node ([4b14d31](https://github.com/lidofinance/lido-council-daemon/commit/4b14d31a202c3a3b6c34b4be31f89d93edf92fcc))
-
-
-
-## [1.1.2](https://github.com/lidofinance/lido-council-daemon/compare/1.1.1...1.1.2) (2021-12-02)
-
-
-### Bug Fixes
-
-* deposit cache validating ([a7cdfcb](https://github.com/lidofinance/lido-council-daemon/commit/a7cdfcb39a0b7624647747e776db539919cee194))
-* timer ([f8a456a](https://github.com/lidofinance/lido-council-daemon/commit/f8a456ab745d936c879b48e4e8c68a8618d299e2))
-
-
-### Features
-
-* health checks ([7cbef83](https://github.com/lidofinance/lido-council-daemon/commit/7cbef836d081e22974f5eb1b93accdfc5788503f))
 
 
 
