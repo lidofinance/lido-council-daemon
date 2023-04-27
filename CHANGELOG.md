@@ -1,3 +1,12 @@
+## [1.8.2](https://github.com/lidofinance/lido-council-daemon/compare/1.8.1...1.8.2) (2023-04-27)
+
+
+### Bug Fixes
+
+* load env from file ([0c2a4b9](https://github.com/lidofinance/lido-council-daemon/commit/0c2a4b905271cb995272b0942982385d870bb040))
+
+
+
 ## [1.8.1](https://github.com/lidofinance/lido-council-daemon/compare/1.8.0...1.8.1) (2023-04-21)
 
 
@@ -182,16 +191,6 @@
 * improve initial cache check logs ([8cbd995](https://github.com/lidofinance/lido-council-daemon/commit/8cbd99557dc103e0887efe3d6cab35c0baeb39a3))
 * improve logs ([cec34f5](https://github.com/lidofinance/lido-council-daemon/commit/cec34f5fc1dbeaf1a59b1014d3a88313a7b35a0d))
 * network for build info ([d53d72d](https://github.com/lidofinance/lido-council-daemon/commit/d53d72d0b6eb034318079e50cc59d0f48ff2e1c7))
-
-
-
-## [1.1.3](https://github.com/lidofinance/lido-council-daemon/compare/1.1.2...1.1.3) (2022-01-11)
-
-
-### Bug Fixes
-
-* not root docker user ([0423948](https://github.com/lidofinance/lido-council-daemon/commit/04239489a42e7b0ce301f1ec57e7aa79c38dd6fe))
-* replace with user node ([4b14d31](https://github.com/lidofinance/lido-council-daemon/commit/4b14d31a202c3a3b6c34b4be31f89d93edf92fcc))
 
 
 
