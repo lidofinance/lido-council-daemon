@@ -273,7 +273,7 @@ describe('ganache e2e tests', () => {
         expect.objectContaining({
           blockNumber: newBlock.number,
           guardianAddress: wallet.address,
-          guardianIndex: 1,
+          guardianIndex: 9,
           stakingModuleId: 1,
         }),
       );
@@ -518,7 +518,7 @@ describe('ganache e2e tests', () => {
         expect.objectContaining({
           blockNumber: newBlock.number,
           guardianAddress: wallet.address,
-          guardianIndex: 1,
+          guardianIndex: 9,
           stakingModuleId: 1,
         }),
       );
