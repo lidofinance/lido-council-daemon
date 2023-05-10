@@ -37,7 +37,7 @@ services:
       - keys_api_service_db
 
   council_daemon:
-    image: lidofinance/lido-council-daemon@sha256:42ece4c9484aac0ee192a72407f149cb062305596c0c6b5bb0a91a7b8f4bb3db
+    image: lidofinance/lido-council-daemon:dev
     platform: linux/amd64
     ports:
       - "${PORT}:3000" # port is used for prometheus metrics
