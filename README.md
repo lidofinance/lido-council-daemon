@@ -137,16 +137,13 @@ services:
       - POSTGRES_DB=${KEYS_API_DB_NAME}
       - POSTGRES_USER=${KEYS_API_DB_USER}
       - POSTGRES_PASSWORD=${KEYS_API_DB_PASSWORD}
-    ports:
-       - '127.0.0.1:${KEYS_API_DB_PORT}:5432'
     volumes:
       - ./.volumes/pgdata-${CHAIN_ID}/:/var/lib/postgresql/data
 
   keys_api_service_api:
-    image: lidofinance/lido-keys-api@sha256:76f5a48f0baab46ada3bf4b09bdb115a74803a7ba53e783e505436d8177383dc
+    # get last hash from  https://docs.lido.fi/guides/tooling/#keys-api
+    image: lidofinance/lido-keys-api@<latest-hash>
     container_name: keys_api_service_api
-    ports:
-      - '127.0.0.1:${KEYS_API_PORT}:3001'
     environment:
       - PORT=3001
       - LOG_LEVEL=${LOG_LEVEL}
@@ -163,7 +160,8 @@ services:
       - keys_api_service_db
 
   council_daemon:
-    image: lidofinance/lido-council-daemon@sha256:42ece4c9484aac0ee192a72407f149cb062305596c0c6b5bb0a91a7b8f4bb3db
+    # get last hash from  https://docs.lido.fi/guides/tooling/#council-daemon
+    image: lidofinance/lido-council-daemon@<latest-hash>
     ports:
       - "127.0.0.1:${PORT}:3000" # port is used for prometheus metrics
     environment:
@@ -172,8 +170,8 @@ services:
       - LOG_FORMAT=${LOG_FORMAT}
       - RPC_URL=${RPC_URL}
       - WALLET_PRIVATE_KEY=${WALLET_PRIVATE_KEY}
-      - KEYS_API_HOST=${KEYS_API_HOST}
-      - KEYS_API_PORT=${KEYS_API_PORT}
+      - KEYS_API_HOST=http://keys_api_service_api
+      - KEYS_API_PORT=3001
       - PUBSUB_SERVICE=rabbitmq
       - RABBITMQ_URL=${RABBITMQ_URL}
       - RABBITMQ_LOGIN=${RABBITMQ_LOGIN}
@@ -232,20 +230,11 @@ info: No problems found {"type":"deposit","depositRoot":"0xc2c9308fa425a64ef9cac
 debug: Fresh events are fetched {"startBlock":5679829,"endBlock":5679979,"events":7}
 ```
 
-Init contracts addresses
-
 ```log
-info: Contract initial address {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:LidoAbi"}
-info: Contract initial address {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:SecurityAbi"}
-info: Contract initial address {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:StakingRouterAbi"}
-```
-
-If contract addresses changed
-
-```log
-info: Contract address was changed {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:LidoAbi"}
-info: Contract address was changed {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:SecurityAbi"}
-info: Contract address was changed {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:StakingRouterAbi"}
+info: Staking modules loaded
+info: New staking router state cycle start
+info: Sending a message to broker
+info: New staking router state cycle end
 ```
 
 ## Development
