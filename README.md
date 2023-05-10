@@ -230,6 +230,13 @@ info: No problems found {"type":"deposit","depositRoot":"0xc2c9308fa425a64ef9cac
 debug: Fresh events are fetched {"startBlock":5679829,"endBlock":5679979,"events":7}
 ```
 
+```log
+info: Staking modules loaded
+info: New staking router state cycle start
+info: Sending a message to broker
+info: New staking router state cycle end
+```
+
 ## Development
 
 ```bash
