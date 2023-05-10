@@ -230,22 +230,6 @@ info: No problems found {"type":"deposit","depositRoot":"0xc2c9308fa425a64ef9cac
 debug: Fresh events are fetched {"startBlock":5679829,"endBlock":5679979,"events":7}
 ```
 
-Init contracts addresses
-
-```log
-info: Contract initial address {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:LidoAbi"}
-info: Contract initial address {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:SecurityAbi"}
-info: Contract initial address {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:StakingRouterAbi"}
-```
-
-If contract addresses changed
-
-```log
-info: Contract address was changed {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:LidoAbi"}
-info: Contract address was changed {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:SecurityAbi"}
-info: Contract address was changed {"address":"0x0000000000000000000000000000000000000000","contractKey":"contract:StakingRouterAbi"}
-```
-
 ## Development
 
 ```bash
