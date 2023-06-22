@@ -1,3 +1,6 @@
+# This file is no longer used by semantic-release
+For the latest release notes, please see the [GitHub releases page](https://github.com/lidofinance/lido-council-daemon/releases).
+
 ## [1.8.2](https://github.com/lidofinance/lido-council-daemon/compare/1.8.1...1.8.2) (2023-04-27)
 
 
