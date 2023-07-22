@@ -1,5 +1,5 @@
 const { Parser } = require('stream-json');
-const { pick }   = require('stream-json/filters/Pick');
+const { pick, Pick }   = require('stream-json/filters/Pick');
 const { createReadStream, createWriteStream, existsSync } = require('fs');
 const StreamValues = require('stream-json/streamers/StreamValues');
 const StreamArray = require('stream-json/streamers/StreamArray');
@@ -24,8 +24,17 @@ const { glob } = require('glob');
  */
 const readFileAsStream = async (filePath)  => {
 
-  const fileStream = createReadStream(filePath, 'utf-8')
-    .pipe(Parser.make());
+
+
+
+
+  const eventsFilter = (stack) => {
+    if (!stack) {
+      return false;
+    }
+
+    return stack[0] === 'events';
+  }
 
   /**
    * @type {Promise<Event[]>}
@@ -37,8 +46,8 @@ const readFileAsStream = async (filePath)  => {
      */
     const events = [];
 
-    fileStream
-      .pipe(pick({ filter: 'events' }))
+    createReadStream(filePath, { encoding: 'utf-8' })
+      .pipe(Parser.make())
       .pipe(StreamArray.make())
       .on('data', (eventsBatch) => {
         //console.log(eventChunk);
@@ -70,25 +79,47 @@ const readFileAsStream = async (filePath)  => {
        */
       let headers = {};
 
-      fileStream
-        .pipe(pick({ filter: 'headers' }))
-        .pipe(StreamValues.make())
-        .on('data', (data, i) => {
-          headers = data.value;
-        })
-        .on('finish', () => {
-          //console.log('finish');
-        })
-        .on('end', () => {
-          //console.log('end');
-        })
-        .on('close', () => {
-          //console.log('close');
-          resolve(headers);
-        })
-        .on('error', (error) => {
-          reject(error);
-        });
+      resolve(headers);
+      //
+      // const makeHeadersFilter = () => {
+      //   let headersWasRead = false;
+      //   return (stack) => {
+      //     if (headersWasRead) {
+      //       return false;
+      //     }
+      //
+      //     if (!stack) {
+      //       return false;
+      //     }
+      //
+      //     if (stack[0] === 'headers') {
+      //       headersWasRead = true;
+      //       return true;
+      //     }
+      //
+      //     return false;
+      //   }
+      // }
+      //
+      // fileStream
+      //   .pipe(pick({ filter: makeHeadersFilter() }))
+      //   .pipe(StreamValues.make())
+      //   .on('data', (data, i) => {
+      //     headers = data.value;
+      //   })
+      //   .on('finish', () => {
+      //     //console.log('finish');
+      //   })
+      //   .on('end', () => {
+      //     //console.log('end');
+      //   })
+      //   .on('close', () => {
+      //     //console.log('close');
+      //     resolve(headers);
+      //   })
+      //   .on('error', (error) => {
+      //     reject(error);
+      //   });
     });
 
   const [ events, header ] = await Promise.all([eventsPromise, headersPromise]);
@@ -107,9 +138,10 @@ const writeFileAsStream = (filePath, headers, events)  => {
 
   return new Promise((resolve, reject) => {
     const jsonStream = JSONStream.stringify(
-      '{ "headers": ' + JSON.stringify(headers) + ', "events": [',
+ //     '{ "headers": ' + JSON.stringify(headers) + ', "events": [',
+      '[',
       ',',
-      ']}',
+      ']',
     );
 
     const chunkify = (array, chunkSize) => {
@@ -123,7 +155,7 @@ const writeFileAsStream = (filePath, headers, events)  => {
       return chunks;
     }
 
-    const fileStream = createWriteStream(filePath);
+    const fileStream = createWriteStream(filePath, 'utf-8');
 
     const writeFileStream = jsonStream.pipe(fileStream);
 
@@ -191,7 +223,7 @@ const readFilesAsStream  = async (fileMask) => {
   console.time('read');
   //const res = await readFileAsStream('/home/infloop/Documents/deposit.events.json');
   //const res = await readFileAsStream('./original-deposit.events.json');
-  const res = await readFileAsStream('./chunks-deposit.events.json');
+  const res = await readFileAsStream('./array-deposit.events.json');
   console.timeEnd('read');
 
   const events = res.events.flat();
@@ -202,7 +234,7 @@ const readFilesAsStream  = async (fileMask) => {
   console.log('hasArrayIn', events.some(i => Array.isArray(i)));
 
   console.time('write');
-  //await writeFileAsStream('./chunks-deposit.events.json', res.header, events);
+  await writeFileAsStream('./array-deposit.events.json', res.header, events);
   console.timeEnd('write');
 
 
