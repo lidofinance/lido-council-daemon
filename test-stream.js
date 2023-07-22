@@ -106,8 +106,7 @@ const readFileAsStream = async (filePath)  => {
  * @param {Event[]} events
  * @param {any} data
  */
-const writeFileAsStream = (filePath, headers, events)  => {
-
+const writeFileAsStream = (filePath, headers, events) => {
   return new Promise((resolve, reject) => {
     const jsonStream = JSONStream.stringify(
       '{ "headers": ' + JSON.stringify(headers) + ', "events": [',
@@ -119,8 +118,13 @@ const writeFileAsStream = (filePath, headers, events)  => {
 
     jsonStream.pipe(fileStream);
 
-    for (const event of events) {
-      jsonStream.write(event);
+    const chunkSize = 10000;
+    let i = 0;
+    while (i < events.length) {
+      const end = Math.min(i + chunkSize, events.length);
+      const chunk = events.slice(i, end);
+      jsonStream.write(chunk);
+      i = end;
     }
 
     jsonStream.on('end', () => {
@@ -133,16 +137,18 @@ const writeFileAsStream = (filePath, headers, events)  => {
 
     jsonStream.end();
   });
-
 }
+
+
 
 
 (async function main() {
 
-  const res = await readFileAsStream('./01-deposit.events.json');
+  const res = await readFileAsStream('./deposit.events3.json');
 
   console.log(res.events.length, res.header);
-
+  console.time('WRITE')
   await writeFileAsStream('./01-deposit.events.json', res.header, res.events);
+  console.timeEnd('WRITE')
 
 })().catch(e => console.error(e));
