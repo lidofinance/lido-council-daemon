@@ -73,7 +73,7 @@ const readFileAsStream = async (filePath)  => {
       let headers = {};
 
       fileStream
-        .pipe(pick({filter: 'header'}))
+        .pipe(pick({filter: 'headers'}))
         .pipe(StreamValues.make())
         .on('data', (data, i) => {
           headers = data.value;
@@ -139,11 +139,10 @@ const writeFileAsStream = (filePath, headers, events)  => {
 
 (async function main() {
 
-  const res = await readFileAsStream('/home/infloop/Documents/deposit.events.json');
-  //const res = await readFileAsStream('./01-deposit.events.json');
+  const res = await readFileAsStream('./01-deposit.events.json');
 
   console.log(res.events.length, res.header);
 
-  await writeFileAsStream('./01-deposit.events.json', res.header, [...res.events, ...res.events, ...res.events]);
+  await writeFileAsStream('./01-deposit.events.json', res.header, res.events);
 
 })().catch(e => console.error(e));
