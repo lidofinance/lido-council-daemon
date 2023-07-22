@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { readFile, writeFile, unlink, mkdir, stat } from 'fs/promises';
+import { readFile, writeFile, unlink, mkdir } from 'fs/promises';
 import { join } from 'path';
+import { glob } from 'glob';
 import {
   CACHE_DIR,
   CACHE_DEFAULT_VALUE,
@@ -55,24 +56,12 @@ export class CacheService<
   }
 
   private async getCacheFilePaths(): Promise<string[]> {
-    const dir = await this.getCacheDirPath();
-    const existCacheFiles: string[] = [];
+    const dirPath = await this.getCacheDirPath();
+    const result = await glob(`*([0-9]).${this.cacheFile}`, { cwd: dirPath });
 
-    let batchIndex = 0;
-
-    do {
-      try {
-        const filePath = join(dir, this.getCacheFileName(batchIndex));
-        const fileStat = await stat(filePath);
-
-        if (!fileStat.isFile()) return existCacheFiles;
-        existCacheFiles.push(filePath);
-
-        batchIndex++;
-      } catch (error) {
-        return existCacheFiles;
-      }
-    } while (true);
+    return result
+      .sort((a, b) => parseInt(a) - parseInt(b))
+      .map((filePath) => join(dirPath, filePath));
   }
 
   private async getCacheFromFiles(): Promise<T> {
@@ -113,20 +102,18 @@ export class CacheService<
     const dirPath = await this.getCacheDirPath();
     await mkdir(dirPath, { recursive: true });
 
-    let batchIndex = 0;
+    await this.deleteCacheFiles();
 
-    do {
+    const totalBatches = Math.ceil(data.length / this.cacheBatchSize);
+
+    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
       const from = batchIndex * this.cacheBatchSize;
       const to = (batchIndex + 1) * this.cacheBatchSize;
       const batchedData = data.slice(from, to);
 
-      if (batchedData.length === 0) return;
-
       const filePath = join(dirPath, this.getCacheFileName(batchIndex));
       await writeFile(filePath, JSON.stringify({ headers, data: batchedData }));
-
-      batchIndex++;
-    } while (true);
+    }
   }
 
   private async deleteCacheFiles(): Promise<void> {
