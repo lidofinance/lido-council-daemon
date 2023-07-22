@@ -1,19 +1,25 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { readFile, writeFile, unlink, mkdir } from 'fs/promises';
+import { readFile, writeFile, unlink, mkdir, stat } from 'fs/promises';
 import { join } from 'path';
 import {
   CACHE_DIR,
   CACHE_DEFAULT_VALUE,
   CACHE_FILE_NAME,
+  CACHE_BATCH_SIZE,
 } from './cache.constants';
 import { ProviderService } from 'provider';
 
 @Injectable()
-export class CacheService<T extends unknown> {
+export class CacheService<
+  H extends unknown,
+  D extends unknown,
+  T extends { headers: H; data: D[] } = { headers: H; data: D[] },
+> {
   constructor(
     private providerService: ProviderService,
     @Inject(CACHE_DIR) private cacheDir: string,
     @Inject(CACHE_FILE_NAME) private cacheFile: string,
+    @Inject(CACHE_BATCH_SIZE) private cacheBatchSize: number,
     @Inject(CACHE_DEFAULT_VALUE) private cacheDefaultValue: T,
   ) {}
 
@@ -21,7 +27,7 @@ export class CacheService<T extends unknown> {
 
   public async getCache(): Promise<T> {
     if (!this.cache) {
-      this.cache = await this.getCacheFromFile();
+      this.cache = await this.getCacheFromFiles();
     }
 
     return this.cache;
@@ -29,12 +35,12 @@ export class CacheService<T extends unknown> {
 
   public async setCache(cache: T): Promise<void> {
     this.cache = cache;
-    return await this.saveCacheToFile();
+    return await this.saveCacheToFiles();
   }
 
   public async deleteCache(): Promise<void> {
     this.cache = null;
-    return await this.deleteCacheFile();
+    return await this.deleteCacheFiles();
   }
 
   private async getCacheDirPath(): Promise<string> {
@@ -44,34 +50,89 @@ export class CacheService<T extends unknown> {
     return join(this.cacheDir, networkDir);
   }
 
-  private async getCacheFilePath(): Promise<string> {
-    const dir = await this.getCacheDirPath();
-    return join(dir, this.cacheFile);
+  private getCacheFileName(batchIndex: number): string {
+    return `${batchIndex}.${this.cacheFile}`;
   }
 
-  private async getCacheFromFile(): Promise<T> {
+  private async getCacheFilePaths(): Promise<string[]> {
+    const dir = await this.getCacheDirPath();
+    const existCacheFiles: string[] = [];
+
+    let batchIndex = 0;
+
+    do {
+      try {
+        const filePath = join(dir, this.getCacheFileName(batchIndex));
+        const fileStat = await stat(filePath);
+
+        if (!fileStat.isFile()) return existCacheFiles;
+        existCacheFiles.push(filePath);
+
+        batchIndex++;
+      } catch (error) {
+        return existCacheFiles;
+      }
+    } while (true);
+  }
+
+  private async getCacheFromFiles(): Promise<T> {
     try {
-      const filePath = await this.getCacheFilePath();
-      const content = await readFile(filePath);
-      return JSON.parse(String(content));
+      const filePaths = await this.getCacheFilePaths();
+
+      let headers = this.cacheDefaultValue.headers as H;
+      let data = [] as D[];
+
+      await Promise.all(
+        filePaths.map(async (filePath) => {
+          const content = await readFile(filePath);
+          const parsed = JSON.parse(String(content));
+
+          if (
+            JSON.stringify(headers) !== JSON.stringify(parsed.headers) &&
+            headers !== this.cacheDefaultValue.headers
+          ) {
+            throw new Error('Headers are not equal');
+          }
+
+          headers = parsed.headers;
+          data = data.concat(parsed.data);
+        }),
+      );
+
+      return { headers, data } as T;
     } catch (error) {
       return this.cacheDefaultValue;
     }
   }
 
-  private async saveCacheToFile(): Promise<void> {
+  private async saveCacheToFiles(): Promise<void> {
+    if (!this.cache) throw new Error('Cache is not set');
+
+    const { headers, data } = this.cache;
+
     const dirPath = await this.getCacheDirPath();
-    const filePath = await this.getCacheFilePath();
     await mkdir(dirPath, { recursive: true });
 
-    return await writeFile(filePath, JSON.stringify(this.cache));
+    let batchIndex = 0;
+
+    do {
+      const from = batchIndex * this.cacheBatchSize;
+      const to = (batchIndex + 1) * this.cacheBatchSize;
+      const batchedData = data.slice(from, to);
+
+      if (batchedData.length === 0) return;
+
+      const filePath = join(dirPath, this.getCacheFileName(batchIndex));
+      await writeFile(filePath, JSON.stringify({ headers, data: batchedData }));
+
+      batchIndex++;
+    } while (true);
   }
 
-  private async deleteCacheFile(): Promise<void> {
+  private async deleteCacheFiles(): Promise<void> {
     try {
-      const filePath = await this.getCacheFilePath();
-
-      return await unlink(filePath);
+      const filePaths = await this.getCacheFilePaths();
+      await Promise.all(filePaths.map(async (filePath) => unlink(filePath)));
     } catch (error) {}
   }
 }
