@@ -4,6 +4,7 @@ import { CacheModule } from 'cache';
 import { BlsModule } from 'bls';
 import { DepositService } from './deposit.service';
 import {
+  DEPOSIT_CACHE_BATCH_SIZE,
   DEPOSIT_CACHE_DEFAULT,
   DEPOSIT_CACHE_FILE_NAME,
 } from './deposit.constants';
@@ -12,7 +13,11 @@ import {
   imports: [
     BlsModule,
     SecurityModule,
-    CacheModule.register(DEPOSIT_CACHE_FILE_NAME, DEPOSIT_CACHE_DEFAULT),
+    CacheModule.register(
+      DEPOSIT_CACHE_FILE_NAME,
+      DEPOSIT_CACHE_BATCH_SIZE,
+      DEPOSIT_CACHE_DEFAULT,
+    ),
   ],
   providers: [DepositService],
   exports: [DepositService],

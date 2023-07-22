@@ -11,7 +11,9 @@ import {
 } from './deposit.constants';
 import {
   DepositEvent,
+  VerifiedDepositEvent,
   VerifiedDepositEventsCache,
+  VerifiedDepositEventsCacheHeaders,
   VerifiedDepositEventGroup,
 } from './interfaces';
 import { OneAtTime } from 'common/decorators';
@@ -27,7 +29,10 @@ export class DepositService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
     private repositoryService: RepositoryService,
-    private cacheService: CacheService<VerifiedDepositEventsCache>,
+    private cacheService: CacheService<
+      VerifiedDepositEventsCacheHeaders,
+      VerifiedDepositEvent
+    >,
     private blsService: BlsService,
   ) {}
 
@@ -78,10 +83,10 @@ export class DepositService {
   public validateCacheVersion(
     cachedEvents: VerifiedDepositEventsCache,
   ): boolean {
-    const isSameVersion = cachedEvents.version === APP_VERSION;
+    const isSameVersion = cachedEvents.headers.version === APP_VERSION;
 
     const versions = {
-      cachedVersion: cachedEvents.version,
+      cachedVersion: cachedEvents.headers.version,
       currentVersion: APP_VERSION,
     };
 
@@ -112,11 +117,11 @@ export class DepositService {
     cachedEvents: VerifiedDepositEventsCache,
     currentBlock: number,
   ): boolean {
-    const isCacheValid = currentBlock >= cachedEvents.endBlock;
+    const isCacheValid = currentBlock >= cachedEvents.headers.endBlock;
 
     const blocks = {
-      cachedStartBlock: cachedEvents.startBlock,
-      cachedEndBlock: cachedEvents.endBlock,
+      cachedStartBlock: cachedEvents.headers.startBlock,
+      cachedEndBlock: cachedEvents.headers.endBlock,
       currentBlock,
     };
 
@@ -159,13 +164,16 @@ export class DepositService {
    * @returns event group
    */
   public async getCachedEvents(): Promise<VerifiedDepositEventsCache> {
-    const cachedEventGroup = await this.cacheService.getCache();
+    const { headers, ...rest } = await this.cacheService.getCache();
     const deploymentBlock = await this.getDeploymentBlockByNetwork();
 
     return {
-      ...cachedEventGroup,
-      startBlock: Math.max(cachedEventGroup.startBlock, deploymentBlock),
-      endBlock: Math.max(cachedEventGroup.endBlock, deploymentBlock),
+      headers: {
+        ...headers,
+        startBlock: Math.max(headers.startBlock, deploymentBlock),
+        endBlock: Math.max(headers.endBlock, deploymentBlock),
+      },
+      ...rest,
     };
   }
 
@@ -173,11 +181,14 @@ export class DepositService {
    * Saves deposited events to cache
    */
   public async setCachedEvents(
-    eventGroup: VerifiedDepositEventGroup,
+    cachedEvents: VerifiedDepositEventsCache,
   ): Promise<void> {
     return await this.cacheService.setCache({
-      ...eventGroup,
-      version: APP_VERSION,
+      ...cachedEvents,
+      headers: {
+        ...cachedEvents.headers,
+        version: APP_VERSION,
+      },
     });
   }
 
@@ -241,8 +252,11 @@ export class DepositService {
       this.getCachedEvents(),
     ]);
 
-    const eventGroup = { ...initialCache };
-    const firstNotCachedBlock = initialCache.endBlock + 1;
+    const updatedCachedEvents = {
+      headers: { ...initialCache.headers },
+      data: [...initialCache.data],
+    };
+    const firstNotCachedBlock = initialCache.headers.endBlock + 1;
     const toBlock = currentBlock - DEPOSIT_EVENTS_CACHE_LAG_BLOCKS;
 
     for (
@@ -258,21 +272,23 @@ export class DepositService {
         chunkToBlock,
       );
 
-      eventGroup.endBlock = chunkEventGroup.endBlock;
-      eventGroup.events = eventGroup.events.concat(chunkEventGroup.events);
+      updatedCachedEvents.headers.endBlock = chunkEventGroup.endBlock;
+      updatedCachedEvents.data = updatedCachedEvents.data.concat(
+        chunkEventGroup.events,
+      );
 
       this.logger.log('Historical events are fetched', {
         toBlock,
         startBlock: chunkStartBlock,
         endBlock: chunkToBlock,
-        events: eventGroup.events.length,
+        events: updatedCachedEvents.data.length,
       });
 
-      await this.setCachedEvents(eventGroup);
+      await this.setCachedEvents(updatedCachedEvents);
     }
 
-    const totalEvents = eventGroup.events.length;
-    const newEvents = totalEvents - initialCache.events.length;
+    const totalEvents = updatedCachedEvents.data.length;
+    const newEvents = totalEvents - initialCache.data.length;
 
     const fetchTimeEnd = performance.now();
     const fetchTime = Math.ceil(fetchTimeEnd - fetchTimeStart) / 1000;
@@ -299,7 +315,7 @@ export class DepositService {
     const isCacheValid = this.validateCacheBlock(cachedEvents, blockNumber);
     if (!isCacheValid) process.exit(1);
 
-    const firstNotCachedBlock = cachedEvents.endBlock + 1;
+    const firstNotCachedBlock = cachedEvents.headers.endBlock + 1;
     const freshEventGroup = await this.fetchEventsFallOver(
       firstNotCachedBlock,
       endBlock,
@@ -318,11 +334,11 @@ export class DepositService {
       lastEventBlockHash,
     });
 
-    const mergedEvents = cachedEvents.events.concat(freshEvents);
+    const mergedEvents = cachedEvents.data.concat(freshEvents);
 
     return {
       events: mergedEvents,
-      startBlock: cachedEvents.startBlock,
+      startBlock: cachedEvents.headers.startBlock,
       endBlock,
     };
   }

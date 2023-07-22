@@ -213,7 +213,7 @@ describe('ganache e2e tests', () => {
       mockKeysApi([goodSig], currentBlock, keysApiService);
 
       await depositService.setCachedEvents({
-        events: [
+        data: [
           {
             valid: true,
             pubkey: toHexString(pk),
@@ -225,8 +225,11 @@ describe('ganache e2e tests', () => {
             blockNumber: forkBlock.number,
           },
         ],
-        startBlock: currentBlock.number,
-        endBlock: currentBlock.number,
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          version: '1',
+        },
       });
 
       // Check if the service is ok and ready to go
@@ -311,9 +314,12 @@ describe('ganache e2e tests', () => {
       mockKeysApi([goodSig], currentBlock, keysApiService);
 
       await depositService.setCachedEvents({
-        events: [],
-        startBlock: currentBlock.number,
-        endBlock: currentBlock.number,
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          version: '1',
+        },
       });
 
       // Check if the service is ok and ready to go
@@ -390,9 +396,12 @@ describe('ganache e2e tests', () => {
       mockKeysApi([goodSig], currentBlock, keysApiService);
 
       await depositService.setCachedEvents({
-        events: [],
-        startBlock: currentBlock.number,
-        endBlock: currentBlock.number,
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          version: '1',
+        },
       });
 
       // Check if the service is ok and ready to go
@@ -482,9 +491,12 @@ describe('ganache e2e tests', () => {
       const goodDepositDataRoot = DepositData.hashTreeRoot(goodDepositData);
 
       await depositService.setCachedEvents({
-        events: [],
-        startBlock: currentBlock.number,
-        endBlock: currentBlock.number,
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          version: '1',
+        },
       });
 
       // Check if the service is ok and ready to go
@@ -563,9 +575,12 @@ describe('ganache e2e tests', () => {
       const goodDepositDataRoot = DepositData.hashTreeRoot(goodDepositData);
 
       await depositService.setCachedEvents({
-        events: [],
-        startBlock: currentBlock.number,
-        endBlock: currentBlock.number,
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          version: '1',
+        },
       });
 
       // Check if the service is ok and ready to go

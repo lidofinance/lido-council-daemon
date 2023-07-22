@@ -6,16 +6,24 @@ import { CacheModule } from 'cache';
 import { CacheService } from './cache.service';
 
 describe('CacheService', () => {
-  const defaultCacheValue = {};
+  const defaultCacheValue = {
+    headers: {},
+    data: [] as any[],
+  };
+
+  const batchSize = 10;
+
+  type C = typeof defaultCacheValue;
+
   const cacheFile = 'test.json';
-  let cacheService: CacheService<typeof defaultCacheValue>;
+  let cacheService: CacheService<C['headers'], C['data'], C>;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot(),
         MockProviderModule.forRoot(),
-        CacheModule.register(cacheFile, defaultCacheValue),
+        CacheModule.register(cacheFile, batchSize, defaultCacheValue),
         LoggerModule,
       ],
     }).compile();
@@ -32,11 +40,11 @@ describe('CacheService', () => {
   describe('getCache, setCache', () => {
     it('should return default cache', async () => {
       const result = await cacheService.getCache();
-      expect(result).toBe(defaultCacheValue);
+      expect(result).toEqual(defaultCacheValue);
     });
 
     it('should return saved cache', async () => {
-      const expected = { foo: 'bar' };
+      const expected = { headers: {}, data: [{ foo: 'bar' }] };
 
       await cacheService.setCache(expected);
       const result = await cacheService.getCache();
