@@ -1,7 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { readFile, writeFile, unlink, mkdir } from 'fs/promises';
 import { join } from 'path';
-import { glob } from 'glob';
+import { promisify } from 'util';
+import * as gl from 'glob';
 import {
   CACHE_DIR,
   CACHE_DEFAULT_VALUE,
@@ -9,6 +10,8 @@ import {
   CACHE_BATCH_SIZE,
 } from './cache.constants';
 import { ProviderService } from 'provider';
+
+const glob = promisify(gl.glob);
 
 @Injectable()
 export class CacheService<
