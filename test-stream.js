@@ -1,14 +1,10 @@
-const make = require('stream-json/streamers/StreamArray');
-const chain = require('stream-chain');
 const { Parser } = require('stream-json');
 const { pick }   = require('stream-json/filters/Pick');
-const { finished, pipeline } = require('stream/promises');
-
-const { createReadStream, createWriteStream, stat } = require('fs');
+const { createReadStream, createWriteStream, existsSync } = require('fs');
 const StreamValues = require('stream-json/streamers/StreamValues');
 const StreamArray = require('stream-json/streamers/StreamArray');
 const JSONStream = require('JSONStream');
-const {resolve} = require("path");
+const { glob } = require('glob');
 
 /**
  * @typedef Header
@@ -42,10 +38,12 @@ const readFileAsStream = async (filePath)  => {
     const events = [];
 
     fileStream
-      .pipe(pick({filter: 'events'}))
+      .pipe(pick({ filter: 'events' }))
       .pipe(StreamArray.make())
-      .on('data', (event) => {
-        events.push(event);
+      .on('data', (eventsBatch) => {
+        //console.log(eventChunk);
+        //events.push(...eventChunk.value.map(v => v.value));
+        events.push(eventsBatch.value);
       })
       .on('end', () => {
         //console.log('end');
@@ -73,7 +71,7 @@ const readFileAsStream = async (filePath)  => {
       let headers = {};
 
       fileStream
-        .pipe(pick({filter: 'headers'}))
+        .pipe(pick({ filter: 'headers' }))
         .pipe(StreamValues.make())
         .on('data', (data, i) => {
           headers = data.value;
@@ -93,8 +91,7 @@ const readFileAsStream = async (filePath)  => {
         });
     });
 
-  const events = await eventsPromise;
-  const header = await headersPromise;
+  const [ events, header ] = await Promise.all([eventsPromise, headersPromise]);
 
   return { header, events };
 }
@@ -115,19 +112,43 @@ const writeFileAsStream = (filePath, headers, events)  => {
       ']}',
     );
 
+    const chunkify = (array, chunkSize) => {
+      const chunks = [];
+      for (let i = 0; i < array.length; i += chunkSize) {
+        const chunk = array.slice(i, i + chunkSize);
+        // do whatever
+        chunks.push(chunk);
+      }
+
+      return chunks;
+    }
+
     const fileStream = createWriteStream(filePath);
 
-    jsonStream.pipe(fileStream);
+    const writeFileStream = jsonStream.pipe(fileStream);
 
-    for (const event of events) {
-      jsonStream.write(event);
+    const chunks = chunkify(events, 10000);
+
+    let i = 0;
+    for (const eventChunk of chunks) {
+      jsonStream.write(eventChunk);
+      i++;
     }
 
     jsonStream.on('end', () => {
+      console.log('jsonStream end');
+    });
+
+    writeFileStream.on('end', () => {
+      console.log('write end');
+    });
+
+    writeFileStream.on('close', () => {
+      console.log('write close');
       resolve();
     });
 
-    jsonStream.on('error', (err) => {
+    writeFileStream.on('error', (err) => {
       reject(err);
     })
 
@@ -136,13 +157,53 @@ const writeFileAsStream = (filePath, headers, events)  => {
 
 }
 
+/**
+ *
+ * @param {string} fileMask
+ * @return {Promise<string[]>}
+ */
+const getFilesByMask = (fileMask) => {
+  return new Promise((resolve, reject) => {
+    glob(fileMask, { debug: true }, (err, files)=> {
+      if (err) {
+        return reject(err);
+      }
+      return resolve(files);
+    });
+  });
+
+}
+
+const readFilesAsStream  = async (fileMask) => {
+  const files = await getFilesByMask(fileMask);
+
+  console.log('files', files);
+
+}
+
 
 (async function main() {
 
-  const res = await readFileAsStream('./01-deposit.events.json');
+  //console.log(__dirname);
 
-  console.log(res.events.length, res.header);
+  //await readFilesAsStream(__dirname + '/*.json');
 
-  await writeFileAsStream('./01-deposit.events.json', res.header, res.events);
+  console.time('read');
+  //const res = await readFileAsStream('/home/infloop/Documents/deposit.events.json');
+  //const res = await readFileAsStream('./original-deposit.events.json');
+  const res = await readFileAsStream('./chunks-deposit.events.json');
+  console.timeEnd('read');
+
+  const events = res.events.flat();
+
+  console.log(events.length, res.header);
+  //console.log(events[0]);
+  //console.log(events[res.events.length - 1]);
+  console.log('hasArrayIn', events.some(i => Array.isArray(i)));
+
+  console.time('write');
+  //await writeFileAsStream('./chunks-deposit.events.json', res.header, events);
+  console.timeEnd('write');
+
 
 })().catch(e => console.error(e));

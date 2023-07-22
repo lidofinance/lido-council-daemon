@@ -48,6 +48,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
     "ethers": "^5.4.7",
+    "glob": "^10.3.3",
     "kafkajs": "^1.15.0",
     "level": "^8.0.0",
     "nest-winston": "^1.6.1",
