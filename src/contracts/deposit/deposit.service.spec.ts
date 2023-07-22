@@ -15,7 +15,10 @@ import {
 } from 'provider';
 import { DepositAbi__factory } from 'generated';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
-import { DepositEventGroup } from './interfaces';
+import {
+  VerifiedDepositEventsCacheHeaders,
+  VerifiedDepositEvent,
+} from './interfaces';
 import { DepositModule } from './deposit.module';
 import { DepositService } from './deposit.service';
 import { PrometheusModule } from 'common/prometheus';
@@ -31,7 +34,10 @@ const mockSleep = sleep as jest.MockedFunction<typeof sleep>;
 
 describe('DepositService', () => {
   let providerService: ProviderService;
-  let cacheService: CacheService<DepositEventGroup>;
+  let cacheService: CacheService<
+    VerifiedDepositEventsCacheHeaders,
+    VerifiedDepositEvent
+  >;
   let depositService: DepositService;
   let loggerService: LoggerService;
   let repositoryService: RepositoryService;
@@ -110,9 +116,12 @@ describe('DepositService', () => {
 
     it('should return events from cache', async () => {
       const cache = {
-        events: [{} as any],
-        startBlock: deploymentBlock,
-        endBlock: deploymentBlock + 100,
+        data: [{} as any],
+        headers: {
+          startBlock: deploymentBlock,
+          endBlock: deploymentBlock + 100,
+          version: '1',
+        },
       };
 
       const mockCache = jest
@@ -127,9 +136,12 @@ describe('DepositService', () => {
 
     it('should return deploymentBlock if cache is empty', async () => {
       const cache = {
-        events: [{} as any],
-        startBlock: 0,
-        endBlock: 0,
+        data: [{} as any],
+        headers: {
+          startBlock: 0,
+          endBlock: 0,
+          version: '1',
+        },
       };
 
       const mockCache = jest
@@ -139,8 +151,8 @@ describe('DepositService', () => {
       const result = await depositService.getCachedEvents();
 
       expect(mockCache).toBeCalledTimes(1);
-      expect(result.startBlock).toBe(deploymentBlock);
-      expect(result.endBlock).toBe(deploymentBlock);
+      expect(result.headers.startBlock).toBe(deploymentBlock);
+      expect(result.headers.endBlock).toBe(deploymentBlock);
     });
   });
 
@@ -157,7 +169,7 @@ describe('DepositService', () => {
       expect(mockSetCache).toBeCalledTimes(1);
       expect(mockSetCache).toBeCalledWith({
         ...eventGroup,
-        version: APP_VERSION,
+        headers: { version: APP_VERSION },
       });
     });
   });
@@ -293,19 +305,21 @@ describe('DepositService', () => {
 
   describe('updateEventsCache', () => {
     const cachedPubkeys = ['0x1234', '0x5678'];
-    const cachedEvents = {
-      startBlock: 0,
-      endBlock: 2,
-      version: '1',
-      events: cachedPubkeys.map((pubkey) => ({ pubkey } as any)),
+    const cache = {
+      headers: {
+        startBlock: 0,
+        endBlock: 2,
+        version: '1',
+      },
+      data: cachedPubkeys.map((pubkey) => ({ pubkey } as any)),
     };
     const currentBlock = 1000;
-    const firstNotCachedBlock = cachedEvents.endBlock + 1;
+    const firstNotCachedBlock = cache.headers.endBlock + 1;
 
     beforeEach(async () => {
       jest
         .spyOn(depositService, 'getCachedEvents')
-        .mockImplementation(async () => cachedEvents);
+        .mockImplementation(async () => ({ ...cache }));
 
       jest
         .spyOn(providerService, 'getBlockNumber')
@@ -350,9 +364,11 @@ describe('DepositService', () => {
 
       expect(mockSetCachedEvents).toBeCalledTimes(1);
       const { calls: cacheCalls } = mockSetCachedEvents.mock;
-      expect(cacheCalls[0][0].startBlock).toBe(cachedEvents.startBlock);
-      expect(cacheCalls[0][0].endBlock).toBeLessThan(currentBlock);
-      expect(cacheCalls[0][0].events).toEqual(cachedEvents.events);
+      expect(cacheCalls[0][0].headers.startBlock).toBe(
+        cache.headers.startBlock,
+      );
+      expect(cacheCalls[0][0].headers.endBlock).toBeLessThan(currentBlock);
+      expect(cacheCalls[0][0].data).toEqual(cache.data);
     });
   });
 
@@ -360,18 +376,21 @@ describe('DepositService', () => {
     const cachedPubkeys = ['0x1234', '0x5678'];
     const freshPubkeys = ['0x4321', '0x8765'];
     const cachedEvents = {
-      startBlock: 0,
-      endBlock: 2,
-      events: cachedPubkeys.map((pubkey) => ({ pubkey } as any)),
+      headers: {
+        startBlock: 0,
+        endBlock: 2,
+        version: '1',
+      },
+      data: cachedPubkeys.map((pubkey) => ({ pubkey } as any)),
     };
     const currentBlock = 10;
     const currentBlockHash = '0x12';
-    const firstNotCachedBlock = cachedEvents.endBlock + 1;
+    const firstNotCachedBlock = cachedEvents.headers.endBlock + 1;
 
     beforeEach(async () => {
       jest
         .spyOn(depositService, 'getCachedEvents')
-        .mockImplementation(async () => ({ ...cachedEvents, version: '1' }));
+        .mockImplementation(async () => ({ ...cachedEvents }));
 
       jest
         .spyOn(providerService, 'getBlockNumber')
@@ -391,7 +410,11 @@ describe('DepositService', () => {
         currentBlock,
         currentBlockHash,
       );
-      expect(result).toEqual({ ...cachedEvents, endBlock: currentBlock });
+      expect(result).toEqual({
+        events: cachedEvents.data,
+        startBlock: cachedEvents.headers.startBlock,
+        endBlock: currentBlock,
+      });
 
       expect(mockFetchEventsFallOver).toBeCalledTimes(1);
       expect(mockFetchEventsFallOver).toBeCalledWith(
@@ -414,7 +437,7 @@ describe('DepositService', () => {
         currentBlockHash,
       );
       expect(result).toEqual({
-        startBlock: cachedEvents.startBlock,
+        startBlock: cachedEvents.headers.startBlock,
         endBlock: currentBlock,
         events: cachedPubkeys
           .concat(freshPubkeys)
