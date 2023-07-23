@@ -1,6 +1,6 @@
 {
   "name": "lido-council-daemon",
-  "version": "1.8.2",
+  "version": "1.9.1",
   "description": "Lido Council Daemon",
   "author": "Lido team",
   "private": true,
@@ -65,6 +65,7 @@
     "@typechain/ethers-v5": "^7.1.2",
     "@types/app-root-path": "^1.2.4",
     "@types/cache-manager": "^3.4.3",
+    "@types/glob": "^8.1.0",
     "@types/jest": "^27.0.1",
     "@types/kafkajs": "^1.9.0",
     "@types/node": "^16.0.0",
