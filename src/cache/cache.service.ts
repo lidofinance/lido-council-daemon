@@ -63,7 +63,7 @@ export class CacheService<
     const result = await glob(`*([0-9]).${this.cacheFile}`, { cwd: dirPath });
 
     return result
-      .sort((a, b) => parseInt(a) - parseInt(b))
+      .sort((a, b) => parseInt(a, 10) - parseInt(b, 10))
       .map((filePath) => join(dirPath, filePath));
   }
 
