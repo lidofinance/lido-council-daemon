@@ -1,5 +1,7 @@
 import { CHAINS } from '@lido-sdk/constants';
-import { VerifiedDepositEventsCache, VerifiedDepositEventsCacheHeaders } from './interfaces';
+import {
+  VerifiedDepositEventsCache,
+} from './interfaces';
 
 export const DEPLOYMENT_BLOCK_NETWORK: {
   [key in CHAINS]?: number;
