@@ -11,9 +11,7 @@ import {
 } from './deposit.constants';
 import {
   DepositEvent,
-  VerifiedDepositEvent,
   VerifiedDepositEventsCache,
-  VerifiedDepositEventsCacheHeaders,
   VerifiedDepositEventGroup,
 } from './interfaces';
 import { OneAtTime } from 'common/decorators';
@@ -30,8 +28,8 @@ export class DepositService {
     private providerService: ProviderService,
     private repositoryService: RepositoryService,
     private cacheService: CacheService<
-      VerifiedDepositEventsCacheHeaders,
-      VerifiedDepositEvent
+      VerifiedDepositEventsCache['headers'],
+      VerifiedDepositEventsCache['data'][number]
     >,
     private blsService: BlsService,
   ) {}

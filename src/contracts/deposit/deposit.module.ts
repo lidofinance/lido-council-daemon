@@ -7,6 +7,7 @@ import {
   DEPOSIT_CACHE_BATCH_SIZE,
   DEPOSIT_CACHE_DEFAULT,
   DEPOSIT_CACHE_FILE_NAME,
+  DEPOSIT_CACHE_VALUE_TYPE,
 } from './deposit.constants';
 
 @Module({
@@ -16,6 +17,7 @@ import {
     CacheModule.register(
       DEPOSIT_CACHE_FILE_NAME,
       DEPOSIT_CACHE_BATCH_SIZE,
+      DEPOSIT_CACHE_VALUE_TYPE,
       DEPOSIT_CACHE_DEFAULT,
     ),
   ],

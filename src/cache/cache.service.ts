@@ -1,128 +1,234 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { readFile, writeFile, unlink, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { promisify } from 'util';
-import * as gl from 'glob';
+import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import {
   CACHE_DIR,
   CACHE_DEFAULT_VALUE,
   CACHE_FILE_NAME,
   CACHE_BATCH_SIZE,
+  CACHE_VALUE_TYPE,
 } from './cache.constants';
 import { ProviderService } from 'provider';
-
-const glob = promisify(gl.glob);
+import {
+  CacheData,
+  CacheDirWithChainId,
+  CacheHeaders,
+  CacheStats,
+  Json,
+  Stats,
+} from './types';
+import {
+  deleteAllCacheFiles,
+  getCacheFilePaths,
+  makeCacheFileName,
+  validateCacheFilePathsOrFail,
+} from './utils';
+import { basename, join } from 'path';
+import * as z from 'zod';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { CacheError } from './errors';
+import { mkdir, readFile, writeFile } from 'fs/promises';
 
 @Injectable()
 export class CacheService<
-  H extends unknown,
-  D extends unknown,
-  T extends { headers: H; data: D[] } = { headers: H; data: D[] },
+  Headers extends CacheHeaders,
+  Data extends CacheData,
 > {
   constructor(
     private providerService: ProviderService,
     @Inject(CACHE_DIR) private cacheDir: string,
-    @Inject(CACHE_FILE_NAME) private cacheFile: string,
+    @Inject(CACHE_FILE_NAME) private cacheFileName: string,
     @Inject(CACHE_BATCH_SIZE) private cacheBatchSize: number,
-    @Inject(CACHE_DEFAULT_VALUE) private cacheDefaultValue: T,
-  ) {}
+    @Inject(CACHE_DEFAULT_VALUE)
+    private cacheDefaultValue: { headers: Headers; data: Data[] },
+    @Inject(CACHE_VALUE_TYPE)
+    private cacheValueType: z.ZodType<{ headers: Headers; data: Data[] }>,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger?: LoggerService,
+  ) {
+    if (!this.cacheFileName) {
+      throw new CacheError('Empty cache file name');
+    }
+  }
 
-  private cache: T | null = null;
+  private cache: { headers: Headers; data: Data[] } | null = null;
 
-  public async getCache(): Promise<T> {
+  public async getCache(): Promise<{ headers: Headers; data: Data[] }> {
     if (!this.cache) {
-      this.cache = await this.getCacheFromFiles();
+      const cacheDir = await this.getCacheDirPath();
+      const filePaths = await getCacheFilePaths(cacheDir, this.cacheFileName);
+      this.cache = await this.readCacheFromFiles(
+        filePaths,
+        this.cacheValueType,
+        this.cacheDefaultValue,
+      );
     }
 
     return this.cache;
   }
 
-  public async setCache(cache: T): Promise<void> {
+  public async setCache(cache: {
+    headers: Headers;
+    data: Data[];
+  }): Promise<void> {
     this.cache = cache;
-    return await this.saveCacheToFiles();
+    return await this.writeCacheToFiles(
+      this.cache,
+      await this.getCacheDirPath(),
+      this.cacheFileName,
+      this.cacheBatchSize,
+    );
   }
 
   public async deleteCache(): Promise<void> {
+    const cacheDir = await this.getCacheDirPath();
+    const filePaths = await getCacheFilePaths(cacheDir, this.cacheFileName);
+    await deleteAllCacheFiles(filePaths);
     this.cache = null;
-    return await this.deleteCacheFiles();
   }
 
-  private async getCacheDirPath(): Promise<string> {
+  private async getCacheDirPath(): Promise<CacheDirWithChainId> {
     const chainId = await this.providerService.getChainId();
     const networkDir = `chain-${chainId}`;
 
-    return join(this.cacheDir, networkDir);
+    return <CacheDirWithChainId>join(this.cacheDir, networkDir);
   }
 
-  private getCacheFileName(batchIndex: number): string {
-    return `${batchIndex}.${this.cacheFile}`;
+  private async writeCacheToFiles(
+    cache: { headers: Headers; data: Data[] },
+    cacheDir: CacheDirWithChainId,
+    cacheFilePostfix: string,
+    cacheDataBatchSize: number,
+  ): Promise<void> {
+    const { headers, data } = cache;
+
+    await mkdir(cacheDir, { recursive: true });
+    const filePaths = await getCacheFilePaths(cacheDir, cacheFilePostfix);
+    await deleteAllCacheFiles(filePaths);
+    await mkdir(cacheDir, { recursive: true });
+
+    const dataTotalLength = data.length;
+    const totalBatches = Math.ceil(data.length / cacheDataBatchSize);
+
+    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+      const from = batchIndex * cacheDataBatchSize;
+      const to = (batchIndex + 1) * cacheDataBatchSize;
+      const batchedData = data.slice(from, to);
+
+      const filePath = join(
+        cacheDir,
+        makeCacheFileName(batchIndex, cacheFilePostfix),
+      );
+
+      await this.writeCacheFile(filePath, {
+        headers: headers,
+        stats: { dataTotalLength },
+        data: batchedData,
+      });
+    }
   }
 
-  private async getCacheFilePaths(): Promise<string[]> {
-    const dirPath = await this.getCacheDirPath();
-    const result = await glob(`*([0-9]).${this.cacheFile}`, { cwd: dirPath });
-
-    return result
-      .sort((a, b) => parseInt(a, 10) - parseInt(b, 10))
-      .map((filePath) => join(dirPath, filePath));
-  }
-
-  private async getCacheFromFiles(): Promise<T> {
+  private async writeCacheFile(
+    filePath: string,
+    content: { headers: Headers; data: Data[]; stats: Stats },
+  ): Promise<void> {
+    let contentToWrite = '';
     try {
-      const filePaths = await this.getCacheFilePaths();
+      contentToWrite = JSON.stringify(
+        {
+          headers: content.headers,
+          stats: content.stats,
+          data: content.data,
+        },
+        null,
+        ' ',
+      );
+    } catch (err) {
+      throw new CacheError(`Can't stringify cache content`, err);
+    }
 
-      let headers = this.cacheDefaultValue.headers as H;
-      let data = [] as D[];
+    await writeFile(filePath, contentToWrite, 'utf-8');
+  }
 
-      await Promise.all(
+  private async readCacheFromFiles(
+    filePaths: string[],
+    valueType: z.ZodType<{ headers: Headers; data: Data[] }>,
+    defaultValue: { headers: Headers; data: Data[] },
+  ): Promise<{ headers: Headers; data: Data[] }> {
+    try {
+      validateCacheFilePathsOrFail(filePaths);
+
+      const cacheType = z.intersection(CacheStats, valueType);
+
+      const allContents = await Promise.all(
         filePaths.map(async (filePath) => {
-          const content = await readFile(filePath);
-          const parsed = JSON.parse(String(content));
-
-          if (
-            JSON.stringify(headers) !== JSON.stringify(parsed.headers) &&
-            headers !== this.cacheDefaultValue.headers
-          ) {
-            throw new Error('Headers are not equal');
-          }
-
-          headers = parsed.headers;
-          data = data.concat(parsed.data);
+          return await this.readCacheFile(filePath, cacheType);
         }),
       );
 
-      return { headers, data } as T;
+      if (allContents.length < 1) {
+        return defaultValue;
+      }
+
+      // checking that all headers are equal
+      const allHeadersEqual = allContents.every(
+        (content, i, arr) =>
+          JSON.stringify(arr[0]?.headers ?? '') ===
+          JSON.stringify(content.headers),
+      );
+
+      if (!allHeadersEqual) {
+        throw new CacheError('Cache headers are not equal');
+      }
+
+      // checking that all stats equal
+      const allStatsAreEqual = allContents.every(
+        (content, i, arr) =>
+          JSON.stringify(arr[0]?.stats?.dataTotalLength ?? 0) ===
+          JSON.stringify(content.stats.dataTotalLength),
+      );
+
+      if (!allStatsAreEqual) {
+        throw new CacheError('Cache stats are not equal');
+      }
+
+      const headers: Headers = allContents[0].headers;
+      const stats = allContents[0].stats;
+
+      const data: Data[] = allContents.reduce(
+        (accumulator, content) => accumulator.concat(content.data),
+        <Data[]>[],
+      );
+
+      if (stats.dataTotalLength !== data.length) {
+        throw new CacheError(
+          'Headers data length does not match real data length',
+        );
+      }
+
+      return { headers, data };
     } catch (error) {
-      return this.cacheDefaultValue;
+      this.logger?.warn('Deposit events cache will be set to a default value', {
+        error,
+      });
+
+      return defaultValue;
     }
   }
 
-  private async saveCacheToFiles(): Promise<void> {
-    if (!this.cache) throw new Error('Cache is not set');
+  private async readCacheFile(
+    filePath: string,
+    valueType: z.ZodType<{ headers: Headers; data: Data[]; stats: Stats }>,
+  ): Promise<{ headers: Headers; data: Data[]; stats: Stats }> {
+    const content = await readFile(filePath, 'utf-8');
+    const parsed: Json = JSON.parse(content);
 
-    const { headers, data } = this.cache;
+    const res = valueType.safeParse(parsed);
 
-    const dirPath = await this.getCacheDirPath();
-    await mkdir(dirPath, { recursive: true });
-
-    await this.deleteCacheFiles();
-
-    const totalBatches = Math.ceil(data.length / this.cacheBatchSize);
-
-    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
-      const from = batchIndex * this.cacheBatchSize;
-      const to = (batchIndex + 1) * this.cacheBatchSize;
-      const batchedData = data.slice(from, to);
-
-      const filePath = join(dirPath, this.getCacheFileName(batchIndex));
-      await writeFile(filePath, JSON.stringify({ headers, data: batchedData }));
+    if (res.success) {
+      return res.data;
     }
-  }
 
-  private async deleteCacheFiles(): Promise<void> {
-    try {
-      const filePaths = await this.getCacheFilePaths();
-      await Promise.all(filePaths.map(async (filePath) => unlink(filePath)));
-    } catch (error) {}
+    throw new CacheError(
+      `Cache file [${basename(filePath)}] integrity error`,
+      res.error,
+    );
   }
 }

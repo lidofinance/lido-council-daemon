@@ -1,4 +1,5 @@
 import { CHAINS } from '@lido-sdk/constants';
+import { VerifiedDepositEventsCache, VerifiedDepositEventsCacheHeaders } from './interfaces';
 
 export const DEPLOYMENT_BLOCK_NETWORK: {
   [key in CHAINS]?: number;
@@ -22,7 +23,7 @@ export const DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE = 10;
 export const DEPOSIT_CACHE_FILE_NAME = 'deposit.events.json';
 export const DEPOSIT_CACHE_BATCH_SIZE = 100_000;
 
-export const DEPOSIT_CACHE_DEFAULT = Object.freeze({
+export const DEPOSIT_CACHE_DEFAULT: VerifiedDepositEventsCache = Object.freeze({
   headers: {
     version: '-1',
     startBlock: 0,
@@ -30,3 +31,5 @@ export const DEPOSIT_CACHE_DEFAULT = Object.freeze({
   },
   data: [],
 });
+
+export const DEPOSIT_CACHE_VALUE_TYPE = VerifiedDepositEventsCache;
