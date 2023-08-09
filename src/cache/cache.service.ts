@@ -78,10 +78,10 @@ export class CacheService<
   }
 
   public async deleteCache(): Promise<void> {
+    this.cache = null;
     const cacheDir = await this.getCacheDirPath();
     const filePaths = await getCacheFilePaths(cacheDir, this.cacheFileName);
     await deleteAllCacheFiles(filePaths);
-    this.cache = null;
   }
 
   private async getCacheDirPath(): Promise<CacheDirWithChainId> {

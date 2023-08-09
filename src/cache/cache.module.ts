@@ -13,7 +13,7 @@ import * as z from 'zod';
 @Module({})
 export class CacheModule {
   static register<T>(
-    filePrefix: string,
+    fileName: string,
     batchSize: number,
     defaultValueType: z.ZodType<T>,
     defaultValue: T,
@@ -29,7 +29,7 @@ export class CacheModule {
         },
         {
           provide: CACHE_FILE_NAME,
-          useValue: filePrefix,
+          useValue: fileName,
         },
         {
           provide: CACHE_BATCH_SIZE,
