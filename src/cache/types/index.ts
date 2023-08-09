@@ -1,11 +1,5 @@
 import * as z from 'zod';
 
-// export type Json = boolean | number | string | null | JsonArray | JsonRecord;
-// export type JsonRecord = {
-//   [key: string]: Json;
-// };
-// export type JsonArray = Array<Json>;
-
 export const JsonLiteral = z.union([
   z.string(),
   z.number(),
