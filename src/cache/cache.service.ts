@@ -181,8 +181,8 @@ export class CacheService<
       // checking that all stats equal
       const allStatsAreEqual = allContents.every(
         (content, i, arr) =>
-          JSON.stringify(arr[0]?.stats?.dataTotalLength ?? 0) ===
-          JSON.stringify(content.stats.dataTotalLength),
+          (arr[0]?.stats?.dataTotalLength ?? 0) ===
+          content.stats.dataTotalLength,
       );
 
       if (!allStatsAreEqual) {
@@ -192,9 +192,9 @@ export class CacheService<
       const headers: Headers = allContents[0].headers;
       const stats = allContents[0].stats;
 
-      const data: Data[] = allContents.reduce(
+      const data: Data[] = allContents.reduce<Data[]>(
         (accumulator, content) => accumulator.concat(content.data),
-        <Data[]>[],
+        [],
       );
 
       if (stats.dataTotalLength !== data.length) {
