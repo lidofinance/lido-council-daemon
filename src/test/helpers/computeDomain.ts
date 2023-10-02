@@ -4,13 +4,13 @@ import {
   DOMAIN_DEPOSIT,
   GENESIS_FORK_VERSION_BY_CHAIN_ID,
   ZERO_HASH,
-} from '../../src/bls/bls.constants';
+} from '../../bls/bls.constants';
 
 import {
   DepositMessage,
   ForkData,
   SigningData,
-} from '../../src/bls/bls.containers';
+} from '../../bls/bls.containers';
 
 import { CHAIN_ID } from '../constants';
 
