@@ -10,7 +10,7 @@ export const DEPLOYMENT_BLOCK_NETWORK: {
 
 export const getDeploymentBlockByNetwork = (chainId: CHAINS): number => {
   const address = DEPLOYMENT_BLOCK_NETWORK[chainId];
-  if (!address) throw new Error(`Chain ${chainId} is not supported`);
+  if (address == null) throw new Error(`Chain ${chainId} is not supported`);
 
   return address;
 };
