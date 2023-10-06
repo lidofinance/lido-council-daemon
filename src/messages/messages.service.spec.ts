@@ -57,12 +57,15 @@ describe('MessagesService', () => {
       jest
         .spyOn(providerService, 'getChainId')
         .mockImplementationOnce(async () => CHAINS.Mainnet)
-        .mockImplementationOnce(async () => CHAINS.Goerli);
+        .mockImplementationOnce(async () => CHAINS.Goerli)
+        .mockImplementationOnce(async () => CHAINS.Holesky);
 
       const mainnetTopic = await messagesService.getMessageTopic();
       const goerliTopic = await messagesService.getMessageTopic();
+      const holeskyTopic = await messagesService.getMessageTopic();
 
       expect(mainnetTopic).not.toBe(goerliTopic);
+      expect(mainnetTopic).not.toBe(holeskyTopic);
     });
   });
 
