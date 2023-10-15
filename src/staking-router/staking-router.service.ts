@@ -2,11 +2,11 @@ import { Injectable, LoggerService, Inject } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Configuration } from 'common/config';
 import { KeysApiService } from 'keys-api/keys-api.service';
-import { SRModuleKeysResponse, SRModule } from 'keys-api/interfaces';
+import { SRModule, SRModuleKeys } from 'keys-api/interfaces';
 
 @Injectable()
 export class StakingRouterService {
-  protected stakingRouterCache: Record<number, SRModuleKeysResponse> = {};
+  protected stakingRouterCache: Record<number, SRModuleKeys> = {};
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) protected logger: LoggerService,
     protected readonly config: Configuration,
@@ -49,7 +49,7 @@ export class StakingRouterService {
 
   protected setStakingRouterCache(
     stakingModuleId: number,
-    srResponse: SRModuleKeysResponse,
+    srResponse: SRModuleKeys,
   ) {
     this.stakingRouterCache[stakingModuleId] = srResponse;
   }

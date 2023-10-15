@@ -52,6 +52,9 @@ export class KeysApiService {
     );
     if (!result.data || !result.meta)
       throw Error('Keys API not synced, please wait');
-    return result;
+    return {
+      data: result.data as NonNullable<typeof result.data>,
+      meta: result.meta as NonNullable<typeof result.meta>,
+    };
   }
 }

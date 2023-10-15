@@ -22,6 +22,8 @@ export const mockKeysApi = (
     name: 'NodeOperatorRegistry',
     lastDepositAt: block.timestamp,
     lastDepositBlock: block.number,
+    exitedValidatorsCount: 1,
+    active: true,
   };
 
   const mockedMeta = {
@@ -36,6 +38,7 @@ export const mockKeysApi = (
     operatorIndex: 0,
     used,
     index: 0,
+    moduleAddress: '0x000',
   }));
 
   jest.spyOn(keysApiService, 'getModulesList').mockImplementation(async () => ({
