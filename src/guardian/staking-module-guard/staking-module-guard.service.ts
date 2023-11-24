@@ -12,6 +12,7 @@ import { GuardianMessageService } from '../guardian-message';
 
 import { StakingRouterService } from 'staking-router';
 import { SRModule } from 'keys-api/interfaces';
+import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 
 @Injectable()
 export class StakingModuleGuardService {
@@ -30,34 +31,56 @@ export class StakingModuleGuardService {
   private lastContractsStateByModuleId: Record<number, ContractsState | null> =
     {};
 
-  public async getStakingRouterModuleData(
-    stakingRouterModule: SRModule,
-    blockHash: string,
-  ): Promise<StakingModuleData> {
-    const {
-      data: {
-        keys,
-        module: { nonce },
-      },
-    } = await this.stakingRouterService.getStakingModuleUnusedKeys(
-      blockHash,
-      stakingRouterModule,
+  // public async getStakingRouterModuleData(
+  //   stakingRouterModule: SRModule,
+  //   blockHash: string,
+  // ): Promise<StakingModuleData> {
+  //   const {
+  //     data: {
+  //       keys,
+  //       module: { nonce },
+  //     },
+  //   } = await this.stakingRouterService.getStakingModuleUnusedKeys(
+  //     blockHash,
+  //     stakingRouterModule,
+  //   );
+
+  //   const isDepositsPaused = await this.securityService.isDepositsPaused(
+  //     stakingRouterModule.id,
+  //     {
+  //       blockHash,
+  //     },
+  //   );
+
+  //   return {
+  //     nonce,
+  //     unusedKeys: keys.map((srKey) => srKey.key),
+  //     isDepositsPaused,
+  //     stakingModuleId: stakingRouterModule.id,
+  //     blockHash,
+  //   };
+  // }
+
+  /**
+   * Check vetted among staking modules
+   */
+  public async checkVettedKeysDuplicates(
+    vettedKeys: RegistryKey[],
+    blockData: BlockData,
+  ): Promise<void> {
+    const uniqueKeys = new Set();
+    const duplicatedKeys = vettedKeys.filter(
+      (vettedKey) => uniqueKeys.size === uniqueKeys.add(vettedKey.key).size,
     );
 
-    const isDepositsPaused = await this.securityService.isDepositsPaused(
-      stakingRouterModule.id,
-      {
-        blockHash,
-      },
-    );
+    if (duplicatedKeys.length) {
+      this.logger.warn('Found duplicated vetted key', {
+        blockHash: blockData.blockHash,
+        duplicatedKeys,
+      });
 
-    return {
-      nonce,
-      unusedKeys: keys.map((srKey) => srKey.key),
-      isDepositsPaused,
-      stakingModuleId: stakingRouterModule.id,
-      blockHash,
-    };
+      return;
+    }
   }
 
   /**
@@ -88,7 +111,14 @@ export class StakingModuleGuardService {
       filteredIntersections,
     );
 
-    if (stakingModuleData.isDepositsPaused) {
+    const isDepositsPaused = await this.securityService.isDepositsPaused(
+      stakingModuleData.stakingModuleId,
+      {
+        blockHash: stakingModuleData.blockHash,
+      },
+    );
+
+    if (isDepositsPaused) {
       this.logger.warn('Deposits are paused', { blockHash, stakingModuleId });
       return;
     }

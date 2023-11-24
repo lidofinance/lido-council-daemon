@@ -3,6 +3,9 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Configuration } from 'common/config';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { SRModuleKeysResponse, SRModule } from 'keys-api/interfaces';
+import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
+import { StakingModuleData } from 'guardian';
+import { SecurityService } from 'contracts/security';
 
 @Injectable()
 export class StakingRouterService {
@@ -41,6 +44,73 @@ export class StakingRouterService {
     this.setStakingRouterCache(id, srResponse);
 
     return srResponse;
+  }
+
+  public async getVettedAndUnusedKeys() {
+    // TODO: add cache by module nonce
+    const operatorsByModules =
+      await this.keysApiService.getOperatorListWithModule();
+    const operatorsBlockHash =
+      operatorsByModules.meta.elBlockSnapshot.blockHash;
+    const operatorsBlockNumber =
+      operatorsByModules.meta.elBlockSnapshot.blockNumber;
+
+    const unusedKeys = await this.keysApiService.getUnusedKeys();
+    const keysBlockHash = unusedKeys.meta.elBlockSnapshot.blockHash;
+    if (keysBlockHash != operatorsBlockHash) {
+      this.logger.log('Blockhash of the received keys and operators', {
+        keysBlockHash,
+        operatorsBlockHash,
+      });
+
+      throw Error(
+        'Blockhash of the received keys does not match the blockhash of operators',
+      );
+    }
+
+    // found vetted keys
+    const vettedKeys: RegistryKey[] = [];
+    const stakingModulesData: StakingModuleData[] = [];
+
+    operatorsByModules.data.forEach(({ operators, module: stakingModule }) => {
+      const moduleKeys: RegistryKey[] = [];
+      const moduleVettedKeys: RegistryKey[] = [];
+      operators.forEach((operator) => {
+        const operatorKeys = unusedKeys.data.filter(
+          (key) =>
+            key.moduleAddress === operator.moduleAddress &&
+            key.operatorIndex === operator.index,
+        );
+        // Sort the filtered keys by index
+        operatorKeys.sort((a, b) => a.index - b.index);
+
+        moduleKeys.push(...operatorKeys);
+
+        const numberOfVettedUnusedKeys =
+          operator.stakingLimit - operator.usedSigningKeys;
+        const operatorVettedKeys = operatorKeys.slice(
+          0,
+          numberOfVettedUnusedKeys,
+        );
+        moduleVettedKeys.push(...operatorVettedKeys);
+        vettedKeys.push(...operatorVettedKeys);
+      });
+
+      stakingModulesData.push({
+        unusedKeys: moduleKeys.map((srKey) => srKey.key),
+        nonce: stakingModule.nonce,
+        stakingModuleId: stakingModule.id,
+        blockHash: operatorsBlockHash,
+        vettedKeys: moduleVettedKeys,
+      });
+    });
+
+    return {
+      stakingModulesData,
+      vettedKeys,
+      blockHash: operatorsBlockHash,
+      blockNumber: operatorsBlockNumber,
+    };
   }
 
   protected getStakingRouterKeysCache(stakingModuleId: number) {
