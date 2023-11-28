@@ -12,6 +12,7 @@ import { GuardianMessageService } from '../guardian-message';
 
 import { StakingRouterService } from 'staking-router';
 import { SRModule } from 'keys-api/interfaces';
+import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 
 @Injectable()
 export class StakingModuleGuardService {
@@ -30,34 +31,55 @@ export class StakingModuleGuardService {
   private lastContractsStateByModuleId: Record<number, ContractsState | null> =
     {};
 
-  public async getStakingRouterModuleData(
-    stakingRouterModule: SRModule,
-    blockHash: string,
-  ): Promise<StakingModuleData> {
-    const {
-      data: {
-        keys,
-        module: { nonce },
-      },
-    } = await this.stakingRouterService.getStakingModuleUnusedKeys(
-      blockHash,
-      stakingRouterModule,
+  // public async getStakingRouterModuleData(
+  //   stakingRouterModule: SRModule,
+  //   blockHash: string,
+  // ): Promise<StakingModuleData> {
+  //   const {
+  //     data: {
+  //       keys,
+  //       module: { nonce },
+  //     },
+  //   } = await this.stakingRouterService.getStakingModuleUnusedKeys(
+  //     blockHash,
+  //     stakingRouterModule,
+  //   );
+
+  //   const isDepositsPaused = await this.securityService.isDepositsPaused(
+  //     stakingRouterModule.id,
+  //     {
+  //       blockHash,
+  //     },
+  //   );
+
+  //   return {
+  //     nonce,
+  //     unusedKeys: keys.map((srKey) => srKey.key),
+  //     stakingModuleId: stakingRouterModule.id,
+  //     blockHash,
+  //   };
+  // }
+
+  /**
+   * Check vetted among staking modules
+   */
+  public async checkVettedKeysDuplicates(
+    vettedKeys: RegistryKey[],
+    blockData: BlockData,
+  ): Promise<void> {
+    const uniqueKeys = new Set();
+    const duplicatedKeys = vettedKeys.filter(
+      (vettedKey) => uniqueKeys.size === uniqueKeys.add(vettedKey.key).size,
     );
 
-    const isDepositsPaused = await this.securityService.isDepositsPaused(
-      stakingRouterModule.id,
-      {
-        blockHash,
-      },
-    );
-
-    return {
-      nonce,
-      unusedKeys: keys.map((srKey) => srKey.key),
-      isDepositsPaused,
-      stakingModuleId: stakingRouterModule.id,
-      blockHash,
-    };
+    if (duplicatedKeys.length) {
+      this.logger.warn('Found duplicated vetted key', {
+        blockHash: blockData.blockHash,
+        duplicatedKeys,
+      });
+      //TODO: set metric
+      throw Error('Found duplicated vetted key');
+    }
   }
 
   /**
@@ -88,7 +110,14 @@ export class StakingModuleGuardService {
       filteredIntersections,
     );
 
-    if (stakingModuleData.isDepositsPaused) {
+    const isDepositsPaused = await this.securityService.isDepositsPaused(
+      stakingModuleData.stakingModuleId,
+      {
+        blockHash: stakingModuleData.blockHash,
+      },
+    );
+
+    if (isDepositsPaused) {
       this.logger.warn('Deposits are paused', { blockHash, stakingModuleId });
       return;
     }
@@ -96,6 +125,17 @@ export class StakingModuleGuardService {
     if (isFilteredIntersectionsFound) {
       await this.handleKeysIntersections(stakingModuleData, blockData);
     } else {
+      const usedKeys = await this.handleIntersectionBetweenUsedAndUnusedKeys(
+        keysIntersections,
+      );
+
+      // if found used keys, Lido already made deposit on this keys
+      if (usedKeys.length) {
+        this.logger.log('Found that we already deposited on these keys');
+        // set metric ccouncil_daemon_used_duplicate
+        return;
+      }
+
       await this.handleCorrectKeys(stakingModuleData, blockData);
     }
   }
@@ -154,6 +194,29 @@ export class StakingModuleGuardService {
     );
 
     return attackIntersections;
+  }
+
+  public async handleIntersectionBetweenUsedAndUnusedKeys(
+    intersectionsWithLidoWC: VerifiedDepositEvent[],
+  ) {
+    const depositedPubkeys = intersectionsWithLidoWC.map(
+      (deposit) => deposit.pubkey,
+    );
+
+    if (depositedPubkeys.length) {
+      console.log('deposited pubkeys', depositedPubkeys);
+      this.logger.log(
+        'Found intersections with lido credentials, need to check duplicated keys',
+      );
+
+      const keys = await this.stakingRouterService.getKeysWithDuplicates(
+        depositedPubkeys,
+      );
+      const usedKeys = keys.data.filter((key) => key.used);
+      return usedKeys;
+    }
+
+    return [];
   }
 
   /**

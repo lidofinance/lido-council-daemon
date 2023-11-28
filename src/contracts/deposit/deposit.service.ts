@@ -36,6 +36,7 @@ export class DepositService {
     private blsService: BlsService,
   ) {}
 
+  // Why OneAtTime() ? this function is executed in guardian.service inside another function with OneAtTime() in cron job
   @OneAtTime()
   public async handleNewBlock(blockNumber: number): Promise<void> {
     if (blockNumber % DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE !== 0) return;
@@ -336,6 +337,7 @@ export class DepositService {
 
     const mergedEvents = cachedEvents.data.concat(freshEvents);
 
+    // TODO: Why we don't cache freshEvents?
     return {
       events: mergedEvents,
       startBlock: cachedEvents.headers.startBlock,

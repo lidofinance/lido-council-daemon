@@ -19,4 +19,9 @@ export type RegistryKey = {
    * Key index in contract
    */
   index: number;
+
+  /**
+   * Staking module address
+   */
+  moduleAddress: string;
 };

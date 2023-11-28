@@ -96,10 +96,9 @@ export class GuardianService implements OnModuleInit {
     this.logger.log('New staking router state cycle start');
 
     try {
-      const {
-        elBlockSnapshot: { blockHash, blockNumber },
-        data: stakingModules,
-      } = await this.stakingRouterService.getStakingModules();
+      // TODO: rename
+      const { blockHash, blockNumber, vettedKeys, stakingModulesData } =
+        await this.stakingRouterService.getVettedAndUnusedKeys();
 
       await this.repositoryService.initCachedContracts({ blockHash });
 
@@ -119,8 +118,10 @@ export class GuardianService implements OnModuleInit {
         return;
       }
 
+      const stakingModulesNumber = stakingModulesData.length;
+
       this.logger.log('Staking modules loaded', {
-        modulesCount: stakingModules.length,
+        modulesCount: stakingModulesNumber,
       });
 
       await this.depositService.handleNewBlock(blockNumber);
@@ -136,14 +137,14 @@ export class GuardianService implements OnModuleInit {
         blockHash: blockData.blockHash,
       });
 
-      await Promise.all(
-        stakingModules.map(async (stakingRouterModule) => {
-          const stakingModuleData =
-            await this.stakingModuleGuardService.getStakingRouterModuleData(
-              stakingRouterModule,
-              blockHash,
-            );
+      // TODO: check only if one of nonce changed
+      await this.stakingModuleGuardService.checkVettedKeysDuplicates(
+        vettedKeys,
+        blockData,
+      );
 
+      await Promise.all(
+        stakingModulesData.map(async (stakingModuleData) => {
           await this.stakingModuleGuardService.checkKeysIntersections(
             stakingModuleData,
             blockData,
@@ -157,7 +158,7 @@ export class GuardianService implements OnModuleInit {
       );
 
       await this.guardianMessageService.pingMessageBroker(
-        stakingModules.map(({ id }) => id),
+        stakingModulesData.map(({ stakingModuleId }) => stakingModuleId),
         blockData,
       );
 
