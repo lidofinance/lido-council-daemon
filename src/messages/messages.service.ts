@@ -13,7 +13,7 @@ export class MessagesService {
   constructor(
     @InjectMetric(METRIC_SENT_MESSAGES) public messageCounter: Counter<string>,
     private providerService: ProviderService,
-    private transportService: TransportInterface,
+    // private transportService: TransportInterface,
     private config: Configuration,
   ) {}
 
@@ -38,7 +38,7 @@ export class MessagesService {
     const topic = await this.getMessageTopic();
     const messageType = message.type;
 
-    await this.transportService.publish(topic, message, messageType);
+    // await this.transportService.publish(topic, message, messageType);
 
     this.messageCounter.labels({ messageType }).inc();
   }

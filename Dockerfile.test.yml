@@ -1,2 +1,2 @@
-FROM rabbitmq:3.10-management
+FROM rabbitmq:3.12.9
 RUN rabbitmq-plugins enable rabbitmq_web_stomp

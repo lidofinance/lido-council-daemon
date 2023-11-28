@@ -1,17 +1,21 @@
-import { Inject, Injectable, LoggerService } from '@nestjs/common';
-import { UnusedKeyData } from './interfaces/unused-key-data.interface';
+import { Injectable } from '@nestjs/common';
+// import { UnusedKeyData } from './interfaces/unused-key-data.interface';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
-import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { BlsService } from 'bls';
+
+export type UnusedKeyData = {
+  operatorIndex: number;
+  depositSignature: string;
+  isValid: boolean;
+  index: number;
+  moduleAddress: string;
+};
 
 @Injectable()
 export class UnusedKeysValidationService {
   private store: Map<string, UnusedKeyData>;
 
-  constructor(
-    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-    private blsService: BlsService,
-  ) {
+  constructor(private blsService: BlsService) {
     this.store = new Map<string, UnusedKeyData>();
   }
 
@@ -32,17 +36,33 @@ export class UnusedKeysValidationService {
     return invalidKeys;
   }
 
+  private isDataDifferent(data, key) {
+    return (
+      data.depositSignature !== key.depositSignature ||
+      data.operatorIndex != key.operatorIndex ||
+      data.index != key.index ||
+      data.moduleAddress != key.moduleAddress
+    );
+  }
+
   // Adds a new element or updates it if it already exists
   validateAndCacheKey(lidoWC: string, key: RegistryKey): boolean {
+    console.log('validateAndCacheKey');
     const data = this.store.get(key.key);
 
     if (data) {
       // Update the element only if the signature has changed
-      if (data.depositSignature !== key.depositSignature) {
-        data.depositSignature = key.depositSignature;
-        data.isValid = this.validate(lidoWC, key.key, key.depositSignature);
+      if (this.isDataDifferent(data, key)) {
+        const isValid = this.validate(lidoWC, key.key, key.depositSignature);
+        this.store.set(key.key, {
+          operatorIndex: key.operatorIndex,
+          depositSignature: key.depositSignature,
+          isValid,
+          index: key.index,
+          moduleAddress: key.moduleAddress,
+        });
 
-        return data.isValid;
+        return isValid;
       }
 
       return data.isValid;
@@ -52,7 +72,9 @@ export class UnusedKeysValidationService {
       this.store.set(key.key, {
         operatorIndex: key.operatorIndex,
         depositSignature: key.depositSignature,
-        isValid: isValid,
+        isValid,
+        index: key.index,
+        moduleAddress: key.moduleAddress,
       });
 
       return isValid;
@@ -63,15 +85,14 @@ export class UnusedKeysValidationService {
     const depositData = {
       pubkey,
       wc: lidoWC,
-      amount: this.ethAmountInWeiHex(32),
+      amount: '0x0040597307000000',
       signature,
     };
 
     return this.blsService.verify(depositData);
   }
 
-  ethAmountInWeiHex(eth: number) {
-    const amountInWei = BigInt(eth) * BigInt(10 ** 18);
-    return amountInWei.toString(16);
+  clearCache(): void {
+    this.store.clear();
   }
 }

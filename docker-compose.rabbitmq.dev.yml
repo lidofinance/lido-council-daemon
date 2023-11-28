@@ -1,0 +1,72 @@
+version: '3.7'
+
+services:
+  keys_api_service_db:
+    image: postgres:14-alpine
+    platform: linux/arm64/v8
+    container_name: keys_api_service_db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${KEYS_API_DB_NAME}
+      - POSTGRES_USER=${KEYS_API_DB_USER}
+      - POSTGRES_PASSWORD=${KEYS_API_DB_PASSWORD}
+    ports:
+      - ${KEYS_API_DB_PORT}:5432
+    volumes:
+      - ./.volumes/pgdata-${CHAIN_ID}/:/var/lib/postgresql/data
+
+  keys_api_service_api:
+    image: lidofinance/lido-keys-api:dev
+    platform: linux/amd64
+    container_name: keys_api_service_api
+    ports:
+      - '127.0.0.1:${KEYS_API_PORT}:3001'
+    environment:
+      - PORT=3001
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_FORMAT=${LOG_FORMAT}
+      - CHAIN_ID=${CHAIN_ID}
+      - PROVIDERS_URLS=${RPC_URL}
+      - VALIDATOR_REGISTRY_ENABLE=false
+      - DB_NAME=${KEYS_API_DB_NAME}
+      - DB_PORT=5432
+      - DB_HOST=keys_api_service_db
+      - DB_USER=${KEYS_API_DB_USER}
+      - DB_PASSWORD=${KEYS_API_DB_PASSWORD}
+    depends_on:
+      - keys_api_service_db
+
+  council_daemon:
+    build: ./
+    ports:
+      - "${PORT}:3000" # port is used for prometheus metrics
+    environment:
+      - PORT=${PORT}
+      - LOG_LEVEL=debug
+      - LOG_FORMAT=json
+      - RPC_URL=${RPC_URL}
+      - WALLET_PRIVATE_KEY=${WALLET_PRIVATE_KEY}
+      - KEYS_API_HOST=http://keys_api_service_api
+      - KEYS_API_PORT=3001
+      - PUBSUB_SERVICE=rabbitmq
+      - RABBITMQ_URL=wss://rabbitmq:15674/ws
+      - RABBITMQ_LOGIN=${RABBITMQ_LOGIN}
+      - RABBITMQ_PASSCODE=${RABBITMQ_PASSCODE}
+    depends_on:
+      # - rabbitmq
+      - keys_api_service_api
+    volumes:
+      - ./.volumes/cache/:/council/cache/
+    
+  # rabbitmq:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.test.yml
+  #   container_name: 'rabbitmq'
+  #   ports:
+  #       - 5672:5672
+  #       - 15672:15672
+  #       - 15674:15674
+  #   environment:
+  #     RABBITMQ_DEFAULT_USER: "user"
+  #     RABBITMQ_DEFAULT_PASS: "password"

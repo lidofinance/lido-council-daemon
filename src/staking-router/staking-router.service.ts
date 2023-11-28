@@ -47,7 +47,7 @@ export class StakingRouterService {
   }
 
   public async getVettedAndUnusedKeys() {
-    // TODO: add cache by module nonce
+    // TODO: add cache by modules nonce
     const operatorsByModules =
       await this.keysApiService.getOperatorListWithModule();
     const operatorsBlockHash =
@@ -111,6 +111,10 @@ export class StakingRouterService {
       blockHash: operatorsBlockHash,
       blockNumber: operatorsBlockNumber,
     };
+  }
+
+  public async getKeysWithDuplicates(pubkeys: string[]) {
+    return await this.keysApiService.getKeysWithDuplicates(pubkeys);
   }
 
   protected getStakingRouterKeysCache(stakingModuleId: number) {

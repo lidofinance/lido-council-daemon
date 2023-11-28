@@ -3,7 +3,7 @@ import { TransportModule } from 'transport';
 import { MessagesService } from './messages.service';
 
 @Module({
-  imports: [TransportModule],
+  // imports: [TransportModule],
   providers: [MessagesService],
   exports: [MessagesService],
 })

@@ -22,6 +22,9 @@ import { BlockGuardService } from './block-guard';
 import { StakingModuleGuardService } from './staking-module-guard';
 import { GuardianMessageService } from './guardian-message';
 import { GuardianMetricsService } from './guardian-metrics';
+import { UnusedKeysValidationService } from './unused-keys-validation/unused-keys-validation.service';
+import { MultithreadedUnusedKeysValidationService } from './unused-keys-validation/multithread-keys-validation.service';
+import { LidoService } from 'contracts/lido';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -42,8 +45,10 @@ export class GuardianService implements OnModuleInit {
 
     private blockGuardService: BlockGuardService,
     private stakingModuleGuardService: StakingModuleGuardService,
-    private guardianMessageService: GuardianMessageService,
+    // private guardianMessageService: GuardianMessageService,
     private guardianMetricsService: GuardianMetricsService,
+    private unusedKeysValidationService: MultithreadedUnusedKeysValidationService,
+    private lidoService: LidoService,
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -96,8 +101,18 @@ export class GuardianService implements OnModuleInit {
     this.logger.log('New staking router state cycle start');
 
     try {
+      // TODO: rename
       const { blockHash, blockNumber, vettedKeys, stakingModulesData } =
         await this.stakingRouterService.getVettedAndUnusedKeys();
+
+      const lidoWC = await this.lidoService.getWithdrawalCredentials({
+        blockHash,
+      });
+
+      await this.unusedKeysValidationService.validateAndCacheList(
+        lidoWC,
+        vettedKeys,
+      );
 
       await this.repositoryService.initCachedContracts({ blockHash });
 
@@ -136,6 +151,7 @@ export class GuardianService implements OnModuleInit {
         blockHash: blockData.blockHash,
       });
 
+      // maybe check only if one of nonce changed
       await this.stakingModuleGuardService.checkVettedKeysDuplicates(
         vettedKeys,
         blockData,
@@ -155,10 +171,11 @@ export class GuardianService implements OnModuleInit {
         }),
       );
 
-      await this.guardianMessageService.pingMessageBroker(
-        stakingModulesData.map(({ stakingModuleId }) => stakingModuleId),
-        blockData,
-      );
+      // console.log('ping!!!!!!!!!');
+      // await this.guardianMessageService.pingMessageBroker(
+      //   stakingModulesData.map(({ stakingModuleId }) => stakingModuleId),
+      //   blockData,
+      // );
 
       this.blockGuardService.setLastProcessedStateMeta({
         blockHash,

@@ -15,7 +15,7 @@ import { StakingModuleGuardService } from './staking-module-guard.service';
     LidoModule,
     StakingRouterModule,
     GuardianMetricsModule,
-    GuardianMessageModule,
+    // GuardianMessageModule,
   ],
   providers: [StakingModuleGuardService],
   exports: [StakingModuleGuardService],

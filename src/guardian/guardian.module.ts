@@ -10,6 +10,7 @@ import { BlockGuardModule } from './block-guard/block-guard.module';
 import { StakingModuleGuardModule } from './staking-module-guard';
 import { GuardianMessageModule } from './guardian-message';
 import { GuardianMetricsModule } from './guardian-metrics';
+import { UnusedKeysValidationModule } from './unused-keys-validation/unused-keys-validation.module';
 
 @Module({
   imports: [
@@ -21,8 +22,10 @@ import { GuardianMetricsModule } from './guardian-metrics';
     ScheduleModule,
     BlockGuardModule,
     StakingModuleGuardModule,
-    GuardianMessageModule,
+    // GuardianMessageModule,
     GuardianMetricsModule,
+    UnusedKeysValidationModule,
+    LidoModule,
   ],
   providers: [GuardianService],
   exports: [GuardianService],

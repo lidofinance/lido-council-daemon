@@ -24,42 +24,11 @@ export class StakingModuleGuardService {
     private lidoService: LidoService,
 
     private stakingRouterService: StakingRouterService,
-    private guardianMetricsService: GuardianMetricsService,
-    private guardianMessageService: GuardianMessageService,
+    private guardianMetricsService: GuardianMetricsService, // private guardianMessageService: GuardianMessageService,
   ) {}
 
   private lastContractsStateByModuleId: Record<number, ContractsState | null> =
     {};
-
-  // public async getStakingRouterModuleData(
-  //   stakingRouterModule: SRModule,
-  //   blockHash: string,
-  // ): Promise<StakingModuleData> {
-  //   const {
-  //     data: {
-  //       keys,
-  //       module: { nonce },
-  //     },
-  //   } = await this.stakingRouterService.getStakingModuleUnusedKeys(
-  //     blockHash,
-  //     stakingRouterModule,
-  //   );
-
-  //   const isDepositsPaused = await this.securityService.isDepositsPaused(
-  //     stakingRouterModule.id,
-  //     {
-  //       blockHash,
-  //     },
-  //   );
-
-  //   return {
-  //     nonce,
-  //     unusedKeys: keys.map((srKey) => srKey.key),
-  //     isDepositsPaused,
-  //     stakingModuleId: stakingRouterModule.id,
-  //     blockHash,
-  //   };
-  // }
 
   /**
    * Check vetted among staking modules
@@ -78,8 +47,8 @@ export class StakingModuleGuardService {
         blockHash: blockData.blockHash,
         duplicatedKeys,
       });
-
-      return;
+      //TODO: set metric
+      throw Error('Found duplicated vetted key');
     }
   }
 
@@ -94,7 +63,7 @@ export class StakingModuleGuardService {
     const { blockHash } = blockData;
     const { stakingModuleId } = stakingModuleData;
 
-    const keysIntersections = this.getKeysIntersections(
+    const keysIntersections = await this.getKeysIntersections(
       stakingModuleData,
       blockData,
     );
@@ -103,6 +72,7 @@ export class StakingModuleGuardService {
       blockData,
       keysIntersections,
     );
+
     const isFilteredIntersectionsFound = filteredIntersections.length > 0;
 
     this.guardianMetricsService.collectIntersectionsMetrics(
@@ -126,6 +96,16 @@ export class StakingModuleGuardService {
     if (isFilteredIntersectionsFound) {
       await this.handleKeysIntersections(stakingModuleData, blockData);
     } else {
+      const usedKeys = await this.handleIntersectionBetweenUsedAndUnusedKeys(
+        keysIntersections,
+      );
+
+      // if found used keys, Lido already made deposit on this keys
+      if (usedKeys) {
+        this.logger.log('Found that we already deposited on these keys');
+        return;
+      }
+
       await this.handleCorrectKeys(stakingModuleData, blockData);
     }
   }
@@ -136,10 +116,10 @@ export class StakingModuleGuardService {
    * @param blockData - collected data from the current block
    * @returns list of keys that were deposited earlier
    */
-  public getKeysIntersections(
+  public async getKeysIntersections(
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
-  ): VerifiedDepositEvent[] {
+  ): Promise<VerifiedDepositEvent[]> {
     const { blockHash, depositRoot, depositedEvents } = blockData;
     const { nonce, unusedKeys, stakingModuleId } = stakingModuleData;
 
@@ -186,6 +166,22 @@ export class StakingModuleGuardService {
     return attackIntersections;
   }
 
+  public async handleIntersectionBetweenUsedAndUnusedKeys(
+    intersectionsWithLidoWC: VerifiedDepositEvent[],
+  ) {
+    this.logger.log(
+      'Found intersections with lido credentials, need to check duplicated keys',
+    );
+    const depositedPubkeys = intersectionsWithLidoWC.map(
+      (deposit) => deposit.pubkey,
+    );
+    const keys = await this.stakingRouterService.getKeysWithDuplicates(
+      depositedPubkeys,
+    );
+    const usedKeys = keys.data.filter((key) => key.used);
+    return usedKeys;
+  }
+
   /**
    * Handles the situation when keys have previously deposited copies
    * @param blockData - collected data from the current block
@@ -226,11 +222,11 @@ export class StakingModuleGuardService {
     });
 
     // Call pause without waiting for completion
-    this.securityService
-      .pauseDeposits(blockNumber, stakingModuleId, signature)
-      .catch((error) => this.logger.error(error));
+    // this.securityService
+    //   .pauseDeposits(blockNumber, stakingModuleId, signature)
+    //   .catch((error) => this.logger.error(error));
 
-    await this.guardianMessageService.sendPauseMessage(pauseMessage);
+    // await this.guardianMessageService.sendPauseMessage(pauseMessage);
   }
 
   /**
@@ -290,7 +286,7 @@ export class StakingModuleGuardService {
       newState: currentContractState,
     });
 
-    await this.guardianMessageService.sendDepositMessage(depositMessage);
+    // await this.guardianMessageService.sendDepositMessage(depositMessage);
   }
 
   /**
