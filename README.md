@@ -239,11 +239,30 @@ info: New staking router state cycle end
 
 ## Development
 
+### Copy env file for development and print your RPC_URL
+
+```bash
+cp develop.env ./.env
+```
+
+```diff
+- RPC_URL=%NODE_URL%
++ https://mainnet.infura.io/v3/***
+```
+
+### Starting the development environment (PostgreSQL, KAPI, Grafana, Prometheus, RabbitMQ)
+
+```bash
+docker-compose -f ./docker-compose.dev.yml up -d
+```
+
+### Run Council Daemon
+
 ```bash
 # development
 $ yarn start
 
-# watch mode
+# development watch mode
 $ yarn start:dev
 ```
 
