@@ -22,6 +22,7 @@ import { BlockGuardService } from './block-guard';
 import { StakingModuleGuardService } from './staking-module-guard';
 import { GuardianMessageService } from './guardian-message';
 import { GuardianMetricsService } from './guardian-metrics';
+import { StakingModuleData } from './interfaces';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -138,13 +139,24 @@ export class GuardianService implements OnModuleInit {
       });
 
       // TODO: check only if one of nonce changed
-      await this.stakingModuleGuardService.checkVettedKeysDuplicates(
-        vettedKeys,
-        blockData,
-      );
+      const addressesOfModulesWithDuplicateKeys: string[] =
+        this.stakingModuleGuardService.checkVettedKeysDuplicates(
+          vettedKeys,
+          blockData,
+        );
+
+      const stakingModulesWithoutDuplicates: StakingModuleData[] =
+        this.stakingModuleGuardService.excludeModulesWithDuplicatedKeys(
+          stakingModulesData,
+          addressesOfModulesWithDuplicateKeys,
+        );
+
+      this.logger.log('Staking modules without duplicates', {
+        modulesCount: stakingModulesWithoutDuplicates.length,
+      });
 
       await Promise.all(
-        stakingModulesData.map(async (stakingModuleData) => {
+        stakingModulesWithoutDuplicates.map(async (stakingModuleData) => {
           await this.stakingModuleGuardService.checkKeysIntersections(
             stakingModuleData,
             blockData,

@@ -17,10 +17,19 @@ import {
   GuardianMessageService,
 } from '../guardian-message';
 import { StakingModuleGuardService } from './staking-module-guard.service';
+import { StakingModuleData } from 'guardian/interfaces';
+import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
+import {
+  vettedKeysDuplicatesAcrossModules,
+  vettedKeysDuplicatesAcrossOneModule,
+  vettedKeysDuplicatesAcrossOneModuleAndFew,
+  vettedKeysWithoutDuplicates,
+} from './keys.fixtures';
 
 jest.mock('../../transport/stomp/stomp.client');
 
 const TEST_MODULE_ID = 1;
+
 const stakingModuleData = {
   nonce: 0,
   type: 'string',
@@ -37,7 +46,7 @@ const stakingModuleData = {
   isDepositsPaused: false,
 };
 
-describe('GuardianService', () => {
+describe('StakingModuleGuardService', () => {
   let loggerService: LoggerService;
   let lidoService: LidoService;
   let securityService: SecurityService;
@@ -81,7 +90,7 @@ describe('GuardianService', () => {
       };
       const blockData = { unusedKeys, depositedEvents } as any;
       const matched = stakingModuleGuardService.getKeysIntersections(
-        { ...stakingModuleData, unusedKeys },
+        { ...stakingModuleData, unusedKeys, vettedKeys: [] },
         blockData,
       );
 
@@ -98,7 +107,7 @@ describe('GuardianService', () => {
       };
       const blockData = { unusedKeys, depositedEvents } as any;
       const matched = stakingModuleGuardService.getKeysIntersections(
-        { ...stakingModuleData, unusedKeys },
+        { ...stakingModuleData, unusedKeys, vettedKeys: [] },
         blockData,
       );
 
@@ -114,7 +123,7 @@ describe('GuardianService', () => {
       };
       const blockData = { unusedKeys, depositedEvents } as any;
       const matched = stakingModuleGuardService.getKeysIntersections(
-        { ...stakingModuleData, unusedKeys },
+        { ...stakingModuleData, unusedKeys, vettedKeys: [] },
         blockData,
       );
 
@@ -180,18 +189,23 @@ describe('GuardianService', () => {
         .spyOn(lidoService, 'getWithdrawalCredentials')
         .mockImplementation(async () => lidoWC);
 
+      const mockSecurityContractIsDepositsPaused = jest
+        .spyOn(securityService, 'isDepositsPaused')
+        .mockImplementation(async () => false);
+
       await stakingModuleGuardService.checkKeysIntersections(
-        { ...stakingModuleData, unusedKeys },
+        { ...stakingModuleData, unusedKeys, vettedKeys: [] },
         blockData,
       );
 
       expect(mockHandleCorrectKeys).not.toBeCalled();
       expect(mockHandleKeysIntersections).toBeCalledTimes(1);
       expect(mockHandleKeysIntersections).toBeCalledWith(
-        { ...stakingModuleData, unusedKeys },
+        { ...stakingModuleData, unusedKeys, vettedKeys: [] },
         blockData,
       );
       expect(mockGetWithdrawalCredentials).toBeCalledTimes(1);
+      expect(mockSecurityContractIsDepositsPaused).toBeCalledTimes(1);
     });
 
     it('should call handleCorrectKeys if Lido unused keys are not found in the deposit contract', async () => {
@@ -207,17 +221,22 @@ describe('GuardianService', () => {
         .spyOn(stakingModuleGuardService, 'handleKeysIntersections')
         .mockImplementation(async () => undefined);
 
+      const mockSecurityContractIsDepositsPaused = jest
+        .spyOn(securityService, 'isDepositsPaused')
+        .mockImplementation(async () => false);
+
       await stakingModuleGuardService.checkKeysIntersections(
-        { ...stakingModuleData, unusedKeys },
+        { ...stakingModuleData, unusedKeys, vettedKeys: [] },
         blockData,
       );
 
       expect(mockHandleKeysIntersections).not.toBeCalled();
       expect(mockHandleCorrectKeys).toBeCalledTimes(1);
       expect(mockHandleCorrectKeys).toBeCalledWith(
-        { ...stakingModuleData, unusedKeys },
+        { ...stakingModuleData, unusedKeys, vettedKeys: [] },
         blockData,
       );
+      expect(mockSecurityContractIsDepositsPaused).toBeCalledTimes(1);
     });
   });
 
@@ -245,11 +264,11 @@ describe('GuardianService', () => {
         .mockImplementation(async () => signature);
 
       await stakingModuleGuardService.handleCorrectKeys(
-        { ...stakingModuleData, unusedKeys: [] },
+        { ...stakingModuleData, unusedKeys: [], vettedKeys: [] },
         blockData,
       );
       await stakingModuleGuardService.handleCorrectKeys(
-        { ...stakingModuleData, unusedKeys: [] },
+        { ...stakingModuleData, unusedKeys: [], vettedKeys: [] },
         blockData,
       );
 
@@ -272,7 +291,7 @@ describe('GuardianService', () => {
         .mockImplementation(async () => signature);
 
       await stakingModuleGuardService.handleCorrectKeys(
-        { ...stakingModuleData, unusedKeys: [] },
+        { ...stakingModuleData, unusedKeys: [], vettedKeys: [] },
         blockData,
       );
 
@@ -352,7 +371,7 @@ describe('GuardianService', () => {
         .mockImplementation(async () => undefined);
 
       await stakingModuleGuardService.handleKeysIntersections(
-        { ...stakingModuleData, unusedKeys: [] },
+        { ...stakingModuleData, unusedKeys: [], vettedKeys: [] },
         blockData,
       );
 
@@ -374,7 +393,7 @@ describe('GuardianService', () => {
         .mockImplementation(async () => undefined);
 
       await stakingModuleGuardService.handleKeysIntersections(
-        { ...stakingModuleData, unusedKeys: [] },
+        { ...stakingModuleData, unusedKeys: [], vettedKeys: [] },
         blockData,
       );
 
@@ -429,6 +448,217 @@ describe('GuardianService', () => {
         nonce: 2,
       });
       expect(result).toBeFalsy();
+    });
+  });
+
+  describe('excludeModulesWithDuplicatedKeys', () => {
+    const stakingModules: StakingModuleData[] = [
+      {
+        blockHash: '',
+        unusedKeys: [],
+        vettedKeys: [],
+        nonce: 0,
+        stakingModuleId: 1,
+        stakingModuleAddress: 'first_address',
+      },
+      {
+        blockHash: '',
+        unusedKeys: [],
+        vettedKeys: [],
+        nonce: 0,
+        stakingModuleId: 2,
+        stakingModuleAddress: 'second_address',
+      },
+      {
+        blockHash: '',
+        unusedKeys: [],
+        vettedKeys: [],
+        nonce: 0,
+        stakingModuleId: 3,
+        stakingModuleAddress: 'third_address',
+      },
+    ];
+
+    it('should exclude modules', () => {
+      const addressesOfModulesWithDuplicateKeys = ['second_address'];
+      const expectedStakingModules: StakingModuleData[] = [
+        {
+          blockHash: '',
+          unusedKeys: [],
+          vettedKeys: [],
+          nonce: 0,
+          stakingModuleId: 1,
+          stakingModuleAddress: 'first_address',
+        },
+        {
+          blockHash: '',
+          unusedKeys: [],
+          vettedKeys: [],
+          nonce: 0,
+          stakingModuleId: 3,
+          stakingModuleAddress: 'third_address',
+        },
+      ];
+
+      const result = stakingModuleGuardService.excludeModulesWithDuplicatedKeys(
+        stakingModules,
+        addressesOfModulesWithDuplicateKeys,
+      );
+
+      expect(result.length).toEqual(2);
+      expect(result).toEqual(expect.arrayContaining(expectedStakingModules));
+    });
+
+    it('should return list without changes', () => {
+      const addressesOfModulesWithDuplicateKeys = ['fourth_address'];
+      const expectedStakingModules = [
+        {
+          blockHash: '',
+          unusedKeys: [],
+          vettedKeys: [],
+          nonce: 0,
+          stakingModuleId: 1,
+          stakingModuleAddress: 'first_address',
+        },
+        {
+          blockHash: '',
+          unusedKeys: [],
+          vettedKeys: [],
+          nonce: 0,
+          stakingModuleId: 2,
+          stakingModuleAddress: 'second_address',
+        },
+        {
+          blockHash: '',
+          unusedKeys: [],
+          vettedKeys: [],
+          nonce: 0,
+          stakingModuleId: 3,
+          stakingModuleAddress: 'third_address',
+        },
+      ];
+
+      const result = stakingModuleGuardService.excludeModulesWithDuplicatedKeys(
+        stakingModules,
+        addressesOfModulesWithDuplicateKeys,
+      );
+
+      expect(result.length).toEqual(3);
+      expect(result).toEqual(expect.arrayContaining(expectedStakingModules));
+    });
+
+    it('should return list without changes if  duplicated keys were not found', () => {
+      const addressesOfModulesWithDuplicateKeys = [];
+      const expectedStakingModules = [
+        {
+          blockHash: '',
+          unusedKeys: [],
+          vettedKeys: [],
+          nonce: 0,
+          stakingModuleId: 1,
+          stakingModuleAddress: 'first_address',
+        },
+        {
+          blockHash: '',
+          unusedKeys: [],
+          vettedKeys: [],
+          nonce: 0,
+          stakingModuleId: 2,
+          stakingModuleAddress: 'second_address',
+        },
+        {
+          blockHash: '',
+          unusedKeys: [],
+          vettedKeys: [],
+          nonce: 0,
+          stakingModuleId: 3,
+          stakingModuleAddress: 'third_address',
+        },
+      ];
+
+      const result = stakingModuleGuardService.excludeModulesWithDuplicatedKeys(
+        stakingModules,
+        addressesOfModulesWithDuplicateKeys,
+      );
+
+      expect(result.length).toEqual(3);
+      expect(result).toEqual(expect.arrayContaining(expectedStakingModules));
+    });
+  });
+
+  describe('checkVettedKeysDuplicates', () => {
+    const blockData = { blockHash: 'some_hash' } as any;
+
+    it('should found duplicated keys across two module', () => {
+      const result = stakingModuleGuardService.checkVettedKeysDuplicates(
+        vettedKeysDuplicatesAcrossModules,
+        blockData,
+      );
+
+      const addressesOfModulesWithDuplicateKeys = [
+        '0x595F64Ddc3856a3b5Ff4f4CC1d1fb4B46cFd2bAC',
+        '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
+      ];
+
+      // result has all addressesOfModulesWithDuplicateKeys elements
+      // but it also could contain more elements, that is why we check length too
+      expect(result).toEqual(
+        expect.arrayContaining(addressesOfModulesWithDuplicateKeys),
+      );
+      expect(result.length).toEqual(2);
+    });
+
+    it('should found duplicated keys across one module', () => {
+      const result = stakingModuleGuardService.checkVettedKeysDuplicates(
+        vettedKeysDuplicatesAcrossOneModule,
+        blockData,
+      );
+
+      const addressesOfModulesWithDuplicateKeys = [
+        '0x595F64Ddc3856a3b5Ff4f4CC1d1fb4B46cFd2bAC',
+      ];
+
+      // result has all addressesOfModulesWithDuplicateKeys elements
+      // but it also could contain more elements, that is why we check length too
+      expect(result).toEqual(
+        expect.arrayContaining(addressesOfModulesWithDuplicateKeys),
+      );
+      expect(result.length).toEqual(1);
+    });
+
+    it('should found duplicated keys across one module and few', () => {
+      const result = stakingModuleGuardService.checkVettedKeysDuplicates(
+        vettedKeysDuplicatesAcrossOneModuleAndFew,
+        blockData,
+      );
+
+      const addressesOfModulesWithDuplicateKeys = [
+        '0x595F64Ddc3856a3b5Ff4f4CC1d1fb4B46cFd2bAC',
+        '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
+      ];
+
+      // result has all addressesOfModulesWithDuplicateKeys elements
+      // but it also could contain more elements, that is why we check length too
+      expect(result).toEqual(
+        expect.arrayContaining(addressesOfModulesWithDuplicateKeys),
+      );
+      expect(result.length).toEqual(2);
+    });
+
+    it('should return empty list if duplicated keys were not found', () => {
+      const result = stakingModuleGuardService.checkVettedKeysDuplicates(
+        vettedKeysWithoutDuplicates,
+        blockData,
+      );
+
+      const addressesOfModulesWithDuplicateKeys = [];
+
+      // result has all addressesOfModulesWithDuplicateKeys elements
+      // but it also could contain more elements, that is why we check length too
+      expect(result).toEqual(
+        expect.arrayContaining(addressesOfModulesWithDuplicateKeys),
+      );
+      expect(result.length).toEqual(0);
     });
   });
 });

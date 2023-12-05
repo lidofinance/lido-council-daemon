@@ -6,7 +6,7 @@ import { keysAllStakingModules } from './keys.fixtures';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 
-describe('YourService', () => {
+describe('StakingRouter', () => {
   let stakingRouterService: StakingRouterService;
   let keysApiService: KeysApiService;
 
@@ -67,6 +67,7 @@ describe('YourService', () => {
           blockHash:
             '0x40c697def4d4f7233b75149ab941462582bb5f035b5089f7c6a3d7849222f47c',
           stakingModuleId: 1,
+          stakingModuleAddress: '0x595F64Ddc3856a3b5Ff4f4CC1d1fb4B46cFd2bAC',
           nonce: 364,
         },
         {
@@ -90,6 +91,7 @@ describe('YourService', () => {
           blockHash:
             '0x40c697def4d4f7233b75149ab941462582bb5f035b5089f7c6a3d7849222f47c',
           stakingModuleId: 2,
+          stakingModuleAddress: '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
         },
       ],
       vettedKeys: [

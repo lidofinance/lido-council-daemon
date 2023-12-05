@@ -11,7 +11,6 @@ import { GuardianMetricsService } from '../guardian-metrics';
 import { GuardianMessageService } from '../guardian-message';
 
 import { StakingRouterService } from 'staking-router';
-import { SRModule } from 'keys-api/interfaces';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 
 @Injectable()
@@ -31,55 +30,83 @@ export class StakingModuleGuardService {
   private lastContractsStateByModuleId: Record<number, ContractsState | null> =
     {};
 
-  // public async getStakingRouterModuleData(
-  //   stakingRouterModule: SRModule,
-  //   blockHash: string,
-  // ): Promise<StakingModuleData> {
-  //   const {
-  //     data: {
-  //       keys,
-  //       module: { nonce },
-  //     },
-  //   } = await this.stakingRouterService.getStakingModuleUnusedKeys(
-  //     blockHash,
-  //     stakingRouterModule,
-  //   );
-
-  //   const isDepositsPaused = await this.securityService.isDepositsPaused(
-  //     stakingRouterModule.id,
-  //     {
-  //       blockHash,
-  //     },
-  //   );
-
-  //   return {
-  //     nonce,
-  //     unusedKeys: keys.map((srKey) => srKey.key),
-  //     stakingModuleId: stakingRouterModule.id,
-  //     blockHash,
-  //   };
-  // }
-
   /**
-   * Check vetted among staking modules
+   *
+   * @param vettedKeys vetted keys of all staking modules
+   * @returns List of staking modules with duplicates
    */
-  public async checkVettedKeysDuplicates(
+  public checkVettedKeysDuplicates(
     vettedKeys: RegistryKey[],
     blockData: BlockData,
-  ): Promise<void> {
-    const uniqueKeys = new Set();
-    const duplicatedKeys = vettedKeys.filter(
-      (vettedKey) => uniqueKeys.size === uniqueKeys.add(vettedKey.key).size,
-    );
+  ): string[] {
+    const keyMap = new Map<string, Map<string, number>>();
 
-    if (duplicatedKeys.length) {
-      this.logger.warn('Found duplicated vetted key', {
+    // Populate the map
+    vettedKeys.forEach((vettedKey) => {
+      if (!keyMap.has(vettedKey.key)) {
+        // keyMap doesn't have vettedKey.key key
+        keyMap.set(vettedKey.key, new Map([[vettedKey.moduleAddress, 1]]));
+      } else {
+        // keyMap has vettedKey.key key
+        // get moduleAddress set
+        const modules = keyMap.get(vettedKey.key);
+        const moduleCount = modules?.get(vettedKey.moduleAddress) || 0;
+        modules?.set(vettedKey.moduleAddress, moduleCount + 1);
+      }
+    });
+
+    const duplicatedKeysWithModules: { key: string; modules: string[] }[] = [];
+    const modulesWithDuplicatedKeysSet = new Set<string>();
+
+    keyMap.forEach((modules, key) => {
+      if (modules.size > 1 || Array.from(modules)[0][1] > 1) {
+        duplicatedKeysWithModules.push({
+          key,
+          modules: Array.from(modules.keys()),
+        });
+
+        Array.from(modules.keys()).forEach((stakingModule) =>
+          modulesWithDuplicatedKeysSet.add(stakingModule),
+        );
+      }
+    });
+
+    // TODO: consider add of contract module_id
+    if (duplicatedKeysWithModules.length) {
+      const moduleAddressesWithDuplicatesList: string[] = Array.from(
+        modulesWithDuplicatedKeysSet,
+      );
+      this.logger.warn('Found duplicated vetted keys', {
         blockHash: blockData.blockHash,
-        duplicatedKeys,
+        duplicatedKeys: duplicatedKeysWithModules,
+        moduleAddressesWithDuplicates: moduleAddressesWithDuplicatesList,
       });
-      //TODO: set metric
-      throw Error('Found duplicated vetted key');
+
+      //TODO: set prometheus metric council_daemon_vetted_unused_duplicate
+      return moduleAddressesWithDuplicatesList;
     }
+
+    return [];
+  }
+
+  public excludeModulesWithDuplicatedKeys(
+    stakingModulesData: StakingModuleData[],
+    addressesOfModulesWithDuplicateKeys: string[],
+  ): StakingModuleData[] {
+    // exclude from stakingModulesData stakingModulesWithDuplicates
+    let stakingModulesWithoutDuplicates: StakingModuleData[] =
+      stakingModulesData;
+
+    if (addressesOfModulesWithDuplicateKeys.length) {
+      // need to filter stakingModulesWithoutDuplicates
+
+      stakingModulesWithoutDuplicates = stakingModulesWithoutDuplicates.filter(
+        ({ stakingModuleAddress }) =>
+          !addressesOfModulesWithDuplicateKeys.includes(stakingModuleAddress),
+      );
+    }
+
+    return stakingModulesWithoutDuplicates;
   }
 
   /**
@@ -125,14 +152,14 @@ export class StakingModuleGuardService {
     if (isFilteredIntersectionsFound) {
       await this.handleKeysIntersections(stakingModuleData, blockData);
     } else {
-      const usedKeys = await this.handleIntersectionBetweenUsedAndUnusedKeys(
+      const usedKeys = await this.getIntersectionBetweenUsedAndUnusedKeys(
         keysIntersections,
       );
 
       // if found used keys, Lido already made deposit on this keys
       if (usedKeys.length) {
         this.logger.log('Found that we already deposited on these keys');
-        // set metric ccouncil_daemon_used_duplicate
+        // set metric council_daemon_used_duplicate
         return;
       }
 
@@ -196,7 +223,7 @@ export class StakingModuleGuardService {
     return attackIntersections;
   }
 
-  public async handleIntersectionBetweenUsedAndUnusedKeys(
+  public async getIntersectionBetweenUsedAndUnusedKeys(
     intersectionsWithLidoWC: VerifiedDepositEvent[],
   ) {
     const depositedPubkeys = intersectionsWithLidoWC.map(
@@ -204,7 +231,6 @@ export class StakingModuleGuardService {
     );
 
     if (depositedPubkeys.length) {
-      console.log('deposited pubkeys', depositedPubkeys);
       this.logger.log(
         'Found intersections with lido credentials, need to check duplicated keys',
       );
@@ -212,6 +238,8 @@ export class StakingModuleGuardService {
       const keys = await this.stakingRouterService.getKeysWithDuplicates(
         depositedPubkeys,
       );
+
+      // TODO: add block number check. keys blockNumber should be newer than we have in blockData because of used keys is not deleted
       const usedKeys = keys.data.filter((key) => key.used);
       return usedKeys;
     }

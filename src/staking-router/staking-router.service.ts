@@ -26,7 +26,7 @@ export class StakingRouterService {
 
     const unusedKeys = await this.keysApiService.getUnusedKeys();
     const keysBlockHash = unusedKeys.meta.elBlockSnapshot.blockHash;
-    if (keysBlockHash != operatorsBlockHash) {
+    if (keysBlockHash !== operatorsBlockHash) {
       this.logger.log('Blockhash of the received keys and operators', {
         keysBlockHash,
         operatorsBlockHash,
@@ -69,6 +69,7 @@ export class StakingRouterService {
         unusedKeys: moduleKeys.map((srKey) => srKey.key),
         nonce: stakingModule.nonce,
         stakingModuleId: stakingModule.id,
+        stakingModuleAddress: stakingModule.stakingModuleAddress,
         blockHash: operatorsBlockHash,
         vettedKeys: moduleVettedKeys,
       });
@@ -107,7 +108,7 @@ export class StakingRouterService {
       });
 
       throw Error(
-        'Blockhash of the received keys does not match the current blockhash',
+        'Block hash of the received keys does not match the current block hash',
       );
     }
 

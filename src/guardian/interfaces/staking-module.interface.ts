@@ -6,4 +6,5 @@ export interface StakingModuleData {
   vettedKeys: RegistryKey[];
   nonce: number;
   stakingModuleId: number;
+  stakingModuleAddress: string;
 }
