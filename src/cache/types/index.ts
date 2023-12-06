@@ -59,3 +59,8 @@ const CacheDirChainIdBrand = Symbol('cacheDirChainIdBrand');
 export type CacheDirWithChainId = string & {
   readonly [CacheDirChainIdBrand]: unique symbol;
 };
+
+export type CacheFile = {
+  readonly index: number; // the number of cache file
+  readonly absoluteFilePath: string; // absolute path to cache file
+};

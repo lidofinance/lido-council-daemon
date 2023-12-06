@@ -16,16 +16,19 @@ import {
   Stats,
 } from './types';
 import {
-  deleteAllCacheFiles,
-  getCacheFilePaths,
+  deleteAllFilesFromCacheDir,
+  getCacheFiles,
   makeCacheFileName,
-  validateCacheFilePathsOrFail,
 } from './utils';
 import { basename, join } from 'path';
 import * as z from 'zod';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { CacheError } from './errors';
 import { mkdir, readFile, writeFile } from 'fs/promises';
+import { promisify } from 'util';
+import * as gl from 'glob';
+
+const glob = promisify(gl.glob);
 
 @Injectable()
 export class CacheService<
@@ -53,9 +56,14 @@ export class CacheService<
   public async getCache(): Promise<{ headers: Headers; data: Data[] }> {
     if (!this.cache) {
       const cacheDir = await this.getCacheDirPath();
-      const filePaths = await getCacheFilePaths(cacheDir, this.cacheFileName);
+      const filePaths = await glob(`*([0-9]).${this.cacheFileName}`, {
+        cwd: cacheDir,
+        absolute: true,
+      });
+      const cacheFiles = getCacheFiles(filePaths);
+
       this.cache = await this.readCacheFromFiles(
-        filePaths,
+        cacheFiles.map((x) => x.absoluteFilePath),
         this.cacheValueType,
         this.cacheDefaultValue,
       );
@@ -80,8 +88,7 @@ export class CacheService<
   public async deleteCache(): Promise<void> {
     this.cache = null;
     const cacheDir = await this.getCacheDirPath();
-    const filePaths = await getCacheFilePaths(cacheDir, this.cacheFileName);
-    await deleteAllCacheFiles(filePaths);
+    await deleteAllFilesFromCacheDir(cacheDir);
   }
 
   private async getCacheDirPath(): Promise<CacheDirWithChainId> {
@@ -100,8 +107,7 @@ export class CacheService<
     const { headers, data } = cache;
 
     await mkdir(cacheDir, { recursive: true });
-    const filePaths = await getCacheFilePaths(cacheDir, cacheFilePostfix);
-    await deleteAllCacheFiles(filePaths);
+    await deleteAllFilesFromCacheDir(cacheDir);
     await mkdir(cacheDir, { recursive: true });
 
     const dataTotalLength = data.length;
@@ -153,8 +159,6 @@ export class CacheService<
     defaultValue: { headers: Headers; data: Data[] },
   ): Promise<{ headers: Headers; data: Data[] }> {
     try {
-      validateCacheFilePathsOrFail(filePaths);
-
       const cacheType = z.intersection(CacheStats, valueType);
 
       const allContents = await Promise.all(
@@ -181,8 +185,7 @@ export class CacheService<
       // checking that all stats equal
       const allStatsAreEqual = allContents.every(
         (content, i, arr) =>
-          (arr[0]?.stats?.dataTotalLength ?? 0) ===
-          content.stats.dataTotalLength,
+          JSON.stringify(arr[0]?.stats ?? '') === JSON.stringify(content.stats),
       );
 
       if (!allStatsAreEqual) {
@@ -192,10 +195,7 @@ export class CacheService<
       const headers: Headers = allContents[0].headers;
       const stats = allContents[0].stats;
 
-      const data: Data[] = allContents.reduce<Data[]>(
-        (accumulator, content) => accumulator.concat(content.data),
-        [],
-      );
+      const data: Data[] = allContents.map((content) => content.data).flat();
 
       if (stats.dataTotalLength !== data.length) {
         throw new CacheError(
@@ -222,13 +222,13 @@ export class CacheService<
 
     const res = valueType.safeParse(parsed);
 
-    if (res.success) {
-      return res.data;
+    if (!res.success) {
+      throw new CacheError(
+        `Cache file [${basename(filePath)}] integrity error`,
+        res.error,
+      );
     }
 
-    throw new CacheError(
-      `Cache file [${basename(filePath)}] integrity error`,
-      res.error,
-    );
+    return res.data;
   }
 }
