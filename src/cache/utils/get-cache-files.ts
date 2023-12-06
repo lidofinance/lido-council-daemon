@@ -11,7 +11,8 @@ export const getCacheFiles = (filePaths: string[]): CacheFile[] => {
       absoluteFilePath: filePath,
       index: getCacheFileNameIndex(filePath),
     }))
-    .filter((x) => x.index >= 0);
+    .filter((x) => x.index >= 0)
+    .sort((a, b) => a.index - b.index);
 
   validateCacheFilesAreConsecutiveOrFail(cacheFiles);
 

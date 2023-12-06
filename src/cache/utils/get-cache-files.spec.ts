@@ -12,6 +12,9 @@ describe('getCacheFiles', () => {
     const cacheFiles = getCacheFiles(filePaths);
     expect(cacheFiles).toBeInstanceOf(Array);
     expect(cacheFiles.length).toBe(1);
+    expect(cacheFiles).toEqual([
+      { index: 0, absoluteFilePath: '/00.file.json' },
+    ]);
   });
 
   it('should throw error on `/01.file.json` because its not consecutive (starts with 0)', async () => {
@@ -24,6 +27,11 @@ describe('getCacheFiles', () => {
     const cacheFiles = getCacheFiles(filePaths);
     expect(cacheFiles).toBeInstanceOf(Array);
     expect(cacheFiles.length).toBe(3);
+    expect(cacheFiles).toEqual([
+      { index: 0, absoluteFilePath: '/00.file.json' },
+      { index: 1, absoluteFilePath: '/01.file.json' },
+      { index: 2, absoluteFilePath: '/02.file.json' },
+    ]);
   });
 
   it('should sort consecutive file-paths', async () => {
@@ -31,6 +39,11 @@ describe('getCacheFiles', () => {
     const cacheFiles = getCacheFiles(filePaths);
     expect(cacheFiles).toBeInstanceOf(Array);
     expect(cacheFiles.length).toBe(3);
+    expect(cacheFiles).toEqual([
+      { index: 0, absoluteFilePath: '/00.file.json' },
+      { index: 1, absoluteFilePath: '/01.file.json' },
+      { index: 2, absoluteFilePath: '/02.file.json' },
+    ]);
   });
 
   it('should throw error on non-consecutive file-paths', async () => {
@@ -48,5 +61,10 @@ describe('getCacheFiles', () => {
     const cacheFiles = getCacheFiles(filePaths);
     expect(cacheFiles).toBeInstanceOf(Array);
     expect(cacheFiles.length).toBe(3);
+    expect(cacheFiles).toEqual([
+      { index: 0, absoluteFilePath: '/00.file.json' },
+      { index: 1, absoluteFilePath: '/01.file.json' },
+      { index: 2, absoluteFilePath: '/02.file.json' },
+    ]);
   });
 });
