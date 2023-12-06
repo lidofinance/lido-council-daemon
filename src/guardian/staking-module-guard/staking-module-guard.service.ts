@@ -131,6 +131,9 @@ export class StakingModuleGuardService {
       keysIntersections,
     );
 
+    this.logger.log(blockData);
+    this.logger.log(keysIntersections);
+
     this.logger.log(filteredIntersections);
     const isFilteredIntersectionsFound = filteredIntersections.length > 0;
 
