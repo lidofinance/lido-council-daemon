@@ -1,15 +1,22 @@
 import { DynamicModule, Module } from '@nestjs/common';
-import { CACHE_BATCH_SIZE, CACHE_DEFAULT_VALUE, CACHE_FILE_NAME } from 'cache';
+import {
+  CACHE_BATCH_SIZE,
+  CACHE_DEFAULT_VALUE,
+  CACHE_FILE_NAME,
+  CACHE_VALUE_TYPE,
+} from 'cache';
 import { ProviderModule } from 'provider';
 import { CACHE_DIR } from './cache.constants';
 import { CacheService } from './cache.service';
+import * as z from 'zod';
 
 @Module({})
 export class CacheModule {
-  static register(
+  static register<T>(
     fileName: string,
     batchSize: number,
-    defaultValue: unknown,
+    defaultValueType: z.ZodType<T>,
+    defaultValue: T,
   ): DynamicModule {
     return {
       module: CacheModule,
@@ -31,6 +38,10 @@ export class CacheModule {
         {
           provide: CACHE_DEFAULT_VALUE,
           useValue: defaultValue,
+        },
+        {
+          provide: CACHE_VALUE_TYPE,
+          useValue: defaultValueType,
         },
       ],
       exports: [CacheService],

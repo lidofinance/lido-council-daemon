@@ -4,26 +4,51 @@ import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { CacheModule } from 'cache';
 import { CacheService } from './cache.service';
+import * as z from 'zod';
 
 describe('CacheService', () => {
-  const defaultCacheValue = {
-    headers: {},
-    data: [] as any[],
+  const Data = z.object({
+    foo: z.string(),
+  });
+  type Data = z.infer<typeof Data>;
+
+  const Headers = z.object({
+    version: z.string(),
+    somethingElse: z.number(),
+  });
+  type Headers = z.infer<typeof Headers>;
+
+  const CacheValueType = z.object({
+    headers: Headers,
+    data: z.array(Data),
+  });
+
+  type CacheValueType = z.infer<typeof CacheValueType>;
+
+  const defaultCacheValue: CacheValueType = {
+    headers: {
+      version: '0.0.0',
+      somethingElse: 42,
+    },
+    data: [],
   };
 
   const batchSize = 10;
 
-  type C = typeof defaultCacheValue;
-
-  const cacheFile = 'test.json';
-  let cacheService: CacheService<C['headers'], C['data'], C>;
+  const cacheFilePrefix = 'test.json';
+  let cacheService: CacheService<Headers, Data>;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot(),
         MockProviderModule.forRoot(),
-        CacheModule.register(cacheFile, batchSize, defaultCacheValue),
+        CacheModule.register(
+          cacheFilePrefix,
+          batchSize,
+          CacheValueType,
+          defaultCacheValue,
+        ),
         LoggerModule,
       ],
     }).compile();
@@ -44,7 +69,10 @@ describe('CacheService', () => {
     });
 
     it('should return saved cache', async () => {
-      const expected = { headers: {}, data: [{ foo: 'bar' }] };
+      const expected: CacheValueType = {
+        headers: { version: '0.0.0', somethingElse: 1 },
+        data: [{ foo: 'bar' }],
+      };
 
       await cacheService.setCache(expected);
       const result = await cacheService.getCache();
