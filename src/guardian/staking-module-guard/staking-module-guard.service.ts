@@ -117,6 +117,7 @@ export class StakingModuleGuardService {
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
   ): Promise<void> {
+    this.logger.log('Keys intersection check');
     const { blockHash } = blockData;
     const { stakingModuleId } = stakingModuleData;
 
@@ -129,6 +130,8 @@ export class StakingModuleGuardService {
       blockData,
       keysIntersections,
     );
+
+    this.logger.log(filteredIntersections);
     const isFilteredIntersectionsFound = filteredIntersections.length > 0;
 
     this.guardianMetricsService.collectIntersectionsMetrics(

@@ -46,7 +46,7 @@ export const mockKeysApi = (
       rewardAddress: '0x6D725DAe055287f913661ee0b79dE6B21F12A459',
       stakingLimit: 11,
       stoppedValidators: 0,
-      totalSigningKeys: 10,
+      totalSigningKeys: 11,
       usedSigningKeys: 10,
       index: 0,
       active: true,
