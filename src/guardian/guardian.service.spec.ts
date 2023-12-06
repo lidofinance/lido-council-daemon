@@ -179,7 +179,6 @@ describe('GuardianService', () => {
       guardianService.handleNewBlock(),
     ]);
 
-    // expect(getStakingModulesMock).toBeCalledTimes(1);
     expect(getBlockGuardServiceMock).toBeCalledTimes(1);
   });
 });

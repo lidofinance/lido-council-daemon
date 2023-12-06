@@ -16,7 +16,6 @@ import {
   VerifiedDepositEventsCacheHeaders,
   VerifiedDepositEventGroup,
 } from './interfaces';
-import { OneAtTime } from 'common/decorators';
 import { RepositoryService } from 'contracts/repository';
 import { CacheService } from 'cache';
 import { BlockTag } from 'provider';
@@ -335,7 +334,6 @@ export class DepositService {
 
     const mergedEvents = cachedEvents.data.concat(freshEvents);
 
-    // TODO: Why we don't cache freshEvents?
     return {
       events: mergedEvents,
       startBlock: cachedEvents.headers.startBlock,

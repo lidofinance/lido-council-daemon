@@ -3,6 +3,7 @@ import { toHexString } from '@chainsafe/ssz';
 
 import { KeysApiService } from '../../src/keys-api/keys-api.service';
 import { NOP_REGISTRY, pk } from './../constants';
+import { RegistryOperator } from 'keys-api/interfaces/RegistryOperator';
 
 export const mockKeysApi = (
   sig: Uint8Array[],
@@ -36,20 +37,34 @@ export const mockKeysApi = (
     operatorIndex: 0,
     used,
     index: 0,
+    moduleAddress: NOP_REGISTRY,
   }));
 
-  jest.spyOn(keysApiService, 'getModulesList').mockImplementation(async () => ({
-    data: [mockedModule],
-    elBlockSnapshot: mockedMeta,
+  const mockedOperators: RegistryOperator[] = [
+    {
+      name: 'Dev team',
+      rewardAddress: '0x6D725DAe055287f913661ee0b79dE6B21F12A459',
+      stakingLimit: 11,
+      stoppedValidators: 0,
+      totalSigningKeys: 10,
+      usedSigningKeys: 10,
+      index: 0,
+      active: true,
+      moduleAddress: '0x595F64Ddc3856a3b5Ff4f4CC1d1fb4B46cFd2bAC',
+    },
+  ];
+
+  jest.spyOn(keysApiService, 'getUnusedKeys').mockImplementation(async () => ({
+    data: mockedKeys,
+    meta: {
+      elBlockSnapshot: mockedMeta,
+    },
   }));
 
   jest
-    .spyOn(keysApiService, 'getUnusedModuleKeys')
+    .spyOn(keysApiService, 'getOperatorListWithModule')
     .mockImplementation(async () => ({
-      data: {
-        keys: mockedKeys,
-        module: mockedModule,
-      },
+      data: [{ operators: mockedOperators, module: mockedModule }],
       meta: {
         elBlockSnapshot: mockedMeta,
       },
