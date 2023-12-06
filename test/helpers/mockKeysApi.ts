@@ -50,7 +50,7 @@ export const mockKeysApi = (
       usedSigningKeys: 10,
       index: 0,
       active: true,
-      moduleAddress: '0x595F64Ddc3856a3b5Ff4f4CC1d1fb4B46cFd2bAC',
+      moduleAddress: NOP_REGISTRY,
     },
   ];
 

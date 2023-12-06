@@ -18,7 +18,6 @@ import {
 } from '../guardian-message';
 import { StakingModuleGuardService } from './staking-module-guard.service';
 import { StakingModuleData } from 'guardian/interfaces';
-import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import {
   vettedKeysDuplicatesAcrossModules,
   vettedKeysDuplicatesAcrossOneModule,

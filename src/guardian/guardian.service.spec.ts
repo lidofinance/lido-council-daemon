@@ -24,8 +24,6 @@ import { mockRepository } from 'contracts/repository/repository.mock';
 
 jest.mock('../transport/stomp/stomp.client');
 
-const TEST_MODULE_ID = 1;
-
 const vettedKeys = [
   {
     key: '0x9948d2becf42e9f76922bc6f664545e6f50401050af95785a984802d32a95c4c61f8e3de312b78167f86e047f83a7796',
@@ -166,7 +164,7 @@ describe('GuardianService', () => {
   });
 
   it('should exit if the previous call is not completed', async () => {
-    const getVettedKeysMock = jest
+    jest
       .spyOn(stakingRouterService, 'getVettedAndUnusedKeys')
       .mockImplementation(async () => vettedKeysResponse);
 
