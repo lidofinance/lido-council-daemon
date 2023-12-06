@@ -247,7 +247,7 @@ cp develop.env ./.env
 
 ```diff
 - RPC_URL=%NODE_URL%
-+ https://mainnet.infura.io/v3/***
++ RPC_URL=https://mainnet.infura.io/v3/***
 ```
 
 ### Starting the development environment (PostgreSQL, KAPI, Grafana, Prometheus, RabbitMQ)
