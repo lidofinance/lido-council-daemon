@@ -1,0 +1,22 @@
+version: '3.7'
+
+services:
+  council_daemon_prometheus:
+    image: prom/prometheus:v2.44.0
+    container_name: council_daemon_prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus/:/etc/prometheus/
+    command: --config.file=/etc/prometheus/prometheus.yml --enable-feature=remote-write-receiver
+
+  council_daemon_grafana:
+    image: grafana/grafana-oss:9.1.5
+    container_name: council_daemon_grafana
+    restart: unless-stopped
+    ports:
+      - 8001:3000
+    volumes:
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+    depends_on:
+      - council_daemon_prometheus
