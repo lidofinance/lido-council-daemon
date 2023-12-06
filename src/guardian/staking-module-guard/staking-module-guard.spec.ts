@@ -10,7 +10,7 @@ import { RepositoryModule } from 'contracts/repository';
 import { LidoModule, LidoService } from 'contracts/lido';
 import { MessageType } from 'messages';
 import { StakingModuleGuardModule } from './staking-module-guard.module';
-import { StakingRouterModule } from 'staking-router';
+import { StakingRouterModule, StakingRouterService } from 'staking-router';
 import { GuardianMetricsModule } from '../guardian-metrics';
 import {
   GuardianMessageModule,
@@ -52,6 +52,7 @@ describe('StakingModuleGuardService', () => {
   let securityService: SecurityService;
   let stakingModuleGuardService: StakingModuleGuardService;
   let guardianMessageService: GuardianMessageService;
+  let stakingRouterService: StakingRouterService;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -75,6 +76,7 @@ describe('StakingModuleGuardService', () => {
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
     stakingModuleGuardService = moduleRef.get(StakingModuleGuardService);
     guardianMessageService = moduleRef.get(GuardianMessageService);
+    stakingRouterService = moduleRef.get(StakingRouterService);
 
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
     jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
@@ -659,6 +661,255 @@ describe('StakingModuleGuardService', () => {
         expect.arrayContaining(addressesOfModulesWithDuplicateKeys),
       );
       expect(result.length).toEqual(0);
+    });
+  });
+
+  describe('getIntersectionBetweenUsedAndUnusedKeys', () => {
+    // function that return list from kapi that match keys in parameter
+    it('intersection is empty', async () => {
+      const intersectionsWithLidoWC = [];
+      // function that return list from kapi that match keys in parameter
+      const mockSendMessageFromGuardian = jest.spyOn(
+        stakingRouterService,
+        'getKeysWithDuplicates',
+      );
+
+      const result =
+        await stakingModuleGuardService.getIntersectionBetweenUsedAndUnusedKeys(
+          intersectionsWithLidoWC,
+          {
+            blockNumber: 1,
+            blockHash: '0x1234',
+          } as any,
+        );
+
+      expect(result).toEqual([]);
+      expect(mockSendMessageFromGuardian).toBeCalledTimes(0);
+    });
+
+    it('should return keys list if deposits with lido wx were made by lido', async () => {
+      const pubkeyWithUsedKey1 = '0x1234';
+      const pubkeyWithoutUsedKey = '0x56789';
+      const pubkeyWithUsedKey2 = '0x3478';
+      const lidoWC = '0x12';
+      const intersectionsWithLidoWC = [
+        { pubkey: pubkeyWithUsedKey1, wc: lidoWC } as any,
+        { pubkey: pubkeyWithoutUsedKey, wc: lidoWC } as any,
+        { pubkey: pubkeyWithUsedKey2, wc: lidoWC } as any,
+      ];
+      // function that return list from kapi that match keys in parameter
+      const mockSendMessageFromGuardian = jest
+        .spyOn(stakingRouterService, 'getKeysWithDuplicates')
+        .mockImplementation(async () => ({
+          data: [
+            {
+              key: pubkeyWithUsedKey1,
+              depositSignature: 'signature',
+              operatorIndex: 0,
+              used: false,
+              index: 0,
+              moduleAddress: '0x0000',
+            },
+            {
+              key: pubkeyWithUsedKey1,
+              depositSignature: 'signature',
+              operatorIndex: 0,
+              used: true,
+              index: 0,
+              moduleAddress: '0x0000',
+            },
+            {
+              key: pubkeyWithUsedKey2,
+              depositSignature: 'signature',
+              operatorIndex: 0,
+              used: false,
+              index: 0,
+              moduleAddress: '0x0000',
+            },
+            {
+              key: pubkeyWithUsedKey2,
+              depositSignature: 'signature',
+              operatorIndex: 0,
+              used: true,
+              index: 0,
+              moduleAddress: '0x0000',
+            },
+            {
+              key: pubkeyWithoutUsedKey,
+              depositSignature: 'signature',
+              operatorIndex: 0,
+              used: false,
+              index: 0,
+              moduleAddress: '0x0000',
+            },
+          ],
+          meta: {
+            elBlockSnapshot: {
+              blockNumber: 0,
+              blockHash: 'hash',
+              timestamp: 12345,
+            },
+          },
+        }));
+
+      const result =
+        await stakingModuleGuardService.getIntersectionBetweenUsedAndUnusedKeys(
+          intersectionsWithLidoWC,
+          {
+            blockNumber: 0,
+            blockHash: '0x1234',
+          } as any,
+        );
+
+      expect(result.length).toEqual(2);
+      expect(result).toEqual(
+        expect.arrayContaining([
+          {
+            key: pubkeyWithUsedKey1,
+            depositSignature: 'signature',
+            operatorIndex: 0,
+            used: true,
+            index: 0,
+            moduleAddress: '0x0000',
+          },
+          {
+            key: pubkeyWithUsedKey2,
+            depositSignature: 'signature',
+            operatorIndex: 0,
+            used: true,
+            index: 0,
+            moduleAddress: '0x0000',
+          },
+        ]),
+      );
+      expect(mockSendMessageFromGuardian).toBeCalledTimes(1);
+    });
+
+    it('should return empty list if deposits with lido wc were made by someone else ', async () => {
+      const pubkey1 = '0x1234';
+      const pubkey2 = '0x56789';
+      const pubkey3 = '0x3478';
+      const lidoWC = '0x12';
+      const intersectionsWithLidoWC = [
+        { pubkey: pubkey1, wc: lidoWC } as any,
+        { pubkey: pubkey2, wc: lidoWC } as any,
+        { pubkey: pubkey3, wc: lidoWC } as any,
+      ];
+      // function that return list from kapi that match keys in parameter
+      const mockSendMessageFromGuardian = jest
+        .spyOn(stakingRouterService, 'getKeysWithDuplicates')
+        .mockImplementation(async () => ({
+          data: [
+            {
+              key: pubkey1,
+              depositSignature: 'signature',
+              operatorIndex: 0,
+              used: false,
+              index: 0,
+              moduleAddress: '0x0000',
+            },
+            {
+              key: pubkey2,
+              depositSignature: 'signature',
+              operatorIndex: 0,
+              used: false,
+              index: 0,
+              moduleAddress: '0x0000',
+            },
+            {
+              key: pubkey3,
+              depositSignature: 'signature',
+              operatorIndex: 0,
+              used: false,
+              index: 0,
+              moduleAddress: '0x0000',
+            },
+          ],
+          meta: {
+            elBlockSnapshot: {
+              blockNumber: 0,
+              blockHash: 'hash',
+              timestamp: 12345,
+            },
+          },
+        }));
+
+      const result =
+        await stakingModuleGuardService.getIntersectionBetweenUsedAndUnusedKeys(
+          intersectionsWithLidoWC,
+          {
+            blockNumber: 0,
+            blockHash: '0x1234',
+          } as any,
+        );
+
+      expect(result).toEqual([]);
+      expect(mockSendMessageFromGuardian).toBeCalledTimes(1);
+    });
+
+    it('should skip if blockNumber that kapi returned is smaller than in blockData ', async () => {
+      const pubkey1 = '0x1234';
+      const pubkey2 = '0x56789';
+      const pubkey3 = '0x3478';
+      const lidoWC = '0x12';
+      const intersectionsWithLidoWC = [
+        { pubkey: pubkey1, wc: lidoWC } as any,
+        { pubkey: pubkey2, wc: lidoWC } as any,
+        { pubkey: pubkey3, wc: lidoWC } as any,
+      ];
+      // function that return list from kapi that match keys in parameter
+      const mockSendMessageFromGuardian = jest
+        .spyOn(stakingRouterService, 'getKeysWithDuplicates')
+        .mockImplementation(async () => ({
+          data: [
+            {
+              key: pubkey1,
+              depositSignature: 'signature',
+              operatorIndex: 0,
+              used: false,
+              index: 0,
+              moduleAddress: '0x0000',
+            },
+            {
+              key: pubkey2,
+              depositSignature: 'signature',
+              operatorIndex: 0,
+              used: false,
+              index: 0,
+              moduleAddress: '0x0000',
+            },
+            {
+              key: pubkey3,
+              depositSignature: 'signature',
+              operatorIndex: 0,
+              used: false,
+              index: 0,
+              moduleAddress: '0x0000',
+            },
+          ],
+          meta: {
+            elBlockSnapshot: {
+              blockNumber: 0,
+              blockHash: 'hash',
+              timestamp: 12345,
+            },
+          },
+        }));
+
+      expect(
+        async () =>
+          await stakingModuleGuardService.getIntersectionBetweenUsedAndUnusedKeys(
+            intersectionsWithLidoWC,
+            {
+              blockNumber: 1,
+              blockHash: '0x1234',
+            } as any,
+          ),
+      ).rejects.toThrowError(
+        'BlockNumber of the response older than previous response from KAPI',
+      );
+
+      expect(mockSendMessageFromGuardian).toBeCalledTimes(1);
     });
   });
 });

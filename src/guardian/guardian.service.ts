@@ -97,7 +97,6 @@ export class GuardianService implements OnModuleInit {
     this.logger.log('New staking router state cycle start');
 
     try {
-      // TODO: rename
       const { blockHash, blockNumber, vettedKeys, stakingModulesData } =
         await this.stakingRouterService.getVettedAndUnusedKeys();
 

@@ -152,8 +152,10 @@ export class StakingModuleGuardService {
     if (isFilteredIntersectionsFound) {
       await this.handleKeysIntersections(stakingModuleData, blockData);
     } else {
+      // it could throw error if kapi returned old data
       const usedKeys = await this.getIntersectionBetweenUsedAndUnusedKeys(
         keysIntersections,
+        blockData,
       );
 
       // if found used keys, Lido already made deposit on this keys
@@ -225,6 +227,7 @@ export class StakingModuleGuardService {
 
   public async getIntersectionBetweenUsedAndUnusedKeys(
     intersectionsWithLidoWC: VerifiedDepositEvent[],
+    blockData: BlockData,
   ) {
     const depositedPubkeys = intersectionsWithLidoWC.map(
       (deposit) => deposit.pubkey,
@@ -235,12 +238,24 @@ export class StakingModuleGuardService {
         'Found intersections with lido credentials, need to check duplicated keys',
       );
 
-      const keys = await this.stakingRouterService.getKeysWithDuplicates(
-        depositedPubkeys,
-      );
+      const { data, meta } =
+        await this.stakingRouterService.getKeysWithDuplicates(depositedPubkeys);
 
-      // TODO: add block number check. keys blockNumber should be newer than we have in blockData because of used keys is not deleted
-      const usedKeys = keys.data.filter((key) => key.used);
+      if (meta.elBlockSnapshot.blockNumber < blockData.blockNumber) {
+        // blockData.blockNumber we also read from kapi, so smth is wrong in kapi
+        this.logger.error(
+          'BlockNumber of the response older than previous response from KAPI',
+          {
+            previous: blockData.blockNumber,
+            current: meta.elBlockSnapshot.blockNumber,
+          },
+        );
+        throw Error(
+          'BlockNumber of the response older than previous response from KAPI',
+        );
+      }
+
+      const usedKeys = data.filter((key) => key.used);
       return usedKeys;
     }
 
