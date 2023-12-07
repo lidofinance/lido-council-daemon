@@ -97,7 +97,7 @@ export class GuardianService implements OnModuleInit {
     this.logger.log('New staking router state cycle start');
 
     try {
-      const { blockHash, blockNumber, vettedKeys, stakingModulesData } =
+      const { blockHash, blockNumber, stakingModulesData } =
         await this.stakingRouterService.getVettedAndUnusedKeys();
 
       await this.repositoryService.initCachedContracts({ blockHash });
@@ -138,16 +138,16 @@ export class GuardianService implements OnModuleInit {
       });
 
       // TODO: check only if one of nonce changed
-      const addressesOfModulesWithDuplicateKeys: string[] =
+      const modulesIdWithDuplicateKeys: number[] =
         this.stakingModuleGuardService.checkVettedKeysDuplicates(
-          vettedKeys,
+          stakingModulesData,
           blockData,
         );
 
       const stakingModulesWithoutDuplicates: StakingModuleData[] =
         this.stakingModuleGuardService.excludeModulesWithDuplicatedKeys(
           stakingModulesData,
-          addressesOfModulesWithDuplicateKeys,
+          modulesIdWithDuplicateKeys,
         );
 
       this.logger.log('Staking modules without duplicates', {

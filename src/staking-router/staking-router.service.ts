@@ -5,6 +5,7 @@ import { KeysApiService } from 'keys-api/keys-api.service';
 import { SRModuleKeysResponse, SRModule } from 'keys-api/interfaces';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { StakingModuleData } from 'guardian';
+import { RegistryOperator } from 'keys-api/interfaces/RegistryOperator';
 
 @Injectable()
 export class StakingRouterService {
@@ -15,72 +16,135 @@ export class StakingRouterService {
     protected readonly keysApiService: KeysApiService,
   ) {}
 
+  /**
+   * Return staking module data and block information
+   */
   public async getVettedAndUnusedKeys() {
     // TODO: add cache by modules nonce
-    const operatorsByModules =
-      await this.keysApiService.getOperatorListWithModule();
-    const operatorsBlockHash =
-      operatorsByModules.meta.elBlockSnapshot.blockHash;
-    const operatorsBlockNumber =
-      operatorsByModules.meta.elBlockSnapshot.blockNumber;
+    const { operatorsByModules, unusedKeys, blockHash, blockNumber } =
+      await this.getOperatorsAndKeysFromKAPI();
+    // all staking modules list
+    const stakingModulesData: StakingModuleData[] = operatorsByModules.data.map(
+      ({ operators, module: stakingModule }) => {
+        const { moduleUnusedKeys, moduleVettedKeys } =
+          this.getModuleOperatorsVettedKeys(operators, unusedKeys.data);
 
-    const unusedKeys = await this.keysApiService.getUnusedKeys();
-    const keysBlockHash = unusedKeys.meta.elBlockSnapshot.blockHash;
-    if (keysBlockHash !== operatorsBlockHash) {
-      this.logger.log('Blockhash of the received keys and operators', {
-        keysBlockHash,
-        operatorsBlockHash,
-      });
-
-      throw Error(
-        'Blockhash of the received keys does not match the blockhash of operators',
-      );
-    }
-
-    // found vetted keys
-    const vettedKeys: RegistryKey[] = [];
-    const stakingModulesData: StakingModuleData[] = [];
-
-    operatorsByModules.data.forEach(({ operators, module: stakingModule }) => {
-      const moduleKeys: RegistryKey[] = [];
-      const moduleVettedKeys: RegistryKey[] = [];
-      operators.forEach((operator) => {
-        const operatorKeys = unusedKeys.data.filter(
-          (key) =>
-            key.moduleAddress === operator.moduleAddress &&
-            key.operatorIndex === operator.index,
-        );
-        // Sort the filtered keys by index
-        operatorKeys.sort((a, b) => a.index - b.index);
-
-        moduleKeys.push(...operatorKeys);
-
-        const numberOfVettedUnusedKeys =
-          operator.stakingLimit - operator.usedSigningKeys;
-        const operatorVettedKeys = operatorKeys.slice(
-          0,
-          numberOfVettedUnusedKeys,
-        );
-        moduleVettedKeys.push(...operatorVettedKeys);
-        vettedKeys.push(...operatorVettedKeys);
-      });
-
-      stakingModulesData.push({
-        unusedKeys: moduleKeys.map((srKey) => srKey.key),
-        nonce: stakingModule.nonce,
-        stakingModuleId: stakingModule.id,
-        stakingModuleAddress: stakingModule.stakingModuleAddress,
-        blockHash: operatorsBlockHash,
-        vettedKeys: moduleVettedKeys,
-      });
-    });
+        return {
+          unusedKeys: moduleUnusedKeys.map((srKey) => srKey.key),
+          nonce: stakingModule.nonce,
+          stakingModuleId: stakingModule.id,
+          blockHash,
+          vettedKeys: moduleVettedKeys,
+        };
+      },
+    );
 
     return {
       stakingModulesData,
-      vettedKeys,
+      blockHash,
+      blockNumber,
+    };
+  }
+
+  /**
+   * Request grouped by modules operators and all staking modules keys with meta from KAPI
+   */
+  private async getOperatorsAndKeysFromKAPI() {
+    const operatorsByModules =
+      await this.keysApiService.getOperatorListWithModule();
+    const { blockHash: operatorsBlockHash, blockNumber: operatorsBlockNumber } =
+      operatorsByModules.meta.elBlockSnapshot;
+
+    const unusedKeys = await this.keysApiService.getUnusedKeys();
+    const { blockHash: keysBlockHash } = unusedKeys.meta.elBlockSnapshot;
+
+    this.validateBlockHashMatch(keysBlockHash, operatorsBlockHash);
+
+    return {
+      operatorsByModules,
+      unusedKeys,
       blockHash: operatorsBlockHash,
       blockNumber: operatorsBlockNumber,
     };
+  }
+
+  private validateBlockHashMatch(
+    keysBlockHash: string,
+    operatorsBlockHash: string,
+  ) {
+    if (keysBlockHash !== operatorsBlockHash) {
+      this.logger.error(
+        'Blockhash of the received keys and operators dont match',
+        {
+          keysBlockHash,
+          operatorsBlockHash,
+        },
+      );
+
+      throw new Error(
+        'Blockhash of the received keys does not match the blockhash of operators',
+      );
+    }
+  }
+
+  private getModuleOperatorsVettedKeys(
+    moduleOperators: RegistryOperator[],
+    allModulesUnusedKeys: RegistryKey[],
+  ) {
+    const moduleUnusedKeys: RegistryKey[] = [];
+    // all module vetted keys
+    const moduleVettedKeys: RegistryKey[] = [];
+
+    moduleOperators.forEach((operator) => {
+      const operatorKeys = this.getSortedOperatorKeys(
+        allModulesUnusedKeys,
+        operator,
+      );
+
+      moduleUnusedKeys.push(...operatorKeys);
+
+      const operatorVettedKeys = this.getOperatorVettedKeys(
+        operatorKeys,
+        operator,
+      );
+      moduleVettedKeys.push(...operatorVettedKeys);
+    });
+
+    return {
+      moduleUnusedKeys,
+      moduleVettedKeys,
+    };
+  }
+
+  /***
+   * @param unusedKeys - keys list of all staking modules
+   * @param operator - staking module operator
+   * @returns sorted operator's keys list
+   */
+  private getSortedOperatorKeys(
+    keys: RegistryKey[],
+    operator: RegistryOperator,
+  ): RegistryKey[] {
+    const operatorSortedKeys = keys
+      .filter(
+        (key) =>
+          key.moduleAddress === operator.moduleAddress &&
+          key.operatorIndex === operator.index,
+      )
+      .sort((a, b) => a.index - b.index);
+    return operatorSortedKeys;
+  }
+
+  /***
+   * Got sorted unused keys and return vetted keys
+   */
+  private getOperatorVettedKeys(
+    unusedKeys: RegistryKey[],
+    operator: RegistryOperator,
+  ): RegistryKey[] {
+    const numberOfVettedUnusedKeys =
+      operator.stakingLimit - operator.usedSigningKeys;
+    return unusedKeys.slice(0, numberOfVettedUnusedKeys);
   }
 
   public async getKeysWithDuplicates(pubkeys: string[]) {

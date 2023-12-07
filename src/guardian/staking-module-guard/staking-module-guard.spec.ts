@@ -460,7 +460,6 @@ describe('StakingModuleGuardService', () => {
         vettedKeys: [],
         nonce: 0,
         stakingModuleId: 1,
-        stakingModuleAddress: 'first_address',
       },
       {
         blockHash: '',
@@ -468,7 +467,6 @@ describe('StakingModuleGuardService', () => {
         vettedKeys: [],
         nonce: 0,
         stakingModuleId: 2,
-        stakingModuleAddress: 'second_address',
       },
       {
         blockHash: '',
@@ -476,12 +474,11 @@ describe('StakingModuleGuardService', () => {
         vettedKeys: [],
         nonce: 0,
         stakingModuleId: 3,
-        stakingModuleAddress: 'third_address',
       },
     ];
 
     it('should exclude modules', () => {
-      const addressesOfModulesWithDuplicateKeys = ['second_address'];
+      const moduleIdsWithDuplicateKeys = [2];
       const expectedStakingModules: StakingModuleData[] = [
         {
           blockHash: '',
@@ -489,7 +486,6 @@ describe('StakingModuleGuardService', () => {
           vettedKeys: [],
           nonce: 0,
           stakingModuleId: 1,
-          stakingModuleAddress: 'first_address',
         },
         {
           blockHash: '',
@@ -497,13 +493,12 @@ describe('StakingModuleGuardService', () => {
           vettedKeys: [],
           nonce: 0,
           stakingModuleId: 3,
-          stakingModuleAddress: 'third_address',
         },
       ];
 
       const result = stakingModuleGuardService.excludeModulesWithDuplicatedKeys(
         stakingModules,
-        addressesOfModulesWithDuplicateKeys,
+        moduleIdsWithDuplicateKeys,
       );
 
       expect(result.length).toEqual(2);
@@ -511,7 +506,7 @@ describe('StakingModuleGuardService', () => {
     });
 
     it('should return list without changes', () => {
-      const addressesOfModulesWithDuplicateKeys = ['fourth_address'];
+      const moduleIdsWithDuplicateKeys = [4];
       const expectedStakingModules = [
         {
           blockHash: '',
@@ -519,7 +514,6 @@ describe('StakingModuleGuardService', () => {
           vettedKeys: [],
           nonce: 0,
           stakingModuleId: 1,
-          stakingModuleAddress: 'first_address',
         },
         {
           blockHash: '',
@@ -527,7 +521,6 @@ describe('StakingModuleGuardService', () => {
           vettedKeys: [],
           nonce: 0,
           stakingModuleId: 2,
-          stakingModuleAddress: 'second_address',
         },
         {
           blockHash: '',
@@ -535,13 +528,12 @@ describe('StakingModuleGuardService', () => {
           vettedKeys: [],
           nonce: 0,
           stakingModuleId: 3,
-          stakingModuleAddress: 'third_address',
         },
       ];
 
       const result = stakingModuleGuardService.excludeModulesWithDuplicatedKeys(
         stakingModules,
-        addressesOfModulesWithDuplicateKeys,
+        moduleIdsWithDuplicateKeys,
       );
 
       expect(result.length).toEqual(3);
@@ -549,7 +541,7 @@ describe('StakingModuleGuardService', () => {
     });
 
     it('should return list without changes if  duplicated keys were not found', () => {
-      const addressesOfModulesWithDuplicateKeys = [];
+      const moduleIdsWithDuplicateKeys = [];
       const expectedStakingModules = [
         {
           blockHash: '',
@@ -557,7 +549,6 @@ describe('StakingModuleGuardService', () => {
           vettedKeys: [],
           nonce: 0,
           stakingModuleId: 1,
-          stakingModuleAddress: 'first_address',
         },
         {
           blockHash: '',
@@ -565,7 +556,6 @@ describe('StakingModuleGuardService', () => {
           vettedKeys: [],
           nonce: 0,
           stakingModuleId: 2,
-          stakingModuleAddress: 'second_address',
         },
         {
           blockHash: '',
@@ -573,13 +563,12 @@ describe('StakingModuleGuardService', () => {
           vettedKeys: [],
           nonce: 0,
           stakingModuleId: 3,
-          stakingModuleAddress: 'third_address',
         },
       ];
 
       const result = stakingModuleGuardService.excludeModulesWithDuplicatedKeys(
         stakingModules,
-        addressesOfModulesWithDuplicateKeys,
+        moduleIdsWithDuplicateKeys,
       );
 
       expect(result.length).toEqual(3);
@@ -596,10 +585,7 @@ describe('StakingModuleGuardService', () => {
         blockData,
       );
 
-      const addressesOfModulesWithDuplicateKeys = [
-        '0x595F64Ddc3856a3b5Ff4f4CC1d1fb4B46cFd2bAC',
-        '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
-      ];
+      const addressesOfModulesWithDuplicateKeys = [100, 102];
 
       // result has all addressesOfModulesWithDuplicateKeys elements
       // but it also could contain more elements, that is why we check length too
@@ -615,12 +601,7 @@ describe('StakingModuleGuardService', () => {
         blockData,
       );
 
-      const addressesOfModulesWithDuplicateKeys = [
-        '0x595F64Ddc3856a3b5Ff4f4CC1d1fb4B46cFd2bAC',
-      ];
-
-      // result has all addressesOfModulesWithDuplicateKeys elements
-      // but it also could contain more elements, that is why we check length too
+      const addressesOfModulesWithDuplicateKeys = [100];
       expect(result).toEqual(
         expect.arrayContaining(addressesOfModulesWithDuplicateKeys),
       );
@@ -633,13 +614,7 @@ describe('StakingModuleGuardService', () => {
         blockData,
       );
 
-      const addressesOfModulesWithDuplicateKeys = [
-        '0x595F64Ddc3856a3b5Ff4f4CC1d1fb4B46cFd2bAC',
-        '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
-      ];
-
-      // result has all addressesOfModulesWithDuplicateKeys elements
-      // but it also could contain more elements, that is why we check length too
+      const addressesOfModulesWithDuplicateKeys = [100, 102];
       expect(result).toEqual(
         expect.arrayContaining(addressesOfModulesWithDuplicateKeys),
       );
@@ -654,8 +629,6 @@ describe('StakingModuleGuardService', () => {
 
       const addressesOfModulesWithDuplicateKeys = [];
 
-      // result has all addressesOfModulesWithDuplicateKeys elements
-      // but it also could contain more elements, that is why we check length too
       expect(result).toEqual(
         expect.arrayContaining(addressesOfModulesWithDuplicateKeys),
       );

@@ -11,7 +11,6 @@ import { GuardianMetricsService } from '../guardian-metrics';
 import { GuardianMessageService } from '../guardian-message';
 
 import { StakingRouterService } from 'staking-router';
-import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 
 @Injectable()
 export class StakingModuleGuardService {
@@ -31,54 +30,50 @@ export class StakingModuleGuardService {
     {};
 
   /**
-   *
-   * @param vettedKeys vetted keys of all staking modules
-   * @returns List of staking modules with duplicates
+   * @returns List of staking modules id with duplicates
    */
   public checkVettedKeysDuplicates(
-    vettedKeys: RegistryKey[],
+    stakingModulesData: StakingModuleData[],
     blockData: BlockData,
-  ): string[] {
-    const keyMap = new Map<string, Map<string, number>>();
+  ): number[] {
+    // Collects the duplicate count for each unique key across staking modules.
+    // The outer Map uses the key string as the key and holds an inner Map.
+    // The inner Map uses module id as keys and stores the duplicate count for each module.
+    const keyMap = new Map<string, Map<number, number>>();
+    const modulesWithDuplicatedKeysSet = new Set<number>();
+    const duplicatedKeys = new Map<string, Map<number, number>>();
 
-    // Populate the map
-    vettedKeys.forEach((vettedKey) => {
-      if (!keyMap.has(vettedKey.key)) {
-        // keyMap doesn't have vettedKey.key key
-        keyMap.set(vettedKey.key, new Map([[vettedKey.moduleAddress, 1]]));
-      } else {
-        // keyMap has vettedKey.key key
-        // get moduleAddress set
-        const modules = keyMap.get(vettedKey.key);
-        const moduleCount = modules?.get(vettedKey.moduleAddress) || 0;
-        modules?.set(vettedKey.moduleAddress, moduleCount + 1);
-      }
+    stakingModulesData.forEach(({ vettedKeys, stakingModuleId }) => {
+      // check module keys on duplicates across all modules
+      vettedKeys.forEach((key) => {
+        const stakingModules = keyMap.get(key.key);
+
+        if (!stakingModules) {
+          // add new key
+          keyMap.set(key.key, new Map([[stakingModuleId, 1]]));
+        } else {
+          // found duplicate
+          // Duplicate key found
+          const moduleCount = stakingModules.get(stakingModuleId) || 0;
+          stakingModules.set(stakingModuleId, moduleCount + 1);
+
+          if (this.hasDuplicateKeys(stakingModules)) {
+            stakingModules.forEach((_, id) => {
+              modulesWithDuplicatedKeysSet.add(id);
+            });
+            duplicatedKeys.set(key.key, stakingModules);
+          }
+        }
+      });
     });
 
-    const duplicatedKeysWithModules: { key: string; modules: string[] }[] = [];
-    const modulesWithDuplicatedKeysSet = new Set<string>();
-
-    keyMap.forEach((modules, key) => {
-      if (modules.size > 1 || Array.from(modules)[0][1] > 1) {
-        duplicatedKeysWithModules.push({
-          key,
-          modules: Array.from(modules.keys()),
-        });
-
-        Array.from(modules.keys()).forEach((stakingModule) =>
-          modulesWithDuplicatedKeysSet.add(stakingModule),
-        );
-      }
-    });
-
-    // TODO: consider add of contract module_id
-    if (duplicatedKeysWithModules.length) {
-      const moduleAddressesWithDuplicatesList: string[] = Array.from(
+    if (modulesWithDuplicatedKeysSet.size) {
+      const moduleAddressesWithDuplicatesList: number[] = Array.from(
         modulesWithDuplicatedKeysSet,
       );
       this.logger.warn('Found duplicated vetted keys', {
         blockHash: blockData.blockHash,
-        duplicatedKeys: duplicatedKeysWithModules,
+        duplicatedKeys: Array.from(duplicatedKeys),
         moduleAddressesWithDuplicates: moduleAddressesWithDuplicatesList,
       });
 
@@ -89,20 +84,26 @@ export class StakingModuleGuardService {
     return [];
   }
 
+  private hasDuplicateKeys(stakingModules: Map<number, number>): boolean {
+    const moduleCounts = Array.from(stakingModules.values());
+
+    return stakingModules.size > 1 || moduleCounts[0] > 1;
+  }
+
   public excludeModulesWithDuplicatedKeys(
     stakingModulesData: StakingModuleData[],
-    addressesOfModulesWithDuplicateKeys: string[],
+    modulesIdWithDuplicateKeys: number[],
   ): StakingModuleData[] {
     // exclude from stakingModulesData stakingModulesWithDuplicates
     let stakingModulesWithoutDuplicates: StakingModuleData[] =
       stakingModulesData;
 
-    if (addressesOfModulesWithDuplicateKeys.length) {
+    if (modulesIdWithDuplicateKeys.length) {
       // need to filter stakingModulesWithoutDuplicates
 
       stakingModulesWithoutDuplicates = stakingModulesWithoutDuplicates.filter(
-        ({ stakingModuleAddress }) =>
-          !addressesOfModulesWithDuplicateKeys.includes(stakingModuleAddress),
+        ({ stakingModuleId }) =>
+          !modulesIdWithDuplicateKeys.includes(stakingModuleId),
       );
     }
 

@@ -67,7 +67,6 @@ describe('StakingRouter', () => {
           blockHash:
             '0x40c697def4d4f7233b75149ab941462582bb5f035b5089f7c6a3d7849222f47c',
           stakingModuleId: 1,
-          stakingModuleAddress: '0x595F64Ddc3856a3b5Ff4f4CC1d1fb4B46cFd2bAC',
           nonce: 364,
         },
         {
@@ -91,27 +90,6 @@ describe('StakingRouter', () => {
           blockHash:
             '0x40c697def4d4f7233b75149ab941462582bb5f035b5089f7c6a3d7849222f47c',
           stakingModuleId: 2,
-          stakingModuleAddress: '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
-        },
-      ],
-      vettedKeys: [
-        {
-          key: '0x9948d2becf42e9f76922bc6f664545e6f50401050af95785a984802d32a95c4c61f8e3de312b78167f86e047f83a7796',
-          depositSignature:
-            '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
-          operatorIndex: 0,
-          used: false,
-          moduleAddress: '0x595F64Ddc3856a3b5Ff4f4CC1d1fb4B46cFd2bAC',
-          index: 100,
-        },
-        {
-          key: '0x83fc58f68d913481e065c928b040ae8b157ef2b32371b7df93d40188077c619dc789d443c18ac4a9b7e76de5ed6c8247',
-          depositSignature:
-            '0xa13833d96f4b98291dbf428cb69e7a3bdce61c9d20efcdb276423c7d6199ebd10cf1728dbd418c592701a41983cb02330e736610be254f617140af48a9d20b31cdffdd1d4fc8c0776439fca3330337d33042768acf897000b9e5da386077be44',
-          operatorIndex: 28,
-          used: false,
-          moduleAddress: '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
-          index: 4,
         },
       ],
     });
