@@ -43,7 +43,12 @@ export class KeysApiService {
     const result = await this.fetch<SRModuleListResponse>('/v1/modules');
     if (!result.data?.length || !result.elBlockSnapshot)
       throw Error('Keys API not synced, please wait');
-    return result;
+    return {
+      data: result.data as NonNullable<typeof result.data>,
+      elBlockSnapshot: result.elBlockSnapshot as NonNullable<
+        typeof result.elBlockSnapshot
+      >,
+    };
   }
 
   public async getUnusedModuleKeys(stakingModuleId: number) {
@@ -52,6 +57,9 @@ export class KeysApiService {
     );
     if (!result.data || !result.meta)
       throw Error('Keys API not synced, please wait');
-    return result;
+    return {
+      data: result.data as NonNullable<typeof result.data>,
+      meta: result.meta as NonNullable<typeof result.meta>,
+    };
   }
 }

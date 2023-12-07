@@ -35,45 +35,45 @@ import {
   DepositAbi__factory,
   SecurityAbi__factory,
   StakingRouterAbi__factory,
-} from './../src/generated';
+} from './../generated';
 
 // BLS helpers
 
-import { DepositData } from './../src/bls/bls.containers';
+import { DepositData } from './../bls/bls.containers';
 
 // App modules and services
 
-import { PrometheusModule } from '../src/common/prometheus';
-import { LoggerModule } from '../src/common/logger';
-import { ConfigModule } from '../src/common/config';
+import { PrometheusModule } from '../common/prometheus';
+import { LoggerModule } from '../common/logger';
+import { ConfigModule } from '../common/config';
 
-import { GuardianService } from '../src/guardian';
-import { GuardianModule } from '../src/guardian';
+import { GuardianService } from '../guardian';
+import { GuardianModule } from '../guardian';
 
-import { WalletService } from '../src/wallet';
-import { WalletModule } from '../src/wallet';
+import { WalletService } from '../wallet';
+import { WalletModule } from '../wallet';
 
-import { RepositoryModule } from '../src/contracts/repository';
+import { RepositoryModule } from '../contracts/repository';
 
-import { DepositService } from '../src/contracts/deposit';
-import { DepositModule } from '../src/contracts/deposit';
+import { DepositService } from '../contracts/deposit';
+import { DepositModule } from '../contracts/deposit';
 
-import { SecurityModule } from '../src/contracts/security';
+import { SecurityModule } from '../contracts/security';
 
-import { LidoService } from '../src/contracts/lido';
-import { LidoModule } from '../src/contracts/lido';
+import { LidoService } from '../contracts/lido';
+import { LidoModule } from '../contracts/lido';
 
-import { KeysApiService } from '../src/keys-api/keys-api.service';
-import { KeysApiModule } from '../src/keys-api/keys-api.module';
+import { KeysApiService } from '../keys-api/keys-api.service';
+import { KeysApiModule } from '../keys-api/keys-api.module';
 
-import { ProviderService } from '../src/provider';
-import { GanacheProviderModule } from '../src/provider';
+import { ProviderService } from '../provider';
+import { GanacheProviderModule } from '../provider';
 
-import { BlsService } from '../src/bls';
-import { GuardianMessageService } from '../src/guardian/guardian-message';
+import { BlsService } from '../bls';
+import { GuardianMessageService } from '../guardian/guardian-message';
 
 // Mock rabbit straight away
-jest.mock('../src/transport/stomp/stomp.client.ts');
+jest.mock('../transport/stomp/stomp.client.ts');
 
 describe('ganache e2e tests', () => {
   let server: ReturnType<typeof makeServer>;

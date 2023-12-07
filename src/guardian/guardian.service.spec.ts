@@ -40,6 +40,8 @@ const stakingModuleResponse = {
       name: 'string',
       lastDepositAt: 0,
       lastDepositBlock: 0,
+      exitedValidatorsCount: 0,
+      active: true,
     },
   ],
   elBlockSnapshot: {
