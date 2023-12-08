@@ -878,7 +878,7 @@ describe('StakingModuleGuardService', () => {
             } as any,
           ),
       ).rejects.toThrowError(
-        'BlockNumber of the response older than previous response from KAPI',
+        'BlockNumber of the current response older than previous response from KAPI',
       );
 
       expect(mockSendMessageFromGuardian).toBeCalledTimes(1);

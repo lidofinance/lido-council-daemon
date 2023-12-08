@@ -11,6 +11,7 @@ import { GuardianMetricsService } from '../guardian-metrics';
 import { GuardianMessageService } from '../guardian-message';
 
 import { StakingRouterService } from 'staking-router';
+import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 
 @Injectable()
 export class StakingModuleGuardService {
@@ -227,6 +228,11 @@ export class StakingModuleGuardService {
     return attackIntersections;
   }
 
+  /**
+   * If we find an intersection between the unused keys and the deposited keys in the Ethereum deposit contract
+   * with Lido withdrawal credentials, we need to determine whether this deposit was made by Lido.
+   * If it was indeed made by Lido, we set a metric and skip sending deposit messages in the queue for this iteration.
+   */
   public async getIntersectionBetweenUsedAndUnusedKeys(
     intersectionsWithLidoWC: VerifiedDepositEvent[],
     blockData: BlockData,
@@ -240,27 +246,45 @@ export class StakingModuleGuardService {
     }
 
     this.logger.log(
-      'Found intersections with lido credentials, need to check duplicated keys',
+      'Found intersections with lido credentials, need to check used duplicated keys',
     );
 
-    const { data, meta } =
-      await this.stakingRouterService.getKeysWithDuplicates(depositedPubkeys);
+    const alreadyDepositedKeys = await this.getDuplicatedLidoUsedKeys(
+      depositedPubkeys,
+      blockData.blockNumber,
+    );
 
-    if (meta.elBlockSnapshot.blockNumber < blockData.blockNumber) {
-      // blockData.blockNumber we also read from kapi, so smth is wrong in kapi
+    return alreadyDepositedKeys;
+  }
+
+  /**
+   * Upon identifying the intersection of keys deposited and unused with Lido withdrawal credentials,
+   * use the KAPI /v1/keys/find endpoint to locate all keys with duplicates.
+   * Filter out the used keys, and since used keys cannot be deleted,
+   * it is sufficient to check if the blockNumber in the new result is greater than the current blockNumber.
+   */
+  private async getDuplicatedLidoUsedKeys(
+    keys: string[],
+    prevBlockNumber: number,
+  ): Promise<RegistryKey[]> {
+    const { data, meta } =
+      await this.stakingRouterService.getKeysWithDuplicates(keys);
+
+    if (meta.elBlockSnapshot.blockNumber < prevBlockNumber) {
       this.logger.error(
-        'BlockNumber of the response older than previous response from KAPI',
+        'BlockNumber of the current response older than previous response from KAPI',
         {
-          previous: blockData.blockNumber,
+          previous: prevBlockNumber,
           current: meta.elBlockSnapshot.blockNumber,
         },
       );
       throw Error(
-        'BlockNumber of the response older than previous response from KAPI',
+        'BlockNumber of the current response older than previous response from KAPI',
       );
     }
 
     const usedKeys = data.filter((key) => key.used);
+
     return usedKeys;
   }
 
