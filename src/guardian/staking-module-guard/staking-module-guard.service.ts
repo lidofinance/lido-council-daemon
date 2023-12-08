@@ -235,33 +235,33 @@ export class StakingModuleGuardService {
       (deposit) => deposit.pubkey,
     );
 
-    if (depositedPubkeys.length) {
-      this.logger.log(
-        'Found intersections with lido credentials, need to check duplicated keys',
-      );
-
-      const { data, meta } =
-        await this.stakingRouterService.getKeysWithDuplicates(depositedPubkeys);
-
-      if (meta.elBlockSnapshot.blockNumber < blockData.blockNumber) {
-        // blockData.blockNumber we also read from kapi, so smth is wrong in kapi
-        this.logger.error(
-          'BlockNumber of the response older than previous response from KAPI',
-          {
-            previous: blockData.blockNumber,
-            current: meta.elBlockSnapshot.blockNumber,
-          },
-        );
-        throw Error(
-          'BlockNumber of the response older than previous response from KAPI',
-        );
-      }
-
-      const usedKeys = data.filter((key) => key.used);
-      return usedKeys;
+    if (!depositedPubkeys.length) {
+      return [];
     }
 
-    return [];
+    this.logger.log(
+      'Found intersections with lido credentials, need to check duplicated keys',
+    );
+
+    const { data, meta } =
+      await this.stakingRouterService.getKeysWithDuplicates(depositedPubkeys);
+
+    if (meta.elBlockSnapshot.blockNumber < blockData.blockNumber) {
+      // blockData.blockNumber we also read from kapi, so smth is wrong in kapi
+      this.logger.error(
+        'BlockNumber of the response older than previous response from KAPI',
+        {
+          previous: blockData.blockNumber,
+          current: meta.elBlockSnapshot.blockNumber,
+        },
+      );
+      throw Error(
+        'BlockNumber of the response older than previous response from KAPI',
+      );
+    }
+
+    const usedKeys = data.filter((key) => key.used);
+    return usedKeys;
   }
 
   /**
