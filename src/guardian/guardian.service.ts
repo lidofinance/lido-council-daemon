@@ -126,6 +126,7 @@ export class GuardianService implements OnModuleInit {
 
       await this.depositService.handleNewBlock(blockNumber);
 
+      // TODO: e2e test 'node operator deposit frontrun' shows that it is possible to find event and not save in cache
       const blockData = await this.blockGuardService.getCurrentBlockData({
         blockHash,
         blockNumber,
@@ -137,7 +138,6 @@ export class GuardianService implements OnModuleInit {
         blockHash: blockData.blockHash,
       });
 
-      // TODO: check only if one of nonce changed
       const modulesIdWithDuplicateKeys: number[] =
         this.stakingModuleGuardService.checkVettedKeysDuplicates(
           stakingModulesData,

@@ -5,7 +5,15 @@ import { ethers } from 'ethers';
 import { fromHexString, toHexString } from '@chainsafe/ssz';
 
 // Helpers
-import { computeRoot, mockKeysApi } from './helpers';
+import {
+  computeRoot,
+  mockedKeysApiOperators,
+  mockedKeysApiUnusedKeys,
+  mockedKeysWithDuplicates,
+  mockedMeta,
+  mockedModule,
+  mockedOperators,
+} from './helpers';
 
 // Constants
 import { WeiPerEther } from '@ethersproject/constants';
@@ -25,6 +33,7 @@ import {
   NO_PRIVKEY_MESSAGE,
   sk,
   pk,
+  NOP_REGISTRY,
 } from './constants';
 
 // Ganache
@@ -139,7 +148,7 @@ describe('ganache e2e tests', () => {
     depositService = moduleRef.get(DepositService);
     guardianMessageService = moduleRef.get(GuardianMessageService);
 
-    // Initialising needed service instead of the whole app
+    // Initializing needed service instead of the whole app
     blsService = moduleRef.get(BlsService);
     await blsService.onModuleInit();
 
@@ -202,6 +211,7 @@ describe('ganache e2e tests', () => {
       const forkBlock = await tempProvider.getBlock(FORK_BLOCK);
       const currentBlock = await tempProvider.getBlock('latest');
 
+      // create correct sign for deposit message for pk
       const goodDepositMessage = {
         pubkey: pk,
         withdrawalCredentials: fromHexString(GOOD_WC),
@@ -210,7 +220,29 @@ describe('ganache e2e tests', () => {
       const goodSigningRoot = computeRoot(goodDepositMessage);
       const goodSig = sk.sign(goodSigningRoot).toBytes();
 
-      mockKeysApi([goodSig], currentBlock, keysApiService);
+      const unusedKeys = [
+        {
+          key: toHexString(pk),
+          depositSignature: toHexString(goodSig),
+          operatorIndex: 0,
+          used: false,
+          index: 0,
+          moduleAddress: NOP_REGISTRY,
+        },
+      ];
+
+      const meta = mockedMeta(currentBlock);
+      const stakingModule = mockedModule(currentBlock);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        stakingModule,
+        meta,
+      );
+
+      mockedKeysApiUnusedKeys(keysApiService, unusedKeys, meta);
+      mockedKeysWithDuplicates(keysApiService, unusedKeys, meta);
 
       await depositService.setCachedEvents({
         data: [
@@ -268,10 +300,21 @@ describe('ganache e2e tests', () => {
 
       // Mock Keys API again on new block
       const newBlock = await providerService.provider.getBlock('latest');
-      mockKeysApi([goodSig], newBlock, keysApiService);
+
+      const newMeta = mockedMeta(newBlock);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        stakingModule,
+        newMeta,
+      );
+
+      mockedKeysApiUnusedKeys(keysApiService, unusedKeys, newMeta);
 
       // Run a cycle and wait for possible changes
       await guardianService.handleNewBlock();
+
       expect(sendPauseMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: newBlock.number,
@@ -303,6 +346,7 @@ describe('ganache e2e tests', () => {
       );
       const currentBlock = await tempProvider.getBlock('latest');
 
+      // mock kapi response
       const goodDepositMessage = {
         pubkey: pk,
         withdrawalCredentials: fromHexString(GOOD_WC),
@@ -311,7 +355,28 @@ describe('ganache e2e tests', () => {
       const goodSigningRoot = computeRoot(goodDepositMessage);
       const goodSig = sk.sign(goodSigningRoot).toBytes();
 
-      mockKeysApi([goodSig], currentBlock, keysApiService);
+      const unusedKeys = [
+        {
+          key: toHexString(pk),
+          depositSignature: toHexString(goodSig),
+          operatorIndex: 0,
+          used: false,
+          index: 0,
+          moduleAddress: NOP_REGISTRY,
+        },
+      ];
+
+      const meta = mockedMeta(currentBlock);
+      const stakingModule = mockedModule(currentBlock);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        stakingModule,
+        meta,
+      );
+
+      mockedKeysApiUnusedKeys(keysApiService, unusedKeys, meta);
 
       await depositService.setCachedEvents({
         data: [],
@@ -358,7 +423,18 @@ describe('ganache e2e tests', () => {
 
       // Mock Keys API again on new block
       const newBlock = await providerService.provider.getBlock('latest');
-      mockKeysApi([goodSig], newBlock, keysApiService);
+      const newMeta = mockedMeta(newBlock);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        stakingModule,
+        newMeta,
+      );
+      mockedKeysApiUnusedKeys(keysApiService, unusedKeys, newMeta);
+      // we make check that there are no duplicated used keys
+      // this request return keys along with their duplicates
+      mockedKeysWithDuplicates(keysApiService, unusedKeys, newMeta);
 
       // Run a cycle and wait for possible changes
       await guardianService.handleNewBlock();
@@ -384,7 +460,6 @@ describe('ganache e2e tests', () => {
         `http://127.0.0.1:${GANACHE_PORT}`,
       );
       const currentBlock = await tempProvider.getBlock('latest');
-
       const goodDepositMessage = {
         pubkey: pk,
         withdrawalCredentials: fromHexString(GOOD_WC),
@@ -393,7 +468,28 @@ describe('ganache e2e tests', () => {
       const goodSigningRoot = computeRoot(goodDepositMessage);
       const goodSig = sk.sign(goodSigningRoot).toBytes();
 
-      mockKeysApi([goodSig], currentBlock, keysApiService);
+      const unusedKeys = [
+        {
+          key: toHexString(pk),
+          depositSignature: toHexString(goodSig),
+          operatorIndex: 0,
+          used: false,
+          index: 0,
+          moduleAddress: NOP_REGISTRY,
+        },
+      ];
+
+      const meta = mockedMeta(currentBlock);
+      const stakingModule = mockedModule(currentBlock);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        stakingModule,
+        meta,
+      );
+
+      mockedKeysApiUnusedKeys(keysApiService, unusedKeys, meta);
 
       await depositService.setCachedEvents({
         data: [],
@@ -421,16 +517,13 @@ describe('ganache e2e tests', () => {
       };
       const weirdSigningRoot = computeRoot(weirdDepositMessage);
       const weirdSig = sk.sign(weirdSigningRoot).toBytes();
-
       const badDepositData = {
         ...badDepositMessage,
         signature: weirdSig,
       };
       const badDepositDataRoot = DepositData.hashTreeRoot(badDepositData);
-
       if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
       const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
-
       // Make a bad deposit
       const signer = wallet.connect(providerService.provider);
       const depositContract = DepositAbi__factory.connect(
@@ -444,15 +537,21 @@ describe('ganache e2e tests', () => {
         badDepositDataRoot,
         { value: ethers.constants.WeiPerEther.mul(1) },
       );
-
       // Mock Keys API again on new block
       const newBlock = await providerService.provider.getBlock('latest');
-      mockKeysApi([goodSig], newBlock, keysApiService);
+      const newMeta = mockedMeta(newBlock);
 
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        stakingModule,
+        newMeta,
+      );
+
+      mockedKeysApiUnusedKeys(keysApiService, unusedKeys, newMeta);
       // Run a cycle and wait for possible changes
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
-
       // Check if on pause now
       const routerContract = StakingRouterAbi__factory.connect(
         STAKING_ROUTER,
@@ -474,6 +573,7 @@ describe('ganache e2e tests', () => {
       );
       const currentBlock = await tempProvider.getBlock('latest');
 
+      // no diff
       const goodDepositMessage = {
         pubkey: pk,
         withdrawalCredentials: fromHexString(GOOD_WC),
@@ -482,7 +582,28 @@ describe('ganache e2e tests', () => {
       const goodSigningRoot = computeRoot(goodDepositMessage);
       const goodSig = sk.sign(goodSigningRoot).toBytes();
 
-      mockKeysApi([goodSig], currentBlock, keysApiService);
+      const unusedKeys = [
+        {
+          key: toHexString(pk),
+          depositSignature: toHexString(goodSig),
+          operatorIndex: 0,
+          used: false,
+          index: 0,
+          moduleAddress: NOP_REGISTRY,
+        },
+      ];
+
+      const meta = mockedMeta(currentBlock);
+      const stakingModule = mockedModule(currentBlock);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        stakingModule,
+        meta,
+      );
+
+      mockedKeysApiUnusedKeys(keysApiService, unusedKeys, meta);
 
       const goodDepositData = {
         ...goodDepositMessage,
@@ -521,7 +642,18 @@ describe('ganache e2e tests', () => {
 
       // Mock Keys API again on new block
       const newBlock = await providerService.provider.getBlock('latest');
-      mockKeysApi([goodSig], newBlock, keysApiService);
+
+      const newMeta = mockedMeta(newBlock);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        stakingModule,
+        newMeta,
+      );
+
+      mockedKeysApiUnusedKeys(keysApiService, unusedKeys, newMeta);
+      mockedKeysWithDuplicates(keysApiService, unusedKeys, newMeta);
 
       // Run a cycle and wait for possible changes
       await guardianService.handleNewBlock();
@@ -553,6 +685,7 @@ describe('ganache e2e tests', () => {
   test(
     'reorganization',
     async () => {
+      // TODOL need attention to this test
       const tempProvider = new ethers.providers.JsonRpcProvider(
         `http://127.0.0.1:${GANACHE_PORT}`,
       );
@@ -566,7 +699,28 @@ describe('ganache e2e tests', () => {
       const goodSigningRoot = computeRoot(goodDepositMessage);
       const goodSig = sk.sign(goodSigningRoot).toBytes();
 
-      mockKeysApi([goodSig], currentBlock, keysApiService);
+      const unusedKeys = [
+        {
+          key: toHexString(pk),
+          depositSignature: toHexString(goodSig),
+          operatorIndex: 0,
+          used: false,
+          index: 0,
+          moduleAddress: NOP_REGISTRY,
+        },
+      ];
+
+      const meta = mockedMeta(currentBlock);
+      const stakingModule = mockedModule(currentBlock);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        stakingModule,
+        meta,
+      );
+
+      mockedKeysApiUnusedKeys(keysApiService, unusedKeys, meta);
 
       const goodDepositData = {
         ...goodDepositMessage,
@@ -616,7 +770,17 @@ describe('ganache e2e tests', () => {
 
       // Mock Keys API again on new block, but now mark as used
       const newBlock = await providerService.provider.getBlock('latest');
-      mockKeysApi([goodSig], newBlock, keysApiService, true);
+
+      const newMeta = mockedMeta(newBlock);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        stakingModule,
+        newMeta,
+      );
+
+      mockedKeysApiUnusedKeys(keysApiService, [], newMeta);
 
       // Run a cycle and wait for possible changes
       await guardianService.handleNewBlock();
@@ -631,13 +795,343 @@ describe('ganache e2e tests', () => {
       server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
       await server.listen(GANACHE_PORT);
 
-      // Changing keys api keys to used=false
-      mockKeysApi([goodSig], newBlock, keysApiService, false);
+      mockedKeysApiUnusedKeys(keysApiService, unusedKeys, newMeta);
+      mockedKeysWithDuplicates(keysApiService, unusedKeys, newMeta);
 
       // Check if on pause now
       const isOnPauseAfter =
         await routerContract.getStakingModuleIsDepositsPaused(1);
       expect(isOnPauseAfter).toBe(false);
+    },
+    TESTS_TIMEOUT,
+  );
+
+  test(
+    'skip deposit if find duplicated key',
+    async () => {
+      const tempProvider = new ethers.providers.JsonRpcProvider(
+        `http://127.0.0.1:${GANACHE_PORT}`,
+      );
+      const currentBlock = await tempProvider.getBlock('latest');
+
+      // this key should be used in kapi
+      const goodDepositMessage = {
+        pubkey: pk,
+        withdrawalCredentials: fromHexString(GOOD_WC),
+        amount: 32000000000, // gwei!
+      };
+      const goodSigningRoot = computeRoot(goodDepositMessage);
+      const goodSig = sk.sign(goodSigningRoot).toBytes();
+
+      const goodDepositData = {
+        ...goodDepositMessage,
+        signature: goodSig,
+      };
+      const goodDepositDataRoot = DepositData.hashTreeRoot(goodDepositData);
+
+      if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
+      const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
+
+      // Make a deposit
+      const signer = wallet.connect(providerService.provider);
+      const depositContract = DepositAbi__factory.connect(
+        DEPOSIT_CONTRACT,
+        signer,
+      );
+      await depositContract.deposit(
+        goodDepositData.pubkey,
+        goodDepositData.withdrawalCredentials,
+        goodDepositData.signature,
+        goodDepositDataRoot,
+        { value: ethers.constants.WeiPerEther.mul(32) },
+      );
+
+      await depositService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          version: '1',
+        },
+      });
+
+      // mocked curated module
+      const stakingModule = mockedModule(currentBlock);
+      const meta = mockedMeta(currentBlock);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        stakingModule,
+        meta,
+      );
+
+      // list of keys for /keys?used=false mock
+      const unusedKeys = [
+        {
+          key: '0x9948d2becf42e9f76922bc6f664545e6f50401050af95785a984802d32a95c4c61f8e3de312b78167f86e047f83a7796',
+          depositSignature:
+            '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
+          operatorIndex: 0,
+          used: false,
+          index: 0,
+          moduleAddress: NOP_REGISTRY,
+        },
+        {
+          key: '0x9948d2becf42e9f76922bc6f664545e6f50401050af95785a984802d32a95c4c61f8e3de312b78167f86e047f83a7796',
+          depositSignature:
+            '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
+          operatorIndex: 0,
+          used: false,
+          index: 1,
+          moduleAddress: NOP_REGISTRY,
+        },
+      ];
+
+      mockedKeysApiUnusedKeys(keysApiService, unusedKeys, meta);
+
+      // Check that module was not paused
+      const routerContract = StakingRouterAbi__factory.connect(
+        STAKING_ROUTER,
+        providerService.provider,
+      );
+      const isOnPause = await routerContract.getStakingModuleIsDepositsPaused(
+        1,
+      );
+      expect(isOnPause).toBe(false);
+
+      await guardianService.handleNewBlock();
+
+      // just skip on this iteration deposit for staking module
+      expect(sendDepositMessage).toBeCalledTimes(0);
+      expect(sendPauseMessage).toBeCalledTimes(0);
+
+      // after deleting duplicates in staking module,
+      // council will resume deposits to module
+      const unusedKeysWithoutDuplicates = [
+        {
+          key: '0x9948d2becf42e9f76922bc6f664545e6f50401050af95785a984802d32a95c4c61f8e3de312b78167f86e047f83a7796',
+          depositSignature:
+            '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
+          operatorIndex: 0,
+          used: false,
+          index: 0,
+          moduleAddress: NOP_REGISTRY,
+        },
+      ];
+
+      const newBlock = await tempProvider.getBlock('latest');
+      const newMeta = mockedMeta(newBlock);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        stakingModule,
+        newMeta,
+      );
+
+      mockedKeysApiUnusedKeys(
+        keysApiService,
+        unusedKeysWithoutDuplicates,
+        newMeta,
+      );
+
+      await guardianService.handleNewBlock();
+
+      expect(sendDepositMessage).toBeCalledTimes(1);
+
+      expect(sendDepositMessage).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          blockNumber: newBlock.number,
+          guardianAddress: wallet.address,
+          guardianIndex: 9,
+          stakingModuleId: 1,
+        }),
+      );
+    },
+    TESTS_TIMEOUT,
+  );
+
+  test(
+    'added unused keys for that deposit was already made',
+    async () => {
+      const tempProvider = new ethers.providers.JsonRpcProvider(
+        `http://127.0.0.1:${GANACHE_PORT}`,
+      );
+      const currentBlock = await tempProvider.getBlock('latest');
+
+      // this key should be used in kapi
+      const goodDepositMessage = {
+        pubkey: pk,
+        withdrawalCredentials: fromHexString(GOOD_WC),
+        amount: 32000000000, // gwei!
+      };
+      const goodSigningRoot = computeRoot(goodDepositMessage);
+      const goodSig = sk.sign(goodSigningRoot).toBytes();
+
+      const goodDepositData = {
+        ...goodDepositMessage,
+        signature: goodSig,
+      };
+      const goodDepositDataRoot = DepositData.hashTreeRoot(goodDepositData);
+
+      if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
+      const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
+
+      // Make a deposit
+      const signer = wallet.connect(providerService.provider);
+      const depositContract = DepositAbi__factory.connect(
+        DEPOSIT_CONTRACT,
+        signer,
+      );
+      await depositContract.deposit(
+        goodDepositData.pubkey,
+        goodDepositData.withdrawalCredentials,
+        goodDepositData.signature,
+        goodDepositDataRoot,
+        { value: ethers.constants.WeiPerEther.mul(32) },
+      );
+
+      await depositService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          version: '1',
+        },
+      });
+
+      // mocked curated module
+      const stakingModule = mockedModule(currentBlock);
+      const meta = mockedMeta(currentBlock);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        stakingModule,
+        meta,
+      );
+
+      // list of keys for /keys?used=false mock
+      const unusedKeys = [
+        {
+          key: toHexString(pk),
+          depositSignature: toHexString(goodSig),
+          operatorIndex: 0,
+          used: false,
+          index: 0,
+          moduleAddress: NOP_REGISTRY,
+        },
+      ];
+
+      const keys = [...unusedKeys, { ...unusedKeys[0], used: true }];
+      mockedKeysApiUnusedKeys(keysApiService, unusedKeys, meta);
+      mockedKeysWithDuplicates(keysApiService, keys, meta);
+
+      // Check that module was not paused
+      const routerContract = StakingRouterAbi__factory.connect(
+        STAKING_ROUTER,
+        providerService.provider,
+      );
+      const isOnPause = await routerContract.getStakingModuleIsDepositsPaused(
+        1,
+      );
+      expect(isOnPause).toBe(false);
+
+      await guardianService.handleNewBlock();
+
+      // just skip on this iteration deposit for staking module
+      expect(sendDepositMessage).toBeCalledTimes(0);
+      expect(sendPauseMessage).toBeCalledTimes(0);
+
+      // after deleting duplicates in staking module,
+      // council will resume deposits to module
+
+      const newBlock = await tempProvider.getBlock('latest');
+      const newMeta = mockedMeta(newBlock);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        stakingModule,
+        newMeta,
+      );
+
+      mockedKeysApiUnusedKeys(keysApiService, [], newMeta);
+      mockedKeysWithDuplicates(keysApiService, [], meta);
+
+      await guardianService.handleNewBlock();
+
+      expect(sendDepositMessage).toBeCalledTimes(1);
+
+      expect(sendDepositMessage).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          blockNumber: newBlock.number,
+          guardianAddress: wallet.address,
+          guardianIndex: 9,
+          stakingModuleId: 1,
+        }),
+      );
+    },
+    TESTS_TIMEOUT,
+  );
+
+  test(
+    'invalid unused keys',
+    async () => {
+      const tempProvider = new ethers.providers.JsonRpcProvider(
+        `http://127.0.0.1:${GANACHE_PORT}`,
+      );
+      const currentBlock = await tempProvider.getBlock('latest');
+
+      await depositService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          version: '1',
+        },
+      });
+
+      // mocked curated module
+      const stakingModule = mockedModule(currentBlock);
+      const meta = mockedMeta(currentBlock);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        stakingModule,
+        meta,
+      );
+
+      // list of keys for /keys?used=false mock
+      const keyWithWrongSign = {
+        key: toHexString(pk),
+        depositSignature:
+          '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
+        operatorIndex: 0,
+        used: false,
+        index: 0,
+        moduleAddress: NOP_REGISTRY,
+      };
+      mockedKeysApiUnusedKeys(keysApiService, [keyWithWrongSign], meta);
+
+      if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
+      const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
+
+      await guardianService.handleNewBlock();
+
+      // just skip on this iteration deposit for staking module
+      expect(sendDepositMessage).toBeCalledTimes(1);
+
+      expect(sendDepositMessage).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          blockNumber: currentBlock.number,
+          guardianAddress: wallet.address,
+          guardianIndex: 9,
+          stakingModuleId: 1,
+        }),
+      );
     },
     TESTS_TIMEOUT,
   );
