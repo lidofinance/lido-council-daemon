@@ -665,9 +665,9 @@ describe('StakingModuleGuardService', () => {
       const pubkeyWithUsedKey2 = '0x3478';
       const lidoWC = '0x12';
       const intersectionsWithLidoWC = [
-        { pubkey: pubkeyWithUsedKey1, wc: lidoWC } as any,
-        { pubkey: pubkeyWithoutUsedKey, wc: lidoWC } as any,
-        { pubkey: pubkeyWithUsedKey2, wc: lidoWC } as any,
+        { pubkey: pubkeyWithUsedKey1, wc: lidoWC, valid: true } as any,
+        { pubkey: pubkeyWithoutUsedKey, wc: lidoWC, valid: true } as any,
+        { pubkey: pubkeyWithUsedKey2, wc: lidoWC, valid: true } as any,
       ];
       // function that return list from kapi that match keys in parameter
       const mockSendMessageFromGuardian = jest
@@ -763,9 +763,9 @@ describe('StakingModuleGuardService', () => {
       const pubkey3 = '0x3478';
       const lidoWC = '0x12';
       const intersectionsWithLidoWC = [
-        { pubkey: pubkey1, wc: lidoWC } as any,
-        { pubkey: pubkey2, wc: lidoWC } as any,
-        { pubkey: pubkey3, wc: lidoWC } as any,
+        { pubkey: pubkey1, wc: lidoWC, valid: true } as any,
+        { pubkey: pubkey2, wc: lidoWC, valid: true } as any,
+        { pubkey: pubkey3, wc: lidoWC, valid: true } as any,
       ];
       // function that return list from kapi that match keys in parameter
       const mockSendMessageFromGuardian = jest
@@ -825,9 +825,9 @@ describe('StakingModuleGuardService', () => {
       const pubkey3 = '0x3478';
       const lidoWC = '0x12';
       const intersectionsWithLidoWC = [
-        { pubkey: pubkey1, wc: lidoWC } as any,
-        { pubkey: pubkey2, wc: lidoWC } as any,
-        { pubkey: pubkey3, wc: lidoWC } as any,
+        { pubkey: pubkey1, wc: lidoWC, valid: true } as any,
+        { pubkey: pubkey2, wc: lidoWC, valid: true } as any,
+        { pubkey: pubkey3, wc: lidoWC, valid: true } as any,
       ];
       // function that return list from kapi that match keys in parameter
       const mockSendMessageFromGuardian = jest
