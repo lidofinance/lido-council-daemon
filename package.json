@@ -41,6 +41,7 @@
     "@nestjs/platform-express": "^8.1.1",
     "@nestjs/schedule": "^2.1.0",
     "@nestjs/terminus": "^8.0.1",
+    "@lido-nestjs/key-validation": "^7.4.0",
     "@willsoto/nestjs-prometheus": "^4.0.1",
     "app-root-path": "^3.0.0",
     "cache-manager": "^3.6.3",

@@ -1104,9 +1104,9 @@ describe('ganache e2e tests', () => {
         meta,
       );
 
-      // list of keys for /keys?used=false mock
       const keyWithWrongSign = {
         key: toHexString(pk),
+        // just some random sign
         depositSignature:
           '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
         operatorIndex: 0,
@@ -1114,6 +1114,7 @@ describe('ganache e2e tests', () => {
         index: 0,
         moduleAddress: NOP_REGISTRY,
       };
+      // list of keys for /keys?used=false mock
       mockedKeysApiUnusedKeys(keysApiService, [keyWithWrongSign], meta);
 
       if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
@@ -1121,7 +1122,6 @@ describe('ganache e2e tests', () => {
 
       await guardianService.handleNewBlock();
 
-      // just skip on this iteration deposit for staking module
       expect(sendDepositMessage).toBeCalledTimes(1);
 
       expect(sendDepositMessage).toHaveBeenLastCalledWith(
