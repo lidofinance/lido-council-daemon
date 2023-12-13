@@ -7,7 +7,6 @@ import {
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { ProviderService } from 'provider';
 import { GENESIS_FORK_VERSION_BY_CHAIN_ID } from 'bls/bls.constants';
-import { LidoService } from 'contracts/lido';
 
 @Injectable()
 export class KeysValidationService {
@@ -16,7 +15,6 @@ export class KeysValidationService {
     protected readonly logger: LoggerService,
     private readonly keyValidator: KeyValidatorInterface,
     private readonly provider: ProviderService,
-    private readonly lidoService: LidoService,
   ) {}
 
   /**
@@ -24,12 +22,10 @@ export class KeysValidationService {
    * Return list of invalid keys
    */
   async validateKeys(
-    unusedKeys: RegistryKey[],
-    // withdrawalCredentials: string,
+    vettedKeys: RegistryKey[],
+    withdrawalCredentials: string,
   ): Promise<{ key: string; depositSignature: string }[]> {
-    this.logger.log('Start keys validation', { keysCount: unusedKeys.length });
     const forkVersion: Uint8Array = await this.forkVersion();
-    const withdrawalCredentials = await this.withdrawalCredentials();
 
     const validatedKeys: [
       {
@@ -39,7 +35,7 @@ export class KeysValidationService {
       },
       boolean,
     ][] = await this.keyValidator.validateKeys(
-      unusedKeys.map((key) => ({
+      vettedKeys.map((key) => ({
         key: key.key,
         depositSignature: key.depositSignature,
         used: false,
@@ -57,12 +53,13 @@ export class KeysValidationService {
   }
 
   async forkVersion(): Promise<Uint8Array> {
-    // TODO: check chainId
     const chainId = await this.provider.getChainId();
-    return GENESIS_FORK_VERSION_BY_CHAIN_ID[chainId];
-  }
+    const forkVersion = GENESIS_FORK_VERSION_BY_CHAIN_ID[chainId];
 
-  async withdrawalCredentials() {
-    return await this.lidoService.getWithdrawalCredentials();
+    if (!forkVersion) {
+      throw new Error(`Unsupported chain id ${chainId}`);
+    }
+
+    return forkVersion;
   }
 }

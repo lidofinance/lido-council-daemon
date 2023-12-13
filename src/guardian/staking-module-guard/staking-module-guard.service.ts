@@ -3,7 +3,6 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 import { VerifiedDepositEvent } from 'contracts/deposit';
 import { SecurityService } from 'contracts/security';
-import { LidoService } from 'contracts/lido';
 
 import { ContractsState, BlockData, StakingModuleData } from '../interfaces';
 import { GUARDIAN_DEPOSIT_RESIGNING_BLOCKS } from '../guardian.constants';
@@ -12,6 +11,8 @@ import { GuardianMessageService } from '../guardian-message';
 
 import { StakingRouterService } from 'staking-router';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
+import { KeysValidationService } from 'guardian/keys-validation/keys-validation.service';
+import { performance } from 'perf_hooks';
 
 @Injectable()
 export class StakingModuleGuardService {
@@ -20,11 +21,10 @@ export class StakingModuleGuardService {
     private logger: LoggerService,
 
     private securityService: SecurityService,
-    private lidoService: LidoService,
-
     private stakingRouterService: StakingRouterService,
     private guardianMetricsService: GuardianMetricsService,
     private guardianMessageService: GuardianMessageService,
+    private keysValidationService: KeysValidationService,
   ) {}
 
   private lastContractsStateByModuleId: Record<number, ContractsState | null> =
@@ -72,7 +72,7 @@ export class StakingModuleGuardService {
       const moduleAddressesWithDuplicatesList: number[] = Array.from(
         modulesWithDuplicatedKeysSet,
       );
-      this.logger.warn('Found duplicated vetted keys', {
+      this.logger.error('Found duplicated vetted keys', {
         blockHash: blockData.blockHash,
         duplicatedKeys: Array.from(duplicatedKeys),
         moduleAddressesWithDuplicates: moduleAddressesWithDuplicatesList,
@@ -163,7 +163,7 @@ export class StakingModuleGuardService {
 
       // if found used keys, Lido already made deposit on this keys
       if (usedKeys.length) {
-        this.logger.log('Found that we already deposited on these keys');
+        this.logger.error('Found that we already deposited on these keys');
         // set metric council_daemon_used_duplicate
         return;
       }
@@ -217,12 +217,8 @@ export class StakingModuleGuardService {
     if (!validIntersections.length) return [];
 
     // Exclude deposits with Lido withdrawal credentials
-    const { blockHash } = blockData;
-    const lidoWC = await this.lidoService.getWithdrawalCredentials({
-      blockHash,
-    });
     const attackIntersections = validIntersections.filter(
-      (deposit) => deposit.wc !== lidoWC,
+      (deposit) => deposit.wc !== blockData.lidoWC,
     );
 
     return attackIntersections;
@@ -278,18 +274,14 @@ export class StakingModuleGuardService {
       await this.stakingRouterService.getKeysWithDuplicates(keys);
 
     if (meta.elBlockSnapshot.blockNumber < prevBlockNumber) {
-      this.logger.error(
-        'BlockNumber of the current response older than previous response from KAPI',
-        {
-          previous: prevBlockNumber,
-          current: meta.elBlockSnapshot.blockNumber,
-        },
-      );
-      throw Error(
-        'BlockNumber of the current response older than previous response from KAPI',
-      );
+      const errorMsg =
+        'BlockNumber of the current response older than previous response from KAPI';
+      this.logger.error(errorMsg, {
+        previous: prevBlockNumber,
+        current: meta.elBlockSnapshot.blockNumber,
+      });
+      throw Error(errorMsg);
     }
-
     const usedKeys = data.filter((key) => key.used);
 
     return usedKeys;
@@ -374,6 +366,26 @@ export class StakingModuleGuardService {
 
     if (isSameContractsState) return;
 
+    if (
+      !lastContractsState ||
+      !this.isSameStakingModuleContractState(
+        currentContractState.blockNumber,
+        lastContractsState.blockNumber,
+      )
+    ) {
+      const invalidKeys = await this.getInvalidKeys(
+        stakingModuleData,
+        blockData,
+      );
+      if (invalidKeys.length) {
+        this.logger.error(
+          'Found invalid keys, will skip deposits until solving problem',
+        );
+        // set metric council_daemon_invalid_key
+        return;
+      }
+    }
+
     const signature = await this.securityService.signDepositData(
       depositRoot,
       nonce,
@@ -402,6 +414,36 @@ export class StakingModuleGuardService {
     await this.guardianMessageService.sendDepositMessage(depositMessage);
   }
 
+  public async getInvalidKeys(
+    stakingModuleData: StakingModuleData,
+    blockData: BlockData,
+  ): Promise<{ key: string; depositSignature: string }[]> {
+    this.logger.log('Start keys validation', {
+      keysCount: stakingModuleData.vettedKeys.length,
+    });
+    const validationTimeStart = performance.now();
+    const invalidKeysList = await this.keysValidationService.validateKeys(
+      [
+        ...stakingModuleData.vettedKeys,
+        {
+          ...stakingModuleData.vettedKeys[0],
+          depositSignature: stakingModuleData.vettedKeys[1].depositSignature,
+        },
+      ],
+      blockData.lidoWC,
+    );
+    const validationTimeEnd = performance.now();
+    const validationTime =
+      Math.ceil(validationTimeEnd - validationTimeStart) / 1000;
+
+    this.logger.log('Keys validated', {
+      invalidKeysList,
+      validationTime,
+    });
+
+    return invalidKeysList;
+  }
+
   /**
    * Compares the states of the contracts to decide if the message needs to be re-signed
    * @param firstState - contracts state
@@ -414,13 +456,32 @@ export class StakingModuleGuardService {
   ): boolean {
     if (!firstState || !secondState) return false;
     if (firstState.depositRoot !== secondState.depositRoot) return false;
-    if (firstState.nonce !== secondState.nonce) return false;
+    if (
+      !this.isSameStakingModuleContractState(
+        firstState.nonce,
+        secondState.nonce,
+      )
+    )
+      return false;
+
     if (
       Math.floor(firstState.blockNumber / GUARDIAN_DEPOSIT_RESIGNING_BLOCKS) !==
       Math.floor(secondState.blockNumber / GUARDIAN_DEPOSIT_RESIGNING_BLOCKS)
     ) {
       return false;
     }
+
+    return true;
+  }
+
+  /**
+   * @returns true if nonce is the same
+   */
+  public isSameStakingModuleContractState(
+    firstNonce: number,
+    secondNonce: number,
+  ): boolean {
+    if (firstNonce !== secondNonce) return false;
 
     return true;
   }

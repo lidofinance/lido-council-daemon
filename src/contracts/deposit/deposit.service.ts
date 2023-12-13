@@ -243,7 +243,6 @@ export class DepositService {
    * The last N blocks are not stored, in order to avoid storing reorganized blocks
    */
   public async updateEventsCache(): Promise<void> {
-    this.logger.log('try to update?');
     const fetchTimeStart = performance.now();
 
     const [currentBlock, initialCache] = await Promise.all([
@@ -270,8 +269,6 @@ export class DepositService {
         chunkStartBlock,
         chunkToBlock,
       );
-
-      console.log('chunk?', chunkEventGroup);
 
       updatedCachedEvents.headers.endBlock = chunkEventGroup.endBlock;
       updatedCachedEvents.data = updatedCachedEvents.data.concat(

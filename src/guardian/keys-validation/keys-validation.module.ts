@@ -1,10 +1,9 @@
 import { Module } from '@nestjs/common';
 import { KeyValidatorModule } from '@lido-nestjs/key-validation';
 import { KeysValidationService } from './keys-validation.service';
-import { LidoModule } from 'contracts/lido';
 
 @Module({
-  imports: [LidoModule, KeyValidatorModule.forFeature({ multithreaded: true })],
+  imports: [KeyValidatorModule.forFeature({ multithreaded: true })],
   providers: [KeysValidationService],
   exports: [KeysValidationService],
 })
