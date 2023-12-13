@@ -115,6 +115,7 @@ export class StakingModuleGuardService {
    * Checks keys for intersections with previously deposited keys and handles the situation
    * @param blockData - collected data from the current block
    */
+  // TODO: rename, because this method more than intersections checks
   public async checkKeysIntersections(
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
@@ -423,13 +424,7 @@ export class StakingModuleGuardService {
     });
     const validationTimeStart = performance.now();
     const invalidKeysList = await this.keysValidationService.validateKeys(
-      [
-        ...stakingModuleData.vettedKeys,
-        {
-          ...stakingModuleData.vettedKeys[0],
-          depositSignature: stakingModuleData.vettedKeys[1].depositSignature,
-        },
-      ],
+      stakingModuleData.vettedKeys,
       blockData.lidoWC,
     );
     const validationTimeEnd = performance.now();
