@@ -7,6 +7,9 @@ import {
   METRIC_DEPOSITED_KEYS_TOTAL,
   METRIC_OPERATORS_KEYS_TOTAL,
   METRIC_INTERSECTIONS_TOTAL,
+  METRIC_INVALID_KEYS_TOTAL,
+  METRIC_DUPLICATED_USED_KEYS_TOTAL,
+  METRIC_DUPLICATED_VETTED_UNUSED_KEYS_TOTAL,
 } from 'common/prometheus';
 import { Gauge } from 'prom-client';
 
@@ -24,6 +27,15 @@ export class GuardianMetricsService {
 
     @InjectMetric(METRIC_INTERSECTIONS_TOTAL)
     private intersectionsCounter: Gauge<string>,
+
+    @InjectMetric(METRIC_INVALID_KEYS_TOTAL)
+    private invalidKeysCounter: Gauge<string>,
+
+    @InjectMetric(METRIC_DUPLICATED_USED_KEYS_TOTAL)
+    private duplicatedUsedKeysCounter: Gauge<string>,
+
+    @InjectMetric(METRIC_DUPLICATED_VETTED_UNUSED_KEYS_TOTAL)
+    private duplicatedVettedUnusedKeysCounter: Gauge<string>,
   ) {}
 
   /**
@@ -116,5 +128,23 @@ export class GuardianMetricsService {
       { type: 'filtered', stakingModuleId },
       filtered.length,
     );
+  }
+
+  public collectInvalidKeysMetrics(
+    stakingModuleId: number,
+    count: number,
+  ): void {
+    this.invalidKeysCounter.set({ stakingModuleId }, count);
+  }
+
+  public collectDuplicatedUsedKeysMetrics(
+    stakingModuleId: number,
+    count: number,
+  ) {
+    this.duplicatedUsedKeysCounter.set({ stakingModuleId }, count);
+  }
+
+  public collectDuplicatedVettedUnusedKeysMetrics({ stakingModuleId }, count) {
+    this.duplicatedVettedUnusedKeysCounter.set({ stakingModuleId }, count);
   }
 }

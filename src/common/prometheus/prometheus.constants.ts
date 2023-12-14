@@ -21,3 +21,9 @@ export const METRIC_DEPOSITED_KEYS_TOTAL = `${METRICS_PREFIX}deposited_keys_tota
 export const METRIC_OPERATORS_KEYS_TOTAL = `${METRICS_PREFIX}operators_keys_total`;
 
 export const METRIC_KEYS_API_REQUEST_DURATION = `${METRICS_PREFIX}keys_api_requests_duration_seconds`;
+
+export const METRIC_INVALID_KEYS_TOTAL = `${METRICS_PREFIX}invalid_keys_total`;
+
+export const METRIC_DUPLICATED_VETTED_UNUSED_KEYS_TOTAL = `${METRICS_PREFIX}vetted_unused_keys_total`;
+
+export const METRIC_DUPLICATED_USED_KEYS_TOTAL = `${METRICS_PREFIX}used_keys_total`;

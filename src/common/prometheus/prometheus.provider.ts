@@ -17,6 +17,9 @@ import {
   METRIC_DEPOSITED_KEYS_TOTAL,
   METRIC_OPERATORS_KEYS_TOTAL,
   METRIC_KEYS_API_REQUEST_DURATION,
+  METRIC_INVALID_KEYS_TOTAL,
+  METRIC_DUPLICATED_VETTED_UNUSED_KEYS_TOTAL,
+  METRIC_DUPLICATED_USED_KEYS_TOTAL,
 } from './prometheus.constants';
 
 export const PrometheusTransportMessageCounterProvider = makeCounterProvider({
@@ -92,4 +95,22 @@ export const PrometheusKeysApiRequestsProvider = makeHistogramProvider({
   help: 'Duration of data collection requests by keys-api',
   buckets: [0.1, 0.2, 0.3, 0.6, 1, 1.5, 2, 5],
   labelNames: ['result', 'status'] as const,
+});
+
+export const PrometheusInvalidKeysProvider = makeGaugeProvider({
+  name: METRIC_INVALID_KEYS_TOTAL,
+  help: 'Number of invalid keys',
+  labelNames: ['stakingModuleId'] as const,
+});
+
+export const PrometheusVettedUnusedKeysProvider = makeGaugeProvider({
+  name: METRIC_DUPLICATED_VETTED_UNUSED_KEYS_TOTAL,
+  help: 'Number of vetted unused keys',
+  labelNames: ['stakingModuleId'] as const,
+});
+
+export const PrometheusUsedKeysProvider = makeGaugeProvider({
+  name: METRIC_DUPLICATED_USED_KEYS_TOTAL,
+  help: 'Number of used keys',
+  labelNames: ['stakingModuleId'] as const,
 });
