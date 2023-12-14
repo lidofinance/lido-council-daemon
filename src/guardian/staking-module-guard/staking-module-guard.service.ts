@@ -78,7 +78,7 @@ export class StakingModuleGuardService {
         moduleAddressesWithDuplicates: moduleAddressesWithDuplicatesList,
       });
 
-      //TODO: set prometheus metric council_daemon_vetted_unused_duplicate
+      this.guardianMetricsService.incrDuplicatedVettedUnusedKeysEventCounter();
       return moduleAddressesWithDuplicatesList;
     }
 
@@ -127,9 +127,12 @@ export class StakingModuleGuardService {
       blockData,
     );
 
+    // exclude invalid deposits as they ignored by cl
+    const validIntersections = this.excludeInvalidDeposits(keysIntersections);
+
     const filteredIntersections = await this.excludeEligibleIntersections(
       blockData,
-      keysIntersections,
+      validIntersections,
     );
 
     const isFilteredIntersectionsFound = filteredIntersections.length > 0;
@@ -157,14 +160,14 @@ export class StakingModuleGuardService {
     } else {
       // it could throw error if kapi returned old data
       const usedKeys = await this.getIntersectionBetweenUsedAndUnusedKeys(
-        keysIntersections,
+        validIntersections,
         blockData,
       );
 
       // if found used keys, Lido already made deposit on this keys
       if (usedKeys.length) {
         this.logger.log('Found that we already deposited on these keys');
-        // set metric council_daemon_used_duplicate
+        this.guardianMetricsService.incrDuplicatedUsedKeysEventCounter();
         return;
       }
 
@@ -203,6 +206,12 @@ export class StakingModuleGuardService {
     return intersections;
   }
 
+  public excludeInvalidDeposits(intersections: VerifiedDepositEvent[]) {
+    // Exclude deposits with invalid signature over the deposit data
+    const validIntersections = intersections.filter(({ valid }) => valid);
+    return validIntersections;
+  }
+
   /**
    * Excludes invalid deposits and deposits with Lido WC from intersections
    * @param intersections - list of deposits with keys that were deposited earlier
@@ -210,11 +219,12 @@ export class StakingModuleGuardService {
    */
   public async excludeEligibleIntersections(
     blockData: BlockData,
-    intersections: VerifiedDepositEvent[],
+    validIntersections: VerifiedDepositEvent[],
   ): Promise<VerifiedDepositEvent[]> {
-    // Exclude deposits with invalid signature over the deposit data
-    const validIntersections = intersections.filter(({ valid }) => valid);
-    if (!validIntersections.length) return [];
+    if (!validIntersections.length) {
+      this.logger.log('Not found valid intersection');
+      return [];
+    }
 
     // Exclude deposits with Lido withdrawal credentials
     const { blockHash } = blockData;
