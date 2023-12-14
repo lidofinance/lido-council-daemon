@@ -244,14 +244,7 @@ export class StakingModuleGuardService {
     intersectionsWithLidoWC: VerifiedDepositEvent[],
     blockData: BlockData,
   ) {
-    // should not check invalid
-    // TODO: fix in prev PR
-    const validIntersections = intersectionsWithLidoWC.filter(
-      ({ valid }) => valid,
-    );
-    if (!validIntersections.length) return [];
-
-    const depositedPubkeys = validIntersections.map(
+    const depositedPubkeys = intersectionsWithLidoWC.map(
       (deposit) => deposit.pubkey,
     );
 
