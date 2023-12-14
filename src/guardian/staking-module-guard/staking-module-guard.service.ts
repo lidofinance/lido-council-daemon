@@ -392,7 +392,7 @@ export class StakingModuleGuardService {
         this.logger.error(
           'Found invalid keys, will skip deposits until solving problem',
         );
-        // set metric council_daemon_invalid_key
+        this.guardianMetricsService.incrInvalidKeysEventCounter();
         return;
       }
     }
