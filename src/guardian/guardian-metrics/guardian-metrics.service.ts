@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { VerifiedDepositEvent } from 'contracts/deposit';
 import { BlockData, StakingModuleData } from '../interfaces';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
@@ -7,8 +7,11 @@ import {
   METRIC_DEPOSITED_KEYS_TOTAL,
   METRIC_OPERATORS_KEYS_TOTAL,
   METRIC_INTERSECTIONS_TOTAL,
+  METRIC_DUPLICATED_USED_KEYS_EVENT_COUNTER,
+  METRIC_INVALID_KEYS_EVENT_COUNTER,
+  METRIC_DUPLICATED_VETTED_UNUSED_KEYS_EVENT_COUNTER,
 } from 'common/prometheus';
-import { Gauge } from 'prom-client';
+import { Counter, Gauge } from 'prom-client';
 
 @Injectable()
 export class GuardianMetricsService {
@@ -24,6 +27,15 @@ export class GuardianMetricsService {
 
     @InjectMetric(METRIC_INTERSECTIONS_TOTAL)
     private intersectionsCounter: Gauge<string>,
+
+    @InjectMetric(METRIC_DUPLICATED_USED_KEYS_EVENT_COUNTER)
+    private duplicatedUsedKeysEventCounter: Counter<string>,
+
+    @InjectMetric(METRIC_DUPLICATED_VETTED_UNUSED_KEYS_EVENT_COUNTER)
+    private duplicatedVettedUnusedKeysEventCounter: Counter<string>,
+
+    @InjectMetric(METRIC_INVALID_KEYS_EVENT_COUNTER)
+    private invalidKeysEventCounter: Counter<string>,
   ) {}
 
   /**
@@ -116,5 +128,26 @@ export class GuardianMetricsService {
       { type: 'filtered', stakingModuleId },
       filtered.length,
     );
+  }
+
+  /**
+   * increment duplicated vetted unused keys event counter
+   */
+  public incrDuplicatedVettedUnusedKeysEventCounter() {
+    this.duplicatedVettedUnusedKeysEventCounter.inc();
+  }
+
+  /**
+   * increment duplicated used keys event counter
+   */
+  public incrDuplicatedUsedKeysEventCounter() {
+    this.duplicatedUsedKeysEventCounter.inc();
+  }
+
+  /**
+   * increment invalid keys event counter
+   */
+  public incrInvalidKeysEventCounter() {
+    this.invalidKeysEventCounter.inc();
   }
 }
