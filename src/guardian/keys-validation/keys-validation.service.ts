@@ -22,7 +22,7 @@ type DepositData = {
 
 @Injectable()
 export class KeysValidationService {
-  private keysCache: LRUCache<string, string>;
+  private keysCache: LRUCache<string, { signature: string; isValid: boolean }>;
 
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER)
@@ -44,43 +44,40 @@ export class KeysValidationService {
     const forkVersion: Uint8Array = await this.forkVersion();
 
     const keysForValidation = vettedKeys
-      .map((key) => {
-        return this.getKeyFromCache(key, withdrawalCredentials, forkVersion);
-      })
-      .filter((key): key is DepositData => key !== undefined) as DepositData[];
+      .map((key) =>
+        this.prepareKeyForValidation(key, withdrawalCredentials, forkVersion),
+      )
+      .filter((key) => key !== undefined) as DepositData[];
 
     const validatedKeys: [Key & DepositData, boolean][] =
       await this.keyValidator.validateKeys(keysForValidation);
 
-    this.updateCache(validatedKeys);
+    this.updateCacheWithValidationResults(validatedKeys);
 
-    return validatedKeys
-      .filter(([, result]) => !result)
+    // this list will not include invalid keys from cache
+    const invalidKeysFromCurrentValidation = validatedKeys
+      .filter(([, isValid]) => !isValid)
       .map(([key]) => ({
         key: key.key,
         depositSignature: key.depositSignature,
       }));
+
+    return this.mergeInvalidKeys(invalidKeysFromCurrentValidation);
   }
 
-  getKeyFromCache(
+  prepareKeyForValidation(
     key: RegistryKey,
     withdrawalCredentials: string,
     forkVersion: Uint8Array,
   ) {
-    const sign = this.keysCache.get(key.key);
+    const cachedEntry = this.keysCache.get(key.key);
 
-    if (sign == key.depositSignature) {
-      // key was not changed
+    // key wasn't in cache or signature was changed
+    if (cachedEntry && cachedEntry.signature == key.depositSignature) {
       return undefined;
     }
-    return this.depositData(key, withdrawalCredentials, forkVersion);
-  }
 
-  async updateCache(validatedKeys: [Key & DepositData, boolean][]) {
-    // keys doesnt exist in cache or that we need to update
-    validatedKeys.forEach(([key, _]) =>
-      this.keysCache.set(key.key, key.depositSignature),
-    );
+    return this.depositData(key, withdrawalCredentials, forkVersion);
   }
 
   depositData(
@@ -105,5 +102,36 @@ export class KeysValidationService {
     }
 
     return forkVersion;
+  }
+
+  async updateCacheWithValidationResults(
+    validatedKeys: [Key & DepositData, boolean][],
+  ) {
+    validatedKeys.forEach(([key, isValid]) =>
+      this.keysCache.set(key.key, { signature: key.depositSignature, isValid }),
+    );
+  }
+
+  private mergeInvalidKeys(
+    recentInvalidKeys: { key: string; depositSignature: string }[],
+  ): { key: string; depositSignature: string }[] {
+    const allInvalidKeys = new Map<
+      string,
+      { key: string; depositSignature: string }
+    >();
+
+    // Add invalid keys from the current validation
+    for (const key of recentInvalidKeys) {
+      allInvalidKeys.set(key.key, key);
+    }
+
+    // Merge with invalid keys from the cache
+    this.keysCache.forEach((value, key) => {
+      if (!value.isValid && !allInvalidKeys.has(key)) {
+        allInvalidKeys.set(key, { key, depositSignature: value.signature });
+      }
+    });
+
+    return Array.from(allInvalidKeys.values());
   }
 }
