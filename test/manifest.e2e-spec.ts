@@ -1084,6 +1084,37 @@ describe('ganache e2e tests', () => {
       );
       const currentBlock = await tempProvider.getBlock('latest');
 
+      const goodDepositMessage = {
+        pubkey: pk,
+        withdrawalCredentials: fromHexString(GOOD_WC),
+        amount: 32000000000, // gwei!
+      };
+      const goodSigningRoot = computeRoot(goodDepositMessage);
+      const goodSig = sk.sign(goodSigningRoot).toBytes();
+
+      const goodDepositData = {
+        ...goodDepositMessage,
+        signature: goodSig,
+      };
+      const goodDepositDataRoot = DepositData.hashTreeRoot(goodDepositData);
+
+      if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
+      const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
+
+      // Make a deposit
+      const signer = wallet.connect(providerService.provider);
+      const depositContract = DepositAbi__factory.connect(
+        DEPOSIT_CONTRACT,
+        signer,
+      );
+      await depositContract.deposit(
+        goodDepositData.pubkey,
+        goodDepositData.withdrawalCredentials,
+        goodDepositData.signature,
+        goodDepositDataRoot,
+        { value: ethers.constants.WeiPerEther.mul(32) },
+      );
+
       await depositService.setCachedEvents({
         data: [],
         headers: {
@@ -1116,9 +1147,44 @@ describe('ganache e2e tests', () => {
       };
       // list of keys for /keys?used=false mock
       mockedKeysApiUnusedKeys(keysApiService, [keyWithWrongSign], meta);
+      mockedKeysWithDuplicates(keysApiService, [], meta);
 
       await guardianService.handleNewBlock();
 
+      expect(sendDepositMessage).toBeCalledTimes(0);
+      expect(sendPauseMessage).toBeCalledTimes(0);
+
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+      const newBlock = await tempProvider.getBlock('latest');
+
+      await depositService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: newBlock.number,
+          endBlock: newBlock.number,
+          version: '1',
+        },
+      });
+
+      // mocked curated module
+      const newMeta = mockedMeta(newBlock);
+      const newStakingModule = mockedModule(newBlock, 6047);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        newStakingModule,
+        newMeta,
+      );
+
+      // list of keys for /keys?used=false mock
+      mockedKeysApiUnusedKeys(keysApiService, [keyWithWrongSign], newMeta);
+
+      await guardianService.handleNewBlock();
+
+      // should found invalid key and skip again
+      // on this iteration cache will be used
       expect(sendDepositMessage).toBeCalledTimes(0);
       expect(sendPauseMessage).toBeCalledTimes(0);
     },

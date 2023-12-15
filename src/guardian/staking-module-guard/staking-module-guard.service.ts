@@ -72,9 +72,13 @@ export class StakingModuleGuardService {
       const moduleAddressesWithDuplicatesList: number[] = Array.from(
         modulesWithDuplicatedKeysSet,
       );
-      this.logger.error('Found duplicated vetted keys', {
+      this.logger.error('Found duplicated vetted keys');
+      this.logger.log('Duplicated keys', {
         blockHash: blockData.blockHash,
-        duplicatedKeys: Array.from(duplicatedKeys),
+        duplicatedKeys: Array.from(duplicatedKeys).map(([key, innerMap]) => ({
+          key: key,
+          stakingModuleIds: Array.from(innerMap.keys()),
+        })),
         moduleAddressesWithDuplicates: moduleAddressesWithDuplicatesList,
       });
 
@@ -368,7 +372,10 @@ export class StakingModuleGuardService {
 
     this.lastContractsStateByModuleId[stakingModuleId] = currentContractState;
 
-    if (isSameContractsState) return;
+    if (isSameContractsState) {
+      this.logger.log('Contract states didnt change');
+      return;
+    }
 
     if (
       !lastContractsState ||

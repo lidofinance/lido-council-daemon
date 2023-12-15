@@ -62,7 +62,7 @@ export class KeysValidationService {
         depositSignature: key.depositSignature,
       }));
 
-    return this.mergeInvalidKeys(invalidKeysFromCurrentValidation);
+    return this.mergeInvalidKeys(vettedKeys, invalidKeysFromCurrentValidation);
   }
 
   prepareKeyForValidation(
@@ -113,6 +113,7 @@ export class KeysValidationService {
   }
 
   private mergeInvalidKeys(
+    vettedKeys: RegistryKey[],
     recentInvalidKeys: { key: string; depositSignature: string }[],
   ): { key: string; depositSignature: string }[] {
     const allInvalidKeys = new Map<
@@ -125,12 +126,28 @@ export class KeysValidationService {
       allInvalidKeys.set(key.key, key);
     }
 
-    // Merge with invalid keys from the cache
-    this.keysCache.forEach((value, key) => {
-      if (!value.isValid && !allInvalidKeys.has(key)) {
-        allInvalidKeys.set(key, { key, depositSignature: value.signature });
+    const newInvalidKeys = allInvalidKeys.size;
+    this.logger.log('New invalid keys', allInvalidKeys.size);
+
+    // want to add invalid keys from cache that we have in current list of vetted keys
+    vettedKeys.forEach((vettedKey) => {
+      const cachedEntry = this.keysCache.get(vettedKey.key);
+      if (
+        cachedEntry &&
+        !cachedEntry.isValid &&
+        !allInvalidKeys.has(vettedKey.key)
+      ) {
+        allInvalidKeys.set(vettedKey.key, {
+          key: vettedKey.key,
+          depositSignature: cachedEntry.signature,
+        });
       }
     });
+
+    this.logger.log(
+      'Invalid keys from cache',
+      allInvalidKeys.size - newInvalidKeys,
+    );
 
     return Array.from(allInvalidKeys.values());
   }
