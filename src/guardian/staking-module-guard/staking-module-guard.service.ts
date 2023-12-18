@@ -380,8 +380,8 @@ export class StakingModuleGuardService {
     if (
       !lastContractsState ||
       !this.isSameStakingModuleContractState(
-        currentContractState.blockNumber,
-        lastContractsState.blockNumber,
+        currentContractState.nonce,
+        lastContractsState.nonce,
       )
     ) {
       const invalidKeys = await this.getInvalidKeys(
