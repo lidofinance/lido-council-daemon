@@ -45,8 +45,9 @@ export class KeysValidationService {
 
     const keysForValidation = vettedKeys
       .map((key) =>
-        this.prepareKeyForValidation(key, withdrawalCredentials, forkVersion),
+        this.filterKeyForValidation(key, withdrawalCredentials, forkVersion),
       )
+      // filter keys that were in cache or signature wasn't changed
       .filter((key) => key !== undefined) as DepositData[];
 
     const validatedKeys: [Key & DepositData, boolean][] =
@@ -62,22 +63,30 @@ export class KeysValidationService {
         depositSignature: key.depositSignature,
       }));
 
+    // merge just checked invalid keys and invalid keys from cache but only from vettedKeys
     return this.mergeInvalidKeys(vettedKeys, invalidKeysFromCurrentValidation);
   }
 
-  prepareKeyForValidation(
+  filterKeyForValidation(
     key: RegistryKey,
     withdrawalCredentials: string,
     forkVersion: Uint8Array,
-  ) {
+  ): DepositData | null {
     const cachedEntry = this.keysCache.get(key.key);
 
-    // key wasn't in cache or signature was changed
-    if (cachedEntry && cachedEntry.signature == key.depositSignature) {
-      return undefined;
+    // key was in cache and signature wasn't changed
+    if (this.keyNeedToBeValidated(cachedEntry, key)) {
+      return null;
     }
 
     return this.depositData(key, withdrawalCredentials, forkVersion);
+  }
+
+  keyNeedToBeValidated(
+    cachedEntry: { signature: string; isValid: boolean } | undefined,
+    key: RegistryKey,
+  ): boolean {
+    return !!cachedEntry && cachedEntry.signature == key.depositSignature;
   }
 
   depositData(
@@ -127,7 +136,9 @@ export class KeysValidationService {
     }
 
     const newInvalidKeys = allInvalidKeys.size;
-    this.logger.log('New invalid keys', allInvalidKeys.size);
+    this.logger.log('New invalid keys', {
+      count: allInvalidKeys.size,
+    });
 
     // want to add invalid keys from cache that we have in current list of vetted keys
     vettedKeys.forEach((vettedKey) => {
@@ -144,10 +155,9 @@ export class KeysValidationService {
       }
     });
 
-    this.logger.log(
-      'Invalid keys from cache',
-      allInvalidKeys.size - newInvalidKeys,
-    );
+    this.logger.log('Invalid keys from cache', {
+      count: allInvalidKeys.size - newInvalidKeys,
+    });
 
     return Array.from(allInvalidKeys.values());
   }
