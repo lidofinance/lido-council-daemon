@@ -63,7 +63,7 @@ export class KeysApiService {
 
   /**
    *
-   * @param The /v1/keys/find KAPI endpoint returns a key along with its duplicates
+   * @param The /v1/keys/find API endpoint returns keys along with their duplicates
    * @returns
    */
   public async findKeysEntires(pubkeys: string[]) {
