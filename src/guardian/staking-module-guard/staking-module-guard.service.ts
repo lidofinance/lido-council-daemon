@@ -227,7 +227,6 @@ export class StakingModuleGuardService {
     validIntersections: VerifiedDepositEvent[],
   ): Promise<VerifiedDepositEvent[]> {
     if (!validIntersections.length) {
-      this.logger.log('Not found valid intersection');
       return [];
     }
 
@@ -373,7 +372,7 @@ export class StakingModuleGuardService {
     this.lastContractsStateByModuleId[stakingModuleId] = currentContractState;
 
     if (isSameContractsState) {
-      this.logger.log('Contract states didnt change');
+      this.logger.log("Contract states didn't change");
       return;
     }
 
@@ -433,7 +432,7 @@ export class StakingModuleGuardService {
       keysCount: stakingModuleData.vettedKeys.length,
     });
     const validationTimeStart = performance.now();
-    const invalidKeysList = await this.keysValidationService.validateKeys(
+    const invalidKeysList = await this.keysValidationService.findInvalidKeys(
       stakingModuleData.vettedKeys,
       blockData.lidoWC,
     );

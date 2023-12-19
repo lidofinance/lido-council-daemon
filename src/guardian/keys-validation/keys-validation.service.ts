@@ -8,10 +8,10 @@ import {
   Key,
 } from '@lido-nestjs/key-validation';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
-import { ProviderService } from 'provider';
 import { GENESIS_FORK_VERSION_BY_CHAIN_ID } from 'bls/bls.constants';
 import { LRUCache } from 'lru-cache';
 import { KEYS_LRU_CACHE_SIZE } from './constants';
+import { ProviderService } from 'provider';
 
 type DepositData = {
   key: Pubkey;
@@ -37,23 +37,23 @@ export class KeysValidationService {
    *
    * Return list of invalid keys
    */
-  async validateKeys(
+  public async findInvalidKeys(
     vettedKeys: RegistryKey[],
     withdrawalCredentials: string,
   ): Promise<{ key: string; depositSignature: string }[]> {
     const forkVersion: Uint8Array = await this.forkVersion();
 
-    const keysForValidation = vettedKeys
-      .map((key) =>
-        this.filterKeyForValidation(key, withdrawalCredentials, forkVersion),
-      )
-      // filter keys that were in cache or signature wasn't changed
-      .filter((key) => key !== undefined) as DepositData[];
+    const { keysNeedingValidation, unchangedAndInvalidKeys } =
+      this.divideKeys(vettedKeys);
+
+    const keysForValidation = keysNeedingValidation.map((key) =>
+      this.toDepositData(key, withdrawalCredentials, forkVersion),
+    );
 
     const validatedKeys: [Key & DepositData, boolean][] =
       await this.keyValidator.validateKeys(keysForValidation);
 
-    this.updateCacheWithValidationResults(validatedKeys);
+    this.updateCache(validatedKeys);
 
     // this list will not include invalid keys from cache
     const invalidKeysFromCurrentValidation = validatedKeys
@@ -63,33 +63,48 @@ export class KeysValidationService {
         depositSignature: key.depositSignature,
       }));
 
+    this.logger.log('Validation keys information', {
+      vettedKeysCount: vettedKeys.length,
+      currentCacheSize: this.keysCache.size,
+      cacheInvalidKeysCount: unchangedAndInvalidKeys.length,
+      newInvalidKeys: invalidKeysFromCurrentValidation.length,
+    });
+
+    const unchangedAndInvalidKeysValues = unchangedAndInvalidKeys.map(
+      (key) => ({
+        key: key.key,
+        depositSignature: key.depositSignature,
+      }),
+    );
+
     // merge just checked invalid keys and invalid keys from cache but only from vettedKeys
-    return this.mergeInvalidKeys(vettedKeys, invalidKeysFromCurrentValidation);
+    return [
+      ...invalidKeysFromCurrentValidation,
+      ...unchangedAndInvalidKeysValues,
+    ];
   }
 
-  filterKeyForValidation(
-    key: RegistryKey,
-    withdrawalCredentials: string,
-    forkVersion: Uint8Array,
-  ): DepositData | null {
-    const cachedEntry = this.keysCache.get(key.key);
+  private divideKeys(vettedKeys: RegistryKey[]): {
+    keysNeedingValidation: RegistryKey[];
+    unchangedAndInvalidKeys: RegistryKey[];
+  } {
+    const keysNeedingValidation: RegistryKey[] = [];
+    const unchangedAndInvalidKeys: RegistryKey[] = [];
 
-    // key was in cache and signature wasn't changed
-    if (this.keyNeedToBeValidated(cachedEntry, key)) {
-      return null;
-    }
+    vettedKeys.forEach((key) => {
+      const cachedEntry = this.keysCache.get(key.key);
 
-    return this.depositData(key, withdrawalCredentials, forkVersion);
+      if (!cachedEntry || cachedEntry.signature !== key.depositSignature) {
+        keysNeedingValidation.push(key);
+      } else if (!cachedEntry.isValid) {
+        unchangedAndInvalidKeys.push(key);
+      }
+    });
+
+    return { keysNeedingValidation, unchangedAndInvalidKeys };
   }
 
-  keyNeedToBeValidated(
-    cachedEntry: { signature: string; isValid: boolean } | undefined,
-    key: RegistryKey,
-  ): boolean {
-    return !!cachedEntry && cachedEntry.signature == key.depositSignature;
-  }
-
-  depositData(
+  private toDepositData(
     key: RegistryKey,
     withdrawalCredentials: string,
     forkVersion: Uint8Array,
@@ -102,7 +117,7 @@ export class KeysValidationService {
     };
   }
 
-  async forkVersion(): Promise<Uint8Array> {
+  private async forkVersion(): Promise<Uint8Array> {
     const chainId = await this.provider.getChainId();
     const forkVersion = GENESIS_FORK_VERSION_BY_CHAIN_ID[chainId];
 
@@ -113,52 +128,9 @@ export class KeysValidationService {
     return forkVersion;
   }
 
-  async updateCacheWithValidationResults(
-    validatedKeys: [Key & DepositData, boolean][],
-  ) {
+  private async updateCache(validatedKeys: [Key & DepositData, boolean][]) {
     validatedKeys.forEach(([key, isValid]) =>
       this.keysCache.set(key.key, { signature: key.depositSignature, isValid }),
     );
-  }
-
-  private mergeInvalidKeys(
-    vettedKeys: RegistryKey[],
-    recentInvalidKeys: { key: string; depositSignature: string }[],
-  ): { key: string; depositSignature: string }[] {
-    const allInvalidKeys = new Map<
-      string,
-      { key: string; depositSignature: string }
-    >();
-
-    // Add invalid keys from the current validation
-    for (const key of recentInvalidKeys) {
-      allInvalidKeys.set(key.key, key);
-    }
-
-    const newInvalidKeys = allInvalidKeys.size;
-    this.logger.log('New invalid keys', {
-      count: allInvalidKeys.size,
-    });
-
-    // want to add invalid keys from cache that we have in current list of vetted keys
-    vettedKeys.forEach((vettedKey) => {
-      const cachedEntry = this.keysCache.get(vettedKey.key);
-      if (
-        cachedEntry &&
-        !cachedEntry.isValid &&
-        !allInvalidKeys.has(vettedKey.key)
-      ) {
-        allInvalidKeys.set(vettedKey.key, {
-          key: vettedKey.key,
-          depositSignature: cachedEntry.signature,
-        });
-      }
-    });
-
-    this.logger.log('Invalid keys from cache', {
-      count: allInvalidKeys.size - newInvalidKeys,
-    });
-
-    return Array.from(allInvalidKeys.values());
   }
 }
