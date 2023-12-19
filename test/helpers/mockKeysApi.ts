@@ -76,7 +76,7 @@ export const mockedKeysWithDuplicates = (
   mockedMeta: ELBlockSnapshot,
 ) => {
   jest
-    .spyOn(keysApiService, 'getKeysWithDuplicates')
+    .spyOn(keysApiService, 'findKeysEntires')
     .mockImplementation(async () => ({
       data: mockedKeys,
       meta: {

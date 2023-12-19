@@ -164,7 +164,7 @@ describe('GuardianService', () => {
 
   it('should exit if the previous call is not completed', async () => {
     jest
-      .spyOn(stakingRouterService, 'getVettedAndUnusedKeys')
+      .spyOn(stakingRouterService, 'getStakingModulesData')
       .mockImplementation(async () => vettedKeysResponse);
 
     const getBlockGuardServiceMock = jest
