@@ -72,9 +72,13 @@ export class StakingModuleGuardService {
       const moduleAddressesWithDuplicatesList: number[] = Array.from(
         modulesWithDuplicatedKeysSet,
       );
-      this.logger.error('Found duplicated vetted keys', {
+      this.logger.error('Found duplicated vetted keys');
+      this.logger.log('Duplicated keys', {
         blockHash: blockData.blockHash,
-        duplicatedKeys: Array.from(duplicatedKeys),
+        duplicatedKeys: Array.from(duplicatedKeys).map(([key, innerMap]) => ({
+          key: key,
+          stakingModuleIds: Array.from(innerMap.keys()),
+        })),
         moduleAddressesWithDuplicates: moduleAddressesWithDuplicatesList,
       });
 
@@ -223,7 +227,6 @@ export class StakingModuleGuardService {
     validIntersections: VerifiedDepositEvent[],
   ): Promise<VerifiedDepositEvent[]> {
     if (!validIntersections.length) {
-      this.logger.log('Not found valid intersection');
       return [];
     }
 
@@ -244,14 +247,7 @@ export class StakingModuleGuardService {
     intersectionsWithLidoWC: VerifiedDepositEvent[],
     blockData: BlockData,
   ) {
-    // should not check invalid
-    // TODO: fix in prev PR
-    const validIntersections = intersectionsWithLidoWC.filter(
-      ({ valid }) => valid,
-    );
-    if (!validIntersections.length) return [];
-
-    const depositedPubkeys = validIntersections.map(
+    const depositedPubkeys = intersectionsWithLidoWC.map(
       (deposit) => deposit.pubkey,
     );
 
@@ -375,7 +371,10 @@ export class StakingModuleGuardService {
 
     this.lastContractsStateByModuleId[stakingModuleId] = currentContractState;
 
-    if (isSameContractsState) return;
+    if (isSameContractsState) {
+      this.logger.log("Contract states didn't change");
+      return;
+    }
 
     if (
       !lastContractsState ||
@@ -430,7 +429,7 @@ export class StakingModuleGuardService {
       keysCount: stakingModuleData.vettedKeys.length,
     });
     const validationTimeStart = performance.now();
-    const invalidKeysList = await this.keysValidationService.validateKeys(
+    const invalidKeysList = await this.keysValidationService.findInvalidKeys(
       stakingModuleData.vettedKeys,
       blockData.lidoWC,
     );
