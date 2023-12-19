@@ -7,7 +7,7 @@ import { ConfigModule } from 'common/config';
 import { PrometheusModule } from 'common/prometheus';
 import { SecurityModule, SecurityService } from 'contracts/security';
 import { RepositoryModule } from 'contracts/repository';
-import { LidoModule, LidoService } from 'contracts/lido';
+import { LidoModule } from 'contracts/lido';
 import { MessageType } from 'messages';
 import { StakingModuleGuardModule } from './staking-module-guard.module';
 import { StakingRouterModule, StakingRouterService } from 'staking-router';
@@ -28,6 +28,7 @@ import {
 jest.mock('../../transport/stomp/stomp.client');
 
 const TEST_MODULE_ID = 1;
+const lidoWC = '0x12';
 
 const stakingModuleData = {
   nonce: 0,
@@ -47,7 +48,6 @@ const stakingModuleData = {
 
 describe('StakingModuleGuardService', () => {
   let loggerService: LoggerService;
-  let lidoService: LidoService;
   let securityService: SecurityService;
   let stakingModuleGuardService: StakingModuleGuardService;
   let guardianMessageService: GuardianMessageService;
@@ -70,7 +70,6 @@ describe('StakingModuleGuardService', () => {
       ],
     }).compile();
 
-    lidoService = moduleRef.get(LidoService);
     securityService = moduleRef.get(SecurityService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
     stakingModuleGuardService = moduleRef.get(StakingModuleGuardService);
@@ -176,6 +175,7 @@ describe('StakingModuleGuardService', () => {
         ...currentBlockData,
         depositedEvents: { ...currentBlockData.depositedEvents, events },
         unusedKeys,
+        lidoWC,
       };
 
       const mockHandleCorrectKeys = jest
@@ -185,10 +185,6 @@ describe('StakingModuleGuardService', () => {
       const mockHandleKeysIntersections = jest
         .spyOn(stakingModuleGuardService, 'handleKeysIntersections')
         .mockImplementation(async () => undefined);
-
-      const mockGetWithdrawalCredentials = jest
-        .spyOn(lidoService, 'getWithdrawalCredentials')
-        .mockImplementation(async () => lidoWC);
 
       const mockSecurityContractIsDepositsPaused = jest
         .spyOn(securityService, 'isDepositsPaused')
@@ -205,14 +201,13 @@ describe('StakingModuleGuardService', () => {
         { ...stakingModuleData, unusedKeys, vettedKeys: [] },
         blockData,
       );
-      expect(mockGetWithdrawalCredentials).toBeCalledTimes(1);
       expect(mockSecurityContractIsDepositsPaused).toBeCalledTimes(1);
     });
 
     it('should call handleCorrectKeys if Lido unused keys are not found in the deposit contract', async () => {
       const notDepositedKey = '0x2345';
       const unusedKeys = [notDepositedKey];
-      const blockData = { ...currentBlockData, unusedKeys };
+      const blockData = { ...currentBlockData, unusedKeys, lidoWC };
 
       const mockHandleCorrectKeys = jest
         .spyOn(stakingModuleGuardService, 'handleCorrectKeys')
@@ -305,13 +300,7 @@ describe('StakingModuleGuardService', () => {
     const pubkey = '0x1234';
     const lidoWC = '0x12';
     const attackerWC = '0x23';
-    const blockData = { blockHash: '0x1234' } as any;
-
-    beforeEach(async () => {
-      jest
-        .spyOn(lidoService, 'getWithdrawalCredentials')
-        .mockImplementation(async () => lidoWC);
-    });
+    const blockData = { blockHash: '0x1234', lidoWC } as any;
 
     it('should exclude invalid intersections', async () => {
       const intersections = [{ valid: false, pubkey, wc: lidoWC } as any];
@@ -540,7 +529,7 @@ describe('StakingModuleGuardService', () => {
       expect(result).toEqual(expect.arrayContaining(expectedStakingModules));
     });
 
-    it('should return list without changes if  duplicated keys were not found', () => {
+    it('should return list without changes if duplicated keys were not found', () => {
       const moduleIdsWithDuplicateKeys = [];
       const expectedStakingModules = [
         {
@@ -659,7 +648,7 @@ describe('StakingModuleGuardService', () => {
       expect(mockSendMessageFromGuardian).toBeCalledTimes(0);
     });
 
-    it('should return keys list if deposits with lido wx were made by lido', async () => {
+    it('should return keys list if deposits with lido wc were made by lido', async () => {
       const pubkeyWithUsedKey1 = '0x1234';
       const pubkeyWithoutUsedKey = '0x56789';
       const pubkeyWithUsedKey2 = '0x3478';

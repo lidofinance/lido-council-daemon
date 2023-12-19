@@ -8,14 +8,15 @@ import { GuardianMetricsModule } from '../guardian-metrics';
 import { GuardianMessageModule } from '../guardian-message';
 
 import { StakingModuleGuardService } from './staking-module-guard.service';
+import { KeysValidationModule } from 'guardian/keys-validation/keys-validation.module';
 
 @Module({
   imports: [
     SecurityModule,
-    LidoModule,
     StakingRouterModule,
     GuardianMetricsModule,
     GuardianMessageModule,
+    KeysValidationModule,
   ],
   providers: [StakingModuleGuardService],
   exports: [StakingModuleGuardService],

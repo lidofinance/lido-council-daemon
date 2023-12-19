@@ -129,7 +129,6 @@ describe('GuardianService', () => {
         MockProviderModule.forRoot(),
         LoggerModule,
         PrometheusModule,
-
         GuardianModule,
         RepositoryModule,
         DepositModule,
