@@ -44,9 +44,9 @@ export class StakingModuleGuardService {
     const modulesWithDuplicatedKeysSet = new Set<number>();
     const duplicatedKeys = new Map<string, Map<number, number>>();
 
-    stakingModulesData.forEach(({ vettedKeys, stakingModuleId }) => {
+    stakingModulesData.forEach(({ vettedUnusedKeys, stakingModuleId }) => {
       // check module keys on duplicates across all modules
-      vettedKeys.forEach((key) => {
+      vettedUnusedKeys.forEach((key) => {
         const stakingModules = keyMap.get(key.key);
 
         if (!stakingModules) {
@@ -154,7 +154,7 @@ export class StakingModuleGuardService {
       await this.handleKeysIntersections(stakingModuleData, blockData);
     } else {
       // it could throw error if kapi returned old data
-      const usedKeys = await this.getIntersectionBetweenUsedAndUnusedKeys(
+      const usedKeys = await this.findAlreadyDepositedKeys(
         validIntersections,
         blockData,
       );
@@ -203,8 +203,7 @@ export class StakingModuleGuardService {
 
   public excludeInvalidDeposits(intersections: VerifiedDepositEvent[]) {
     // Exclude deposits with invalid signature over the deposit data
-    const validIntersections = intersections.filter(({ valid }) => valid);
-    return validIntersections;
+    return intersections.filter(({ valid }) => valid);
   }
 
   /**
@@ -216,16 +215,10 @@ export class StakingModuleGuardService {
     blockData: BlockData,
     validIntersections: VerifiedDepositEvent[],
   ): Promise<VerifiedDepositEvent[]> {
-    if (!validIntersections.length) {
-      return [];
-    }
-
     // Exclude deposits with Lido withdrawal credentials
-    const attackIntersections = validIntersections.filter(
+    return validIntersections.filter(
       (deposit) => deposit.wc !== blockData.lidoWC,
     );
-
-    return attackIntersections;
   }
 
   /**
@@ -233,14 +226,14 @@ export class StakingModuleGuardService {
    * with Lido withdrawal credentials, we need to determine whether this deposit was made by Lido.
    * If it was indeed made by Lido, we set a metric and skip sending deposit messages in the queue for this iteration.
    */
-  public async getIntersectionBetweenUsedAndUnusedKeys(
+  public async findAlreadyDepositedKeys(
     intersectionsWithLidoWC: VerifiedDepositEvent[],
     blockData: BlockData,
   ) {
     const depositedPubkeys = intersectionsWithLidoWC.map(
       (deposit) => deposit.pubkey,
     );
-
+    // if depositedPubkeys == [], /find will return validation error
     if (!depositedPubkeys.length) {
       return [];
     }
@@ -249,41 +242,32 @@ export class StakingModuleGuardService {
       'Found intersections with lido credentials, need to check used duplicated keys',
     );
 
-    const alreadyDepositedKeys = await this.getDuplicatedLidoUsedKeys(
+    const { data, meta } = await this.stakingRouterService.findKeysEntires(
       depositedPubkeys,
+    );
+
+    this.checkCurrentBlockOlderThanPrev(
+      meta.elBlockSnapshot.blockNumber,
       blockData.blockNumber,
     );
 
-    return alreadyDepositedKeys;
+    return data.filter((key) => key.used);
   }
 
-  /**
-   * Upon identifying the intersection of keys deposited and unused with Lido withdrawal credentials,
-   * use the KAPI /v1/keys/find endpoint to locate all keys with duplicates.
-   * Filter out the used keys, and since used keys cannot be deleted,
-   * it is sufficient to check if the blockNumber in the new result is greater than the current blockNumber.
-   */
-  // getUsedLidoKeysForUnused ?
-  private async getDuplicatedLidoUsedKeys(
-    keys: string[],
+  private async checkCurrentBlockOlderThanPrev(
+    currBlockNumber: number,
     prevBlockNumber: number,
-  ): Promise<RegistryKey[]> {
-    const { data, meta } = await this.stakingRouterService.findKeysEntires(
-      keys,
-    );
-
-    if (meta.elBlockSnapshot.blockNumber < prevBlockNumber) {
+  ) {
+    if (currBlockNumber < prevBlockNumber) {
       const errorMsg =
         'BlockNumber of the current response older than previous response from KAPI';
       this.logger.error(errorMsg, {
         previous: prevBlockNumber,
-        current: meta.elBlockSnapshot.blockNumber,
+        current: currBlockNumber,
       });
       throw Error(errorMsg);
     }
-    const usedKeys = data.filter((key) => key.used);
-
-    return usedKeys;
+    return;
   }
 
   /**
@@ -418,11 +402,11 @@ export class StakingModuleGuardService {
     blockData: BlockData,
   ): Promise<{ key: string; depositSignature: string }[]> {
     this.logger.log('Start keys validation', {
-      keysCount: stakingModuleData.vettedKeys.length,
+      keysCount: stakingModuleData.vettedUnusedKeys.length,
     });
     const validationTimeStart = performance.now();
     const invalidKeysList = await this.keysValidationService.findInvalidKeys(
-      stakingModuleData.vettedKeys,
+      stakingModuleData.vettedUnusedKeys,
       blockData.lidoWC,
     );
     const validationTimeEnd = performance.now();

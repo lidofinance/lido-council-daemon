@@ -53,7 +53,7 @@ describe('StakingRouter', () => {
             '0x911dd3091cfb1b42c960e4f343ea98d9ee6a1dc8ef215afa976fb557bd627a901717c0008bc33a0bfea15f0dfe9c5d01',
             '0x8d12ec44816f108df84ef9b03e423a6d8fb0f0a1823c871b123ff41f893a7b372eb038a1ed1ff15083e07a777a5cba50',
           ],
-          vettedKeys: [
+          vettedUnusedKeys: [
             {
               key: '0x9948d2becf42e9f76922bc6f664545e6f50401050af95785a984802d32a95c4c61f8e3de312b78167f86e047f83a7796',
               depositSignature:
@@ -75,7 +75,7 @@ describe('StakingRouter', () => {
             '0x84e85db03bee714dbecf01914460d9576b7f7226030bdbeae9ee923bf5f8e01eec4f7dfe54aa7eca6f4bccce59a0bf42',
             '0x84ff489c1e07c75ac635914d4fa20bb37b30f7cf37a8fb85298a88e6f45daab122b43a352abce2132bdde96fd4a01599',
           ],
-          vettedKeys: [
+          vettedUnusedKeys: [
             {
               key: '0x83fc58f68d913481e065c928b040ae8b157ef2b32371b7df93d40188077c619dc789d443c18ac4a9b7e76de5ed6c8247',
               depositSignature:
