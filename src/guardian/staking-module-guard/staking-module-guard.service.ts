@@ -379,10 +379,7 @@ export class StakingModuleGuardService {
 
     if (
       !lastContractsState ||
-      !this.isSameStakingModuleContractState(
-        currentContractState.nonce,
-        lastContractsState.nonce,
-      )
+      currentContractState.nonce !== lastContractsState.nonce
     ) {
       const invalidKeys = await this.getInvalidKeys(
         stakingModuleData,
@@ -461,13 +458,7 @@ export class StakingModuleGuardService {
   ): boolean {
     if (!firstState || !secondState) return false;
     if (firstState.depositRoot !== secondState.depositRoot) return false;
-    if (
-      !this.isSameStakingModuleContractState(
-        firstState.nonce,
-        secondState.nonce,
-      )
-    )
-      return false;
+    if (firstState.nonce !== secondState.nonce) return false;
 
     if (
       Math.floor(firstState.blockNumber / GUARDIAN_DEPOSIT_RESIGNING_BLOCKS) !==
@@ -475,18 +466,6 @@ export class StakingModuleGuardService {
     ) {
       return false;
     }
-
-    return true;
-  }
-
-  /**
-   * @returns true if nonce is the same
-   */
-  public isSameStakingModuleContractState(
-    firstNonce: number,
-    secondNonce: number,
-  ): boolean {
-    if (firstNonce !== secondNonce) return false;
 
     return true;
   }
