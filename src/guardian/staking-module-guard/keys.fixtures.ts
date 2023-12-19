@@ -1,7 +1,7 @@
 export const vettedKeysDuplicatesAcrossModules: any = [
   {
     stakingModuleId: 100,
-    vettedKeys: [
+    vettedUnusedKeys: [
       {
         key: '0x9948d2becf42e9f76922bc6f664545e6f50401050af95785a984802d32a95c4c61f8e3de312b78167f86e047f83a7796',
         depositSignature:
@@ -24,7 +24,7 @@ export const vettedKeysDuplicatesAcrossModules: any = [
   },
   {
     stakingModuleId: 102,
-    vettedKeys: [
+    vettedUnusedKeys: [
       {
         key: '0x911dd3091cfb1b42c960e4f343ea98d9ee6a1dc8ef215afa976fb557bd627a901717c0008bc33a0bfea15f0dfe9c5d01',
         depositSignature:
@@ -47,7 +47,7 @@ export const vettedKeysDuplicatesAcrossModules: any = [
   },
   {
     stakingModuleId: 103,
-    vettedKeys: [
+    vettedUnusedKeys: [
       {
         key: '0x84ff489c1e07c75ac635914d4fa20bb37b30f7cf37a8fb85298a88e6f45daab122b43a352abce2132bdde96fd4a01599',
         depositSignature:
@@ -64,7 +64,7 @@ export const vettedKeysDuplicatesAcrossModules: any = [
 export const vettedKeysDuplicatesAcrossOneModule: any = [
   {
     stakingModuleId: 100,
-    vettedKeys: [
+    vettedUnusedKeys: [
       {
         key: '0x9948d2becf42e9f76922bc6f664545e6f50401050af95785a984802d32a95c4c61f8e3de312b78167f86e047f83a7796',
         depositSignature:
@@ -96,7 +96,7 @@ export const vettedKeysDuplicatesAcrossOneModule: any = [
   },
   {
     stakingModuleId: 102,
-    vettedKeys: [
+    vettedUnusedKeys: [
       {
         key: '0x84e85db03bee714dbecf01914460d9576b7f7226030bdbeae9ee923bf5f8e01eec4f7dfe54aa7eca6f4bccce59a0bf42',
         depositSignature:
@@ -111,7 +111,7 @@ export const vettedKeysDuplicatesAcrossOneModule: any = [
 
   {
     stakingModuleId: 103,
-    vettedKeys: [
+    vettedUnusedKeys: [
       {
         key: '0x84ff489c1e07c75ac635914d4fa20bb37b30f7cf37a8fb85298a88e6f45daab122b43a352abce2132bdde96fd4a01599',
         depositSignature:
@@ -128,7 +128,7 @@ export const vettedKeysDuplicatesAcrossOneModule: any = [
 export const vettedKeysDuplicatesAcrossOneModuleAndFew: any = [
   {
     stakingModuleId: 100,
-    vettedKeys: [
+    vettedUnusedKeys: [
       {
         key: '0x9948d2becf42e9f76922bc6f664545e6f50401050af95785a984802d32a95c4c61f8e3de312b78167f86e047f83a7796',
         depositSignature:
@@ -151,7 +151,7 @@ export const vettedKeysDuplicatesAcrossOneModuleAndFew: any = [
   },
   {
     stakingModuleId: 102,
-    vettedKeys: [
+    vettedUnusedKeys: [
       {
         key: '0x911dd3091cfb1b42c960e4f343ea98d9ee6a1dc8ef215afa976fb557bd627a901717c0008bc33a0bfea15f0dfe9c5d01',
         depositSignature:
@@ -183,7 +183,7 @@ export const vettedKeysDuplicatesAcrossOneModuleAndFew: any = [
   },
   {
     stakingModuleId: 103,
-    vettedKeys: [
+    vettedUnusedKeys: [
       {
         key: '0x84ff489c1e07c75ac635914d4fa20bb37b30f7cf37a8fb85298a88e6f45daab122b43a352abce2132bdde96fd4a01599',
         depositSignature:
@@ -200,7 +200,7 @@ export const vettedKeysDuplicatesAcrossOneModuleAndFew: any = [
 export const vettedKeysWithoutDuplicates: any = [
   {
     stakingModuleId: 100,
-    vettedKeys: [
+    vettedUnusedKeys: [
       {
         key: '0x9948d2becf42e9f76922bc6f664545e6f50401050af95785a984802d32a95c4c61f8e3de312b78167f86e047f83a7796',
         depositSignature:
@@ -224,7 +224,7 @@ export const vettedKeysWithoutDuplicates: any = [
 
   {
     stakingModuleId: 102,
-    vettedKeys: [
+    vettedUnusedKeys: [
       {
         key: '0x84e85db03bee714dbecf01914460d9576b7f7226030bdbeae9ee923bf5f8e01eec4f7dfe54aa7eca6f4bccce59a0bf42',
         depositSignature:
@@ -239,7 +239,7 @@ export const vettedKeysWithoutDuplicates: any = [
 
   {
     stakingModuleId: 103,
-    vettedKeys: [
+    vettedUnusedKeys: [
       {
         key: '0x84ff489c1e07c75ac635914d4fa20bb37b30f7cf37a8fb85298a88e6f45daab122b43a352abce2132bdde96fd4a01599',
         depositSignature:

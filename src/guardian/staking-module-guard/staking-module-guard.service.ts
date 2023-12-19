@@ -44,9 +44,9 @@ export class StakingModuleGuardService {
     const modulesWithDuplicatedKeysSet = new Set<number>();
     const duplicatedKeys = new Map<string, Map<number, number>>();
 
-    stakingModulesData.forEach(({ vettedKeys, stakingModuleId }) => {
+    stakingModulesData.forEach(({ vettedUnusedKeys, stakingModuleId }) => {
       // check module keys on duplicates across all modules
-      vettedKeys.forEach((key) => {
+      vettedUnusedKeys.forEach((key) => {
         const stakingModules = keyMap.get(key.key);
 
         if (!stakingModules) {
@@ -237,8 +237,6 @@ export class StakingModuleGuardService {
     intersectionsWithLidoWC: VerifiedDepositEvent[],
     blockData: BlockData,
   ) {
-    // should not check invalid
-    // TODO: fix in prev PR
     const validIntersections = intersectionsWithLidoWC.filter(
       ({ valid }) => valid,
     );

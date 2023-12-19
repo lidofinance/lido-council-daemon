@@ -6,6 +6,7 @@ import { SRModuleKeysResponse, SRModule } from 'keys-api/interfaces';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { StakingModuleData } from 'guardian';
 import { RegistryOperator } from 'keys-api/interfaces/RegistryOperator';
+import { InconsistentBlockhashError } from './errors';
 
 @Injectable()
 export class StakingRouterService {
@@ -24,21 +25,22 @@ export class StakingRouterService {
     blockHash: string;
     blockNumber: number;
   }> {
-    // TODO: add cache by modules nonce
+    // get list of all unused keys and operators
     const { operatorsByModules, unusedKeys, blockHash, blockNumber } =
-      await this.getOperatorsAndUnusedKeysFromKAPI();
-    // all staking modules list
+      await this.getOperatorsAndUnusedKeys();
+
+    // iterate by modules and filter
     const stakingModulesData: StakingModuleData[] = operatorsByModules.data.map(
       ({ operators, module: stakingModule }) => {
         const { moduleUnusedKeys, moduleVettedKeys } =
-          this.getModuleOperatorsVettedKeys(operators, unusedKeys.data);
+          this.getModuleUnusedAndVettedUnusedKeys(operators, unusedKeys.data);
 
         return {
           unusedKeys: moduleUnusedKeys.map((srKey) => srKey.key),
           nonce: stakingModule.nonce,
           stakingModuleId: stakingModule.id,
           blockHash,
-          vettedKeys: moduleVettedKeys,
+          vettedUnusedKeys: moduleVettedKeys,
         };
       },
     );
@@ -53,7 +55,7 @@ export class StakingRouterService {
   /**
    * Request grouped by modules operators and all staking modules keys with meta from KAPI
    */
-  private async getOperatorsAndUnusedKeysFromKAPI() {
+  private async getOperatorsAndUnusedKeys() {
     const operatorsByModules =
       await this.keysApiService.getOperatorListWithModule();
     const { blockHash: operatorsBlockHash, blockNumber: operatorsBlockNumber } =
@@ -85,13 +87,11 @@ export class StakingRouterService {
         },
       );
 
-      throw new Error(
-        'Blockhash of the received keys does not match the blockhash of operators',
-      );
+      throw new InconsistentBlockhashError();
     }
   }
 
-  private getModuleOperatorsVettedKeys(
+  private getModuleUnusedAndVettedUnusedKeys(
     moduleOperators: RegistryOperator[],
     allModulesUnusedKeys: RegistryKey[],
   ) {
@@ -100,18 +100,19 @@ export class StakingRouterService {
     const moduleVettedKeys: RegistryKey[] = [];
 
     moduleOperators.forEach((operator) => {
-      const operatorKeys = this.getSortedOperatorKeys(
+      // all operator unused keys
+      const operatorKeys = this.filterAndSortOperatorKeys(
         allModulesUnusedKeys,
         operator,
       );
 
       moduleUnusedKeys.push(...operatorKeys);
 
-      const operatorVettedKeys = this.getOperatorVettedKeys(
+      const operatorVettedUnusedKeys = this.getOperatorVettedUnusedKeys(
         operatorKeys,
         operator,
       );
-      moduleVettedKeys.push(...operatorVettedKeys);
+      moduleVettedKeys.push(...operatorVettedUnusedKeys);
     });
 
     return {
@@ -121,28 +122,28 @@ export class StakingRouterService {
   }
 
   /***
-   * @param unusedKeys - keys list of all staking modules
+   * @param keys - keys list of all staking modules
    * @param operator - staking module operator
    * @returns sorted operator's keys list
    */
-  private getSortedOperatorKeys(
+  private filterAndSortOperatorKeys(
     keys: RegistryKey[],
     operator: RegistryOperator,
   ): RegistryKey[] {
-    const operatorSortedKeys = keys
+    const operatorKeys = keys
       .filter(
         (key) =>
           key.moduleAddress === operator.moduleAddress &&
           key.operatorIndex === operator.index,
       )
       .sort((a, b) => a.index - b.index);
-    return operatorSortedKeys;
+    return operatorKeys;
   }
 
   /***
-   * Got sorted unused keys and return vetted keys
+   * Got sorted by index unused keys and return vetted unused keys
    */
-  private getOperatorVettedKeys(
+  private getOperatorVettedUnusedKeys(
     unusedKeys: RegistryKey[],
     operator: RegistryOperator,
   ): RegistryKey[] {
@@ -153,54 +154,5 @@ export class StakingRouterService {
 
   public async findKeysEntires(pubkeys: string[]) {
     return await this.keysApiService.findKeysEntires(pubkeys);
-  }
-
-  public async getStakingModules() {
-    return await this.keysApiService.getModulesList();
-  }
-
-  public async getStakingModuleUnusedKeys(
-    blockHash: string,
-    { id, nonce }: SRModule,
-  ) {
-    if (!this.isNeedToUpdateState(id, nonce))
-      return this.getStakingRouterKeysCache(id);
-
-    const srResponse = await this.keysApiService.getUnusedModuleKeys(id);
-    const srModuleBlockHash = srResponse.meta.elBlockSnapshot.blockHash;
-
-    if (srModuleBlockHash !== blockHash) {
-      this.logger.log('Blockhash of the received keys', {
-        srModuleBlockHash,
-        blockHash,
-      });
-
-      throw Error(
-        'Block hash of the received keys does not match the current block hash',
-      );
-    }
-
-    this.setStakingRouterCache(id, srResponse);
-
-    return srResponse;
-  }
-
-  protected getStakingRouterKeysCache(stakingModuleId: number) {
-    return this.stakingRouterCache[stakingModuleId];
-  }
-
-  protected setStakingRouterCache(
-    stakingModuleId: number,
-    srResponse: SRModuleKeysResponse,
-  ) {
-    this.stakingRouterCache[stakingModuleId] = srResponse;
-  }
-
-  protected isNeedToUpdateState(stakingModuleId: number, nextNonce: number) {
-    const cache = this.getStakingRouterKeysCache(stakingModuleId);
-    if (!cache) return true;
-
-    const prevNonce = cache.data.module.nonce;
-    return prevNonce !== nextNonce;
   }
 }

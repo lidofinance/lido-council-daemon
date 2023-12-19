@@ -65,7 +65,7 @@ const vettedKeysResponse = {
         '0x9948d2becf42e9f76922bc6f664545e6f50401050af95785a984802d32a95c4c61f8e3de312b78167f86e047f83a7796',
         '0x911dd3091cfb1b42c960e4f343ea98d9ee6a1dc8ef215afa976fb557bd627a901717c0008bc33a0bfea15f0dfe9c5d01',
       ],
-      vettedKeys: [
+      vettedUnusedKeys: [
         {
           key: '0x9948d2becf42e9f76922bc6f664545e6f50401050af95785a984802d32a95c4c61f8e3de312b78167f86e047f83a7796',
           depositSignature:
@@ -94,7 +94,7 @@ const vettedKeysResponse = {
       unusedKeys: [
         '0x84e85db03bee714dbecf01914460d9576b7f7226030bdbeae9ee923bf5f8e01eec4f7dfe54aa7eca6f4bccce59a0bf42',
       ],
-      vettedKeys: [
+      vettedUnusedKeys: [
         {
           key: '0x84e85db03bee714dbecf01914460d9576b7f7226030bdbeae9ee923bf5f8e01eec4f7dfe54aa7eca6f4bccce59a0bf42',
           depositSignature:

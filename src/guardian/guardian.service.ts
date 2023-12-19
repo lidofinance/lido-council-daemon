@@ -10,7 +10,6 @@ import { CronJob } from 'cron';
 import { DepositService } from 'contracts/deposit';
 import { SecurityService } from 'contracts/security';
 import { RepositoryService } from 'contracts/repository';
-import { ProviderService } from 'provider';
 import {
   GUARDIAN_DEPOSIT_JOB_DURATION,
   GUARDIAN_DEPOSIT_JOB_NAME,
@@ -37,7 +36,6 @@ export class GuardianService implements OnModuleInit {
 
     private depositService: DepositService,
     private securityService: SecurityService,
-    private providerService: ProviderService,
 
     private stakingRouterService: StakingRouterService,
 

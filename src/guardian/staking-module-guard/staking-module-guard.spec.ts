@@ -91,7 +91,7 @@ describe('StakingModuleGuardService', () => {
       };
       const blockData = { unusedKeys, depositedEvents } as any;
       const matched = stakingModuleGuardService.getKeysIntersections(
-        { ...stakingModuleData, unusedKeys, vettedKeys: [] },
+        { ...stakingModuleData, unusedKeys, vettedUnusedKeys: [] },
         blockData,
       );
 
@@ -108,7 +108,7 @@ describe('StakingModuleGuardService', () => {
       };
       const blockData = { unusedKeys, depositedEvents } as any;
       const matched = stakingModuleGuardService.getKeysIntersections(
-        { ...stakingModuleData, unusedKeys, vettedKeys: [] },
+        { ...stakingModuleData, unusedKeys, vettedUnusedKeys: [] },
         blockData,
       );
 
@@ -124,7 +124,7 @@ describe('StakingModuleGuardService', () => {
       };
       const blockData = { unusedKeys, depositedEvents } as any;
       const matched = stakingModuleGuardService.getKeysIntersections(
-        { ...stakingModuleData, unusedKeys, vettedKeys: [] },
+        { ...stakingModuleData, unusedKeys, vettedUnusedKeys: [] },
         blockData,
       );
 
@@ -195,14 +195,14 @@ describe('StakingModuleGuardService', () => {
         .mockImplementation(async () => false);
 
       await stakingModuleGuardService.checkKeysIntersections(
-        { ...stakingModuleData, unusedKeys, vettedKeys: [] },
+        { ...stakingModuleData, unusedKeys, vettedUnusedKeys: [] },
         blockData,
       );
 
       expect(mockHandleCorrectKeys).not.toBeCalled();
       expect(mockHandleKeysIntersections).toBeCalledTimes(1);
       expect(mockHandleKeysIntersections).toBeCalledWith(
-        { ...stakingModuleData, unusedKeys, vettedKeys: [] },
+        { ...stakingModuleData, unusedKeys, vettedUnusedKeys: [] },
         blockData,
       );
       expect(mockGetWithdrawalCredentials).toBeCalledTimes(1);
@@ -227,14 +227,14 @@ describe('StakingModuleGuardService', () => {
         .mockImplementation(async () => false);
 
       await stakingModuleGuardService.checkKeysIntersections(
-        { ...stakingModuleData, unusedKeys, vettedKeys: [] },
+        { ...stakingModuleData, unusedKeys, vettedUnusedKeys: [] },
         blockData,
       );
 
       expect(mockHandleKeysIntersections).not.toBeCalled();
       expect(mockHandleCorrectKeys).toBeCalledTimes(1);
       expect(mockHandleCorrectKeys).toBeCalledWith(
-        { ...stakingModuleData, unusedKeys, vettedKeys: [] },
+        { ...stakingModuleData, unusedKeys, vettedUnusedKeys: [] },
         blockData,
       );
       expect(mockSecurityContractIsDepositsPaused).toBeCalledTimes(1);
@@ -265,11 +265,11 @@ describe('StakingModuleGuardService', () => {
         .mockImplementation(async () => signature);
 
       await stakingModuleGuardService.handleCorrectKeys(
-        { ...stakingModuleData, unusedKeys: [], vettedKeys: [] },
+        { ...stakingModuleData, unusedKeys: [], vettedUnusedKeys: [] },
         blockData,
       );
       await stakingModuleGuardService.handleCorrectKeys(
-        { ...stakingModuleData, unusedKeys: [], vettedKeys: [] },
+        { ...stakingModuleData, unusedKeys: [], vettedUnusedKeys: [] },
         blockData,
       );
 
@@ -292,7 +292,7 @@ describe('StakingModuleGuardService', () => {
         .mockImplementation(async () => signature);
 
       await stakingModuleGuardService.handleCorrectKeys(
-        { ...stakingModuleData, unusedKeys: [], vettedKeys: [] },
+        { ...stakingModuleData, unusedKeys: [], vettedUnusedKeys: [] },
         blockData,
       );
 
@@ -372,7 +372,7 @@ describe('StakingModuleGuardService', () => {
         .mockImplementation(async () => undefined);
 
       await stakingModuleGuardService.handleKeysIntersections(
-        { ...stakingModuleData, unusedKeys: [], vettedKeys: [] },
+        { ...stakingModuleData, unusedKeys: [], vettedUnusedKeys: [] },
         blockData,
       );
 
@@ -394,7 +394,7 @@ describe('StakingModuleGuardService', () => {
         .mockImplementation(async () => undefined);
 
       await stakingModuleGuardService.handleKeysIntersections(
-        { ...stakingModuleData, unusedKeys: [], vettedKeys: [] },
+        { ...stakingModuleData, unusedKeys: [], vettedUnusedKeys: [] },
         blockData,
       );
 
@@ -457,21 +457,21 @@ describe('StakingModuleGuardService', () => {
       {
         blockHash: '',
         unusedKeys: [],
-        vettedKeys: [],
+        vettedUnusedKeys: [],
         nonce: 0,
         stakingModuleId: 1,
       },
       {
         blockHash: '',
         unusedKeys: [],
-        vettedKeys: [],
+        vettedUnusedKeys: [],
         nonce: 0,
         stakingModuleId: 2,
       },
       {
         blockHash: '',
         unusedKeys: [],
-        vettedKeys: [],
+        vettedUnusedKeys: [],
         nonce: 0,
         stakingModuleId: 3,
       },
@@ -483,14 +483,14 @@ describe('StakingModuleGuardService', () => {
         {
           blockHash: '',
           unusedKeys: [],
-          vettedKeys: [],
+          vettedUnusedKeys: [],
           nonce: 0,
           stakingModuleId: 1,
         },
         {
           blockHash: '',
           unusedKeys: [],
-          vettedKeys: [],
+          vettedUnusedKeys: [],
           nonce: 0,
           stakingModuleId: 3,
         },
@@ -511,21 +511,21 @@ describe('StakingModuleGuardService', () => {
         {
           blockHash: '',
           unusedKeys: [],
-          vettedKeys: [],
+          vettedUnusedKeys: [],
           nonce: 0,
           stakingModuleId: 1,
         },
         {
           blockHash: '',
           unusedKeys: [],
-          vettedKeys: [],
+          vettedUnusedKeys: [],
           nonce: 0,
           stakingModuleId: 2,
         },
         {
           blockHash: '',
           unusedKeys: [],
-          vettedKeys: [],
+          vettedUnusedKeys: [],
           nonce: 0,
           stakingModuleId: 3,
         },
@@ -546,21 +546,21 @@ describe('StakingModuleGuardService', () => {
         {
           blockHash: '',
           unusedKeys: [],
-          vettedKeys: [],
+          vettedUnusedKeys: [],
           nonce: 0,
           stakingModuleId: 1,
         },
         {
           blockHash: '',
           unusedKeys: [],
-          vettedKeys: [],
+          vettedUnusedKeys: [],
           nonce: 0,
           stakingModuleId: 2,
         },
         {
           blockHash: '',
           unusedKeys: [],
-          vettedKeys: [],
+          vettedUnusedKeys: [],
           nonce: 0,
           stakingModuleId: 3,
         },
@@ -576,7 +576,7 @@ describe('StakingModuleGuardService', () => {
     });
   });
 
-  describe('checkVettedKeysDuplicates', () => {
+  describe('getModulesIdsWithDuplicatedVettedUnusedKeys', () => {
     const blockData = { blockHash: 'some_hash' } as any;
 
     it('should found duplicated keys across two module', () => {
