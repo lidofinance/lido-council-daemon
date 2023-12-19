@@ -66,7 +66,7 @@ export class KeysApiService {
    * @param The /v1/keys/find KAPI endpoint returns a key along with its duplicates
    * @returns
    */
-  public async getKeysWithDuplicates(pubkeys: string[]) {
+  public async findKeysEntires(pubkeys: string[]) {
     const result = await this.fetch<KeyListResponse>(`/v1/keys/find`, {
       method: 'POST',
       headers: {

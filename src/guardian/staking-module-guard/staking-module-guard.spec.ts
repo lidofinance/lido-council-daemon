@@ -580,10 +580,11 @@ describe('StakingModuleGuardService', () => {
     const blockData = { blockHash: 'some_hash' } as any;
 
     it('should found duplicated keys across two module', () => {
-      const result = stakingModuleGuardService.checkVettedKeysDuplicates(
-        vettedKeysDuplicatesAcrossModules,
-        blockData,
-      );
+      const result =
+        stakingModuleGuardService.getModulesIdsWithDuplicatedVettedUnusedKeys(
+          vettedKeysDuplicatesAcrossModules,
+          blockData,
+        );
 
       const addressesOfModulesWithDuplicateKeys = [100, 102];
 
@@ -596,10 +597,11 @@ describe('StakingModuleGuardService', () => {
     });
 
     it('should found duplicated keys across one module', () => {
-      const result = stakingModuleGuardService.checkVettedKeysDuplicates(
-        vettedKeysDuplicatesAcrossOneModule,
-        blockData,
-      );
+      const result =
+        stakingModuleGuardService.getModulesIdsWithDuplicatedVettedUnusedKeys(
+          vettedKeysDuplicatesAcrossOneModule,
+          blockData,
+        );
 
       const addressesOfModulesWithDuplicateKeys = [100];
       expect(result).toEqual(
@@ -609,10 +611,11 @@ describe('StakingModuleGuardService', () => {
     });
 
     it('should found duplicated keys across one module and few', () => {
-      const result = stakingModuleGuardService.checkVettedKeysDuplicates(
-        vettedKeysDuplicatesAcrossOneModuleAndFew,
-        blockData,
-      );
+      const result =
+        stakingModuleGuardService.getModulesIdsWithDuplicatedVettedUnusedKeys(
+          vettedKeysDuplicatesAcrossOneModuleAndFew,
+          blockData,
+        );
 
       const addressesOfModulesWithDuplicateKeys = [100, 102];
       expect(result).toEqual(
@@ -622,10 +625,11 @@ describe('StakingModuleGuardService', () => {
     });
 
     it('should return empty list if duplicated keys were not found', () => {
-      const result = stakingModuleGuardService.checkVettedKeysDuplicates(
-        vettedKeysWithoutDuplicates,
-        blockData,
-      );
+      const result =
+        stakingModuleGuardService.getModulesIdsWithDuplicatedVettedUnusedKeys(
+          vettedKeysWithoutDuplicates,
+          blockData,
+        );
 
       const addressesOfModulesWithDuplicateKeys = [];
 
@@ -643,7 +647,7 @@ describe('StakingModuleGuardService', () => {
       // function that return list from kapi that match keys in parameter
       const mockSendMessageFromGuardian = jest.spyOn(
         stakingRouterService,
-        'getKeysWithDuplicates',
+        'findKeysEntires',
       );
 
       const result =
@@ -671,7 +675,7 @@ describe('StakingModuleGuardService', () => {
       ];
       // function that return list from kapi that match keys in parameter
       const mockSendMessageFromGuardian = jest
-        .spyOn(stakingRouterService, 'getKeysWithDuplicates')
+        .spyOn(stakingRouterService, 'findKeysEntires')
         .mockImplementation(async () => ({
           data: [
             {
@@ -769,7 +773,7 @@ describe('StakingModuleGuardService', () => {
       ];
       // function that return list from kapi that match keys in parameter
       const mockSendMessageFromGuardian = jest
-        .spyOn(stakingRouterService, 'getKeysWithDuplicates')
+        .spyOn(stakingRouterService, 'findKeysEntires')
         .mockImplementation(async () => ({
           data: [
             {
@@ -831,7 +835,7 @@ describe('StakingModuleGuardService', () => {
       ];
       // function that return list from kapi that match keys in parameter
       const mockSendMessageFromGuardian = jest
-        .spyOn(stakingRouterService, 'getKeysWithDuplicates')
+        .spyOn(stakingRouterService, 'findKeysEntires')
         .mockImplementation(async () => ({
           data: [
             {

@@ -19,10 +19,14 @@ export class StakingRouterService {
   /**
    * Return staking module data and block information
    */
-  public async getVettedAndUnusedKeys() {
+  public async getStakingModulesData(): Promise<{
+    stakingModulesData: StakingModuleData[];
+    blockHash: string;
+    blockNumber: number;
+  }> {
     // TODO: add cache by modules nonce
     const { operatorsByModules, unusedKeys, blockHash, blockNumber } =
-      await this.getOperatorsAndKeysFromKAPI();
+      await this.getOperatorsAndUnusedKeysFromKAPI();
     // all staking modules list
     const stakingModulesData: StakingModuleData[] = operatorsByModules.data.map(
       ({ operators, module: stakingModule }) => {
@@ -49,7 +53,7 @@ export class StakingRouterService {
   /**
    * Request grouped by modules operators and all staking modules keys with meta from KAPI
    */
-  private async getOperatorsAndKeysFromKAPI() {
+  private async getOperatorsAndUnusedKeysFromKAPI() {
     const operatorsByModules =
       await this.keysApiService.getOperatorListWithModule();
     const { blockHash: operatorsBlockHash, blockNumber: operatorsBlockNumber } =
@@ -147,8 +151,8 @@ export class StakingRouterService {
     return unusedKeys.slice(0, numberOfVettedUnusedKeys);
   }
 
-  public async getKeysWithDuplicates(pubkeys: string[]) {
-    return await this.keysApiService.getKeysWithDuplicates(pubkeys);
+  public async findKeysEntires(pubkeys: string[]) {
+    return await this.keysApiService.findKeysEntires(pubkeys);
   }
 
   public async getStakingModules() {

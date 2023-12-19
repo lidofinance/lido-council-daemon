@@ -33,7 +33,7 @@ export class StakingModuleGuardService {
   /**
    * @returns List of staking modules id with duplicates
    */
-  public checkVettedKeysDuplicates(
+  public getModulesIdsWithDuplicatedVettedUnusedKeys(
     stakingModulesData: StakingModuleData[],
     blockData: BlockData,
   ): number[] {
@@ -95,20 +95,10 @@ export class StakingModuleGuardService {
     stakingModulesData: StakingModuleData[],
     modulesIdWithDuplicateKeys: number[],
   ): StakingModuleData[] {
-    // exclude from stakingModulesData stakingModulesWithDuplicates
-    let stakingModulesWithoutDuplicates: StakingModuleData[] =
-      stakingModulesData;
-
-    if (modulesIdWithDuplicateKeys.length) {
-      // need to filter stakingModulesWithoutDuplicates
-
-      stakingModulesWithoutDuplicates = stakingModulesWithoutDuplicates.filter(
-        ({ stakingModuleId }) =>
-          !modulesIdWithDuplicateKeys.includes(stakingModuleId),
-      );
-    }
-
-    return stakingModulesWithoutDuplicates;
+    return stakingModulesData.filter(
+      ({ stakingModuleId }) =>
+        !modulesIdWithDuplicateKeys.includes(stakingModuleId),
+    );
   }
 
   /**
@@ -273,12 +263,14 @@ export class StakingModuleGuardService {
    * Filter out the used keys, and since used keys cannot be deleted,
    * it is sufficient to check if the blockNumber in the new result is greater than the current blockNumber.
    */
+  // getUsedLidoKeysForUnused ?
   private async getDuplicatedLidoUsedKeys(
     keys: string[],
     prevBlockNumber: number,
   ): Promise<RegistryKey[]> {
-    const { data, meta } =
-      await this.stakingRouterService.getKeysWithDuplicates(keys);
+    const { data, meta } = await this.stakingRouterService.findKeysEntires(
+      keys,
+    );
 
     if (meta.elBlockSnapshot.blockNumber < prevBlockNumber) {
       this.logger.error(

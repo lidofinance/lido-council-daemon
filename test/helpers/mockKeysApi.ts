@@ -71,7 +71,7 @@ export const mockKeysApi = (
     }));
 
   jest
-    .spyOn(keysApiService, 'getKeysWithDuplicates')
+    .spyOn(keysApiService, 'findKeysEntires')
     .mockImplementation(async () => ({
       data: mockedKeys,
       meta: {
