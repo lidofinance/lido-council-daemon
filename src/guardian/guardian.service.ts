@@ -98,7 +98,7 @@ export class GuardianService implements OnModuleInit {
 
     try {
       const { blockHash, blockNumber, stakingModulesData } =
-        await this.stakingRouterService.getVettedAndUnusedKeys();
+        await this.stakingRouterService.getStakingModulesData();
 
       await this.repositoryService.initCachedContracts({ blockHash });
 
@@ -118,10 +118,10 @@ export class GuardianService implements OnModuleInit {
         return;
       }
 
-      const stakingModulesNumber = stakingModulesData.length;
+      const stakingModulesCount = stakingModulesData.length;
 
       this.logger.log('Staking modules loaded', {
-        modulesCount: stakingModulesNumber,
+        modulesCount: stakingModulesCount,
       });
 
       await this.depositService.handleNewBlock(blockNumber);
@@ -139,7 +139,7 @@ export class GuardianService implements OnModuleInit {
       });
 
       const modulesIdWithDuplicateKeys: number[] =
-        this.stakingModuleGuardService.checkVettedKeysDuplicates(
+        this.stakingModuleGuardService.getModulesIdsWithDuplicatedVettedUnusedKeys(
           stakingModulesData,
           blockData,
         );

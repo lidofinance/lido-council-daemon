@@ -39,7 +39,7 @@ describe('StakingRouter', () => {
       keysAllStakingModules,
     );
 
-    const result = await stakingRouterService.getVettedAndUnusedKeys();
+    const result = await stakingRouterService.getStakingModulesData();
 
     // Assertions
     expect(result).toEqual({
