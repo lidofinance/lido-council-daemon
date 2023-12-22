@@ -3,7 +3,6 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 import { VerifiedDepositEvent } from 'contracts/deposit';
 import { SecurityService } from 'contracts/security';
-import { LidoService } from 'contracts/lido';
 
 import { ContractsState, BlockData, StakingModuleData } from '../interfaces';
 import { GUARDIAN_DEPOSIT_RESIGNING_BLOCKS } from '../guardian.constants';
@@ -11,7 +10,9 @@ import { GuardianMetricsService } from '../guardian-metrics';
 import { GuardianMessageService } from '../guardian-message';
 
 import { StakingRouterService } from 'staking-router';
-import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
+import { KeysValidationService } from 'guardian/keys-validation/keys-validation.service';
+import { performance } from 'perf_hooks';
+import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
 
 @Injectable()
 export class StakingModuleGuardService {
@@ -20,11 +21,10 @@ export class StakingModuleGuardService {
     private logger: LoggerService,
 
     private securityService: SecurityService,
-    private lidoService: LidoService,
-
     private stakingRouterService: StakingRouterService,
     private guardianMetricsService: GuardianMetricsService,
     private guardianMessageService: GuardianMessageService,
+    private keysValidationService: KeysValidationService,
   ) {}
 
   private lastContractsStateByModuleId: Record<number, ContractsState | null> =
@@ -72,9 +72,13 @@ export class StakingModuleGuardService {
       const moduleAddressesWithDuplicatesList: number[] = Array.from(
         modulesWithDuplicatedKeysSet,
       );
-      this.logger.warn('Found duplicated vetted keys', {
+      this.logger.error('Found duplicated vetted keys');
+      this.logger.log('Duplicated keys', {
         blockHash: blockData.blockHash,
-        duplicatedKeys: Array.from(duplicatedKeys),
+        duplicatedKeys: Array.from(duplicatedKeys).map(([key, innerMap]) => ({
+          key: key,
+          stakingModuleIds: Array.from(innerMap.keys()),
+        })),
         moduleAddressesWithDuplicates: moduleAddressesWithDuplicatesList,
       });
 
@@ -105,6 +109,7 @@ export class StakingModuleGuardService {
    * Checks keys for intersections with previously deposited keys and handles the situation
    * @param blockData - collected data from the current block
    */
+  // TODO: rename, because this method more than intersections checks
   public async checkKeysIntersections(
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
@@ -149,9 +154,9 @@ export class StakingModuleGuardService {
       await this.handleKeysIntersections(stakingModuleData, blockData);
     } else {
       // it could throw error if kapi returned old data
-      const usedKeys = await this.getIntersectionBetweenUsedAndUnusedKeys(
+      const usedKeys = await this.findAlreadyDepositedKeys(
+        stakingModuleData.lastChangedBlockHash,
         validIntersections,
-        blockData,
       );
 
       // if found used keys, Lido already made deposit on this keys
@@ -198,8 +203,7 @@ export class StakingModuleGuardService {
 
   public excludeInvalidDeposits(intersections: VerifiedDepositEvent[]) {
     // Exclude deposits with invalid signature over the deposit data
-    const validIntersections = intersections.filter(({ valid }) => valid);
-    return validIntersections;
+    return intersections.filter(({ valid }) => valid);
   }
 
   /**
@@ -211,21 +215,10 @@ export class StakingModuleGuardService {
     blockData: BlockData,
     validIntersections: VerifiedDepositEvent[],
   ): Promise<VerifiedDepositEvent[]> {
-    if (!validIntersections.length) {
-      this.logger.log('Not found valid intersection');
-      return [];
-    }
-
     // Exclude deposits with Lido withdrawal credentials
-    const { blockHash } = blockData;
-    const lidoWC = await this.lidoService.getWithdrawalCredentials({
-      blockHash,
-    });
-    const attackIntersections = validIntersections.filter(
-      (deposit) => deposit.wc !== lidoWC,
+    return validIntersections.filter(
+      (deposit) => deposit.wc !== blockData.lidoWC,
     );
-
-    return attackIntersections;
   }
 
   /**
@@ -233,19 +226,14 @@ export class StakingModuleGuardService {
    * with Lido withdrawal credentials, we need to determine whether this deposit was made by Lido.
    * If it was indeed made by Lido, we set a metric and skip sending deposit messages in the queue for this iteration.
    */
-  public async getIntersectionBetweenUsedAndUnusedKeys(
+  public async findAlreadyDepositedKeys(
+    lastChangedBlockHash: string,
     intersectionsWithLidoWC: VerifiedDepositEvent[],
-    blockData: BlockData,
   ) {
-    const validIntersections = intersectionsWithLidoWC.filter(
-      ({ valid }) => valid,
-    );
-    if (!validIntersections.length) return [];
-
-    const depositedPubkeys = validIntersections.map(
+    const depositedPubkeys = intersectionsWithLidoWC.map(
       (deposit) => deposit.pubkey,
     );
-
+    // if depositedPubkeys == [], /find will return validation error
     if (!depositedPubkeys.length) {
       return [];
     }
@@ -254,45 +242,30 @@ export class StakingModuleGuardService {
       'Found intersections with lido credentials, need to check used duplicated keys',
     );
 
-    const alreadyDepositedKeys = await this.getDuplicatedLidoUsedKeys(
+    const { data, meta } = await this.stakingRouterService.findKeysEntires(
       depositedPubkeys,
-      blockData.blockNumber,
     );
 
-    return alreadyDepositedKeys;
+    this.isEqualLastChangedBlockHash(
+      lastChangedBlockHash,
+      meta.elBlockSnapshot.lastChangedBlockHash,
+    );
+
+    return data.filter((key) => key.used);
   }
 
-  /**
-   * Upon identifying the intersection of keys deposited and unused with Lido withdrawal credentials,
-   * use the KAPI /v1/keys/find endpoint to locate all keys with duplicates.
-   * Filter out the used keys, and since used keys cannot be deleted,
-   * it is sufficient to check if the blockNumber in the new result is greater than the current blockNumber.
-   */
-  // getUsedLidoKeysForUnused ?
-  private async getDuplicatedLidoUsedKeys(
-    keys: string[],
-    prevBlockNumber: number,
-  ): Promise<RegistryKey[]> {
-    const { data, meta } = await this.stakingRouterService.findKeysEntires(
-      keys,
-    );
+  private isEqualLastChangedBlockHash(
+    firstRequestHash: string,
+    secondRequestHash: string,
+  ) {
+    if (firstRequestHash !== secondRequestHash) {
+      const error =
+        'Since the last request, data in Kapi has been updated. This may result in inconsistencies between the data from two separate requests.';
 
-    if (meta.elBlockSnapshot.blockNumber < prevBlockNumber) {
-      this.logger.error(
-        'BlockNumber of the current response older than previous response from KAPI',
-        {
-          previous: prevBlockNumber,
-          current: meta.elBlockSnapshot.blockNumber,
-        },
-      );
-      throw Error(
-        'BlockNumber of the current response older than previous response from KAPI',
-      );
+      this.logger.error(error, { firstRequestHash, secondRequestHash });
+
+      throw new InconsistentLastChangedBlockHash();
     }
-
-    const usedKeys = data.filter((key) => key.used);
-
-    return usedKeys;
   }
 
   /**
@@ -358,9 +331,14 @@ export class StakingModuleGuardService {
       guardianIndex,
     } = blockData;
 
-    const { nonce, stakingModuleId } = stakingModuleData;
+    const { nonce, stakingModuleId, lastChangedBlockHash } = stakingModuleData;
 
-    const currentContractState = { nonce, depositRoot, blockNumber };
+    const currentContractState = {
+      nonce,
+      depositRoot,
+      blockNumber,
+      lastChangedBlockHash,
+    };
 
     const lastContractsState =
       this.lastContractsStateByModuleId[stakingModuleId];
@@ -372,7 +350,27 @@ export class StakingModuleGuardService {
 
     this.lastContractsStateByModuleId[stakingModuleId] = currentContractState;
 
-    if (isSameContractsState) return;
+    if (isSameContractsState) {
+      this.logger.log("Contract states didn't change");
+      return;
+    }
+
+    if (
+      !lastContractsState ||
+      currentContractState.nonce !== lastContractsState.nonce
+    ) {
+      const invalidKeys = await this.getInvalidKeys(
+        stakingModuleData,
+        blockData,
+      );
+      if (invalidKeys.length) {
+        this.logger.error(
+          'Found invalid keys, will skip deposits until solving problem',
+        );
+        this.guardianMetricsService.incrInvalidKeysEventCounter();
+        return;
+      }
+    }
 
     const signature = await this.securityService.signDepositData(
       depositRoot,
@@ -402,6 +400,30 @@ export class StakingModuleGuardService {
     await this.guardianMessageService.sendDepositMessage(depositMessage);
   }
 
+  public async getInvalidKeys(
+    stakingModuleData: StakingModuleData,
+    blockData: BlockData,
+  ): Promise<{ key: string; depositSignature: string }[]> {
+    this.logger.log('Start keys validation', {
+      keysCount: stakingModuleData.vettedUnusedKeys.length,
+    });
+    const validationTimeStart = performance.now();
+    const invalidKeysList = await this.keysValidationService.findInvalidKeys(
+      stakingModuleData.vettedUnusedKeys,
+      blockData.lidoWC,
+    );
+    const validationTimeEnd = performance.now();
+    const validationTime =
+      Math.ceil(validationTimeEnd - validationTimeStart) / 1000;
+
+    this.logger.log('Keys validated', {
+      invalidKeysList,
+      validationTime,
+    });
+
+    return invalidKeysList;
+  }
+
   /**
    * Compares the states of the contracts to decide if the message needs to be re-signed
    * @param firstState - contracts state
@@ -414,7 +436,16 @@ export class StakingModuleGuardService {
   ): boolean {
     if (!firstState || !secondState) return false;
     if (firstState.depositRoot !== secondState.depositRoot) return false;
+
+    // Check if the nonce values are different. A difference in nonce implies a state change.
     if (firstState.nonce !== secondState.nonce) return false;
+    // If the nonce is unchanged, the state might still have changed.
+    // Therefore, we also need to compare the 'lastChangedBlockHash'.
+    // It's important to note that it's not possible for the nonce to be different
+    // while having the same 'lastChangedBlockHash'.
+    if (firstState.lastChangedBlockHash !== secondState.lastChangedBlockHash)
+      return false;
+
     if (
       Math.floor(firstState.blockNumber / GUARDIAN_DEPOSIT_RESIGNING_BLOCKS) !==
       Math.floor(secondState.blockNumber / GUARDIAN_DEPOSIT_RESIGNING_BLOCKS)

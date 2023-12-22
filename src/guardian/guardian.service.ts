@@ -36,7 +36,6 @@ export class GuardianService implements OnModuleInit {
 
     private depositService: DepositService,
     private securityService: SecurityService,
-
     private stakingRouterService: StakingRouterService,
 
     private blockGuardService: BlockGuardService,

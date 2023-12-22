@@ -7,8 +7,8 @@ import { SRModule } from 'keys-api/interfaces';
 import { ELBlockSnapshot } from 'keys-api/interfaces/ELBlockSnapshot';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 
-export const mockedModule = (block: ethers.providers.Block) => ({
-  nonce: 6046,
+export const mockedModule = (block: ethers.providers.Block, nonce = 6046) => ({
+  nonce,
   type: 'grouped-onchain-v1',
   id: 1,
   stakingModuleAddress: NOP_REGISTRY,
@@ -21,10 +21,14 @@ export const mockedModule = (block: ethers.providers.Block) => ({
   lastDepositBlock: block.number,
 });
 
-export const mockedMeta = (block: ethers.providers.Block) => ({
+export const mockedMeta = (
+  block: ethers.providers.Block,
+  lastChangedBlockHash: string,
+) => ({
   blockNumber: block.number,
   blockHash: block.hash,
   timestamp: block.timestamp,
+  lastChangedBlockHash,
 });
 
 export const mockedOperators: RegistryOperator[] = [

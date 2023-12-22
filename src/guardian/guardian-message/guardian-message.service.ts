@@ -84,12 +84,9 @@ export class GuardianMessageService {
       this.logger.warn(
         'Your address is not in the Guardian List. The message will not be sent',
       );
-
       return;
     }
-
     const messageWithMeta = this.addMessageMetaData(messageData);
-
     this.logger.log('Sending a message to broker', messageData);
     await this.messagesService.sendMessage(messageWithMeta);
   }

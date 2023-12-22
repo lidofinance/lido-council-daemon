@@ -231,7 +231,7 @@ describe('ganache e2e tests', () => {
         },
       ];
 
-      const meta = mockedMeta(currentBlock);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
       const stakingModule = mockedModule(currentBlock);
 
       mockedKeysApiOperators(
@@ -301,7 +301,7 @@ describe('ganache e2e tests', () => {
       // Mock Keys API again on new block
       const newBlock = await providerService.provider.getBlock('latest');
 
-      const newMeta = mockedMeta(newBlock);
+      const newMeta = mockedMeta(newBlock, newBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -366,7 +366,7 @@ describe('ganache e2e tests', () => {
         },
       ];
 
-      const meta = mockedMeta(currentBlock);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
       const stakingModule = mockedModule(currentBlock);
 
       mockedKeysApiOperators(
@@ -423,7 +423,7 @@ describe('ganache e2e tests', () => {
 
       // Mock Keys API again on new block
       const newBlock = await providerService.provider.getBlock('latest');
-      const newMeta = mockedMeta(newBlock);
+      const newMeta = mockedMeta(newBlock, newBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -479,7 +479,7 @@ describe('ganache e2e tests', () => {
         },
       ];
 
-      const meta = mockedMeta(currentBlock);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
       const stakingModule = mockedModule(currentBlock);
 
       mockedKeysApiOperators(
@@ -539,7 +539,7 @@ describe('ganache e2e tests', () => {
       );
       // Mock Keys API again on new block
       const newBlock = await providerService.provider.getBlock('latest');
-      const newMeta = mockedMeta(newBlock);
+      const newMeta = mockedMeta(newBlock, newBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -593,7 +593,7 @@ describe('ganache e2e tests', () => {
         },
       ];
 
-      const meta = mockedMeta(currentBlock);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
       const stakingModule = mockedModule(currentBlock);
 
       mockedKeysApiOperators(
@@ -643,7 +643,7 @@ describe('ganache e2e tests', () => {
       // Mock Keys API again on new block
       const newBlock = await providerService.provider.getBlock('latest');
 
-      const newMeta = mockedMeta(newBlock);
+      const newMeta = mockedMeta(newBlock, newBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -685,7 +685,7 @@ describe('ganache e2e tests', () => {
   test(
     'reorganization',
     async () => {
-      // TODOL need attention to this test
+      // TODO: need attention to this test
       const tempProvider = new ethers.providers.JsonRpcProvider(
         `http://127.0.0.1:${GANACHE_PORT}`,
       );
@@ -710,7 +710,7 @@ describe('ganache e2e tests', () => {
         },
       ];
 
-      const meta = mockedMeta(currentBlock);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
       const stakingModule = mockedModule(currentBlock);
 
       mockedKeysApiOperators(
@@ -771,7 +771,7 @@ describe('ganache e2e tests', () => {
       // Mock Keys API again on new block, but now mark as used
       const newBlock = await providerService.provider.getBlock('latest');
 
-      const newMeta = mockedMeta(newBlock);
+      const newMeta = mockedMeta(newBlock, newBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -857,7 +857,7 @@ describe('ganache e2e tests', () => {
 
       // mocked curated module
       const stakingModule = mockedModule(currentBlock);
-      const meta = mockedMeta(currentBlock);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -869,18 +869,18 @@ describe('ganache e2e tests', () => {
       // list of keys for /keys?used=false mock
       const unusedKeys = [
         {
-          key: '0x9948d2becf42e9f76922bc6f664545e6f50401050af95785a984802d32a95c4c61f8e3de312b78167f86e047f83a7796',
+          key: '0xa9bfaa8207ee6c78644c079ffc91b6e5abcc5eede1b7a06abb8fb40e490a75ea269c178dd524b65185299d2bbd2eb7b2',
           depositSignature:
-            '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
+            '0xaa5f2a1053ba7d197495df44d4a32b7ae10265cf9e38560a16b782978c0a24271a113c9538453b7e45f35cb64c7adb460d7a9fe8c8ce6b8c80ca42fd5c48e180c73fc08f7d35ba32e39f32c902fd333faf47611827f0b7813f11c4c518dd2e59',
           operatorIndex: 0,
           used: false,
           index: 0,
           moduleAddress: NOP_REGISTRY,
         },
         {
-          key: '0x9948d2becf42e9f76922bc6f664545e6f50401050af95785a984802d32a95c4c61f8e3de312b78167f86e047f83a7796',
+          key: '0xa9bfaa8207ee6c78644c079ffc91b6e5abcc5eede1b7a06abb8fb40e490a75ea269c178dd524b65185299d2bbd2eb7b2',
           depositSignature:
-            '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
+            '0xaa5f2a1053ba7d197495df44d4a32b7ae10265cf9e38560a16b782978c0a24271a113c9538453b7e45f35cb64c7adb460d7a9fe8c8ce6b8c80ca42fd5c48e180c73fc08f7d35ba32e39f32c902fd333faf47611827f0b7813f11c4c518dd2e59',
           operatorIndex: 0,
           used: false,
           index: 1,
@@ -910,9 +910,9 @@ describe('ganache e2e tests', () => {
       // council will resume deposits to module
       const unusedKeysWithoutDuplicates = [
         {
-          key: '0x9948d2becf42e9f76922bc6f664545e6f50401050af95785a984802d32a95c4c61f8e3de312b78167f86e047f83a7796',
+          key: '0xa9bfaa8207ee6c78644c079ffc91b6e5abcc5eede1b7a06abb8fb40e490a75ea269c178dd524b65185299d2bbd2eb7b2',
           depositSignature:
-            '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
+            '0xaa5f2a1053ba7d197495df44d4a32b7ae10265cf9e38560a16b782978c0a24271a113c9538453b7e45f35cb64c7adb460d7a9fe8c8ce6b8c80ca42fd5c48e180c73fc08f7d35ba32e39f32c902fd333faf47611827f0b7813f11c4c518dd2e59',
           operatorIndex: 0,
           used: false,
           index: 0,
@@ -921,7 +921,7 @@ describe('ganache e2e tests', () => {
       ];
 
       const newBlock = await tempProvider.getBlock('latest');
-      const newMeta = mockedMeta(newBlock);
+      const newMeta = mockedMeta(newBlock, newBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -948,6 +948,51 @@ describe('ganache e2e tests', () => {
           stakingModuleId: 1,
         }),
       );
+    },
+    TESTS_TIMEOUT,
+  );
+
+  test(
+    'inconsistent kapi requests data',
+    async () => {
+      const tempProvider = new ethers.providers.JsonRpcProvider(
+        `http://127.0.0.1:${GANACHE_PORT}`,
+      );
+      const currentBlock = await tempProvider.getBlock('latest');
+
+      // mocked curated module
+      const stakingModule = mockedModule(currentBlock);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        stakingModule,
+        meta,
+      );
+
+      // list of keys for /keys?used=false mock
+      const unusedKeys = [
+        {
+          key: '0xa9bfaa8207ee6c78644c079ffc91b6e5abcc5eede1b7a06abb8fb40e490a75ea269c178dd524b65185299d2bbd2eb7b2',
+          depositSignature:
+            '0xaa5f2a1053ba7d197495df44d4a32b7ae10265cf9e38560a16b782978c0a24271a113c9538453b7e45f35cb64c7adb460d7a9fe8c8ce6b8c80ca42fd5c48e180c73fc08f7d35ba32e39f32c902fd333faf47611827f0b7813f11c4c518dd2e59',
+          operatorIndex: 0,
+          used: false,
+          index: 0,
+          moduleAddress: NOP_REGISTRY,
+        },
+      ];
+
+      const hashWasChanged =
+        '0xd921055dbb407e09f64afe5182a64c1bd309fe28f26909a96425cdb6bfc48959';
+      const newMeta = mockedMeta(currentBlock, hashWasChanged);
+      mockedKeysApiUnusedKeys(keysApiService, unusedKeys, newMeta);
+
+      await guardianService.handleNewBlock();
+
+      expect(sendDepositMessage).toBeCalledTimes(0);
+      expect(sendPauseMessage).toBeCalledTimes(0);
     },
     TESTS_TIMEOUT,
   );
@@ -1003,7 +1048,7 @@ describe('ganache e2e tests', () => {
 
       // mocked curated module
       const stakingModule = mockedModule(currentBlock);
-      const meta = mockedMeta(currentBlock);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -1048,7 +1093,7 @@ describe('ganache e2e tests', () => {
       // council will resume deposits to module
 
       const newBlock = await tempProvider.getBlock('latest');
-      const newMeta = mockedMeta(newBlock);
+      const newMeta = mockedMeta(newBlock, newBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -1084,6 +1129,37 @@ describe('ganache e2e tests', () => {
       );
       const currentBlock = await tempProvider.getBlock('latest');
 
+      const goodDepositMessage = {
+        pubkey: pk,
+        withdrawalCredentials: fromHexString(GOOD_WC),
+        amount: 32000000000, // gwei!
+      };
+      const goodSigningRoot = computeRoot(goodDepositMessage);
+      const goodSig = sk.sign(goodSigningRoot).toBytes();
+
+      const goodDepositData = {
+        ...goodDepositMessage,
+        signature: goodSig,
+      };
+      const goodDepositDataRoot = DepositData.hashTreeRoot(goodDepositData);
+
+      if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
+      const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
+
+      // Make a deposit
+      const signer = wallet.connect(providerService.provider);
+      const depositContract = DepositAbi__factory.connect(
+        DEPOSIT_CONTRACT,
+        signer,
+      );
+      await depositContract.deposit(
+        goodDepositData.pubkey,
+        goodDepositData.withdrawalCredentials,
+        goodDepositData.signature,
+        goodDepositDataRoot,
+        { value: ethers.constants.WeiPerEther.mul(32) },
+      );
+
       await depositService.setCachedEvents({
         data: [],
         headers: {
@@ -1095,7 +1171,7 @@ describe('ganache e2e tests', () => {
 
       // mocked curated module
       const stakingModule = mockedModule(currentBlock);
-      const meta = mockedMeta(currentBlock);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -1104,9 +1180,9 @@ describe('ganache e2e tests', () => {
         meta,
       );
 
-      // list of keys for /keys?used=false mock
       const keyWithWrongSign = {
         key: toHexString(pk),
+        // just some random sign
         depositSignature:
           '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
         operatorIndex: 0,
@@ -1114,24 +1190,48 @@ describe('ganache e2e tests', () => {
         index: 0,
         moduleAddress: NOP_REGISTRY,
       };
+      // list of keys for /keys?used=false mock
       mockedKeysApiUnusedKeys(keysApiService, [keyWithWrongSign], meta);
-
-      if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
-      const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
+      mockedKeysWithDuplicates(keysApiService, [], meta);
 
       await guardianService.handleNewBlock();
 
-      // just skip on this iteration deposit for staking module
-      expect(sendDepositMessage).toBeCalledTimes(1);
+      expect(sendDepositMessage).toBeCalledTimes(0);
+      expect(sendPauseMessage).toBeCalledTimes(0);
 
-      expect(sendDepositMessage).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          blockNumber: currentBlock.number,
-          guardianAddress: wallet.address,
-          guardianIndex: 9,
-          stakingModuleId: 1,
-        }),
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+      const newBlock = await tempProvider.getBlock('latest');
+
+      await depositService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: newBlock.number,
+          endBlock: newBlock.number,
+          version: '1',
+        },
+      });
+
+      // mocked curated module
+      const newMeta = mockedMeta(newBlock, newBlock.hash);
+      const newStakingModule = mockedModule(newBlock, 6047);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        newStakingModule,
+        newMeta,
       );
+
+      // list of keys for /keys?used=false mock
+      mockedKeysApiUnusedKeys(keysApiService, [keyWithWrongSign], newMeta);
+
+      await guardianService.handleNewBlock();
+
+      // should found invalid key and skip again
+      // on this iteration cache will be used
+      expect(sendDepositMessage).toBeCalledTimes(0);
+      expect(sendPauseMessage).toBeCalledTimes(0);
     },
     TESTS_TIMEOUT,
   );
