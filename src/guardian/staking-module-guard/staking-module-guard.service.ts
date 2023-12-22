@@ -10,9 +10,9 @@ import { GuardianMetricsService } from '../guardian-metrics';
 import { GuardianMessageService } from '../guardian-message';
 
 import { StakingRouterService } from 'staking-router';
-import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { KeysValidationService } from 'guardian/keys-validation/keys-validation.service';
 import { performance } from 'perf_hooks';
+import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
 
 @Injectable()
 export class StakingModuleGuardService {
@@ -155,8 +155,8 @@ export class StakingModuleGuardService {
     } else {
       // it could throw error if kapi returned old data
       const usedKeys = await this.findAlreadyDepositedKeys(
+        stakingModuleData.lastChangedBlockHash,
         validIntersections,
-        blockData,
       );
 
       // if found used keys, Lido already made deposit on this keys
@@ -227,8 +227,8 @@ export class StakingModuleGuardService {
    * If it was indeed made by Lido, we set a metric and skip sending deposit messages in the queue for this iteration.
    */
   public async findAlreadyDepositedKeys(
+    lastChangedBlockHash: string,
     intersectionsWithLidoWC: VerifiedDepositEvent[],
-    blockData: BlockData,
   ) {
     const depositedPubkeys = intersectionsWithLidoWC.map(
       (deposit) => deposit.pubkey,
@@ -246,28 +246,26 @@ export class StakingModuleGuardService {
       depositedPubkeys,
     );
 
-    this.checkCurrentBlockOlderThanPrev(
-      meta.elBlockSnapshot.blockNumber,
-      blockData.blockNumber,
+    this.isEqualLastChangedBlockHash(
+      lastChangedBlockHash,
+      meta.elBlockSnapshot.lastChangedBlockHash,
     );
 
     return data.filter((key) => key.used);
   }
 
-  private async checkCurrentBlockOlderThanPrev(
-    currBlockNumber: number,
-    prevBlockNumber: number,
+  private isEqualLastChangedBlockHash(
+    firstRequestHash: string,
+    secondRequestHash: string,
   ) {
-    if (currBlockNumber < prevBlockNumber) {
-      const errorMsg =
-        'BlockNumber of the current response older than previous response from KAPI';
-      this.logger.error(errorMsg, {
-        previous: prevBlockNumber,
-        current: currBlockNumber,
-      });
-      throw Error(errorMsg);
+    if (firstRequestHash !== secondRequestHash) {
+      const error =
+        'Since the last request, data in Kapi has been updated. This may result in inconsistencies between the data from two separate requests.';
+
+      this.logger.error(error, { firstRequestHash, secondRequestHash });
+
+      throw new InconsistentLastChangedBlockHash();
     }
-    return;
   }
 
   /**
@@ -333,9 +331,14 @@ export class StakingModuleGuardService {
       guardianIndex,
     } = blockData;
 
-    const { nonce, stakingModuleId } = stakingModuleData;
+    const { nonce, stakingModuleId, lastChangedBlockHash } = stakingModuleData;
 
-    const currentContractState = { nonce, depositRoot, blockNumber };
+    const currentContractState = {
+      nonce,
+      depositRoot,
+      blockNumber,
+      lastChangedBlockHash,
+    };
 
     const lastContractsState =
       this.lastContractsStateByModuleId[stakingModuleId];
@@ -433,7 +436,15 @@ export class StakingModuleGuardService {
   ): boolean {
     if (!firstState || !secondState) return false;
     if (firstState.depositRoot !== secondState.depositRoot) return false;
+
+    // Check if the nonce values are different. A difference in nonce implies a state change.
     if (firstState.nonce !== secondState.nonce) return false;
+    // If the nonce is unchanged, the state might still have changed.
+    // Therefore, we also need to compare the 'lastChangedBlockHash'.
+    // It's important to note that it's not possible for the nonce to be different
+    // while having the same 'lastChangedBlockHash'.
+    if (firstState.lastChangedBlockHash !== secondState.lastChangedBlockHash)
+      return false;
 
     if (
       Math.floor(firstState.blockNumber / GUARDIAN_DEPOSIT_RESIGNING_BLOCKS) !==

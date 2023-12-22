@@ -11,4 +11,9 @@ export type ELBlockSnapshot = {
    * Block timestamp
    */
   timestamp: number;
+
+  /**
+   * Blockhash from the most recent data update
+   */
+  lastChangedBlockHash: string;
 };

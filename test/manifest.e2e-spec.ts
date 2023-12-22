@@ -231,7 +231,7 @@ describe('ganache e2e tests', () => {
         },
       ];
 
-      const meta = mockedMeta(currentBlock);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
       const stakingModule = mockedModule(currentBlock);
 
       mockedKeysApiOperators(
@@ -301,7 +301,7 @@ describe('ganache e2e tests', () => {
       // Mock Keys API again on new block
       const newBlock = await providerService.provider.getBlock('latest');
 
-      const newMeta = mockedMeta(newBlock);
+      const newMeta = mockedMeta(newBlock, newBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -366,7 +366,7 @@ describe('ganache e2e tests', () => {
         },
       ];
 
-      const meta = mockedMeta(currentBlock);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
       const stakingModule = mockedModule(currentBlock);
 
       mockedKeysApiOperators(
@@ -423,7 +423,7 @@ describe('ganache e2e tests', () => {
 
       // Mock Keys API again on new block
       const newBlock = await providerService.provider.getBlock('latest');
-      const newMeta = mockedMeta(newBlock);
+      const newMeta = mockedMeta(newBlock, newBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -479,7 +479,7 @@ describe('ganache e2e tests', () => {
         },
       ];
 
-      const meta = mockedMeta(currentBlock);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
       const stakingModule = mockedModule(currentBlock);
 
       mockedKeysApiOperators(
@@ -539,7 +539,7 @@ describe('ganache e2e tests', () => {
       );
       // Mock Keys API again on new block
       const newBlock = await providerService.provider.getBlock('latest');
-      const newMeta = mockedMeta(newBlock);
+      const newMeta = mockedMeta(newBlock, newBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -593,7 +593,7 @@ describe('ganache e2e tests', () => {
         },
       ];
 
-      const meta = mockedMeta(currentBlock);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
       const stakingModule = mockedModule(currentBlock);
 
       mockedKeysApiOperators(
@@ -643,7 +643,7 @@ describe('ganache e2e tests', () => {
       // Mock Keys API again on new block
       const newBlock = await providerService.provider.getBlock('latest');
 
-      const newMeta = mockedMeta(newBlock);
+      const newMeta = mockedMeta(newBlock, newBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -685,7 +685,7 @@ describe('ganache e2e tests', () => {
   test(
     'reorganization',
     async () => {
-      // TODOL need attention to this test
+      // TODO: need attention to this test
       const tempProvider = new ethers.providers.JsonRpcProvider(
         `http://127.0.0.1:${GANACHE_PORT}`,
       );
@@ -710,7 +710,7 @@ describe('ganache e2e tests', () => {
         },
       ];
 
-      const meta = mockedMeta(currentBlock);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
       const stakingModule = mockedModule(currentBlock);
 
       mockedKeysApiOperators(
@@ -771,7 +771,7 @@ describe('ganache e2e tests', () => {
       // Mock Keys API again on new block, but now mark as used
       const newBlock = await providerService.provider.getBlock('latest');
 
-      const newMeta = mockedMeta(newBlock);
+      const newMeta = mockedMeta(newBlock, newBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -857,7 +857,7 @@ describe('ganache e2e tests', () => {
 
       // mocked curated module
       const stakingModule = mockedModule(currentBlock);
-      const meta = mockedMeta(currentBlock);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -921,7 +921,7 @@ describe('ganache e2e tests', () => {
       ];
 
       const newBlock = await tempProvider.getBlock('latest');
-      const newMeta = mockedMeta(newBlock);
+      const newMeta = mockedMeta(newBlock, newBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -948,6 +948,51 @@ describe('ganache e2e tests', () => {
           stakingModuleId: 1,
         }),
       );
+    },
+    TESTS_TIMEOUT,
+  );
+
+  test(
+    'inconsistent kapi requests data',
+    async () => {
+      const tempProvider = new ethers.providers.JsonRpcProvider(
+        `http://127.0.0.1:${GANACHE_PORT}`,
+      );
+      const currentBlock = await tempProvider.getBlock('latest');
+
+      // mocked curated module
+      const stakingModule = mockedModule(currentBlock);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        stakingModule,
+        meta,
+      );
+
+      // list of keys for /keys?used=false mock
+      const unusedKeys = [
+        {
+          key: '0xa9bfaa8207ee6c78644c079ffc91b6e5abcc5eede1b7a06abb8fb40e490a75ea269c178dd524b65185299d2bbd2eb7b2',
+          depositSignature:
+            '0xaa5f2a1053ba7d197495df44d4a32b7ae10265cf9e38560a16b782978c0a24271a113c9538453b7e45f35cb64c7adb460d7a9fe8c8ce6b8c80ca42fd5c48e180c73fc08f7d35ba32e39f32c902fd333faf47611827f0b7813f11c4c518dd2e59',
+          operatorIndex: 0,
+          used: false,
+          index: 0,
+          moduleAddress: NOP_REGISTRY,
+        },
+      ];
+
+      const hashWasChanged =
+        '0xd921055dbb407e09f64afe5182a64c1bd309fe28f26909a96425cdb6bfc48959';
+      const newMeta = mockedMeta(currentBlock, hashWasChanged);
+      mockedKeysApiUnusedKeys(keysApiService, unusedKeys, newMeta);
+
+      await guardianService.handleNewBlock();
+
+      expect(sendDepositMessage).toBeCalledTimes(0);
+      expect(sendPauseMessage).toBeCalledTimes(0);
     },
     TESTS_TIMEOUT,
   );
@@ -1003,7 +1048,7 @@ describe('ganache e2e tests', () => {
 
       // mocked curated module
       const stakingModule = mockedModule(currentBlock);
-      const meta = mockedMeta(currentBlock);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -1048,7 +1093,7 @@ describe('ganache e2e tests', () => {
       // council will resume deposits to module
 
       const newBlock = await tempProvider.getBlock('latest');
-      const newMeta = mockedMeta(newBlock);
+      const newMeta = mockedMeta(newBlock, newBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -1126,7 +1171,7 @@ describe('ganache e2e tests', () => {
 
       // mocked curated module
       const stakingModule = mockedModule(currentBlock);
-      const meta = mockedMeta(currentBlock);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
 
       mockedKeysApiOperators(
         keysApiService,
@@ -1168,7 +1213,7 @@ describe('ganache e2e tests', () => {
       });
 
       // mocked curated module
-      const newMeta = mockedMeta(newBlock);
+      const newMeta = mockedMeta(newBlock, newBlock.hash);
       const newStakingModule = mockedModule(newBlock, 6047);
 
       mockedKeysApiOperators(
