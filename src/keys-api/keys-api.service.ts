@@ -2,11 +2,7 @@ import { Injectable, LoggerService, Inject } from '@nestjs/common';
 import { FetchService, RequestInit } from '@lido-nestjs/fetch';
 import { AbortController } from 'node-abort-controller';
 import { FETCH_REQUEST_TIMEOUT } from './keys-api.constants';
-import {
-  SRModuleKeysResponse,
-  SRModuleListResponse,
-  KeyListResponse,
-} from './interfaces';
+import { KeyListResponse } from './interfaces';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Configuration } from 'common/config';
 import { GroupedByModuleOperatorListResponse } from './interfaces/GroupedByModuleOperatorListResponse';
@@ -45,22 +41,6 @@ export class KeysApiService {
     }
   }
 
-  public async getModulesList() {
-    const result = await this.fetch<SRModuleListResponse>('/v1/modules');
-    if (!result.data?.length || !result.elBlockSnapshot)
-      throw Error('Keys API not synced, please wait');
-    return result;
-  }
-
-  public async getUnusedModuleKeys(stakingModuleId: number) {
-    const result = await this.fetch<SRModuleKeysResponse>(
-      `/v1/modules/${stakingModuleId}/keys?used=false`,
-    );
-    if (!result.data || !result.meta)
-      throw Error('Keys API not synced, please wait');
-    return result;
-  }
-
   /**
    *
    * @param The /v1/keys/find API endpoint returns keys along with their duplicates
@@ -74,7 +54,6 @@ export class KeysApiService {
       },
       body: JSON.stringify({ pubkeys }),
     });
-
     return result;
   }
 

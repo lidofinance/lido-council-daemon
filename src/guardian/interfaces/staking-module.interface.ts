@@ -6,4 +6,5 @@ export interface StakingModuleData {
   vettedUnusedKeys: RegistryKey[];
   nonce: number;
   stakingModuleId: number;
+  lastChangedBlockHash: string;
 }

@@ -21,10 +21,14 @@ export const mockedModule = (block: ethers.providers.Block, nonce = 6046) => ({
   lastDepositBlock: block.number,
 });
 
-export const mockedMeta = (block: ethers.providers.Block) => ({
+export const mockedMeta = (
+  block: ethers.providers.Block,
+  lastChangedBlockHash: string,
+) => ({
   blockNumber: block.number,
   blockHash: block.hash,
   timestamp: block.timestamp,
+  lastChangedBlockHash,
 });
 
 export const mockedOperators: RegistryOperator[] = [

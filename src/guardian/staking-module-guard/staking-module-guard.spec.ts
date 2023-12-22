@@ -24,6 +24,7 @@ import {
   vettedKeysDuplicatesAcrossOneModuleAndFew,
   vettedKeysWithoutDuplicates,
 } from './keys.fixtures';
+import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
 
 jest.mock('../../transport/stomp/stomp.client');
 
@@ -90,7 +91,12 @@ describe('StakingModuleGuardService', () => {
       };
       const blockData = { unusedKeys, depositedEvents } as any;
       const matched = stakingModuleGuardService.getKeysIntersections(
-        { ...stakingModuleData, unusedKeys, vettedUnusedKeys: [] },
+        {
+          ...stakingModuleData,
+          lastChangedBlockHash: '',
+          unusedKeys,
+          vettedUnusedKeys: [],
+        },
         blockData,
       );
 
@@ -107,7 +113,12 @@ describe('StakingModuleGuardService', () => {
       };
       const blockData = { unusedKeys, depositedEvents } as any;
       const matched = stakingModuleGuardService.getKeysIntersections(
-        { ...stakingModuleData, unusedKeys, vettedUnusedKeys: [] },
+        {
+          ...stakingModuleData,
+          lastChangedBlockHash: '',
+          unusedKeys,
+          vettedUnusedKeys: [],
+        },
         blockData,
       );
 
@@ -123,7 +134,12 @@ describe('StakingModuleGuardService', () => {
       };
       const blockData = { unusedKeys, depositedEvents } as any;
       const matched = stakingModuleGuardService.getKeysIntersections(
-        { ...stakingModuleData, unusedKeys, vettedUnusedKeys: [] },
+        {
+          ...stakingModuleData,
+          lastChangedBlockHash: '',
+          unusedKeys,
+          vettedUnusedKeys: [],
+        },
         blockData,
       );
 
@@ -191,14 +207,24 @@ describe('StakingModuleGuardService', () => {
         .mockImplementation(async () => false);
 
       await stakingModuleGuardService.checkKeysIntersections(
-        { ...stakingModuleData, unusedKeys, vettedUnusedKeys: [] },
+        {
+          ...stakingModuleData,
+          lastChangedBlockHash: '',
+          unusedKeys,
+          vettedUnusedKeys: [],
+        },
         blockData,
       );
 
       expect(mockHandleCorrectKeys).not.toBeCalled();
       expect(mockHandleKeysIntersections).toBeCalledTimes(1);
       expect(mockHandleKeysIntersections).toBeCalledWith(
-        { ...stakingModuleData, unusedKeys, vettedUnusedKeys: [] },
+        {
+          ...stakingModuleData,
+          lastChangedBlockHash: '',
+          unusedKeys,
+          vettedUnusedKeys: [],
+        },
         blockData,
       );
       expect(mockSecurityContractIsDepositsPaused).toBeCalledTimes(1);
@@ -222,14 +248,24 @@ describe('StakingModuleGuardService', () => {
         .mockImplementation(async () => false);
 
       await stakingModuleGuardService.checkKeysIntersections(
-        { ...stakingModuleData, unusedKeys, vettedUnusedKeys: [] },
+        {
+          ...stakingModuleData,
+          lastChangedBlockHash: '',
+          unusedKeys,
+          vettedUnusedKeys: [],
+        },
         blockData,
       );
 
       expect(mockHandleKeysIntersections).not.toBeCalled();
       expect(mockHandleCorrectKeys).toBeCalledTimes(1);
       expect(mockHandleCorrectKeys).toBeCalledWith(
-        { ...stakingModuleData, unusedKeys, vettedUnusedKeys: [] },
+        {
+          ...stakingModuleData,
+          lastChangedBlockHash: '',
+          unusedKeys,
+          vettedUnusedKeys: [],
+        },
         blockData,
       );
       expect(mockSecurityContractIsDepositsPaused).toBeCalledTimes(1);
@@ -260,11 +296,21 @@ describe('StakingModuleGuardService', () => {
         .mockImplementation(async () => signature);
 
       await stakingModuleGuardService.handleCorrectKeys(
-        { ...stakingModuleData, unusedKeys: [], vettedUnusedKeys: [] },
+        {
+          ...stakingModuleData,
+          lastChangedBlockHash: '',
+          unusedKeys: [],
+          vettedUnusedKeys: [],
+        },
         blockData,
       );
       await stakingModuleGuardService.handleCorrectKeys(
-        { ...stakingModuleData, unusedKeys: [], vettedUnusedKeys: [] },
+        {
+          ...stakingModuleData,
+          lastChangedBlockHash: '',
+          unusedKeys: [],
+          vettedUnusedKeys: [],
+        },
         blockData,
       );
 
@@ -287,7 +333,12 @@ describe('StakingModuleGuardService', () => {
         .mockImplementation(async () => signature);
 
       await stakingModuleGuardService.handleCorrectKeys(
-        { ...stakingModuleData, unusedKeys: [], vettedUnusedKeys: [] },
+        {
+          ...stakingModuleData,
+          lastChangedBlockHash: '',
+          unusedKeys: [],
+          vettedUnusedKeys: [],
+        },
         blockData,
       );
 
@@ -361,7 +412,12 @@ describe('StakingModuleGuardService', () => {
         .mockImplementation(async () => undefined);
 
       await stakingModuleGuardService.handleKeysIntersections(
-        { ...stakingModuleData, unusedKeys: [], vettedUnusedKeys: [] },
+        {
+          ...stakingModuleData,
+          lastChangedBlockHash: '',
+          unusedKeys: [],
+          vettedUnusedKeys: [],
+        },
         blockData,
       );
 
@@ -383,7 +439,12 @@ describe('StakingModuleGuardService', () => {
         .mockImplementation(async () => undefined);
 
       await stakingModuleGuardService.handleKeysIntersections(
-        { ...stakingModuleData, unusedKeys: [], vettedUnusedKeys: [] },
+        {
+          ...stakingModuleData,
+          lastChangedBlockHash: '',
+          unusedKeys: [],
+          vettedUnusedKeys: [],
+        },
         blockData,
       );
 
@@ -396,7 +457,12 @@ describe('StakingModuleGuardService', () => {
 
   describe('isSameContractsStates', () => {
     it('should return true if states are the same', () => {
-      const state = { depositRoot: '0x1', nonce: 1, blockNumber: 100 };
+      const state = {
+        depositRoot: '0x1',
+        nonce: 1,
+        blockNumber: 100,
+        lastChangedBlockHash: 'hash',
+      };
       const result = stakingModuleGuardService.isSameContractsStates(
         { ...state },
         { ...state },
@@ -405,7 +471,12 @@ describe('StakingModuleGuardService', () => {
     });
 
     it('should return true if blockNumbers are close', () => {
-      const state = { depositRoot: '0x1', nonce: 1, blockNumber: 100 };
+      const state = {
+        depositRoot: '0x1',
+        nonce: 1,
+        blockNumber: 100,
+        lastChangedBlockHash: 'hash',
+      };
       const result = stakingModuleGuardService.isSameContractsStates(state, {
         ...state,
         blockNumber: state.blockNumber + 1,
@@ -414,7 +485,12 @@ describe('StakingModuleGuardService', () => {
     });
 
     it('should return false if blockNumbers are too far', () => {
-      const state = { depositRoot: '0x1', nonce: 1, blockNumber: 100 };
+      const state = {
+        depositRoot: '0x1',
+        nonce: 1,
+        blockNumber: 100,
+        lastChangedBlockHash: 'hash',
+      };
       const result = stakingModuleGuardService.isSameContractsStates(state, {
         ...state,
         blockNumber: state.blockNumber + 200,
@@ -423,7 +499,12 @@ describe('StakingModuleGuardService', () => {
     });
 
     it('should return false if depositRoot are different', () => {
-      const state = { depositRoot: '0x1', nonce: 1, blockNumber: 100 };
+      const state = {
+        depositRoot: '0x1',
+        nonce: 1,
+        blockNumber: 100,
+        lastChangedBlockHash: 'hash',
+      };
       const result = stakingModuleGuardService.isSameContractsStates(state, {
         ...state,
         depositRoot: '0x2',
@@ -432,10 +513,33 @@ describe('StakingModuleGuardService', () => {
     });
 
     it('should return false if nonce are different', () => {
-      const state = { depositRoot: '0x1', nonce: 1, blockNumber: 100 };
+      // It's important to note that it's not possible for the nonce to be different
+      // while having the same 'lastChangedBlockHash'.
+      const state = {
+        depositRoot: '0x1',
+        nonce: 1,
+        blockNumber: 100,
+        lastChangedBlockHash: 'hash',
+      };
       const result = stakingModuleGuardService.isSameContractsStates(state, {
         ...state,
         nonce: 2,
+      });
+      expect(result).toBeFalsy();
+    });
+
+    it('should return false if lastChangedBlockHash are different', () => {
+      // It's important to note that it's not possible for the nonce to be different
+      // while having the same 'lastChangedBlockHash'.
+      const state = {
+        depositRoot: '0x1',
+        nonce: 1,
+        blockNumber: 100,
+        lastChangedBlockHash: 'hash',
+      };
+      const result = stakingModuleGuardService.isSameContractsStates(state, {
+        ...state,
+        lastChangedBlockHash: 'new hash',
       });
       expect(result).toBeFalsy();
     });
@@ -449,6 +553,7 @@ describe('StakingModuleGuardService', () => {
         vettedUnusedKeys: [],
         nonce: 0,
         stakingModuleId: 1,
+        lastChangedBlockHash: '',
       },
       {
         blockHash: '',
@@ -456,6 +561,7 @@ describe('StakingModuleGuardService', () => {
         vettedUnusedKeys: [],
         nonce: 0,
         stakingModuleId: 2,
+        lastChangedBlockHash: '',
       },
       {
         blockHash: '',
@@ -463,6 +569,7 @@ describe('StakingModuleGuardService', () => {
         vettedUnusedKeys: [],
         nonce: 0,
         stakingModuleId: 3,
+        lastChangedBlockHash: '',
       },
     ];
 
@@ -475,6 +582,7 @@ describe('StakingModuleGuardService', () => {
           vettedUnusedKeys: [],
           nonce: 0,
           stakingModuleId: 1,
+          lastChangedBlockHash: '',
         },
         {
           blockHash: '',
@@ -482,6 +590,7 @@ describe('StakingModuleGuardService', () => {
           vettedUnusedKeys: [],
           nonce: 0,
           stakingModuleId: 3,
+          lastChangedBlockHash: '',
         },
       ];
 
@@ -496,13 +605,14 @@ describe('StakingModuleGuardService', () => {
 
     it('should return list without changes', () => {
       const moduleIdsWithDuplicateKeys = [4];
-      const expectedStakingModules = [
+      const expectedStakingModules: StakingModuleData[] = [
         {
           blockHash: '',
           unusedKeys: [],
           vettedUnusedKeys: [],
           nonce: 0,
           stakingModuleId: 1,
+          lastChangedBlockHash: '',
         },
         {
           blockHash: '',
@@ -510,6 +620,7 @@ describe('StakingModuleGuardService', () => {
           vettedUnusedKeys: [],
           nonce: 0,
           stakingModuleId: 2,
+          lastChangedBlockHash: '',
         },
         {
           blockHash: '',
@@ -517,6 +628,7 @@ describe('StakingModuleGuardService', () => {
           vettedUnusedKeys: [],
           nonce: 0,
           stakingModuleId: 3,
+          lastChangedBlockHash: '',
         },
       ];
 
@@ -531,13 +643,14 @@ describe('StakingModuleGuardService', () => {
 
     it('should return list without changes if duplicated keys were not found', () => {
       const moduleIdsWithDuplicateKeys = [];
-      const expectedStakingModules = [
+      const expectedStakingModules: StakingModuleData[] = [
         {
           blockHash: '',
           unusedKeys: [],
           vettedUnusedKeys: [],
           nonce: 0,
           stakingModuleId: 1,
+          lastChangedBlockHash: '',
         },
         {
           blockHash: '',
@@ -545,6 +658,7 @@ describe('StakingModuleGuardService', () => {
           vettedUnusedKeys: [],
           nonce: 0,
           stakingModuleId: 2,
+          lastChangedBlockHash: '',
         },
         {
           blockHash: '',
@@ -552,6 +666,7 @@ describe('StakingModuleGuardService', () => {
           vettedUnusedKeys: [],
           nonce: 0,
           stakingModuleId: 3,
+          lastChangedBlockHash: '',
         },
       ];
 
@@ -640,11 +755,8 @@ describe('StakingModuleGuardService', () => {
       );
 
       const result = await stakingModuleGuardService.findAlreadyDepositedKeys(
+        'lastHash',
         intersectionsWithLidoWC,
-        {
-          blockNumber: 1,
-          blockHash: '0x1234',
-        } as any,
       );
 
       expect(result).toEqual([]);
@@ -712,16 +824,14 @@ describe('StakingModuleGuardService', () => {
               blockNumber: 0,
               blockHash: 'hash',
               timestamp: 12345,
+              lastChangedBlockHash: 'lastHash',
             },
           },
         }));
 
       const result = await stakingModuleGuardService.findAlreadyDepositedKeys(
+        'lastHash',
         intersectionsWithLidoWC,
-        {
-          blockNumber: 0,
-          blockHash: '0x1234',
-        } as any,
       );
 
       expect(result.length).toEqual(2);
@@ -793,23 +903,21 @@ describe('StakingModuleGuardService', () => {
               blockNumber: 0,
               blockHash: 'hash',
               timestamp: 12345,
+              lastChangedBlockHash: 'lastHash',
             },
           },
         }));
 
       const result = await stakingModuleGuardService.findAlreadyDepositedKeys(
+        'lastHash',
         intersectionsWithLidoWC,
-        {
-          blockNumber: 0,
-          blockHash: '0x1234',
-        } as any,
       );
 
       expect(result).toEqual([]);
       expect(mockSendMessageFromGuardian).toBeCalledTimes(1);
     });
 
-    it('should skip if blockNumber that kapi returned is smaller than in blockData ', async () => {
+    it('should throw error if lastChangedBlockHash that kapi returned is not equal to prev value', async () => {
       const pubkey1 = '0x1234';
       const pubkey2 = '0x56789';
       const pubkey3 = '0x3478';
@@ -854,22 +962,19 @@ describe('StakingModuleGuardService', () => {
               blockNumber: 0,
               blockHash: 'hash',
               timestamp: 12345,
+              lastChangedBlockHash: 'lastHash',
             },
           },
         }));
 
+      const prevLastChangedBlockHash = 'prevHash';
+
       expect(
-        async () =>
-          await stakingModuleGuardService.findAlreadyDepositedKeys(
-            intersectionsWithLidoWC,
-            {
-              blockNumber: 1,
-              blockHash: '0x1234',
-            } as any,
-          ),
-      ).rejects.toThrowError(
-        'BlockNumber of the current response older than previous response from KAPI',
-      );
+        stakingModuleGuardService.findAlreadyDepositedKeys(
+          prevLastChangedBlockHash,
+          intersectionsWithLidoWC,
+        ),
+      ).rejects.toThrowError(new InconsistentLastChangedBlockHash());
 
       expect(mockSendMessageFromGuardian).toBeCalledTimes(1);
     });

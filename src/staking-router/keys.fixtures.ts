@@ -61,6 +61,8 @@ export const keysAllStakingModules = {
       blockHash:
         '0x40c697def4d4f7233b75149ab941462582bb5f035b5089f7c6a3d7849222f47c',
       timestamp: 1701027516,
+      lastChangedBlockHash:
+        '0x194ac4fd960ed44cb3db53fe1f5a53e983280fd438aeba607ae04f1bb416b4a1',
     },
   },
 };

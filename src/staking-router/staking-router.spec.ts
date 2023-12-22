@@ -5,6 +5,7 @@ import { groupedByModulesOperators } from './operators.fixtures';
 import { keysAllStakingModules } from './keys.fixtures';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
+import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
 
 describe('StakingRouter', () => {
   let stakingRouterService: StakingRouterService;
@@ -28,10 +29,9 @@ describe('StakingRouter', () => {
     stakingRouterService =
       module.get<StakingRouterService>(StakingRouterService);
     keysApiService = module.get<KeysApiService>(KeysApiService);
-    // keysApiService = module.get(KeysApiService) as jest.Mocked<KeysApiService>;
   });
 
-  it('should return correct data when block hashes match', async () => {
+  it("should return correct data when 'lastChangedBlockHash' values of two requests are identical", async () => {
     (keysApiService.getOperatorListWithModule as jest.Mock).mockResolvedValue(
       groupedByModulesOperators,
     );
@@ -66,6 +66,8 @@ describe('StakingRouter', () => {
           ],
           blockHash:
             '0x40c697def4d4f7233b75149ab941462582bb5f035b5089f7c6a3d7849222f47c',
+          lastChangedBlockHash:
+            '0x194ac4fd960ed44cb3db53fe1f5a53e983280fd438aeba607ae04f1bb416b4a1',
           stakingModuleId: 1,
           nonce: 364,
         },
@@ -89,9 +91,32 @@ describe('StakingRouter', () => {
           nonce: 69,
           blockHash:
             '0x40c697def4d4f7233b75149ab941462582bb5f035b5089f7c6a3d7849222f47c',
+          lastChangedBlockHash:
+            '0x194ac4fd960ed44cb3db53fe1f5a53e983280fd438aeba607ae04f1bb416b4a1',
           stakingModuleId: 2,
         },
       ],
     });
+  });
+
+  it("should throw error when 'lastChangedBlockHash' values of two requests are different", async () => {
+    (keysApiService.getOperatorListWithModule as jest.Mock).mockResolvedValue(
+      groupedByModulesOperators,
+    );
+    (keysApiService.getUnusedKeys as jest.Mock).mockResolvedValue({
+      ...keysAllStakingModules,
+      ...{
+        meta: {
+          elBlockSnapshot: {
+            lastChangedBlockHash:
+              '0xabf3d64e85527d0c80eb6b0378316caceed9a24f535f6f28dad008fdfebe82b8',
+          },
+        },
+      },
+    });
+
+    expect(stakingRouterService.getStakingModulesData()).rejects.toThrowError(
+      new InconsistentLastChangedBlockHash(),
+    );
   });
 });
