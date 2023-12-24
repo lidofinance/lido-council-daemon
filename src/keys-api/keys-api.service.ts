@@ -6,6 +6,7 @@ import { KeyListResponse } from './interfaces';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Configuration } from 'common/config';
 import { GroupedByModuleOperatorListResponse } from './interfaces/GroupedByModuleOperatorListResponse';
+import { formModuleAddressFilter } from './utils';
 
 @Injectable()
 export class KeysApiService {
@@ -57,8 +58,14 @@ export class KeysApiService {
     return result;
   }
 
-  public async getUnusedKeys() {
-    const result = await this.fetch<KeyListResponse>(`/v1/keys?used=false`);
+  public async getUnusedKeys(moduleAddresses?: string[]) {
+    let queryString = '/v1/keys?used=false';
+
+    if (moduleAddresses && moduleAddresses.length > 0) {
+      queryString += `&${formModuleAddressFilter(moduleAddresses)}`;
+    }
+
+    const result = await this.fetch<KeyListResponse>(queryString);
     return result;
   }
 

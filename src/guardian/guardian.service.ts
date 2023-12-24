@@ -95,7 +95,7 @@ export class GuardianService implements OnModuleInit {
 
     try {
       const { blockHash, blockNumber, stakingModulesData } =
-        await this.stakingRouterService.getStakingModulesData();
+        await this.stakingRouterService.getStakingModulesDataWithCache();
 
       await this.repositoryService.initCachedContracts({ blockHash });
 

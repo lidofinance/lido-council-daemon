@@ -12,7 +12,6 @@ import { GuardianMessageService } from '../guardian-message';
 import { StakingRouterService } from 'staking-router';
 import { KeysValidationService } from 'guardian/keys-validation/keys-validation.service';
 import { performance } from 'perf_hooks';
-import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
 
 @Injectable()
 export class StakingModuleGuardService {
@@ -37,6 +36,8 @@ export class StakingModuleGuardService {
     stakingModulesData: StakingModuleData[],
     blockData: BlockData,
   ): number[] {
+    // TODO: add cache check
+
     // Collects the duplicate count for each unique key across staking modules.
     // The outer Map uses the key string as the key and holds an inner Map.
     // The inner Map uses module id as keys and stores the duplicate count for each module.
@@ -246,26 +247,12 @@ export class StakingModuleGuardService {
       depositedPubkeys,
     );
 
-    this.isEqualLastChangedBlockHash(
+    this.stakingRouterService.isEqualLastChangedBlockHash(
       lastChangedBlockHash,
       meta.elBlockSnapshot.lastChangedBlockHash,
     );
 
     return data.filter((key) => key.used);
-  }
-
-  private isEqualLastChangedBlockHash(
-    firstRequestHash: string,
-    secondRequestHash: string,
-  ) {
-    if (firstRequestHash !== secondRequestHash) {
-      const error =
-        'Since the last request, data in Kapi has been updated. This may result in inconsistencies between the data from two separate requests.';
-
-      this.logger.error(error, { firstRequestHash, secondRequestHash });
-
-      throw new InconsistentLastChangedBlockHash();
-    }
   }
 
   /**
