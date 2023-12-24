@@ -29,7 +29,6 @@ import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
 jest.mock('../../transport/stomp/stomp.client');
 
 const TEST_MODULE_ID = 1;
-const lidoWC = '0x12';
 
 const stakingModuleData = {
   nonce: 0,

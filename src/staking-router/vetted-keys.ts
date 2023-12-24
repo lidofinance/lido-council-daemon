@@ -9,6 +9,7 @@ export function getVettedUnusedKeys(
     const operatorKeys = unusedKeys
       .filter((key) => key.operatorIndex === operator.index)
       .sort((a, b) => a.index - b.index)
+      // stakingLimit limit cant be less than usedSigningKeys
       .slice(0, operator.stakingLimit - operator.usedSigningKeys);
 
     return operatorKeys;

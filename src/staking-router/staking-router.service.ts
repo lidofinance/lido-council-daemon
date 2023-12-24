@@ -12,8 +12,6 @@ import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
 
 @Injectable()
 export class StakingRouterService {
-  // protected stakingRouterCache: Record<number, StakingModuleData> = {};
-
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) protected logger: LoggerService,
     protected readonly config: Configuration,
@@ -55,7 +53,7 @@ export class StakingRouterService {
     return { stakingModulesData, blockHash, blockNumber };
   }
 
-  private isEqualLastChangedBlockHash(
+  public isEqualLastChangedBlockHash(
     firstRequestHash: string,
     secondRequestHash: string,
   ) {

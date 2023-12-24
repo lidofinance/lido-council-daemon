@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { VerifiedDepositEvent } from 'contracts/deposit';
 import { BlockData, StakingModuleData } from '../interfaces';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';

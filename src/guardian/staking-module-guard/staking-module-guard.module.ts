@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 
 import { SecurityModule } from 'contracts/security';
-import { LidoModule } from 'contracts/lido';
 import { StakingRouterModule } from 'staking-router';
 
 import { GuardianMetricsModule } from '../guardian-metrics';
