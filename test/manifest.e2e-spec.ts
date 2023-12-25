@@ -80,6 +80,7 @@ import { GanacheProviderModule } from '../src/provider';
 
 import { BlsService } from '../src/bls';
 import { GuardianMessageService } from '../src/guardian/guardian-message';
+import { KeyValidatorInterface } from '@lido-nestjs/key-validation';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -98,6 +99,9 @@ describe('ganache e2e tests', () => {
 
   let sendDepositMessage: jest.SpyInstance;
   let sendPauseMessage: jest.SpyInstance;
+
+  let keyValidator: KeyValidatorInterface;
+  let validateKeys: jest.SpyInstance;
 
   beforeEach(async () => {
     server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
@@ -147,6 +151,7 @@ describe('ganache e2e tests', () => {
     lidoService = moduleRef.get(LidoService);
     depositService = moduleRef.get(DepositService);
     guardianMessageService = moduleRef.get(GuardianMessageService);
+    keyValidator = moduleRef.get(KeyValidatorInterface);
 
     // Initializing needed service instead of the whole app
     blsService = moduleRef.get(BlsService);
@@ -165,6 +170,8 @@ describe('ganache e2e tests', () => {
     sendPauseMessage = jest
       .spyOn(guardianMessageService, 'sendPauseMessage')
       .mockImplementation(() => Promise.resolve());
+
+    validateKeys = jest.spyOn(keyValidator, 'validateKeys');
   });
 
   describe('node checks', () => {
@@ -1196,6 +1203,18 @@ describe('ganache e2e tests', () => {
 
       await guardianService.handleNewBlock();
 
+      expect(validateKeys).toBeCalledTimes(1);
+      expect(validateKeys).toBeCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            key: toHexString(pk),
+            // just some random sign
+            depositSignature:
+              '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
+          }),
+        ]),
+      );
+
       expect(sendDepositMessage).toBeCalledTimes(0);
       expect(sendPauseMessage).toBeCalledTimes(0);
 
@@ -1226,7 +1245,12 @@ describe('ganache e2e tests', () => {
       // list of keys for /keys?used=false mock
       mockedKeysApiUnusedKeys(keysApiService, [keyWithWrongSign], newMeta);
 
+      validateKeys.mockClear();
+
       await guardianService.handleNewBlock();
+
+      expect(validateKeys).toBeCalledTimes(1);
+      expect(validateKeys).toBeCalledWith([]);
 
       // should found invalid key and skip again
       // on this iteration cache will be used

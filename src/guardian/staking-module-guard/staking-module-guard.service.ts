@@ -342,7 +342,8 @@ export class StakingModuleGuardService {
 
     if (
       !lastContractsState ||
-      currentContractState.nonce !== lastContractsState.nonce
+      currentContractState.lastChangedBlockHash !==
+        lastContractsState.lastChangedBlockHash
     ) {
       const invalidKeys = await this.getInvalidKeys(
         stakingModuleData,
@@ -422,10 +423,8 @@ export class StakingModuleGuardService {
     if (!firstState || !secondState) return false;
     if (firstState.depositRoot !== secondState.depositRoot) return false;
 
-    // Check if the nonce values are different. A difference in nonce implies a state change.
-    if (firstState.nonce !== secondState.nonce) return false;
     // If the nonce is unchanged, the state might still have changed.
-    // Therefore, we also need to compare the 'lastChangedBlockHash'.
+    // Therefore, we need to compare the 'lastChangedBlockHash' instead
     // It's important to note that it's not possible for the nonce to be different
     // while having the same 'lastChangedBlockHash'.
     if (firstState.lastChangedBlockHash !== secondState.lastChangedBlockHash)

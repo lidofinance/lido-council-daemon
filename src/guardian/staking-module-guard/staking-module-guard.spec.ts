@@ -25,6 +25,8 @@ import {
   vettedKeysWithoutDuplicates,
 } from './keys.fixtures';
 import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
+import { KeysValidationModule } from 'guardian/keys-validation/keys-validation.module';
+import { KeysValidationService } from 'guardian/keys-validation/keys-validation.service';
 
 jest.mock('../../transport/stomp/stomp.client');
 
@@ -52,6 +54,8 @@ describe('StakingModuleGuardService', () => {
   let stakingModuleGuardService: StakingModuleGuardService;
   let guardianMessageService: GuardianMessageService;
   let stakingRouterService: StakingRouterService;
+  let keysValidationService: KeysValidationService;
+  let findInvalidKeys: jest.SpyInstance;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -67,6 +71,7 @@ describe('StakingModuleGuardService', () => {
         GuardianMessageModule,
         RepositoryModule,
         PrometheusModule,
+        KeysValidationModule,
       ],
     }).compile();
 
@@ -75,6 +80,8 @@ describe('StakingModuleGuardService', () => {
     stakingModuleGuardService = moduleRef.get(StakingModuleGuardService);
     guardianMessageService = moduleRef.get(GuardianMessageService);
     stakingRouterService = moduleRef.get(StakingRouterService);
+    keysValidationService = moduleRef.get(KeysValidationService);
+    findInvalidKeys = jest.spyOn(keysValidationService, 'findInvalidKeys');
 
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
     jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
@@ -344,6 +351,69 @@ describe('StakingModuleGuardService', () => {
       expect(mockSendMessageFromGuardian).toBeCalledTimes(1);
       expect(mockSignDepositData).toBeCalledTimes(1);
     });
+
+    it('should call invalid keys check if lastChangedBlockHash was changed', async () => {
+      const mockSendMessageFromGuardian = jest
+        .spyOn(guardianMessageService, 'sendMessageFromGuardian')
+        .mockImplementation(async () => undefined);
+
+      const mockIsSameContractsStates = jest.spyOn(
+        stakingModuleGuardService,
+        'isSameContractsStates',
+      );
+
+      const mockSignDepositData = jest
+        .spyOn(securityService, 'signDepositData')
+        .mockImplementation(async () => signature);
+
+      await stakingModuleGuardService.handleCorrectKeys(
+        {
+          ...stakingModuleData,
+          lastChangedBlockHash: '0x1',
+          unusedKeys: [],
+          vettedUnusedKeys: [],
+        },
+        blockData,
+      );
+
+      expect(findInvalidKeys).toBeCalledTimes(1);
+
+      findInvalidKeys.mockClear();
+
+      await stakingModuleGuardService.handleCorrectKeys(
+        {
+          ...stakingModuleData,
+          lastChangedBlockHash: '0x1',
+          unusedKeys: [],
+          vettedUnusedKeys: [],
+        },
+        blockData,
+      );
+
+      expect(findInvalidKeys).toBeCalledTimes(0);
+      findInvalidKeys.mockClear();
+
+      await stakingModuleGuardService.handleCorrectKeys(
+        {
+          ...stakingModuleData,
+          lastChangedBlockHash: '0x2',
+          unusedKeys: [],
+          vettedUnusedKeys: [],
+        },
+        blockData,
+      );
+
+      expect(findInvalidKeys).toBeCalledTimes(1);
+
+      expect(mockIsSameContractsStates).toBeCalledTimes(3);
+      const { results } = mockIsSameContractsStates.mock;
+      expect(results[0].value).toBeFalsy();
+      expect(results[1].value).toBeTruthy();
+      expect(results[2].value).toBeFalsy();
+
+      expect(mockSendMessageFromGuardian).toBeCalledTimes(2);
+      expect(mockSignDepositData).toBeCalledTimes(2);
+    });
   });
 
   describe('excludeEligibleIntersections', () => {
@@ -507,22 +577,6 @@ describe('StakingModuleGuardService', () => {
       const result = stakingModuleGuardService.isSameContractsStates(state, {
         ...state,
         depositRoot: '0x2',
-      });
-      expect(result).toBeFalsy();
-    });
-
-    it('should return false if nonce are different', () => {
-      // It's important to note that it's not possible for the nonce to be different
-      // while having the same 'lastChangedBlockHash'.
-      const state = {
-        depositRoot: '0x1',
-        nonce: 1,
-        blockNumber: 100,
-        lastChangedBlockHash: 'hash',
-      };
-      const result = stakingModuleGuardService.isSameContractsStates(state, {
-        ...state,
-        nonce: 2,
       });
       expect(result).toBeFalsy();
     });
