@@ -94,8 +94,6 @@ export class GuardianService implements OnModuleInit {
     this.logger.log('New staking router state cycle start');
 
     try {
-      // TODO: change on operators fetch
-
       const { data: operatorsByModules, meta } =
         await this.stakingRouterService.getOperatorsAndModules();
 
