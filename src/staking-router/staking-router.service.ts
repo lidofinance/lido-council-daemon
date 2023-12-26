@@ -2,63 +2,102 @@ import { Injectable, LoggerService, Inject } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Configuration } from 'common/config';
 import { KeysApiService } from 'keys-api/keys-api.service';
-import { SRModuleKeysResponse, SRModule } from 'keys-api/interfaces';
+import { StakingModuleData } from 'guardian';
+import { getVettedUnusedKeys } from './vetted-keys';
+import { RegistryOperator } from 'keys-api/interfaces/RegistryOperator';
+import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
+import { SRModule } from 'keys-api/interfaces';
+import { Meta } from 'keys-api/interfaces/Meta';
+import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
 
 @Injectable()
 export class StakingRouterService {
-  protected stakingRouterCache: Record<number, SRModuleKeysResponse> = {};
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) protected logger: LoggerService,
     protected readonly config: Configuration,
     protected readonly keysApiService: KeysApiService,
   ) {}
 
-  public async getStakingModules() {
-    return await this.keysApiService.getModulesList();
+  /**
+   * Return staking module data and block information
+   */
+  public async getStakingModulesData(): Promise<{
+    stakingModulesData: StakingModuleData[];
+    blockHash: string;
+    blockNumber: number;
+  }> {
+    const { data: operatorsByModules, meta: operatorsMeta } =
+      await this.keysApiService.getOperatorListWithModule();
+
+    const { data: unusedKeys, meta: unusedKeysMeta } =
+      await this.keysApiService.getUnusedKeys();
+
+    const blockHash = operatorsMeta.elBlockSnapshot.blockHash;
+    const blockNumber = operatorsMeta.elBlockSnapshot.blockNumber;
+
+    this.isEqualLastChangedBlockHash(
+      operatorsMeta.elBlockSnapshot.lastChangedBlockHash,
+      unusedKeysMeta.elBlockSnapshot.lastChangedBlockHash,
+    );
+
+    const stakingModulesData = operatorsByModules.map(
+      ({ operators, module: stakingModule }) =>
+        this.processModuleData({
+          operators,
+          stakingModule,
+          unusedKeys,
+          meta: operatorsMeta,
+        }),
+    );
+
+    return { stakingModulesData, blockHash, blockNumber };
   }
 
-  public async getStakingModuleUnusedKeys(
-    blockHash: string,
-    { id, nonce }: SRModule,
+  public isEqualLastChangedBlockHash(
+    firstRequestHash: string,
+    secondRequestHash: string,
   ) {
-    if (!this.isNeedToUpdateState(id, nonce))
-      return this.getStakingRouterKeysCache(id);
+    if (firstRequestHash !== secondRequestHash) {
+      const error =
+        'Since the last request, data in Kapi has been updated. This may result in inconsistencies between the data from two separate requests.';
 
-    const srResponse = await this.keysApiService.getUnusedModuleKeys(id);
-    const srModuleBlockHash = srResponse.meta.elBlockSnapshot.blockHash;
+      this.logger.error(error, { firstRequestHash, secondRequestHash });
 
-    if (srModuleBlockHash !== blockHash) {
-      this.logger.log('Blockhash of the received keys', {
-        srModuleBlockHash,
-        blockHash,
-      });
-
-      throw Error(
-        'Blockhash of the received keys does not match the current blockhash',
-      );
+      throw new InconsistentLastChangedBlockHash();
     }
-
-    this.setStakingRouterCache(id, srResponse);
-
-    return srResponse;
   }
 
-  protected getStakingRouterKeysCache(stakingModuleId: number) {
-    return this.stakingRouterCache[stakingModuleId];
+  private processModuleData({
+    operators,
+    stakingModule,
+    unusedKeys,
+    meta,
+  }: {
+    operators: RegistryOperator[];
+    stakingModule: SRModule;
+    unusedKeys: RegistryKey[];
+    meta: Meta;
+  }): StakingModuleData {
+    const moduleUnusedKeys = unusedKeys.filter(
+      (key) => key.moduleAddress === stakingModule.stakingModuleAddress,
+    );
+
+    const moduleVettedUnusedKeys = getVettedUnusedKeys(
+      operators,
+      moduleUnusedKeys,
+    );
+
+    return {
+      unusedKeys: moduleUnusedKeys.map((srKey) => srKey.key),
+      nonce: stakingModule.nonce,
+      stakingModuleId: stakingModule.id,
+      blockHash: meta.elBlockSnapshot.blockHash,
+      lastChangedBlockHash: meta.elBlockSnapshot.lastChangedBlockHash,
+      vettedUnusedKeys: moduleVettedUnusedKeys,
+    };
   }
 
-  protected setStakingRouterCache(
-    stakingModuleId: number,
-    srResponse: SRModuleKeysResponse,
-  ) {
-    this.stakingRouterCache[stakingModuleId] = srResponse;
-  }
-
-  protected isNeedToUpdateState(stakingModuleId: number, nextNonce: number) {
-    const cache = this.getStakingRouterKeysCache(stakingModuleId);
-    if (!cache) return true;
-
-    const prevNonce = cache.data.module.nonce;
-    return prevNonce !== nextNonce;
+  public async findKeysEntires(pubkeys: string[]) {
+    return await this.keysApiService.findKeysEntires(pubkeys);
   }
 }

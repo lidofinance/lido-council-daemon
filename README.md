@@ -294,6 +294,8 @@ $ yarn test:e2e
 $ yarn test:cov
 ```
 
+To run e2e tests, ensure the RPC_URL environment variable is set to the Goerli provider's endpoint, and generate private keys, which should be subsequently set in the WALLET_PRIVATE_KEY variable.
+
 ## Release flow
 
 To create a new release:

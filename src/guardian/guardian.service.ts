@@ -10,7 +10,6 @@ import { CronJob } from 'cron';
 import { DepositService } from 'contracts/deposit';
 import { SecurityService } from 'contracts/security';
 import { RepositoryService } from 'contracts/repository';
-import { ProviderService } from 'provider';
 import {
   GUARDIAN_DEPOSIT_JOB_DURATION,
   GUARDIAN_DEPOSIT_JOB_NAME,
@@ -22,6 +21,7 @@ import { BlockGuardService } from './block-guard';
 import { StakingModuleGuardService } from './staking-module-guard';
 import { GuardianMessageService } from './guardian-message';
 import { GuardianMetricsService } from './guardian-metrics';
+import { StakingModuleData } from './interfaces';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -36,8 +36,6 @@ export class GuardianService implements OnModuleInit {
 
     private depositService: DepositService,
     private securityService: SecurityService,
-    private providerService: ProviderService,
-
     private stakingRouterService: StakingRouterService,
 
     private blockGuardService: BlockGuardService,
@@ -96,10 +94,8 @@ export class GuardianService implements OnModuleInit {
     this.logger.log('New staking router state cycle start');
 
     try {
-      const {
-        elBlockSnapshot: { blockHash, blockNumber },
-        data: stakingModules,
-      } = await this.stakingRouterService.getStakingModules();
+      const { blockHash, blockNumber, stakingModulesData } =
+        await this.stakingRouterService.getStakingModulesData();
 
       await this.repositoryService.initCachedContracts({ blockHash });
 
@@ -119,12 +115,15 @@ export class GuardianService implements OnModuleInit {
         return;
       }
 
+      const stakingModulesCount = stakingModulesData.length;
+
       this.logger.log('Staking modules loaded', {
-        modulesCount: stakingModules.length,
+        modulesCount: stakingModulesCount,
       });
 
       await this.depositService.handleNewBlock(blockNumber);
 
+      // TODO: e2e test 'node operator deposit frontrun' shows that it is possible to find event and not save in cache
       const blockData = await this.blockGuardService.getCurrentBlockData({
         blockHash,
         blockNumber,
@@ -136,14 +135,24 @@ export class GuardianService implements OnModuleInit {
         blockHash: blockData.blockHash,
       });
 
-      await Promise.all(
-        stakingModules.map(async (stakingRouterModule) => {
-          const stakingModuleData =
-            await this.stakingModuleGuardService.getStakingRouterModuleData(
-              stakingRouterModule,
-              blockHash,
-            );
+      const modulesIdWithDuplicateKeys: number[] =
+        this.stakingModuleGuardService.getModulesIdsWithDuplicatedVettedUnusedKeys(
+          stakingModulesData,
+          blockData,
+        );
 
+      const stakingModulesWithoutDuplicates: StakingModuleData[] =
+        this.stakingModuleGuardService.excludeModulesWithDuplicatedKeys(
+          stakingModulesData,
+          modulesIdWithDuplicateKeys,
+        );
+
+      this.logger.log('Staking modules without duplicates', {
+        modulesCount: stakingModulesWithoutDuplicates.length,
+      });
+
+      await Promise.all(
+        stakingModulesWithoutDuplicates.map(async (stakingModuleData) => {
           await this.stakingModuleGuardService.checkKeysIntersections(
             stakingModuleData,
             blockData,
@@ -157,7 +166,7 @@ export class GuardianService implements OnModuleInit {
       );
 
       await this.guardianMessageService.pingMessageBroker(
-        stakingModules.map(({ id }) => id),
+        stakingModulesData.map(({ stakingModuleId }) => stakingModuleId),
         blockData,
       );
 

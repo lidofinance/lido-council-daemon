@@ -16,7 +16,6 @@ import {
   VerifiedDepositEventsCacheHeaders,
   VerifiedDepositEventGroup,
 } from './interfaces';
-import { OneAtTime } from 'common/decorators';
 import { RepositoryService } from 'contracts/repository';
 import { CacheService } from 'cache';
 import { BlockTag } from 'provider';
@@ -36,7 +35,6 @@ export class DepositService {
     private blsService: BlsService,
   ) {}
 
-  @OneAtTime()
   public async handleNewBlock(blockNumber: number): Promise<void> {
     if (blockNumber % DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE !== 0) return;
 
