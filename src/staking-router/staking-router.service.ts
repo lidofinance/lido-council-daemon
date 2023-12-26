@@ -9,6 +9,7 @@ import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { SRModule } from 'keys-api/interfaces';
 import { Meta } from 'keys-api/interfaces/Meta';
 import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
+import { GroupedByModuleOperatorListResponse } from 'keys-api/interfaces/GroupedByModuleOperatorListResponse';
 
 @Injectable()
 export class StakingRouterService {
@@ -18,39 +19,88 @@ export class StakingRouterService {
     protected readonly keysApiService: KeysApiService,
   ) {}
 
-  /**
-   * Return staking module data and block information
-   */
-  public async getStakingModulesData(): Promise<{
-    stakingModulesData: StakingModuleData[];
-    blockHash: string;
-    blockNumber: number;
-  }> {
+  protected stakingRouterCache: Record<number, StakingModuleData> = {};
+
+  async getOperatorsAndModules() {
     const { data: operatorsByModules, meta: operatorsMeta } =
       await this.keysApiService.getOperatorListWithModule();
 
-    const { data: unusedKeys, meta: unusedKeysMeta } =
-      await this.keysApiService.getUnusedKeys();
+    return { data: operatorsByModules, meta: operatorsMeta };
+  }
 
-    const blockHash = operatorsMeta.elBlockSnapshot.blockHash;
-    const blockNumber = operatorsMeta.elBlockSnapshot.blockNumber;
+  async fetchUnusedKeys(moduleAddresses: string[]) {
+    const { data: unusedKeys, meta: unusedKeysMeta } =
+      await this.keysApiService.getUnusedKeys(moduleAddresses);
+
+    return { data: unusedKeys, meta: unusedKeysMeta };
+  }
+
+  /**
+   * Return staking module data and block information
+   */
+  async getStakingModulesData(
+    data: GroupedByModuleOperatorListResponse,
+  ): Promise<StakingModuleData[]> {
+    const { data: operatorsByModules, meta: operatorsMeta } = data;
+
+    const cachedData: StakingModuleData[] = [];
+    const outdatedModuleAddresses: string[] = [];
+
+    // if module was deleted we will not include data in final result
+    // TODO: add test on delete
+    operatorsByModules.forEach(({ module: stakingModuleData }) => {
+      if (this.isDataOutdated(stakingModuleData)) {
+        outdatedModuleAddresses.push(stakingModuleData.stakingModuleAddress);
+        return;
+      }
+      cachedData.push(this.stakingRouterCache[module.id]);
+      return;
+    });
+
+    if (!outdatedModuleAddresses.length) return cachedData;
+
+    const { data: unusedKeys, meta: unusedKeysMeta } =
+      await this.fetchUnusedKeys(outdatedModuleAddresses);
 
     this.isEqualLastChangedBlockHash(
       operatorsMeta.elBlockSnapshot.lastChangedBlockHash,
       unusedKeysMeta.elBlockSnapshot.lastChangedBlockHash,
     );
 
-    const stakingModulesData = operatorsByModules.map(
-      ({ operators, module: stakingModule }) =>
+    const actualizedData = operatorsByModules
+      .filter(({ module: stakingModuleData }) =>
+        outdatedModuleAddresses.includes(
+          stakingModuleData.stakingModuleAddress,
+        ),
+      )
+      .map(({ operators, module: stakingModule }) =>
         this.processModuleData({
           operators,
           stakingModule,
           unusedKeys,
           meta: operatorsMeta,
         }),
-    );
+      );
 
-    return { stakingModulesData, blockHash, blockNumber };
+    // update cache
+    actualizedData.forEach((stakingModule: StakingModuleData) => {
+      this.stakingRouterCache[stakingModule.stakingModuleId] = stakingModule;
+    });
+
+    return [...actualizedData, ...cachedData];
+  }
+
+  private isDataOutdated(stakingModule: SRModule): boolean {
+    const cachedEntity = this.stakingRouterCache[stakingModule.id];
+    // wasn't cached ot lastChangedBlockHash was changed, so operators or keys were possibly changed
+    if (
+      !cachedEntity ||
+      cachedEntity.lastChangedBlockHash != stakingModule.lastChangedBlockHash
+    ) {
+      return true;
+    }
+    // lastChangedBlockHash was changed, so operators or keys were possibly changed
+    return false;
   }
 
   public isEqualLastChangedBlockHash(
