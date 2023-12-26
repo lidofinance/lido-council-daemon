@@ -53,7 +53,7 @@ export class StakingRouterService {
         outdatedModuleAddresses.push(stakingModuleData.stakingModuleAddress);
         return;
       }
-      cachedData.push(this.stakingRouterCache[module.id]);
+      cachedData.push(this.stakingRouterCache[stakingModuleData.id]);
       return;
     });
 

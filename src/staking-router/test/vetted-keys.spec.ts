@@ -1,4 +1,4 @@
-import { getVettedUnusedKeys } from './vetted-keys'; // Replace with your actual module path
+import { getVettedUnusedKeys } from '../vetted-keys';
 
 describe('getVettedUnusedKeys', () => {
   test('should return an empty array for empty input arrays', () => {
