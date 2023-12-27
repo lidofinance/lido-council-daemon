@@ -171,6 +171,12 @@ export class StakingModuleGuardService {
       );
 
       if (!isValidKeys) {
+        this.logger.error('Staking module contains invalid keys');
+        this.logger.log('State', {
+          blockHash: stakingModuleData.blockHash,
+          lastChangedBlockHash: stakingModuleData.lastChangedBlockHash,
+          stakingModuleId: stakingModuleData.stakingModuleId,
+        });
         return;
       }
 
