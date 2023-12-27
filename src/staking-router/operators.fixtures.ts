@@ -1,4 +1,6 @@
-export const groupedByModulesOperators = {
+import { GroupedByModuleOperatorListResponse } from 'keys-api/interfaces/GroupedByModuleOperatorListResponse';
+
+export const groupedByModulesOperators: GroupedByModuleOperatorListResponse = {
   data: [
     {
       operators: [
@@ -39,6 +41,8 @@ export const groupedByModulesOperators = {
         lastDepositBlock: 385525,
         exitedValidatorsCount: 2,
         active: true,
+        lastChangedBlockHash:
+          '0x194ac4fd960ed44cb3db53fe1f5a53e983280fd438aeba607ae04f1bb416b4a1',
       },
     },
     {
@@ -69,6 +73,8 @@ export const groupedByModulesOperators = {
         lastDepositBlock: 379465,
         exitedValidatorsCount: 0,
         active: true,
+        lastChangedBlockHash:
+          '0x194ac4fd960ed44cb3db53fe1f5a53e983280fd438aeba607ae04f1bb416b4a1',
       },
     },
   ],
