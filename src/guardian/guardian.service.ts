@@ -94,8 +94,12 @@ export class GuardianService implements OnModuleInit {
     this.logger.log('New staking router state cycle start');
 
     try {
-      const { blockHash, blockNumber, stakingModulesData } =
-        await this.stakingRouterService.getStakingModulesData();
+      const { data: operatorsByModules, meta } =
+        await this.stakingRouterService.getOperatorsAndModules();
+
+      const {
+        elBlockSnapshot: { blockHash, blockNumber },
+      } = meta;
 
       await this.repositoryService.initCachedContracts({ blockHash });
 
@@ -115,7 +119,7 @@ export class GuardianService implements OnModuleInit {
         return;
       }
 
-      const stakingModulesCount = stakingModulesData.length;
+      const stakingModulesCount = operatorsByModules.length;
 
       this.logger.log('Staking modules loaded', {
         modulesCount: stakingModulesCount,
@@ -134,6 +138,12 @@ export class GuardianService implements OnModuleInit {
         blockNumber: blockData.blockNumber,
         blockHash: blockData.blockHash,
       });
+
+      const stakingModulesData =
+        await this.stakingRouterService.getStakingModulesData({
+          data: operatorsByModules,
+          meta,
+        });
 
       const modulesIdWithDuplicateKeys: number[] =
         this.stakingModuleGuardService.getModulesIdsWithDuplicatedVettedUnusedKeys(

@@ -165,6 +165,15 @@ export class StakingModuleGuardService {
         return;
       }
 
+      const isValidKeys = await this.isVettedUnusedKeysValid(
+        stakingModuleData,
+        blockData,
+      );
+
+      if (!isValidKeys) {
+        return;
+      }
+
       await this.handleCorrectKeys(stakingModuleData, blockData);
     }
   }
@@ -318,11 +327,14 @@ export class StakingModuleGuardService {
 
     const { nonce, stakingModuleId, lastChangedBlockHash } = stakingModuleData;
 
+    // if we are here we didn't find invalid keys
     const currentContractState = {
       nonce,
       depositRoot,
       blockNumber,
       lastChangedBlockHash,
+      // if we are here we didn't find invalid keys
+      invalidKeysFound: false,
     };
 
     const lastContractsState =
@@ -335,27 +347,10 @@ export class StakingModuleGuardService {
 
     this.lastContractsStateByModuleId[stakingModuleId] = currentContractState;
 
+    // need to check invalidKeysFound
     if (isSameContractsState) {
       this.logger.log("Contract states didn't change");
       return;
-    }
-
-    if (
-      !lastContractsState ||
-      currentContractState.lastChangedBlockHash !==
-        lastContractsState.lastChangedBlockHash
-    ) {
-      const invalidKeys = await this.getInvalidKeys(
-        stakingModuleData,
-        blockData,
-      );
-      if (invalidKeys.length) {
-        this.logger.error(
-          'Found invalid keys, will skip deposits until solving problem',
-        );
-        this.guardianMetricsService.incrInvalidKeysEventCounter();
-        return;
-      }
     }
 
     const signature = await this.securityService.signDepositData(
@@ -384,6 +379,72 @@ export class StakingModuleGuardService {
     });
 
     await this.guardianMessageService.sendDepositMessage(depositMessage);
+  }
+
+  public async isVettedUnusedKeysValid(
+    stakingModuleData: StakingModuleData,
+    blockData: BlockData,
+  ): Promise<boolean> {
+    const { blockNumber, depositRoot } = blockData;
+    const { nonce, stakingModuleId, lastChangedBlockHash } = stakingModuleData;
+    const lastContractsState =
+      this.lastContractsStateByModuleId[stakingModuleId];
+
+    if (
+      lastContractsState &&
+      lastChangedBlockHash === lastContractsState.lastChangedBlockHash &&
+      lastContractsState.invalidKeysFound
+    ) {
+      // if found invalid keys on previous iteration and lastChangedBlockHash returned by kapi was not changed
+      // we dont need to validate again, but we still need to skip deposits until problem will not be solved
+      this.logger.error(
+        'LastChangedBlockHash was not changed and on previous iteration we found invalid keys, skip until solving problem ',
+      );
+
+      this.lastContractsStateByModuleId[stakingModuleId] = {
+        nonce,
+        depositRoot,
+        blockNumber,
+        lastChangedBlockHash,
+        invalidKeysFound: true,
+      };
+
+      return false;
+    }
+
+    if (
+      !lastContractsState ||
+      lastChangedBlockHash !== lastContractsState.lastChangedBlockHash
+    ) {
+      // keys was changed or it is a first attempt, need to validate again
+      const invalidKeys = await this.getInvalidKeys(
+        stakingModuleData,
+        blockData,
+      );
+
+      // if found invalid keys, update state and exit
+      if (invalidKeys.length) {
+        this.logger.error(
+          'Found invalid keys, will skip deposits until solving problem',
+        );
+        this.guardianMetricsService.incrInvalidKeysEventCounter();
+        // save info about invalid keys in cache
+        this.lastContractsStateByModuleId[stakingModuleId] = {
+          nonce,
+          depositRoot,
+          blockNumber,
+          lastChangedBlockHash,
+          invalidKeysFound: true,
+        };
+
+        return false;
+      }
+
+      // keys are valid, state will be updated later
+      return true;
+    }
+
+    return true;
   }
 
   public async getInvalidKeys(
