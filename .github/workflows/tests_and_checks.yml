@@ -25,15 +25,3 @@ jobs:
         env:
           RPC_URL: ${{ secrets.RPC_URL }}
           WALLET_PRIVATE_KEY: ${{ secrets.WALLET_PRIVATE_KEY }}
-
-  security:
-    uses: lidofinance/linters/.github/workflows/security.yml@master
-    permissions:
-      security-events: write
-      contents: read
-
-  docker:
-    uses: lidofinance/linters/.github/workflows/docker.yml@master
-
-  actions:
-    uses: lidofinance/linters/.github/workflows/actions.yml@master

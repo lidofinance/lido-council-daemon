@@ -43,4 +43,19 @@ export type SRModule = {
    * block.number of the last deposit of the module
    */
   lastDepositBlock: number;
+
+  /**
+   * Exited validators count
+   */
+  exitedValidatorsCount: number;
+
+  /**
+   * Module activation status
+   */
+  active: boolean;
+
+  /**
+   * Blockhash from the most recent data update
+   */
+  lastChangedBlockHash: string;
 };

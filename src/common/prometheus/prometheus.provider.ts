@@ -17,6 +17,9 @@ import {
   METRIC_DEPOSITED_KEYS_TOTAL,
   METRIC_OPERATORS_KEYS_TOTAL,
   METRIC_KEYS_API_REQUEST_DURATION,
+  METRIC_DUPLICATED_VETTED_UNUSED_KEYS_EVENT_COUNTER,
+  METRIC_DUPLICATED_USED_KEYS_EVENT_COUNTER,
+  METRIC_INVALID_KEYS_EVENT_COUNTER,
 } from './prometheus.constants';
 
 export const PrometheusTransportMessageCounterProvider = makeCounterProvider({
@@ -92,4 +95,22 @@ export const PrometheusKeysApiRequestsProvider = makeHistogramProvider({
   help: 'Duration of data collection requests by keys-api',
   buckets: [0.1, 0.2, 0.3, 0.6, 1, 1.5, 2, 5],
   labelNames: ['result', 'status'] as const,
+});
+
+export const PrometheusVettedUnusedKeysEventProvider = makeCounterProvider({
+  name: METRIC_DUPLICATED_VETTED_UNUSED_KEYS_EVENT_COUNTER,
+  help: 'Number of duplicated vetted unused keys events',
+  labelNames: ['stakingModuleId'] as const,
+});
+
+export const PrometheusUsedKeysEventProvider = makeCounterProvider({
+  name: METRIC_DUPLICATED_USED_KEYS_EVENT_COUNTER,
+  help: 'Number of duplicated used keys events',
+  labelNames: ['stakingModuleId'] as const,
+});
+
+export const PrometheusInvalidKeysEventProvider = makeGaugeProvider({
+  name: METRIC_INVALID_KEYS_EVENT_COUNTER,
+  help: 'Number of invalid keys',
+  labelNames: ['stakingModuleId'] as const,
 });

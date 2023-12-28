@@ -1,6 +1,26 @@
 version: '3.7'
 
 services:
+  council_daemon_prometheus:
+    image: prom/prometheus:v2.44.0
+    container_name: council_daemon_prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus/:/etc/prometheus/
+    command: --config.file=/etc/prometheus/prometheus.yml --enable-feature=remote-write-receiver
+
+  council_daemon_grafana:
+    image: grafana/grafana-oss:9.1.5
+    container_name: council_daemon_grafana
+    restart: unless-stopped
+    ports:
+      - 8001:3000
+    volumes:
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+    depends_on:
+      - council_daemon_prometheus
+
   keys_api_service_db:
     image: postgres:14-alpine
     platform: linux/arm64/v8
@@ -16,7 +36,7 @@ services:
       - ./.volumes/pgdata-${CHAIN_ID}/:/var/lib/postgresql/data
 
   keys_api_service_api:
-    image: lidofinance/lido-keys-api:dev
+    image: lidofinance/lido-keys-api:0.10.1
     platform: linux/amd64
     container_name: keys_api_service_api
     ports:
@@ -35,26 +55,12 @@ services:
       - DB_PASSWORD=${KEYS_API_DB_PASSWORD}
     depends_on:
       - keys_api_service_db
-
-  council_daemon:
-    image: lidofinance/lido-council-daemon:dev
-    platform: linux/amd64
+  rabbitmq:
+    build:
+      context: .
+      dockerfile: Dockerfile.test.yml
+    container_name: 'rabbitmq'
     ports:
-      - "${PORT}:3000" # port is used for prometheus metrics
-    environment:
-      - PORT=${PORT}
-      - LOG_LEVEL=debug
-      - LOG_FORMAT=json
-      - RPC_URL=${RPC_URL}
-      - WALLET_PRIVATE_KEY=${WALLET_PRIVATE_KEY}
-      - KEYS_API_HOST=http://keys_api_service_api
-      - KEYS_API_PORT=3001
-      - PUBSUB_SERVICE=rabbitmq
-      - RABBITMQ_URL=${RABBITMQ_URL}
-      - RABBITMQ_LOGIN=${RABBITMQ_LOGIN}
-      - RABBITMQ_PASSCODE=${RABBITMQ_PASSCODE}
-      - RABBITMQ_PASSCODE_FILE=${RABBITMQ_PASSCODE_FILE}
-    depends_on:
-      - keys_api_service_api
-    volumes:
-      - ./.volumes/cache/:/council/cache/
+      - 5672:5672
+      - 15672:15672
+      - 15674:15674

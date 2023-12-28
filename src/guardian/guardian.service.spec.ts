@@ -24,31 +24,6 @@ import { mockRepository } from 'contracts/repository/repository.mock';
 
 jest.mock('../transport/stomp/stomp.client');
 
-const TEST_MODULE_ID = 1;
-
-const stakingModuleResponse = {
-  data: [
-    {
-      nonce: 0,
-      type: 'string',
-      id: TEST_MODULE_ID,
-      stakingModuleAddress: 'string',
-      moduleFee: 0,
-      treasuryFee: 0,
-      targetShare: 0,
-      status: 0,
-      name: 'string',
-      lastDepositAt: 0,
-      lastDepositBlock: 0,
-    },
-  ],
-  elBlockSnapshot: {
-    blockNumber: 0,
-    blockHash: 'string',
-    timestamp: 0,
-  },
-};
-
 describe('GuardianService', () => {
   let stakingRouterService: StakingRouterService;
   let blockGuardService: BlockGuardService;
@@ -66,7 +41,6 @@ describe('GuardianService', () => {
         MockProviderModule.forRoot(),
         LoggerModule,
         PrometheusModule,
-
         GuardianModule,
         RepositoryModule,
         DepositModule,
@@ -101,20 +75,32 @@ describe('GuardianService', () => {
   });
 
   it('should exit if the previous call is not completed', async () => {
-    const getStakingModulesMock = jest
-      .spyOn(stakingRouterService, 'getStakingModules')
-      .mockImplementation(async () => stakingModuleResponse);
+    // OneAtTime test
+    const getOperatorsAndModulesMock = jest
+      .spyOn(stakingRouterService, 'getOperatorsAndModules')
+      .mockImplementation(async () => ({
+        data: [],
+        meta: {
+          elBlockSnapshot: {
+            blockNumber: 0,
+            blockHash: 'string',
+            timestamp: 0,
+            lastChangedBlockHash: '',
+          },
+        },
+      }));
 
     const getBlockGuardServiceMock = jest
       .spyOn(blockGuardService, 'isNeedToProcessNewState')
       .mockImplementation(() => false);
 
+    // run concurrently and check that second attempt
     await Promise.all([
       guardianService.handleNewBlock(),
       guardianService.handleNewBlock(),
     ]);
 
-    expect(getStakingModulesMock).toBeCalledTimes(1);
     expect(getBlockGuardServiceMock).toBeCalledTimes(1);
+    expect(getOperatorsAndModulesMock).toBeCalledTimes(1);
   });
 });
