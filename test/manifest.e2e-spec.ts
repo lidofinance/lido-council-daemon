@@ -7,11 +7,14 @@ import { fromHexString, toHexString } from '@chainsafe/ssz';
 // Helpers
 import {
   computeRoot,
+  mockedDvtOperators,
   mockedKeysApiOperators,
+  mockedKeysApiOperatorsMany,
   mockedKeysApiUnusedKeys,
   mockedKeysWithDuplicates,
   mockedMeta,
   mockedModule,
+  mockedModuleDvt,
   mockedOperators,
 } from './helpers';
 
@@ -34,6 +37,7 @@ import {
   sk,
   pk,
   NOP_REGISTRY,
+  FAKE_SIMPLE_DVT,
 } from './constants';
 
 // Ganache
@@ -84,6 +88,8 @@ import { KeyValidatorInterface } from '@lido-nestjs/key-validation';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
+
+jest.setTimeout(10_000);
 
 describe('ganache e2e tests', () => {
   let server: ReturnType<typeof makeServer>;
@@ -894,6 +900,156 @@ describe('ganache e2e tests', () => {
           used: false,
           index: 1,
           moduleAddress: NOP_REGISTRY,
+        },
+      ];
+
+      mockedKeysApiUnusedKeys(keysApiService, unusedKeys, meta);
+
+      // Check that module was not paused
+      const routerContract = StakingRouterAbi__factory.connect(
+        STAKING_ROUTER,
+        providerService.provider,
+      );
+      const isOnPause = await routerContract.getStakingModuleIsDepositsPaused(
+        1,
+      );
+      expect(isOnPause).toBe(false);
+
+      await guardianService.handleNewBlock();
+
+      // just skip on this iteration deposit for staking module
+      expect(sendDepositMessage).toBeCalledTimes(0);
+      expect(sendPauseMessage).toBeCalledTimes(0);
+
+      // after deleting duplicates in staking module,
+      // council will resume deposits to module
+      const unusedKeysWithoutDuplicates = [
+        {
+          key: '0xa9bfaa8207ee6c78644c079ffc91b6e5abcc5eede1b7a06abb8fb40e490a75ea269c178dd524b65185299d2bbd2eb7b2',
+          depositSignature:
+            '0xaa5f2a1053ba7d197495df44d4a32b7ae10265cf9e38560a16b782978c0a24271a113c9538453b7e45f35cb64c7adb460d7a9fe8c8ce6b8c80ca42fd5c48e180c73fc08f7d35ba32e39f32c902fd333faf47611827f0b7813f11c4c518dd2e59',
+          operatorIndex: 0,
+          used: false,
+          index: 0,
+          moduleAddress: NOP_REGISTRY,
+        },
+      ];
+
+      const newBlock = await tempProvider.getBlock('latest');
+      const newMeta = mockedMeta(newBlock, newBlock.hash);
+      const newStakingModule = mockedModule(currentBlock, newBlock.hash);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        newStakingModule,
+        newMeta,
+      );
+
+      mockedKeysApiUnusedKeys(
+        keysApiService,
+        unusedKeysWithoutDuplicates,
+        newMeta,
+      );
+
+      await guardianService.handleNewBlock();
+
+      expect(sendDepositMessage).toBeCalledTimes(1);
+
+      expect(sendDepositMessage).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          blockNumber: newBlock.number,
+          guardianAddress: wallet.address,
+          guardianIndex: 9,
+          stakingModuleId: 1,
+        }),
+      );
+    },
+    TESTS_TIMEOUT,
+  );
+
+  test(
+    'skip deposit if find duplicated key in another staking module',
+    async () => {
+      const tempProvider = new ethers.providers.JsonRpcProvider(
+        `http://127.0.0.1:${GANACHE_PORT}`,
+      );
+      const currentBlock = await tempProvider.getBlock('latest');
+
+      // this key should be used in kapi
+      const goodDepositMessage = {
+        pubkey: pk,
+        withdrawalCredentials: fromHexString(GOOD_WC),
+        amount: 32000000000, // gwei!
+      };
+      const goodSigningRoot = computeRoot(goodDepositMessage);
+      const goodSig = sk.sign(goodSigningRoot).toBytes();
+
+      const goodDepositData = {
+        ...goodDepositMessage,
+        signature: goodSig,
+      };
+      const goodDepositDataRoot = DepositData.hashTreeRoot(goodDepositData);
+
+      if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
+      const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
+
+      // Make a deposit
+      const signer = wallet.connect(providerService.provider);
+      const depositContract = DepositAbi__factory.connect(
+        DEPOSIT_CONTRACT,
+        signer,
+      );
+      await depositContract.deposit(
+        goodDepositData.pubkey,
+        goodDepositData.withdrawalCredentials,
+        goodDepositData.signature,
+        goodDepositDataRoot,
+        { value: ethers.constants.WeiPerEther.mul(32) },
+      );
+
+      await depositService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          version: '1',
+        },
+      });
+
+      // mocked curated module
+      const stakingModule = mockedModule(currentBlock, currentBlock.hash);
+      const stakingDvtModule = mockedModuleDvt(currentBlock, currentBlock.hash);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
+
+      mockedKeysApiOperatorsMany(
+        keysApiService,
+        [
+          { operators: mockedOperators, module: stakingModule },
+          { operators: mockedDvtOperators, module: stakingDvtModule },
+        ],
+        meta,
+      );
+
+      // list of keys for /keys?used=false mock
+      const unusedKeys = [
+        {
+          key: '0xa9bfaa8207ee6c78644c079ffc91b6e5abcc5eede1b7a06abb8fb40e490a75ea269c178dd524b65185299d2bbd2eb7b2',
+          depositSignature:
+            '0xaa5f2a1053ba7d197495df44d4a32b7ae10265cf9e38560a16b782978c0a24271a113c9538453b7e45f35cb64c7adb460d7a9fe8c8ce6b8c80ca42fd5c48e180c73fc08f7d35ba32e39f32c902fd333faf47611827f0b7813f11c4c518dd2e59',
+          operatorIndex: 0,
+          used: false,
+          index: 0,
+          moduleAddress: NOP_REGISTRY,
+        },
+        {
+          key: '0xa9bfaa8207ee6c78644c079ffc91b6e5abcc5eede1b7a06abb8fb40e490a75ea269c178dd524b65185299d2bbd2eb7b2',
+          depositSignature:
+            '0xaa5f2a1053ba7d197495df44d4a32b7ae10265cf9e38560a16b782978c0a24271a113c9538453b7e45f35cb64c7adb460d7a9fe8c8ce6b8c80ca42fd5c48e180c73fc08f7d35ba32e39f32c902fd333faf47611827f0b7813f11c4c518dd2e59',
+          operatorIndex: 0,
+          used: false,
+          index: 0,
+          moduleAddress: FAKE_SIMPLE_DVT,
         },
       ];
 
