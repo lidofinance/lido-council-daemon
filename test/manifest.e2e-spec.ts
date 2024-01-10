@@ -71,7 +71,7 @@ import { RepositoryModule } from '../src/contracts/repository';
 import { DepositService } from '../src/contracts/deposit';
 import { DepositModule } from '../src/contracts/deposit';
 
-import { SecurityModule } from '../src/contracts/security';
+import { SecurityModule, SecurityService } from '../src/contracts/security';
 
 import { LidoService } from '../src/contracts/lido';
 import { LidoModule } from '../src/contracts/lido';
@@ -108,6 +108,8 @@ describe('ganache e2e tests', () => {
 
   let keyValidator: KeyValidatorInterface;
   let validateKeys: jest.SpyInstance;
+
+  let securityService: SecurityService;
 
   beforeEach(async () => {
     server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
@@ -158,6 +160,7 @@ describe('ganache e2e tests', () => {
     depositService = moduleRef.get(DepositService);
     guardianMessageService = moduleRef.get(GuardianMessageService);
     keyValidator = moduleRef.get(KeyValidatorInterface);
+    securityService = moduleRef.get(SecurityService);
 
     // Initializing needed service instead of the whole app
     blsService = moduleRef.get(BlsService);
@@ -872,12 +875,15 @@ describe('ganache e2e tests', () => {
 
       // mocked curated module
       const stakingModule = mockedModule(currentBlock, currentBlock.hash);
+      const stakingDvtModule = mockedModuleDvt(currentBlock, currentBlock.hash);
       const meta = mockedMeta(currentBlock, currentBlock.hash);
 
-      mockedKeysApiOperators(
+      mockedKeysApiOperatorsMany(
         keysApiService,
-        mockedOperators,
-        stakingModule,
+        [
+          { operators: mockedOperators, module: stakingModule },
+          { operators: mockedDvtOperators, module: stakingDvtModule },
+        ],
         meta,
       );
 
@@ -901,6 +907,15 @@ describe('ganache e2e tests', () => {
           index: 1,
           moduleAddress: NOP_REGISTRY,
         },
+        {
+          key: '0xb3c90525010a5710d43acbea46047fc37ed55306d032527fa15dd7e8cd8a9a5fa490347cc5fce59936fb8300683cd9f3',
+          depositSignature:
+            '0x8a77d9411781360cc107344a99f6660b206d2c708ae7fa35565b76ec661a0b86b6c78f5b5691d2cf469c27d0655dfc6311451a9e0501f3c19c6f7e35a770d1a908bfec7cba2e07339dc633b8b6626216ce76ec0fa48ee56aaaf2f9dc7ccb2fe2',
+          operatorIndex: 0,
+          used: false,
+          moduleAddress: FAKE_SIMPLE_DVT,
+          index: 0,
+        },
       ];
 
       mockedKeysApiUnusedKeys(keysApiService, unusedKeys, meta);
@@ -915,10 +930,34 @@ describe('ganache e2e tests', () => {
       );
       expect(isOnPause).toBe(false);
 
+      const originalIsDepositsPaused = securityService.isDepositsPaused;
+
+      // as we have faked simple dvt
+      jest
+        .spyOn(securityService, 'isDepositsPaused')
+        .mockImplementation((stakingModuleId, blockTag) => {
+          if (stakingModuleId === stakingDvtModule.id) {
+            return Promise.resolve(false);
+          }
+          return originalIsDepositsPaused.call(
+            securityService,
+            stakingModuleId,
+            blockTag,
+          );
+        });
+
       await guardianService.handleNewBlock();
 
       // just skip on this iteration deposit for staking module
-      expect(sendDepositMessage).toBeCalledTimes(0);
+      expect(sendDepositMessage).toBeCalledTimes(1);
+      expect(sendDepositMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blockNumber: currentBlock.number,
+          guardianAddress: wallet.address,
+          guardianIndex: 9,
+          stakingModuleId: 2,
+        }),
+      );
       expect(sendPauseMessage).toBeCalledTimes(0);
 
       // after deleting duplicates in staking module,
@@ -933,16 +972,28 @@ describe('ganache e2e tests', () => {
           index: 0,
           moduleAddress: NOP_REGISTRY,
         },
+        {
+          key: '0xb3c90525010a5710d43acbea46047fc37ed55306d032527fa15dd7e8cd8a9a5fa490347cc5fce59936fb8300683cd9f3',
+          depositSignature:
+            '0x8a77d9411781360cc107344a99f6660b206d2c708ae7fa35565b76ec661a0b86b6c78f5b5691d2cf469c27d0655dfc6311451a9e0501f3c19c6f7e35a770d1a908bfec7cba2e07339dc633b8b6626216ce76ec0fa48ee56aaaf2f9dc7ccb2fe2',
+          operatorIndex: 0,
+          used: false,
+          moduleAddress: FAKE_SIMPLE_DVT,
+          index: 0,
+        },
       ];
 
       const newBlock = await tempProvider.getBlock('latest');
       const newMeta = mockedMeta(newBlock, newBlock.hash);
-      const newStakingModule = mockedModule(currentBlock, newBlock.hash);
+      const newStakingModule = mockedModule(newBlock, newBlock.hash);
+      const newStakingDvtModule = mockedModuleDvt(newBlock, newBlock.hash);
 
-      mockedKeysApiOperators(
+      mockedKeysApiOperatorsMany(
         keysApiService,
-        mockedOperators,
-        newStakingModule,
+        [
+          { operators: mockedOperators, module: newStakingModule },
+          { operators: mockedDvtOperators, module: newStakingDvtModule },
+        ],
         newMeta,
       );
 
@@ -952,9 +1003,11 @@ describe('ganache e2e tests', () => {
         newMeta,
       );
 
+      sendDepositMessage.mockReset();
+
       await guardianService.handleNewBlock();
 
-      expect(sendDepositMessage).toBeCalledTimes(1);
+      expect(sendDepositMessage).toBeCalledTimes(2);
 
       expect(sendDepositMessage).toHaveBeenLastCalledWith(
         expect.objectContaining({
@@ -964,6 +1017,17 @@ describe('ganache e2e tests', () => {
           stakingModuleId: 1,
         }),
       );
+
+      expect(sendDepositMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blockNumber: newBlock.number,
+          guardianAddress: wallet.address,
+          guardianIndex: 9,
+          stakingModuleId: 2,
+        }),
+      );
+
+      jest.spyOn(securityService, 'isDepositsPaused').mockRestore();
     },
     TESTS_TIMEOUT,
   );
@@ -1083,16 +1147,28 @@ describe('ganache e2e tests', () => {
           index: 0,
           moduleAddress: NOP_REGISTRY,
         },
+        {
+          key: '0xb3c90525010a5710d43acbea46047fc37ed55306d032527fa15dd7e8cd8a9a5fa490347cc5fce59936fb8300683cd9f3',
+          depositSignature:
+            '0x8a77d9411781360cc107344a99f6660b206d2c708ae7fa35565b76ec661a0b86b6c78f5b5691d2cf469c27d0655dfc6311451a9e0501f3c19c6f7e35a770d1a908bfec7cba2e07339dc633b8b6626216ce76ec0fa48ee56aaaf2f9dc7ccb2fe2',
+          operatorIndex: 0,
+          used: false,
+          moduleAddress: FAKE_SIMPLE_DVT,
+          index: 0,
+        },
       ];
 
       const newBlock = await tempProvider.getBlock('latest');
       const newMeta = mockedMeta(newBlock, newBlock.hash);
-      const newStakingModule = mockedModule(currentBlock, newBlock.hash);
+      const newStakingModule = mockedModule(newBlock, newBlock.hash);
+      const newStakingDvtModule = mockedModuleDvt(newBlock, newBlock.hash);
 
-      mockedKeysApiOperators(
+      mockedKeysApiOperatorsMany(
         keysApiService,
-        mockedOperators,
-        newStakingModule,
+        [
+          { operators: mockedOperators, module: newStakingModule },
+          { operators: mockedDvtOperators, module: newStakingDvtModule },
+        ],
         newMeta,
       );
 
@@ -1102,11 +1178,29 @@ describe('ganache e2e tests', () => {
         newMeta,
       );
 
+      const originalIsDepositsPaused = securityService.isDepositsPaused;
+
+      // as we have faked simple dvt
+      jest
+        .spyOn(securityService, 'isDepositsPaused')
+        .mockImplementation((stakingModuleId, blockTag) => {
+          if (stakingModuleId === newStakingDvtModule.id) {
+            return Promise.resolve(false);
+          }
+          return originalIsDepositsPaused.call(
+            securityService,
+            stakingModuleId,
+            blockTag,
+          );
+        });
+
+      sendDepositMessage.mockReset();
+
       await guardianService.handleNewBlock();
 
-      expect(sendDepositMessage).toBeCalledTimes(1);
+      expect(sendDepositMessage).toBeCalledTimes(2);
 
-      expect(sendDepositMessage).toHaveBeenLastCalledWith(
+      expect(sendDepositMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: newBlock.number,
           guardianAddress: wallet.address,
@@ -1114,6 +1208,17 @@ describe('ganache e2e tests', () => {
           stakingModuleId: 1,
         }),
       );
+
+      expect(sendDepositMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blockNumber: newBlock.number,
+          guardianAddress: wallet.address,
+          guardianIndex: 9,
+          stakingModuleId: 2,
+        }),
+      );
+
+      jest.spyOn(securityService, 'isDepositsPaused').mockRestore();
     },
     TESTS_TIMEOUT,
   );
