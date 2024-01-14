@@ -43,49 +43,8 @@ describe('KeysValidationService', () => {
     validateKeysFun = jest.spyOn(keysValidator, 'validateKeys');
   });
 
-  it('add new key in empty cache', async () => {
-    // add a new keys
-    const result = await keysValidationService.findInvalidKeys(
-      [...validKeys, invalidKey],
-      wc,
-    );
-
-    const expected = [invalidKey].map((key) => ({
-      key: key.key,
-      depositSignature: key.depositSignature,
-    }));
-
-    const fork = GENESIS_FORK_VERSION_BY_CHAIN_ID[5];
-
-    const depositData = [...validKeys, invalidKey].map((key) => ({
-      key: key.key,
-      depositSignature: key.depositSignature,
-      withdrawalCredentials: bufferFromHexString(wc),
-      genesisForkVersion: Buffer.from(fork.buffer),
-    }));
-
-    expect(validateKeysFun).toBeCalledTimes(1);
-    expect(validateKeysFun).toBeCalledWith(depositData);
-    expect(result).toEqual(expect.arrayContaining(expected));
-    expect(result.length).toEqual(1);
-
-    validateKeysFun.mockClear();
-
-    const newResult = await keysValidationService.findInvalidKeys(
-      [...validKeys, invalidKey],
-      wc,
-    );
-
-    expect(validateKeysFun).toBeCalledTimes(1);
-    expect(validateKeysFun).toBeCalledWith([]);
-    // will be read from cache
-    expect(newResult).toEqual(expect.arrayContaining(expected));
-    expect(result.length).toEqual(1);
-  });
-
-  it('add new key in non empty cache', async () => {
-    // will include in result only invalid keys from actual list
-    // add a new keys
+  it('should find and return invalid keys from the provided list', async () => {
+    // Test scenario where new invalid keys are added to the list
     const result = await keysValidationService.findInvalidKeys(
       [...validKeys, invalidKey, invalidKey2],
       wc,
@@ -110,8 +69,8 @@ describe('KeysValidationService', () => {
     expect(result).toEqual(expect.arrayContaining(expected));
     expect(result.length).toEqual(expected.length);
 
-    // one invalid key was deleted
     validateKeysFun.mockClear();
+    // Test scenario where one invalid key was removed from request's list
     const newResult = await keysValidationService.findInvalidKeys(
       [...validKeys, invalidKey],
       wc,
@@ -122,16 +81,21 @@ describe('KeysValidationService', () => {
       depositSignature: key.depositSignature,
     }));
 
+    expect(keysValidationService['keysCache'].get(invalidKey2.key)).toEqual({
+      isValid: false,
+      signature: invalidKey2.depositSignature,
+    });
+
     expect(validateKeysFun).toBeCalledTimes(1);
     expect(validateKeysFun).toBeCalledWith([]);
     expect(newResult).toEqual(expect.arrayContaining(newExpected));
     expect(newResult.length).toEqual(newExpected.length);
   });
 
-  it('validate key again if signature was changed', async () => {
+  it('should validate key again if signature was changed', async () => {
     // if signature was changed we need to repeat validation
     // invalid key could become valid and visa versa
-    // add a new keys
+    // Test scenario where new invalid keys are added to the list
     const result = await keysValidationService.findInvalidKeys(
       [...validKeys, invalidKey, invalidKey2],
       wc,
@@ -156,8 +120,8 @@ describe('KeysValidationService', () => {
     expect(result).toEqual(expect.arrayContaining(expected));
     expect(result.length).toEqual(expected.length);
 
-    // repeat and check that cache will be used
     validateKeysFun.mockClear();
+    // Test scenario where one invalid key was changed
     const newResult = await keysValidationService.findInvalidKeys(
       [
         ...validKeys,

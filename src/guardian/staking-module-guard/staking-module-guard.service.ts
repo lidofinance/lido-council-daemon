@@ -396,6 +396,7 @@ export class StakingModuleGuardService {
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
   ): Promise<boolean> {
+    // TODO: consider change state on upper level
     const { blockNumber, depositRoot } = blockData;
     const { nonce, stakingModuleId, lastChangedBlockHash } = stakingModuleData;
     const lastContractsState =
