@@ -236,7 +236,7 @@ describe('StakingModuleGuardService', () => {
       expect(mockSecurityContractIsDepositsPaused).toBeCalledTimes(1);
     });
 
-    it('should call handleCorrectKeys if Lido unused keys are not found in the deposit contract and vetted unused keys are valid', async () => {
+    it('should call handleCorrectKeys when Lido unused keys are absent in the deposit contract and vetted unused keys are valid', async () => {
       const notDepositedKey = '0x2345';
       const unusedKeys = [notDepositedKey];
       const blockData = { ...currentBlockData, unusedKeys, lidoWC };
@@ -316,7 +316,7 @@ describe('StakingModuleGuardService', () => {
       expect(mockHandleCorrectKeys).not.toBeCalled();
       expect(mockSecurityContractIsDepositsPaused).toBeCalledTimes(1);
 
-      // check that if lastChangedBlockHash the same but keys prev was invalid , handleCorrect will not be called
+      // check that if lastChangedBlockHash the same but keys prev was invalid, handleCorrect will not be called
       // but we also will not validate keys again
       findInvalidKeys.mockClear();
 
@@ -362,6 +362,134 @@ describe('StakingModuleGuardService', () => {
         blockData,
       );
       expect(mockSecurityContractIsDepositsPaused).toBeCalledTimes(3);
+    });
+
+    it('should not rerun validation when the lastChangedBlockHash is unchanged and no invalid keys were found previously', async () => {
+      const notDepositedKey = '0x2345';
+      const unusedKeys = [notDepositedKey];
+      const blockData = { ...currentBlockData, unusedKeys, lidoWC };
+
+      jest
+        .spyOn(guardianMessageService, 'sendMessageFromGuardian')
+        .mockImplementation(async () => undefined);
+      const sign = {} as any;
+
+      jest
+        .spyOn(securityService, 'signDepositData')
+        .mockImplementation(async () => sign);
+
+      const mockHandleKeysIntersections = jest
+        .spyOn(stakingModuleGuardService, 'handleKeysIntersections')
+        .mockImplementation(async () => undefined);
+
+      const mockSecurityContractIsDepositsPaused = jest
+        .spyOn(securityService, 'isDepositsPaused')
+        .mockImplementation(async () => false);
+
+      const mockHandleCorrectKeys = jest.spyOn(
+        stakingModuleGuardService,
+        'handleCorrectKeys',
+      );
+
+      //  found invalid keys
+      findInvalidKeys.mockImplementation(async () => []);
+
+      await stakingModuleGuardService.checkKeysIntersections(
+        {
+          ...stakingModuleData,
+          lastChangedBlockHash: '',
+          unusedKeys,
+          vettedUnusedKeys: [],
+        },
+        blockData,
+      );
+
+      expect(findInvalidKeys).toBeCalledTimes(1);
+      expect(mockHandleKeysIntersections).not.toBeCalled();
+      expect(mockHandleCorrectKeys).toBeCalledTimes(1);
+      expect(mockSecurityContractIsDepositsPaused).toBeCalledTimes(1);
+
+      findInvalidKeys.mockClear();
+
+      await stakingModuleGuardService.checkKeysIntersections(
+        {
+          ...stakingModuleData,
+          lastChangedBlockHash: '',
+          unusedKeys,
+          vettedUnusedKeys: [],
+        },
+        blockData,
+      );
+
+      expect(findInvalidKeys).not.toBeCalled();
+      expect(mockHandleKeysIntersections).not.toBeCalled();
+      expect(mockHandleCorrectKeys).toBeCalledTimes(2);
+      // second execution
+      expect(mockSecurityContractIsDepositsPaused).toBeCalledTimes(2);
+    });
+
+    it('should run validation when the lastChangedBlockHash was changed and no invalid keys were found previously', async () => {
+      const notDepositedKey = '0x2345';
+      const unusedKeys = [notDepositedKey];
+      const blockData = { ...currentBlockData, unusedKeys, lidoWC };
+
+      jest
+        .spyOn(guardianMessageService, 'sendMessageFromGuardian')
+        .mockImplementation(async () => undefined);
+      const sign = {} as any;
+
+      jest
+        .spyOn(securityService, 'signDepositData')
+        .mockImplementation(async () => sign);
+
+      const mockHandleKeysIntersections = jest
+        .spyOn(stakingModuleGuardService, 'handleKeysIntersections')
+        .mockImplementation(async () => undefined);
+
+      const mockSecurityContractIsDepositsPaused = jest
+        .spyOn(securityService, 'isDepositsPaused')
+        .mockImplementation(async () => false);
+
+      const mockHandleCorrectKeys = jest.spyOn(
+        stakingModuleGuardService,
+        'handleCorrectKeys',
+      );
+
+      //  found invalid keys
+      findInvalidKeys.mockImplementation(async () => []);
+
+      await stakingModuleGuardService.checkKeysIntersections(
+        {
+          ...stakingModuleData,
+          lastChangedBlockHash: '',
+          unusedKeys,
+          vettedUnusedKeys: [],
+        },
+        blockData,
+      );
+
+      expect(findInvalidKeys).toBeCalledTimes(1);
+      expect(mockHandleKeysIntersections).not.toBeCalled();
+      expect(mockHandleCorrectKeys).toBeCalledTimes(1);
+      expect(mockSecurityContractIsDepositsPaused).toBeCalledTimes(1);
+
+      findInvalidKeys.mockClear();
+
+      await stakingModuleGuardService.checkKeysIntersections(
+        {
+          ...stakingModuleData,
+          lastChangedBlockHash: '0x1',
+          unusedKeys,
+          vettedUnusedKeys: [],
+        },
+        blockData,
+      );
+
+      expect(findInvalidKeys).toBeCalledTimes(1);
+      expect(mockHandleKeysIntersections).not.toBeCalled();
+      expect(mockHandleCorrectKeys).toBeCalledTimes(2);
+      // second execution
+      expect(mockSecurityContractIsDepositsPaused).toBeCalledTimes(2);
     });
   });
 
