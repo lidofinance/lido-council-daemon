@@ -106,7 +106,7 @@ export class StakingRouterService {
     };
   }
 
-  public async findKeysEntires(pubkeys: string[]) {
-    return await this.keysApiService.findKeysEntires(pubkeys);
+  public async getKeysByPubkeys(pubkeys: string[]) {
+    return await this.keysApiService.getKeysByPubkeys(pubkeys);
   }
 }

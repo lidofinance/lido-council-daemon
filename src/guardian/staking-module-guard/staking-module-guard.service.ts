@@ -260,7 +260,7 @@ export class StakingModuleGuardService {
       'Found intersections with lido credentials, need to check used duplicated keys',
     );
 
-    const { data, meta } = await this.stakingRouterService.findKeysEntires(
+    const { data, meta } = await this.stakingRouterService.getKeysByPubkeys(
       depositedPubkeys,
     );
 
