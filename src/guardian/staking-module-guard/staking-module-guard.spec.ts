@@ -1097,7 +1097,7 @@ describe('StakingModuleGuardService', () => {
       // function that return list from kapi that match keys in parameter
       const mockSendMessageFromGuardian = jest.spyOn(
         stakingRouterService,
-        'findKeysEntires',
+        'getKeysByPubkeys',
       );
 
       const result = await stakingModuleGuardService.findAlreadyDepositedKeys(
@@ -1121,7 +1121,7 @@ describe('StakingModuleGuardService', () => {
       ];
       // function that return list from kapi that match keys in parameter
       const mockSendMessageFromGuardian = jest
-        .spyOn(stakingRouterService, 'findKeysEntires')
+        .spyOn(stakingRouterService, 'getKeysByPubkeys')
         .mockImplementation(async () => ({
           data: [
             {
@@ -1216,7 +1216,7 @@ describe('StakingModuleGuardService', () => {
       ];
       // function that return list from kapi that match keys in parameter
       const mockSendMessageFromGuardian = jest
-        .spyOn(stakingRouterService, 'findKeysEntires')
+        .spyOn(stakingRouterService, 'getKeysByPubkeys')
         .mockImplementation(async () => ({
           data: [
             {
@@ -1275,7 +1275,7 @@ describe('StakingModuleGuardService', () => {
       ];
       // function that return list from kapi that match keys in parameter
       const mockSendMessageFromGuardian = jest
-        .spyOn(stakingRouterService, 'findKeysEntires')
+        .spyOn(stakingRouterService, 'getKeysByPubkeys')
         .mockImplementation(async () => ({
           data: [
             {

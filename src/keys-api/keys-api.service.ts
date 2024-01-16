@@ -46,7 +46,7 @@ export class KeysApiService {
    * @param The /v1/keys/find API endpoint returns keys along with their duplicates
    * @returns
    */
-  public async findKeysEntires(pubkeys: string[]) {
+  public async getKeysByPubkeys(pubkeys: string[]) {
     const result = await this.fetch<KeyListResponse>(`/v1/keys/find`, {
       method: 'POST',
       headers: {
