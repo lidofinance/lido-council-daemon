@@ -10,6 +10,7 @@ import { BlockGuardModule } from './block-guard/block-guard.module';
 import { StakingModuleGuardModule } from './staking-module-guard';
 import { GuardianMessageModule } from './guardian-message';
 import { GuardianMetricsModule } from './guardian-metrics';
+import { KeysApiModule } from 'keys-api/keys-api.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { GuardianMetricsModule } from './guardian-metrics';
     StakingModuleGuardModule,
     GuardianMessageModule,
     GuardianMetricsModule,
+    KeysApiModule,
   ],
   providers: [GuardianService],
   exports: [GuardianService],
