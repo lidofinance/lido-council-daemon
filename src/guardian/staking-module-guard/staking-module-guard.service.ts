@@ -160,7 +160,10 @@ export class StakingModuleGuardService {
 
       // if found used keys, Lido already made deposit on this keys
       if (usedKeys.length) {
-        this.logger.log('Found that we already deposited on these keys');
+        this.logger.log('Found that we already deposited on these keys', {
+          blockHash,
+          stakingModuleId,
+        });
         this.guardianMetricsService.incrDuplicatedUsedKeysEventCounter();
         return;
       }
@@ -252,11 +255,12 @@ export class StakingModuleGuardService {
       return [];
     }
 
+    // TODO: add staking module id
     this.logger.log(
       'Found intersections with lido credentials, need to check used duplicated keys',
     );
 
-    const { data, meta } = await this.stakingRouterService.findKeysEntires(
+    const { data, meta } = await this.stakingRouterService.getKeysByPubkeys(
       depositedPubkeys,
     );
 
@@ -355,7 +359,7 @@ export class StakingModuleGuardService {
 
     // need to check invalidKeysFound
     if (isSameContractsState) {
-      this.logger.log("Contract states didn't change");
+      this.logger.log("Contract states didn't change", { stakingModuleId });
       return;
     }
 
@@ -379,6 +383,7 @@ export class StakingModuleGuardService {
     };
 
     this.logger.log('No problems found', {
+      stakingModuleId,
       blockHash,
       lastState: lastContractsState,
       newState: currentContractState,
@@ -391,6 +396,7 @@ export class StakingModuleGuardService {
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
   ): Promise<boolean> {
+    // TODO: consider change state on upper level
     const { blockNumber, depositRoot } = blockData;
     const { nonce, stakingModuleId, lastChangedBlockHash } = stakingModuleData;
     const lastContractsState =
@@ -404,7 +410,7 @@ export class StakingModuleGuardService {
       // if found invalid keys on previous iteration and lastChangedBlockHash returned by kapi was not changed
       // we dont need to validate again, but we still need to skip deposits until problem will not be solved
       this.logger.error(
-        'LastChangedBlockHash was not changed and on previous iteration we found invalid keys, skip until solving problem ',
+        `LastChangedBlockHash was not changed and on previous iteration we found invalid keys, skip until solving problem, stakingModuleId: ${stakingModuleId}`,
       );
 
       this.lastContractsStateByModuleId[stakingModuleId] = {
@@ -431,7 +437,7 @@ export class StakingModuleGuardService {
       // if found invalid keys, update state and exit
       if (invalidKeys.length) {
         this.logger.error(
-          'Found invalid keys, will skip deposits until solving problem',
+          `Found invalid keys, will skip deposits until solving problem, stakingModuleId: ${stakingModuleId}`,
         );
         this.guardianMetricsService.incrInvalidKeysEventCounter();
         // save info about invalid keys in cache
@@ -459,17 +465,21 @@ export class StakingModuleGuardService {
   ): Promise<{ key: string; depositSignature: string }[]> {
     this.logger.log('Start keys validation', {
       keysCount: stakingModuleData.vettedUnusedKeys.length,
+      stakingModuleId: stakingModuleData.stakingModuleId,
     });
     const validationTimeStart = performance.now();
+
     const invalidKeysList = await this.keysValidationService.findInvalidKeys(
       stakingModuleData.vettedUnusedKeys,
       blockData.lidoWC,
     );
+
     const validationTimeEnd = performance.now();
     const validationTime =
       Math.ceil(validationTimeEnd - validationTimeStart) / 1000;
 
     this.logger.log('Keys validated', {
+      stakingModuleId: stakingModuleData.stakingModuleId,
       invalidKeysList,
       validationTime,
     });

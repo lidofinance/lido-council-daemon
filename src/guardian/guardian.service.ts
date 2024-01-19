@@ -4,6 +4,7 @@ import {
   LoggerService,
   OnModuleInit,
 } from '@nestjs/common';
+import { compare } from 'compare-versions';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
@@ -22,6 +23,9 @@ import { StakingModuleGuardService } from './staking-module-guard';
 import { GuardianMessageService } from './guardian-message';
 import { GuardianMetricsService } from './guardian-metrics';
 import { StakingModuleData } from './interfaces';
+import { ProviderService } from 'provider';
+import { KeysApiService } from 'keys-api/keys-api.service';
+import { MIN_KAPI_VERSION } from './guardian.constants';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -42,6 +46,9 @@ export class GuardianService implements OnModuleInit {
     private stakingModuleGuardService: StakingModuleGuardService,
     private guardianMessageService: GuardianMessageService,
     private guardianMetricsService: GuardianMetricsService,
+
+    private providerService: ProviderService,
+    private keysApiService: KeysApiService,
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -56,6 +63,29 @@ export class GuardianService implements OnModuleInit {
           this.depositService.initialize(block.number),
           this.securityService.initialize({ blockHash }),
         ]);
+
+        const chainId = await this.providerService.getChainId();
+        const keysApiStatus = await this.keysApiService.getKeysApiStatus();
+
+        if (chainId !== keysApiStatus.chainId) {
+          this.logger.warn('Wrong KAPI chainId', {
+            chainId,
+            keysApiChainId: keysApiStatus.chainId,
+          });
+          throw new Error(
+            'The ChainId in KeysAPI must match the ChainId in EL Node',
+          );
+        }
+
+        if (!compare(keysApiStatus.appVersion, MIN_KAPI_VERSION, '>=')) {
+          this.logger.warn('Wrong KAPI version', {
+            minKAPIVersion: MIN_KAPI_VERSION,
+            keysApiVersion: keysApiStatus.appVersion,
+          });
+          throw new Error(
+            `The KAPI version must be greater than or equal to ${MIN_KAPI_VERSION}`,
+          );
+        }
 
         // The event cache is stored with an N block lag to avoid caching data from uncle blocks
         // so we don't worry about blockHash here
