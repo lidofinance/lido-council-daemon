@@ -7,4 +7,5 @@ export interface BlockData {
   depositedEvents: VerifiedDepositEventGroup;
   guardianAddress: string;
   guardianIndex: number;
+  lidoWC: string;
 }

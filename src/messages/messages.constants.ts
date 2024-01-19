@@ -5,7 +5,7 @@ export const MESSAGE_TOPIC_PREFIX_BY_NETWORK: {
 } = {
   [CHAINS.Mainnet]: 'mainnet',
   [CHAINS.Goerli]: 'goerli',
-  [CHAINS.Zhejiang]: 'testnet',
+  [CHAINS.Holesky]: 'holesky',
 };
 
 export const getMessageTopicPrefix = (chainId: CHAINS): string => {

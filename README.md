@@ -239,11 +239,30 @@ info: New staking router state cycle end
 
 ## Development
 
+### Copy env file for development and print your RPC_URL
+
+```bash
+cp develop.env ./.env
+```
+
+```diff
+- RPC_URL=%NODE_URL%
++ RPC_URL=https://mainnet.infura.io/v3/***
+```
+
+### Starting the development environment (PostgreSQL, KAPI, Grafana, Prometheus, RabbitMQ)
+
+```bash
+docker-compose -f ./docker-compose.dev.yml up -d
+```
+
+### Run Council Daemon
+
 ```bash
 # development
 $ yarn start
 
-# watch mode
+# development watch mode
 $ yarn start:dev
 ```
 
@@ -274,6 +293,8 @@ $ yarn test:e2e
 # test coverage
 $ yarn test:cov
 ```
+
+To run e2e tests, ensure the RPC_URL environment variable is set to the Goerli provider's endpoint, and generate private keys, which should be subsequently set in the WALLET_PRIVATE_KEY variable.
 
 ## Release flow
 

@@ -4,13 +4,13 @@ import {
   LoggerService,
   OnModuleInit,
 } from '@nestjs/common';
+import { compare } from 'compare-versions';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
 import { DepositService } from 'contracts/deposit';
 import { SecurityService } from 'contracts/security';
 import { RepositoryService } from 'contracts/repository';
-import { ProviderService } from 'provider';
 import {
   GUARDIAN_DEPOSIT_JOB_DURATION,
   GUARDIAN_DEPOSIT_JOB_NAME,
@@ -22,6 +22,10 @@ import { BlockGuardService } from './block-guard';
 import { StakingModuleGuardService } from './staking-module-guard';
 import { GuardianMessageService } from './guardian-message';
 import { GuardianMetricsService } from './guardian-metrics';
+import { StakingModuleData } from './interfaces';
+import { ProviderService } from 'provider';
+import { KeysApiService } from 'keys-api/keys-api.service';
+import { MIN_KAPI_VERSION } from './guardian.constants';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -36,14 +40,15 @@ export class GuardianService implements OnModuleInit {
 
     private depositService: DepositService,
     private securityService: SecurityService,
-    private providerService: ProviderService,
-
     private stakingRouterService: StakingRouterService,
 
     private blockGuardService: BlockGuardService,
     private stakingModuleGuardService: StakingModuleGuardService,
     private guardianMessageService: GuardianMessageService,
     private guardianMetricsService: GuardianMetricsService,
+
+    private providerService: ProviderService,
+    private keysApiService: KeysApiService,
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -58,6 +63,29 @@ export class GuardianService implements OnModuleInit {
           this.depositService.initialize(block.number),
           this.securityService.initialize({ blockHash }),
         ]);
+
+        const chainId = await this.providerService.getChainId();
+        const keysApiStatus = await this.keysApiService.getKeysApiStatus();
+
+        if (chainId !== keysApiStatus.chainId) {
+          this.logger.warn('Wrong KAPI chainId', {
+            chainId,
+            keysApiChainId: keysApiStatus.chainId,
+          });
+          throw new Error(
+            'The ChainId in KeysAPI must match the ChainId in EL Node',
+          );
+        }
+
+        if (!compare(keysApiStatus.appVersion, MIN_KAPI_VERSION, '>=')) {
+          this.logger.warn('Wrong KAPI version', {
+            minKAPIVersion: MIN_KAPI_VERSION,
+            keysApiVersion: keysApiStatus.appVersion,
+          });
+          throw new Error(
+            `The KAPI version must be greater than or equal to ${MIN_KAPI_VERSION}`,
+          );
+        }
 
         // The event cache is stored with an N block lag to avoid caching data from uncle blocks
         // so we don't worry about blockHash here
@@ -96,10 +124,12 @@ export class GuardianService implements OnModuleInit {
     this.logger.log('New staking router state cycle start');
 
     try {
+      const { data: operatorsByModules, meta } =
+        await this.stakingRouterService.getOperatorsAndModules();
+
       const {
         elBlockSnapshot: { blockHash, blockNumber },
-        data: stakingModules,
-      } = await this.stakingRouterService.getStakingModules();
+      } = meta;
 
       await this.repositoryService.initCachedContracts({ blockHash });
 
@@ -119,12 +149,15 @@ export class GuardianService implements OnModuleInit {
         return;
       }
 
+      const stakingModulesCount = operatorsByModules.length;
+
       this.logger.log('Staking modules loaded', {
-        modulesCount: stakingModules.length,
+        modulesCount: stakingModulesCount,
       });
 
       await this.depositService.handleNewBlock(blockNumber);
 
+      // TODO: e2e test 'node operator deposit frontrun' shows that it is possible to find event and not save in cache
       const blockData = await this.blockGuardService.getCurrentBlockData({
         blockHash,
         blockNumber,
@@ -136,14 +169,30 @@ export class GuardianService implements OnModuleInit {
         blockHash: blockData.blockHash,
       });
 
-      await Promise.all(
-        stakingModules.map(async (stakingRouterModule) => {
-          const stakingModuleData =
-            await this.stakingModuleGuardService.getStakingRouterModuleData(
-              stakingRouterModule,
-              blockHash,
-            );
+      const stakingModulesData =
+        await this.stakingRouterService.getStakingModulesData({
+          data: operatorsByModules,
+          meta,
+        });
 
+      const modulesIdWithDuplicateKeys: number[] =
+        this.stakingModuleGuardService.getModulesIdsWithDuplicatedVettedUnusedKeys(
+          stakingModulesData,
+          blockData,
+        );
+
+      const stakingModulesWithoutDuplicates: StakingModuleData[] =
+        this.stakingModuleGuardService.excludeModulesWithDuplicatedKeys(
+          stakingModulesData,
+          modulesIdWithDuplicateKeys,
+        );
+
+      this.logger.log('Staking modules without duplicates', {
+        modulesCount: stakingModulesWithoutDuplicates.length,
+      });
+
+      await Promise.all(
+        stakingModulesWithoutDuplicates.map(async (stakingModuleData) => {
           await this.stakingModuleGuardService.checkKeysIntersections(
             stakingModuleData,
             blockData,
@@ -157,7 +206,7 @@ export class GuardianService implements OnModuleInit {
       );
 
       await this.guardianMessageService.pingMessageBroker(
-        stakingModules.map(({ id }) => id),
+        stakingModulesData.map(({ stakingModuleId }) => stakingModuleId),
         blockData,
       );
 

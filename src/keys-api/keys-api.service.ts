@@ -1,10 +1,11 @@
 import { Injectable, LoggerService, Inject } from '@nestjs/common';
-import { FetchService } from '@lido-nestjs/fetch';
+import { FetchService, RequestInit } from '@lido-nestjs/fetch';
 import { AbortController } from 'node-abort-controller';
 import { FETCH_REQUEST_TIMEOUT } from './keys-api.constants';
-import { SRModuleKeysResponse, SRModuleListResponse } from './interfaces';
+import { KeyListResponse, Status } from './interfaces';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Configuration } from 'common/config';
+import { GroupedByModuleOperatorListResponse } from './interfaces/GroupedByModuleOperatorListResponse';
 
 @Injectable()
 export class KeysApiService {
@@ -14,7 +15,7 @@ export class KeysApiService {
     protected readonly fetchService: FetchService,
   ) {}
 
-  protected async fetch<Response>(url: string) {
+  protected async fetch<Response>(url: string, requestInit?: RequestInit) {
     const controller = new AbortController();
     const { signal } = controller;
 
@@ -29,6 +30,7 @@ export class KeysApiService {
         `${baseUrl}${url}`,
         {
           signal,
+          ...requestInit,
         },
       );
       clearTimeout(timer);
@@ -39,19 +41,41 @@ export class KeysApiService {
     }
   }
 
-  public async getModulesList() {
-    const result = await this.fetch<SRModuleListResponse>('/v1/modules');
-    if (!result.data?.length || !result.elBlockSnapshot)
-      throw Error('Keys API not synced, please wait');
+  /**
+   *
+   * @param The /v1/keys/find API endpoint returns keys along with their duplicates
+   * @returns
+   */
+  public async getKeysByPubkeys(pubkeys: string[]) {
+    const result = await this.fetch<KeyListResponse>(`/v1/keys/find`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ pubkeys }),
+    });
     return result;
   }
 
-  public async getUnusedModuleKeys(stakingModuleId: number) {
-    const result = await this.fetch<SRModuleKeysResponse>(
-      `/v1/modules/${stakingModuleId}/keys?used=false`,
+  public async getUnusedKeys() {
+    const result = await this.fetch<KeyListResponse>(`/v1/keys?used=false`);
+    return result;
+  }
+
+  public async getOperatorListWithModule() {
+    const result = await this.fetch<GroupedByModuleOperatorListResponse>(
+      `/v1/operators`,
     );
-    if (!result.data || !result.meta)
-      throw Error('Keys API not synced, please wait');
+    return result;
+  }
+
+  /**
+   *
+   * @param The /v1/status API endpoint returns chainId, appVersion, El and Cl meta
+   * @returns
+   */
+  public async getKeysApiStatus(): Promise<Status> {
+    const result = await this.fetch<Status>(`/v1/status`);
     return result;
   }
 }

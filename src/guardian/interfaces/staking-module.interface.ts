@@ -1,7 +1,10 @@
+import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
+
 export interface StakingModuleData {
   blockHash: string;
-  isDepositsPaused: boolean;
   unusedKeys: string[];
+  vettedUnusedKeys: RegistryKey[];
   nonce: number;
   stakingModuleId: number;
+  lastChangedBlockHash: string;
 }
