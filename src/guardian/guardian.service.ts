@@ -215,7 +215,8 @@ export class GuardianService implements OnModuleInit {
         blockNumber,
       });
     } catch (error) {
-      this.logger.error('Staking router state update error', error);
+      this.logger.error('Staking router state update error');
+      this.logger.error(error);
     } finally {
       this.logger.log('New staking router state cycle end');
     }
