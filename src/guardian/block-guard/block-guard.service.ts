@@ -88,6 +88,7 @@ export class BlockGuardService {
       };
     } catch (error) {
       this.blockErrorsCounter.inc();
+      this.logger.error(error);
       throw error;
     } finally {
       endTimer();
