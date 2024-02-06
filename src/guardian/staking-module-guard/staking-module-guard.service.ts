@@ -81,7 +81,12 @@ export class StakingModuleGuardService {
         moduleAddressesWithDuplicates: moduleAddressesWithDuplicatesList,
       });
 
-      this.guardianMetricsService.incrDuplicatedVettedUnusedKeysEventCounter();
+      for (const id of modulesWithDuplicatedKeysSet) {
+        this.guardianMetricsService.incrDuplicatedVettedUnusedKeysEventCounter(
+          id,
+        );
+      }
+
       return moduleAddressesWithDuplicatesList;
     }
 
@@ -164,7 +169,9 @@ export class StakingModuleGuardService {
           blockHash,
           stakingModuleId,
         });
-        this.guardianMetricsService.incrDuplicatedUsedKeysEventCounter();
+        this.guardianMetricsService.incrDuplicatedUsedKeysEventCounter(
+          stakingModuleData.stakingModuleId,
+        );
         return;
       }
 
@@ -439,7 +446,9 @@ export class StakingModuleGuardService {
         this.logger.error(
           `Found invalid keys, will skip deposits until solving problem, stakingModuleId: ${stakingModuleId}`,
         );
-        this.guardianMetricsService.incrInvalidKeysEventCounter();
+        this.guardianMetricsService.incrInvalidKeysEventCounter(
+          stakingModuleData.stakingModuleId,
+        );
         // save info about invalid keys in cache
         this.lastContractsStateByModuleId[stakingModuleId] = {
           nonce,

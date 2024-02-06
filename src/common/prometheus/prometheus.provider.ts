@@ -109,7 +109,7 @@ export const PrometheusUsedKeysEventProvider = makeCounterProvider({
   labelNames: ['stakingModuleId'] as const,
 });
 
-export const PrometheusInvalidKeysEventProvider = makeGaugeProvider({
+export const PrometheusInvalidKeysEventProvider = makeCounterProvider({
   name: METRIC_INVALID_KEYS_EVENT_COUNTER,
   help: 'Number of invalid keys',
   labelNames: ['stakingModuleId'] as const,
