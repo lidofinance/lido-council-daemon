@@ -133,21 +133,23 @@ export class GuardianMetricsService {
   /**
    * increment duplicated vetted unused keys event counter
    */
-  public incrDuplicatedVettedUnusedKeysEventCounter() {
-    this.duplicatedVettedUnusedKeysEventCounter.inc();
+  public incrDuplicatedVettedUnusedKeysEventCounter(stakingModuleId: number) {
+    this.duplicatedVettedUnusedKeysEventCounter
+      .labels({ stakingModuleId })
+      .inc();
   }
 
   /**
    * increment duplicated used keys event counter
    */
-  public incrDuplicatedUsedKeysEventCounter() {
-    this.duplicatedUsedKeysEventCounter.inc();
+  public incrDuplicatedUsedKeysEventCounter(stakingModuleId: number) {
+    this.duplicatedUsedKeysEventCounter.labels({ stakingModuleId }).inc();
   }
 
   /**
    * increment invalid keys event counter
    */
-  public incrInvalidKeysEventCounter() {
-    this.invalidKeysEventCounter.inc();
+  public incrInvalidKeysEventCounter(stakingModuleId: number) {
+    this.invalidKeysEventCounter.labels({ stakingModuleId }).inc();
   }
 }
