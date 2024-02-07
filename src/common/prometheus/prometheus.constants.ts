@@ -22,8 +22,8 @@ export const METRIC_OPERATORS_KEYS_TOTAL = `${METRICS_PREFIX}operators_keys_tota
 
 export const METRIC_KEYS_API_REQUEST_DURATION = `${METRICS_PREFIX}keys_api_requests_duration_seconds`;
 
-export const METRIC_DUPLICATED_VETTED_UNUSED_KEYS_EVENT_COUNTER = `${METRICS_PREFIX}duplicated_vetted_unused_keys_event_total`;
+export const METRIC_DUPLICATED_VETTED_UNUSED_KEYS_TOTAL = `${METRICS_PREFIX}duplicated_vetted_unused_keys`;
 
-export const METRIC_DUPLICATED_USED_KEYS_EVENT_COUNTER = `${METRICS_PREFIX}duplicated_used_keys_event_total`;
+export const METRIC_DUPLICATED_USED_KEYS_TOTAL = `${METRICS_PREFIX}duplicated_used_keys`;
 
-export const METRIC_INVALID_KEYS_EVENT_COUNTER = `${METRICS_PREFIX}invalid_keys_event_total`;
+export const METRIC_INVALID_KEYS_TOTAL = `${METRICS_PREFIX}invalid_keys`;
