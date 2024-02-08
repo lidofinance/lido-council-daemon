@@ -13,9 +13,9 @@ import {
   PrometheusDepositedKeysProvider,
   PrometheusOperatorsKeysProvider,
   PrometheusKeysApiRequestsProvider,
-  PrometheusVettedUnusedKeysEventProvider,
-  PrometheusUsedKeysEventProvider,
-  PrometheusInvalidKeysEventProvider,
+  PrometheusUsedKeysProvider,
+  PrometheusVettedUnusedKeysProvider,
+  PrometheusInvalidKeysProvider,
 } from './prometheus.provider';
 import { METRICS_PREFIX, METRICS_URL } from './prometheus.constants';
 
@@ -41,9 +41,9 @@ const providers = [
   PrometheusDepositedKeysProvider,
   PrometheusOperatorsKeysProvider,
   PrometheusKeysApiRequestsProvider,
-  PrometheusVettedUnusedKeysEventProvider,
-  PrometheusUsedKeysEventProvider,
-  PrometheusInvalidKeysEventProvider,
+  PrometheusVettedUnusedKeysProvider,
+  PrometheusUsedKeysProvider,
+  PrometheusInvalidKeysProvider,
 ];
 
 PrometheusModule.global = true;
