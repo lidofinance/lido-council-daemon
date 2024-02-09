@@ -36,62 +36,69 @@ export class StakingModuleGuardService {
     stakingModulesData: StakingModuleData[],
     blockData: BlockData,
   ): number[] {
-    // Collects the duplicate count for each unique key across staking modules.
-    // The outer Map uses the key string as the key and holds an inner Map.
-    // The inner Map uses module id as keys and stores the duplicate count for each module.
-    const keyMap = new Map<string, Map<number, number>>();
-    const modulesWithDuplicatedKeysSet = new Set<number>();
-    const duplicatedKeys = new Map<string, Map<number, number>>();
+    // Collects the duplicate count for each unique key across staking modules
+    // This map collects, for every key, a set of module IDs where the key was found.
+    const keyModuleOccurrences = new Map<string, Set<number>>();
+    // This map collects, for every module, the number of duplicated keys found in it.
+    const moduleDuplicatedKeysCount = new Map<number, number>();
 
     stakingModulesData.forEach(({ vettedUnusedKeys, stakingModuleId }) => {
-      // check module keys on duplicates across all modules
-      vettedUnusedKeys.forEach((key) => {
-        const stakingModules = keyMap.get(key.key);
+      // This set tracks keys that are duplicated within the same module.
+      const duplicatedKeysInsideOneModule = new Set<string>();
+      vettedUnusedKeys.forEach(({ key }) => {
+        // is a key new for module
+        const isNewKeyForModule = !duplicatedKeysInsideOneModule.has(key);
+        // Mark this key as encountered for this module
+        duplicatedKeysInsideOneModule.add(key);
 
-        if (!stakingModules) {
+        // modules where the key was found
+        const moduleIds = keyModuleOccurrences.get(key);
+
+        if (!moduleIds) {
           // add new key
-          keyMap.set(key.key, new Map([[stakingModuleId, 1]]));
+          keyModuleOccurrences.set(key, new Set([stakingModuleId]));
         } else {
-          // found duplicate
-          // Duplicate key found
-          const moduleCount = stakingModules.get(stakingModuleId) || 0;
-          stakingModules.set(stakingModuleId, moduleCount + 1);
+          moduleIds.add(stakingModuleId);
 
-          if (this.hasDuplicateKeys(stakingModules)) {
-            stakingModules.forEach((_, id) => {
-              modulesWithDuplicatedKeysSet.add(id);
+          if (moduleIds.size > 1 || !isNewKeyForModule) {
+            moduleIds.forEach((id) => {
+              moduleDuplicatedKeysCount.set(
+                id,
+                (moduleDuplicatedKeysCount.get(id) || 0) + 1,
+              );
             });
-            duplicatedKeys.set(key.key, stakingModules);
           }
         }
       });
     });
 
-    if (modulesWithDuplicatedKeysSet.size) {
-      const moduleAddressesWithDuplicatesList: number[] = Array.from(
-        modulesWithDuplicatedKeysSet,
+    // set metrics
+    stakingModulesData.forEach(({ stakingModuleId }) => {
+      const countOfDuplicatedKeys =
+        moduleDuplicatedKeysCount.get(stakingModuleId) || 0;
+      this.guardianMetricsService.collectDuplicatedVettedUnusedKeysMetrics(
+        stakingModuleId,
+        countOfDuplicatedKeys,
       );
+    });
+
+    if (moduleDuplicatedKeysCount.size) {
+      const moduleDuplicatedKeysCountList = Array.from(
+        moduleDuplicatedKeysCount,
+      ).map(([stakingModuleId, duplicatedKeys]) => ({
+        stakingModuleId,
+        duplicatedKeys,
+      }));
       this.logger.error('Found duplicated vetted keys');
       this.logger.log('Duplicated keys', {
         blockHash: blockData.blockHash,
-        duplicatedKeys: Array.from(duplicatedKeys).map(([key, innerMap]) => ({
-          key: key,
-          stakingModuleIds: Array.from(innerMap.keys()),
-        })),
-        moduleAddressesWithDuplicates: moduleAddressesWithDuplicatesList,
+        modulesWithDuplicates: moduleDuplicatedKeysCountList,
       });
 
-      this.guardianMetricsService.incrDuplicatedVettedUnusedKeysEventCounter();
-      return moduleAddressesWithDuplicatesList;
+      return Array.from(moduleDuplicatedKeysCount.keys());
     }
 
     return [];
-  }
-
-  private hasDuplicateKeys(stakingModules: Map<number, number>): boolean {
-    const moduleCounts = Array.from(stakingModules.values());
-
-    return stakingModules.size > 1 || moduleCounts[0] > 1;
   }
 
   public excludeModulesWithDuplicatedKeys(
@@ -158,13 +165,17 @@ export class StakingModuleGuardService {
         validIntersections,
       );
 
+      this.guardianMetricsService.collectDuplicatedUsedKeysMetrics(
+        stakingModuleData.stakingModuleId,
+        usedKeys.length,
+      );
+
       // if found used keys, Lido already made deposit on this keys
       if (usedKeys.length) {
         this.logger.log('Found that we already deposited on these keys', {
           blockHash,
           stakingModuleId,
         });
-        this.guardianMetricsService.incrDuplicatedUsedKeysEventCounter();
         return;
       }
 
@@ -434,12 +445,17 @@ export class StakingModuleGuardService {
         blockData,
       );
 
+      this.guardianMetricsService.collectInvalidKeysMetrics(
+        stakingModuleData.stakingModuleId,
+        invalidKeys.length,
+      );
+
       // if found invalid keys, update state and exit
       if (invalidKeys.length) {
         this.logger.error(
           `Found invalid keys, will skip deposits until solving problem, stakingModuleId: ${stakingModuleId}`,
         );
-        this.guardianMetricsService.incrInvalidKeysEventCounter();
+
         // save info about invalid keys in cache
         this.lastContractsStateByModuleId[stakingModuleId] = {
           nonce,

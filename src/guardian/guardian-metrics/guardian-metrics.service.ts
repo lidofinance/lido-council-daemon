@@ -7,11 +7,11 @@ import {
   METRIC_DEPOSITED_KEYS_TOTAL,
   METRIC_OPERATORS_KEYS_TOTAL,
   METRIC_INTERSECTIONS_TOTAL,
-  METRIC_DUPLICATED_USED_KEYS_EVENT_COUNTER,
-  METRIC_INVALID_KEYS_EVENT_COUNTER,
-  METRIC_DUPLICATED_VETTED_UNUSED_KEYS_EVENT_COUNTER,
+  METRIC_INVALID_KEYS_TOTAL,
+  METRIC_DUPLICATED_VETTED_UNUSED_KEYS_TOTAL,
+  METRIC_DUPLICATED_USED_KEYS_TOTAL,
 } from 'common/prometheus';
-import { Counter, Gauge } from 'prom-client';
+import { Gauge } from 'prom-client';
 
 @Injectable()
 export class GuardianMetricsService {
@@ -28,14 +28,14 @@ export class GuardianMetricsService {
     @InjectMetric(METRIC_INTERSECTIONS_TOTAL)
     private intersectionsCounter: Gauge<string>,
 
-    @InjectMetric(METRIC_DUPLICATED_USED_KEYS_EVENT_COUNTER)
-    private duplicatedUsedKeysEventCounter: Counter<string>,
+    @InjectMetric(METRIC_DUPLICATED_USED_KEYS_TOTAL)
+    private duplicatedUsedKeysCounter: Gauge<string>,
 
-    @InjectMetric(METRIC_DUPLICATED_VETTED_UNUSED_KEYS_EVENT_COUNTER)
-    private duplicatedVettedUnusedKeysEventCounter: Counter<string>,
+    @InjectMetric(METRIC_DUPLICATED_VETTED_UNUSED_KEYS_TOTAL)
+    private duplicatedVettedUnusedKeysCounter: Gauge<string>,
 
-    @InjectMetric(METRIC_INVALID_KEYS_EVENT_COUNTER)
-    private invalidKeysEventCounter: Counter<string>,
+    @InjectMetric(METRIC_INVALID_KEYS_TOTAL)
+    private invalidKeysCounter: Gauge<string>,
   ) {}
 
   /**
@@ -133,21 +133,36 @@ export class GuardianMetricsService {
   /**
    * increment duplicated vetted unused keys event counter
    */
-  public incrDuplicatedVettedUnusedKeysEventCounter() {
-    this.duplicatedVettedUnusedKeysEventCounter.inc();
+  public collectDuplicatedVettedUnusedKeysMetrics(
+    stakingModuleId: number,
+    duplicatedVettedUnusedKeysCount: number,
+  ) {
+    this.duplicatedVettedUnusedKeysCounter.set(
+      { stakingModuleId },
+      duplicatedVettedUnusedKeysCount,
+    );
   }
 
   /**
    * increment duplicated used keys event counter
    */
-  public incrDuplicatedUsedKeysEventCounter() {
-    this.duplicatedUsedKeysEventCounter.inc();
+  public collectDuplicatedUsedKeysMetrics(
+    stakingModuleId: number,
+    duplicatedUsedKeysCount: number,
+  ) {
+    this.duplicatedUsedKeysCounter.set(
+      { stakingModuleId },
+      duplicatedUsedKeysCount,
+    );
   }
 
   /**
    * increment invalid keys event counter
    */
-  public incrInvalidKeysEventCounter() {
-    this.invalidKeysEventCounter.inc();
+  public collectInvalidKeysMetrics(
+    stakingModuleId: number,
+    invalidKeysCount: number,
+  ) {
+    this.invalidKeysCounter.set({ stakingModuleId }, invalidKeysCount);
   }
 }
