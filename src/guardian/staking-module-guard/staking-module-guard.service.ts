@@ -111,6 +111,59 @@ export class StakingModuleGuardService {
     );
   }
 
+  async getHistoricalFrontRun(blockData: BlockData) {
+    const { depositedEvents, lidoWC } = blockData;
+    const potentialLidoDepositsEvents = depositedEvents.events.filter(
+      ({ wc }) => wc === lidoWC,
+    );
+
+    const duplicatedDepositEvents: VerifiedDepositEvent[] = [];
+
+    depositedEvents.events.forEach((event) => {
+      if (
+        potentialLidoDepositsEvents.find(
+          (potentialLidoDepositsEvent) =>
+            potentialLidoDepositsEvent.pubkey === event.pubkey,
+        ) &&
+        event.wc !== lidoWC
+      ) {
+        duplicatedDepositEvents.push(event);
+      }
+    });
+
+    const validDuplicatedDepositEvents = duplicatedDepositEvents.filter(
+      (event) => event.valid,
+    );
+
+    const frontRunedDepositEvents = validDuplicatedDepositEvents.filter(
+      (validDuplicatedDepositEvent) => {
+        const duplicatedEvent = potentialLidoDepositsEvents.find(
+          (potentialLidoDepositsEvent) =>
+            potentialLidoDepositsEvent.pubkey ===
+              validDuplicatedDepositEvent.pubkey &&
+            validDuplicatedDepositEvent.blockNumber !==
+              potentialLidoDepositsEvent.blockNumber,
+        );
+        if (!duplicatedEvent) return;
+        const isFrontRun =
+          duplicatedEvent?.blockNumber <=
+          validDuplicatedDepositEvent.blockNumber; // может ли быть равен?
+        return isFrontRun;
+      },
+    );
+
+    const lidoDepositedKeys = await this.stakingRouterService.getKeysByPubkeys(
+      frontRunedDepositEvents.map(({ pubkey }) => pubkey),
+    );
+
+    const isLidoDepositedKeys = lidoDepositedKeys.data.length;
+
+    if (isLidoDepositedKeys) {
+      this.logger.warn('historical intersection found');
+    }
+
+    return isLidoDepositedKeys;
+  }
   /**
    * Checks keys for intersections with previously deposited keys and handles the situation
    * @param blockData - collected data from the current block
@@ -143,6 +196,8 @@ export class StakingModuleGuardService {
       keysIntersections,
       filteredIntersections,
     );
+    // TODO: add metrics for getHistoricalFrontRun same as for keysIntersections
+    const historicalFrontRunFound = await this.getHistoricalFrontRun(blockData);
 
     const isDepositsPaused = await this.securityService.isDepositsPaused(
       stakingModuleData.stakingModuleId,
@@ -156,7 +211,7 @@ export class StakingModuleGuardService {
       return;
     }
 
-    if (isFilteredIntersectionsFound) {
+    if (isFilteredIntersectionsFound || historicalFrontRunFound) {
       await this.handleKeysIntersections(stakingModuleData, blockData);
     } else {
       // it could throw error if kapi returned old data
