@@ -86,6 +86,20 @@ describe('StakingModuleGuardService', () => {
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
     jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
     jest.spyOn(loggerService, 'debug').mockImplementation(() => undefined);
+
+    jest
+      .spyOn(stakingRouterService, 'getKeysByPubkeys')
+      .mockImplementation(async () => ({
+        data: [],
+        meta: {
+          elBlockSnapshot: {
+            blockNumber: 0,
+            blockHash: 'hash',
+            timestamp: 12345,
+            lastChangedBlockHash: 'lastHash',
+          },
+        },
+      }));
   });
 
   describe('getKeysIntersections', () => {

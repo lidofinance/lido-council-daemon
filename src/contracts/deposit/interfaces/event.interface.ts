@@ -6,6 +6,7 @@ export interface DepositEvent {
   tx: string;
   blockNumber: number;
   blockHash: string;
+  logIndex: number;
 }
 
 export interface VerifiedDepositEvent extends DepositEvent {
