@@ -111,24 +111,24 @@ export class StakingModuleGuardService {
     );
   }
 
-  isEarlyDeposit(
+  isFirstEventEarlier(
     firstEvent: VerifiedDepositEvent,
     secondEvent: VerifiedDepositEvent,
   ) {
     const isSameBlock = firstEvent?.blockNumber === secondEvent.blockNumber;
 
-    let isEarlyDeposit = false;
+    let isFirstEventEarlier = false;
 
     if (isSameBlock) {
-      isEarlyDeposit = firstEvent?.logIndex < secondEvent.logIndex;
+      isFirstEventEarlier = firstEvent?.logIndex < secondEvent.logIndex;
     } else {
-      isEarlyDeposit = firstEvent?.blockNumber < secondEvent.blockNumber;
+      isFirstEventEarlier = firstEvent?.blockNumber < secondEvent.blockNumber;
     }
 
-    return isEarlyDeposit;
+    return isFirstEventEarlier;
   }
   /**
-   * Method is not taking into account WC rotation since historical deposits was checked manually
+   * Method is not taking into account WC rotation since historical deposits were checked manually
    * @param blockData
    * @returns
    */
@@ -148,7 +148,7 @@ export class StakingModuleGuardService {
     potentialLidoDepositsEvents.forEach((event) => {
       if (potentialLidoDepositsKeysMap[event.pubkey]) {
         const existed = potentialLidoDepositsKeysMap[event.pubkey];
-        const isExisted = this.isEarlyDeposit(existed, event);
+        const isExisted = this.isFirstEventEarlier(existed, event);
         // this should not happen, since Lido deposits once per key.
         // but someone can still make such a deposit.
         if (isExisted) return;
@@ -184,7 +184,7 @@ export class StakingModuleGuardService {
 
         if (!sameKeyLidoDeposit) throw new Error('expected event not found');
 
-        return this.isEarlyDeposit(suspectedEvent, sameKeyLidoDeposit);
+        return this.isFirstEventEarlier(suspectedEvent, sameKeyLidoDeposit);
       },
     );
 
