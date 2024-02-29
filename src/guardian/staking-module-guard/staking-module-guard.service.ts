@@ -111,55 +111,95 @@ export class StakingModuleGuardService {
     );
   }
 
+  isEarlyDeposit(
+    firstEvent: VerifiedDepositEvent,
+    secondEvent: VerifiedDepositEvent,
+  ) {
+    const isSameBlock = firstEvent?.blockNumber === secondEvent.blockNumber;
+
+    let isEarlyDeposit = false;
+
+    if (isSameBlock) {
+      isEarlyDeposit = firstEvent?.logIndex < secondEvent.logIndex;
+    } else {
+      isEarlyDeposit = firstEvent?.blockNumber < secondEvent.blockNumber;
+    }
+
+    return isEarlyDeposit;
+  }
+  /**
+   * Method is not taking into account WC rotation since historical deposits was checked manually
+   * @param blockData
+   * @returns
+   */
   async getHistoricalFrontRun(blockData: BlockData) {
     const { depositedEvents, lidoWC } = blockData;
     const potentialLidoDepositsEvents = depositedEvents.events.filter(
       ({ wc }) => wc === lidoWC,
     );
 
+    this.logger.log('potential lido deposits events count', {
+      count: potentialLidoDepositsEvents.length,
+    });
+
+    const potentialLidoDepositsKeysMap: Record<string, VerifiedDepositEvent> =
+      {};
+
+    potentialLidoDepositsEvents.forEach((event) => {
+      if (potentialLidoDepositsKeysMap[event.pubkey]) {
+        const existed = potentialLidoDepositsKeysMap[event.pubkey];
+        const isExisted = this.isEarlyDeposit(existed, event);
+        // this should not happen, since Lido deposits once per key.
+        // but someone can still make such a deposit.
+        if (isExisted) return;
+      }
+      potentialLidoDepositsKeysMap[event.pubkey] = event;
+    });
+
     const duplicatedDepositEvents: VerifiedDepositEvent[] = [];
 
     depositedEvents.events.forEach((event) => {
-      if (
-        potentialLidoDepositsEvents.find(
-          (potentialLidoDepositsEvent) =>
-            potentialLidoDepositsEvent.pubkey === event.pubkey,
-        ) &&
-        event.wc !== lidoWC
-      ) {
+      if (potentialLidoDepositsKeysMap[event.pubkey] && event.wc !== lidoWC) {
         duplicatedDepositEvents.push(event);
       }
+    });
+
+    this.logger.log('duplicated deposit events', {
+      count: duplicatedDepositEvents.length,
     });
 
     const validDuplicatedDepositEvents = duplicatedDepositEvents.filter(
       (event) => event.valid,
     );
 
-    const frontRunedDepositEvents = validDuplicatedDepositEvents.filter(
-      (validDuplicatedDepositEvent) => {
-        const duplicatedEvent = potentialLidoDepositsEvents.find(
-          (potentialLidoDepositsEvent) =>
-            potentialLidoDepositsEvent.pubkey ===
-              validDuplicatedDepositEvent.pubkey &&
-            validDuplicatedDepositEvent.blockNumber !==
-              potentialLidoDepositsEvent.blockNumber,
-        );
-        if (!duplicatedEvent) return;
-        const isFrontRun =
-          duplicatedEvent?.blockNumber <=
-          validDuplicatedDepositEvent.blockNumber; // может ли быть равен?
-        return isFrontRun;
+    this.logger.log('valid duplicated deposit events', {
+      count: validDuplicatedDepositEvents.length,
+    });
+
+    const frontRunnedDepositEvents = validDuplicatedDepositEvents.filter(
+      (suspectedEvent) => {
+        // get event from lido map
+        const sameKeyLidoDeposit =
+          potentialLidoDepositsKeysMap[suspectedEvent.pubkey];
+
+        if (!sameKeyLidoDeposit) throw new Error('expected event not found');
+
+        return this.isEarlyDeposit(suspectedEvent, sameKeyLidoDeposit);
       },
     );
 
+    this.logger.log('front runned deposit events', {
+      events: frontRunnedDepositEvents,
+    });
+
     const lidoDepositedKeys = await this.stakingRouterService.getKeysByPubkeys(
-      frontRunedDepositEvents.map(({ pubkey }) => pubkey),
+      frontRunnedDepositEvents.map(({ pubkey }) => pubkey),
     );
 
     const isLidoDepositedKeys = lidoDepositedKeys.data.length;
 
     if (isLidoDepositedKeys) {
-      this.logger.warn('historical intersection found');
+      this.logger.warn('historical front-run found');
     }
 
     return isLidoDepositedKeys;
