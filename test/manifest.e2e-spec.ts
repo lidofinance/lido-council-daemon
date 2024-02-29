@@ -275,6 +275,7 @@ describe('ganache e2e tests', () => {
             tx: '0x123',
             blockHash: forkBlock.hash,
             blockNumber: forkBlock.number,
+            logIndex: 1,
           },
         ],
         headers: {
@@ -425,6 +426,7 @@ describe('ganache e2e tests', () => {
             tx: '0x123',
             blockHash: forkBlock.hash,
             blockNumber: forkBlock.number,
+            logIndex: 1,
           },
         ],
         headers: {

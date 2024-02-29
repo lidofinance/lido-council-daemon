@@ -142,10 +142,25 @@ export class DepositService {
    * to reduce the size of the information stored in the cache
    */
   public formatEvent(rawEvent: DepositEventEvent): DepositEvent {
-    const { args, transactionHash: tx, blockNumber, blockHash } = rawEvent;
+    const {
+      args,
+      transactionHash: tx,
+      blockNumber,
+      blockHash,
+      logIndex,
+    } = rawEvent;
     const { withdrawal_credentials: wc, pubkey, amount, signature } = args;
 
-    return { pubkey, wc, amount, signature, tx, blockNumber, blockHash };
+    return {
+      pubkey,
+      wc,
+      amount,
+      signature,
+      tx,
+      blockNumber,
+      blockHash,
+      logIndex,
+    };
   }
 
   /**

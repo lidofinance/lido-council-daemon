@@ -111,6 +111,107 @@ export class StakingModuleGuardService {
     );
   }
 
+  isFirstEventEarlier(
+    firstEvent: VerifiedDepositEvent,
+    secondEvent: VerifiedDepositEvent,
+  ) {
+    const isSameBlock = firstEvent?.blockNumber === secondEvent.blockNumber;
+
+    let isFirstEventEarlier = false;
+
+    if (isSameBlock) {
+      isFirstEventEarlier = firstEvent?.logIndex < secondEvent.logIndex;
+    } else {
+      isFirstEventEarlier = firstEvent?.blockNumber < secondEvent.blockNumber;
+    }
+
+    return isFirstEventEarlier;
+  }
+  /**
+   * Method is not taking into account WC rotation since historical deposits were checked manually
+   * @param blockData
+   * @returns
+   */
+  async getHistoricalFrontRun(blockData: BlockData) {
+    const { depositedEvents, lidoWC } = blockData;
+    const potentialLidoDepositsEvents = depositedEvents.events.filter(
+      ({ wc, valid }) => wc === lidoWC && valid,
+    );
+
+    this.logger.log('potential lido deposits events count', {
+      count: potentialLidoDepositsEvents.length,
+    });
+
+    const potentialLidoDepositsKeysMap: Record<string, VerifiedDepositEvent> =
+      {};
+
+    potentialLidoDepositsEvents.forEach((event) => {
+      if (potentialLidoDepositsKeysMap[event.pubkey]) {
+        const existed = potentialLidoDepositsKeysMap[event.pubkey];
+        const isExisted = this.isFirstEventEarlier(existed, event);
+        // this should not happen, since Lido deposits once per key.
+        // but someone can still make such a deposit.
+        if (isExisted) return;
+      }
+      potentialLidoDepositsKeysMap[event.pubkey] = event;
+    });
+
+    const duplicatedDepositEvents: VerifiedDepositEvent[] = [];
+
+    depositedEvents.events.forEach((event) => {
+      if (potentialLidoDepositsKeysMap[event.pubkey] && event.wc !== lidoWC) {
+        duplicatedDepositEvents.push(event);
+      }
+    });
+
+    this.logger.log('duplicated deposit events', {
+      count: duplicatedDepositEvents.length,
+    });
+
+    const validDuplicatedDepositEvents = duplicatedDepositEvents.filter(
+      (event) => event.valid,
+    );
+
+    this.logger.log('valid duplicated deposit events', {
+      count: validDuplicatedDepositEvents.length,
+    });
+
+    const frontRunnedDepositEvents = validDuplicatedDepositEvents.filter(
+      (suspectedEvent) => {
+        // get event from lido map
+        const sameKeyLidoDeposit =
+          potentialLidoDepositsKeysMap[suspectedEvent.pubkey];
+
+        if (!sameKeyLidoDeposit) throw new Error('expected event not found');
+
+        return this.isFirstEventEarlier(suspectedEvent, sameKeyLidoDeposit);
+      },
+    );
+
+    this.logger.log('front runned deposit events', {
+      events: frontRunnedDepositEvents,
+    });
+
+    const frontRunnedDepositKeys = frontRunnedDepositEvents.map(
+      ({ pubkey }) => pubkey,
+    );
+
+    if (!frontRunnedDepositKeys.length) {
+      return false;
+    }
+
+    const lidoDepositedKeys = await this.stakingRouterService.getKeysByPubkeys(
+      frontRunnedDepositKeys,
+    );
+
+    const isLidoDepositedKeys = lidoDepositedKeys.data.length;
+
+    if (isLidoDepositedKeys) {
+      this.logger.warn('historical front-run found');
+    }
+
+    return isLidoDepositedKeys;
+  }
   /**
    * Checks keys for intersections with previously deposited keys and handles the situation
    * @param blockData - collected data from the current block
@@ -143,6 +244,8 @@ export class StakingModuleGuardService {
       keysIntersections,
       filteredIntersections,
     );
+    // TODO: add metrics for getHistoricalFrontRun same as for keysIntersections
+    const historicalFrontRunFound = await this.getHistoricalFrontRun(blockData);
 
     const isDepositsPaused = await this.securityService.isDepositsPaused(
       stakingModuleData.stakingModuleId,
@@ -156,7 +259,7 @@ export class StakingModuleGuardService {
       return;
     }
 
-    if (isFilteredIntersectionsFound) {
+    if (isFilteredIntersectionsFound || historicalFrontRunFound) {
       await this.handleKeysIntersections(stakingModuleData, blockData);
     } else {
       // it could throw error if kapi returned old data
