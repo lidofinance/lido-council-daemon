@@ -135,7 +135,7 @@ export class StakingModuleGuardService {
   async getHistoricalFrontRun(blockData: BlockData) {
     const { depositedEvents, lidoWC } = blockData;
     const potentialLidoDepositsEvents = depositedEvents.events.filter(
-      ({ wc }) => wc === lidoWC,
+      ({ wc, valid }) => wc === lidoWC && valid,
     );
 
     this.logger.log('potential lido deposits events count', {
