@@ -192,8 +192,16 @@ export class StakingModuleGuardService {
       events: frontRunnedDepositEvents,
     });
 
+    const frontRunnedDepositKeys = frontRunnedDepositEvents.map(
+      ({ pubkey }) => pubkey,
+    );
+
+    if (!frontRunnedDepositKeys.length) {
+      return false;
+    }
+
     const lidoDepositedKeys = await this.stakingRouterService.getKeysByPubkeys(
-      frontRunnedDepositEvents.map(({ pubkey }) => pubkey),
+      frontRunnedDepositKeys,
     );
 
     const isLidoDepositedKeys = lidoDepositedKeys.data.length;
