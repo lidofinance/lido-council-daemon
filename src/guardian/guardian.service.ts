@@ -196,7 +196,7 @@ export class GuardianService implements OnModuleInit {
           // stakingModulesWithoutDuplicates - modules without duplicates
           // if found in this module it means it doesnt have duplicates
 
-          const depositsAvailable = !!stakingModulesWithoutDuplicates.find(
+          const noDuplicates = !!stakingModulesWithoutDuplicates.find(
             (srmd) =>
               srmd.stakingModuleId === stakingModuleData.stakingModuleId,
           );
@@ -204,7 +204,7 @@ export class GuardianService implements OnModuleInit {
           await this.stakingModuleGuardService.checkKeysIntersections(
             stakingModuleData,
             blockData,
-            depositsAvailable,
+            noDuplicates,
           );
 
           this.guardianMetricsService.collectMetrics(

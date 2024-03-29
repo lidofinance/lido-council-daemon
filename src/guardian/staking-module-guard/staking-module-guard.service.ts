@@ -220,7 +220,7 @@ export class StakingModuleGuardService {
   public async checkKeysIntersections(
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
-    depositsAvailable: boolean,
+    noDuplicates: boolean,
   ): Promise<void> {
     const { blockHash } = blockData;
     const { stakingModuleId } = stakingModuleData;
@@ -263,7 +263,7 @@ export class StakingModuleGuardService {
     if (isFilteredIntersectionsFound || historicalFrontRunFound) {
       await this.handleKeysIntersections(stakingModuleData, blockData);
     } else {
-      if (!depositsAvailable) {
+      if (!noDuplicates) {
         this.logger.warn('Found duplicated keys', {
           blockHash,
           stakingModuleId,
