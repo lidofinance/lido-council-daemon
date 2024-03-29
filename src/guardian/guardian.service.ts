@@ -192,10 +192,19 @@ export class GuardianService implements OnModuleInit {
       });
 
       await Promise.all(
-        stakingModulesWithoutDuplicates.map(async (stakingModuleData) => {
+        stakingModulesData.map(async (stakingModuleData) => {
+          // stakingModulesWithoutDuplicates - modules without duplicates
+          // if found in this module it means it doesnt have duplicates
+
+          const depositsAvailable = !!stakingModulesWithoutDuplicates.find(
+            (srmd) =>
+              srmd.stakingModuleId === stakingModuleData.stakingModuleId,
+          );
+
           await this.stakingModuleGuardService.checkKeysIntersections(
             stakingModuleData,
             blockData,
+            depositsAvailable,
           );
 
           this.guardianMetricsService.collectMetrics(
