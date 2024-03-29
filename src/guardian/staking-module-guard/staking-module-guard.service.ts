@@ -220,6 +220,7 @@ export class StakingModuleGuardService {
   public async checkKeysIntersections(
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
+    noDuplicates: boolean,
   ): Promise<void> {
     const { blockHash } = blockData;
     const { stakingModuleId } = stakingModuleData;
@@ -262,6 +263,14 @@ export class StakingModuleGuardService {
     if (isFilteredIntersectionsFound || historicalFrontRunFound) {
       await this.handleKeysIntersections(stakingModuleData, blockData);
     } else {
+      if (!noDuplicates) {
+        this.logger.warn('Found duplicated keys', {
+          blockHash,
+          stakingModuleId,
+        });
+        return;
+      }
+
       // it could throw error if kapi returned old data
       const usedKeys = await this.findAlreadyDepositedKeys(
         stakingModuleData.lastChangedBlockHash,

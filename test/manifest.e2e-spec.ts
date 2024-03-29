@@ -2065,4 +2065,157 @@ describe('ganache e2e tests', () => {
     expect(sendDepositMessage).toBeCalledTimes(1);
     expect(sendPauseMessage).toBeCalledTimes(0);
   });
+
+  test(
+    'duplicates will not block front-run',
+    async () => {
+      const tempProvider = new ethers.providers.JsonRpcProvider(
+        `http://127.0.0.1:${GANACHE_PORT}`,
+      );
+      const forkBlock = await tempProvider.getBlock(FORK_BLOCK);
+      const currentBlock = await tempProvider.getBlock('latest');
+
+      // create correct sign for deposit message for pk
+      const goodDepositMessage = {
+        pubkey: pk,
+        withdrawalCredentials: fromHexString(GOOD_WC),
+        amount: 32000000000, // gwei!
+      };
+      const goodSigningRoot = computeRoot(goodDepositMessage);
+      const goodSig = sk.sign(goodSigningRoot).toBytes();
+
+      const unusedKeys = [
+        {
+          key: toHexString(pk),
+          depositSignature: toHexString(goodSig),
+          operatorIndex: 0,
+          used: false,
+          index: 0,
+          moduleAddress: NOP_REGISTRY,
+        },
+      ];
+
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
+      const stakingModule = mockedModule(currentBlock, currentBlock.hash);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        stakingModule,
+        meta,
+      );
+
+      mockedKeysApiUnusedKeys(keysApiService, unusedKeys, meta);
+      // TODO: rename
+      mockedKeysWithDuplicates(keysApiService, unusedKeys, meta);
+
+      // just to start checks set event in cache
+      await depositService.setCachedEvents({
+        data: [
+          {
+            valid: true,
+            pubkey: toHexString(pk),
+            amount: '32000000000',
+            wc: GOOD_WC,
+            signature: toHexString(goodSig),
+            tx: '0x123',
+            blockHash: forkBlock.hash,
+            blockNumber: forkBlock.number,
+            logIndex: 1,
+          },
+        ],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          version: '1',
+        },
+      });
+
+      // Check if the service is ok and ready to go
+      await guardianService.handleNewBlock();
+
+      const badDepositMessage = {
+        pubkey: pk,
+        withdrawalCredentials: fromHexString(BAD_WC),
+        amount: 1000000000, // gwei!
+      };
+      const badSigningRoot = computeRoot(badDepositMessage);
+      const badSig = sk.sign(badSigningRoot).toBytes();
+
+      const badDepositData = {
+        ...badDepositMessage,
+        signature: badSig,
+      };
+      const badDepositDataRoot = DepositData.hashTreeRoot(badDepositData);
+
+      if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
+      const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
+
+      // Make a bad deposit
+      const signer = wallet.connect(providerService.provider);
+      const depositContract = DepositAbi__factory.connect(
+        DEPOSIT_CONTRACT,
+        signer,
+      );
+      // front-run
+      await depositContract.deposit(
+        badDepositData.pubkey,
+        badDepositData.withdrawalCredentials,
+        badDepositData.signature,
+        badDepositDataRoot,
+        { value: ethers.constants.WeiPerEther.mul(1) },
+      );
+
+      // Mock Keys API again on new block
+      const newBlock = await providerService.provider.getBlock('latest');
+      const newMeta = mockedMeta(newBlock, newBlock.hash);
+      const updatedStakingModule = mockedModule(currentBlock, newBlock.hash);
+
+      mockedKeysApiOperators(
+        keysApiService,
+        mockedOperators,
+        updatedStakingModule,
+        newMeta,
+      );
+
+      const duplicate = {
+        key: toHexString(pk),
+        depositSignature: toHexString(goodSig),
+        operatorIndex: 0,
+        used: false,
+        index: 1,
+        moduleAddress: NOP_REGISTRY,
+      };
+
+      mockedKeysApiUnusedKeys(
+        keysApiService,
+        [...unusedKeys, duplicate],
+        newMeta,
+      );
+
+      // Run a cycle and wait for possible changes
+      await guardianService.handleNewBlock();
+
+      expect(sendPauseMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blockNumber: newBlock.number,
+          guardianAddress: wallet.address,
+          guardianIndex: 9,
+          stakingModuleId: 1,
+        }),
+      );
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+      // Check if on pause now
+      const routerContract = StakingRouterAbi__factory.connect(
+        STAKING_ROUTER,
+        providerService.provider,
+      );
+      const isOnPause = await routerContract.getStakingModuleIsDepositsPaused(
+        1,
+      );
+      expect(isOnPause).toBe(true);
+    },
+    TESTS_TIMEOUT,
+  );
 });
