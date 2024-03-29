@@ -234,6 +234,7 @@ describe('StakingModuleGuardService', () => {
           vettedUnusedKeys: [],
         },
         blockData,
+        true,
       );
 
       expect(mockHandleCorrectKeys).not.toBeCalled();
@@ -278,6 +279,7 @@ describe('StakingModuleGuardService', () => {
           vettedUnusedKeys: [],
         },
         blockData,
+        true,
       );
 
       expect(findInvalidKeys).toBeCalledTimes(1);
@@ -323,6 +325,7 @@ describe('StakingModuleGuardService', () => {
           vettedUnusedKeys: [],
         },
         blockData,
+        true,
       );
 
       expect(findInvalidKeys).toBeCalledTimes(1);
@@ -342,6 +345,7 @@ describe('StakingModuleGuardService', () => {
           vettedUnusedKeys: [],
         },
         blockData,
+        true,
       );
 
       expect(findInvalidKeys).not.toBeCalled();
@@ -361,6 +365,7 @@ describe('StakingModuleGuardService', () => {
           vettedUnusedKeys: [],
         },
         blockData,
+        true,
       );
 
       expect(findInvalidKeys).toBeCalledTimes(1);
@@ -416,6 +421,7 @@ describe('StakingModuleGuardService', () => {
           vettedUnusedKeys: [],
         },
         blockData,
+        true,
       );
 
       expect(findInvalidKeys).toBeCalledTimes(1);
@@ -433,6 +439,7 @@ describe('StakingModuleGuardService', () => {
           vettedUnusedKeys: [],
         },
         blockData,
+        true,
       );
 
       expect(findInvalidKeys).not.toBeCalled();
@@ -480,6 +487,7 @@ describe('StakingModuleGuardService', () => {
           vettedUnusedKeys: [],
         },
         blockData,
+        true,
       );
 
       expect(findInvalidKeys).toBeCalledTimes(1);
@@ -497,6 +505,7 @@ describe('StakingModuleGuardService', () => {
           vettedUnusedKeys: [],
         },
         blockData,
+        true,
       );
 
       expect(findInvalidKeys).toBeCalledTimes(1);
