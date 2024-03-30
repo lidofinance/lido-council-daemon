@@ -34,7 +34,7 @@ COPY ./package*.json ./
 
 USER node
 
-HEALTHCHECK --interval=120s --timeout=2s --retries=2 \
+HEALTHCHECK --interval=120s --timeout=10s --retries=2 \
     CMD sh -c "wget -nv -t1 --spider http://localhost:$PORT/health" || exit 1
 
 CMD ["yarn", "start:prod"]
