@@ -12,6 +12,7 @@ import { GuardianMessageService } from '../guardian-message';
 import { StakingRouterService } from 'staking-router';
 import { KeysValidationService } from 'guardian/keys-validation/keys-validation.service';
 import { performance } from 'perf_hooks';
+import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 
 @Injectable()
 export class StakingModuleGuardService {
@@ -29,86 +30,75 @@ export class StakingModuleGuardService {
   private lastContractsStateByModuleId: Record<number, ContractsState | null> =
     {};
 
-  /**
-   * @returns List of staking modules id with duplicates
-   */
-  public getModulesIdsWithDuplicatedVettedUnusedKeys(
-    stakingModulesData: StakingModuleData[],
-    blockData: BlockData,
-  ): number[] {
-    // Collects the duplicate count for each unique key across staking modules
-    // This map collects, for every key, a set of module IDs where the key was found.
-    const keyModuleOccurrences = new Map<string, Set<number>>();
-    // This map collects, for every module, the number of duplicated keys found in it.
-    const moduleDuplicatedKeysCount = new Map<number, number>();
-
-    stakingModulesData.forEach(({ vettedUnusedKeys, stakingModuleId }) => {
-      // This set tracks keys that are duplicated within the same module.
-      const duplicatedKeysInsideOneModule = new Set<string>();
-      vettedUnusedKeys.forEach(({ key }) => {
-        // is a key new for module
-        const isNewKeyForModule = !duplicatedKeysInsideOneModule.has(key);
-        // Mark this key as encountered for this module
-        duplicatedKeysInsideOneModule.add(key);
-
-        // modules where the key was found
-        const moduleIds = keyModuleOccurrences.get(key);
-
-        if (!moduleIds) {
-          // add new key
-          keyModuleOccurrences.set(key, new Set([stakingModuleId]));
-        } else {
-          moduleIds.add(stakingModuleId);
-
-          if (moduleIds.size > 1 || !isNewKeyForModule) {
-            moduleIds.forEach((id) => {
-              moduleDuplicatedKeysCount.set(
-                id,
-                (moduleDuplicatedKeysCount.get(id) || 0) + 1,
-              );
-            });
-          }
-        }
-      });
+  public identifyDuplicateKeys(keys: RegistryKey[]): [string, RegistryKey[]][] {
+    const keysOccurrences = new Map<string, RegistryKey[]>();
+    keys.forEach((key) => {
+      const occurrences = keysOccurrences.get(key.key) || [];
+      occurrences.push(key);
+      keysOccurrences.set(key.key, occurrences);
     });
-
-    // set metrics
-    stakingModulesData.forEach(({ stakingModuleId }) => {
-      const countOfDuplicatedKeys =
-        moduleDuplicatedKeysCount.get(stakingModuleId) || 0;
-      this.guardianMetricsService.collectDuplicatedVettedUnusedKeysMetrics(
-        stakingModuleId,
-        countOfDuplicatedKeys,
-      );
-    });
-
-    if (moduleDuplicatedKeysCount.size) {
-      const moduleDuplicatedKeysCountList = Array.from(
-        moduleDuplicatedKeysCount,
-      ).map(([stakingModuleId, duplicatedKeys]) => ({
-        stakingModuleId,
-        duplicatedKeys,
-      }));
-      this.logger.error('Found duplicated vetted keys');
-      this.logger.log('Duplicated keys', {
-        blockHash: blockData.blockHash,
-        modulesWithDuplicates: moduleDuplicatedKeysCountList,
-      });
-
-      return Array.from(moduleDuplicatedKeysCount.keys());
-    }
-
-    return [];
+    return [...keysOccurrences].filter(
+      ([_, occurrences]) => occurrences.length > 1,
+    );
   }
 
-  public excludeModulesWithDuplicatedKeys(
-    stakingModulesData: StakingModuleData[],
-    modulesIdWithDuplicateKeys: number[],
-  ): StakingModuleData[] {
-    return stakingModulesData.filter(
-      ({ stakingModuleId }) =>
-        !modulesIdWithDuplicateKeys.includes(stakingModuleId),
+  /*
+   * Remove from list duplicates
+   */
+  private filterDepositedKeys(occurrences: RegistryKey[]): RegistryKey[] {
+    return occurrences.filter((key) => !key.used);
+  }
+
+  /*
+   * function identify list of duplicates from list of duplicated keys of one operator
+   */
+  private identifyDuplicatesByIndex(occurrences: RegistryKey[]): RegistryKey[] {
+    // Assuming occurrences belong to a single operator
+    const originalKey = occurrences.reduce(
+      (prev, curr) => (prev.index < curr.index ? prev : curr),
+      occurrences[0],
     );
+    return occurrences.filter((key) => key.index !== originalKey.index);
+  }
+
+  /**
+   * @returns List of duplicated keys
+   */
+  public getDuplicatedKeys(keys: RegistryKey[]): RegistryKey[] {
+    const duplicatedKeys: [string, RegistryKey[]][] =
+      this.identifyDuplicateKeys(keys);
+    const duplicates: RegistryKey[] = [];
+
+    for (const [_, occurrences] of duplicatedKeys) {
+      // If the list of duplicates contains a deposited key, it will be considered the original,
+      // and the other keys will be considered duplicates.
+      // This applies whether the keys are in one module or two, and whether they are for one operator or two.
+      if (occurrences.some((key) => key.used)) {
+        const notDepositedKeys = this.filterDepositedKeys(occurrences);
+        duplicates.push(...notDepositedKeys);
+        continue;
+      }
+
+      // If the list does not contain any deposited keys and all keys belong to a single operator,
+      if (
+        new Set(
+          occurrences.map((key) => `${key.moduleAddress}-${key.operatorIndex}`),
+        ).size == 1
+      ) {
+        // Since the list contains keys from a single operator, we identify the original key by selecting the one with the smallest index
+        const duplicatesAcrossOneOperator =
+          this.identifyDuplicatesByIndex(occurrences);
+        duplicates.push(...duplicatesAcrossOneOperator);
+        continue;
+      }
+
+      // in next version we will identify original keys by date of creation
+      // currently we will mark all keys as duplicates expect cases defined above
+
+      duplicates.push(...occurrences);
+    }
+
+    return duplicates;
   }
 
   isFirstEventEarlier(
@@ -204,7 +194,7 @@ export class StakingModuleGuardService {
       frontRunnedDepositKeys,
     );
 
-    const isLidoDepositedKeys = lidoDepositedKeys.data.length;
+    const isLidoDepositedKeys = !!lidoDepositedKeys.data.length;
 
     if (isLidoDepositedKeys) {
       this.logger.warn('historical front-run found');
@@ -212,30 +202,23 @@ export class StakingModuleGuardService {
 
     return isLidoDepositedKeys;
   }
+
   /**
    * Checks keys for intersections with previously deposited keys and handles the situation
    * @param blockData - collected data from the current block
    */
-  // TODO: rename, because this method more than intersections checks
   public async checkKeysIntersections(
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
-    noDuplicates: boolean,
-  ): Promise<void> {
-    const { blockHash } = blockData;
-    const { stakingModuleId } = stakingModuleData;
-
+  ): Promise<boolean> {
     const keysIntersections = this.getKeysIntersections(
       stakingModuleData,
       blockData,
     );
 
-    // exclude invalid deposits as they ignored by cl
-    const validIntersections = this.excludeInvalidDeposits(keysIntersections);
-
     const filteredIntersections = await this.excludeEligibleIntersections(
       blockData,
-      validIntersections,
+      keysIntersections,
     );
 
     const isFilteredIntersectionsFound = filteredIntersections.length > 0;
@@ -248,67 +231,106 @@ export class StakingModuleGuardService {
     // TODO: add metrics for getHistoricalFrontRun same as for keysIntersections
     const historicalFrontRunFound = await this.getHistoricalFrontRun(blockData);
 
-    const isDepositsPaused = await this.securityService.isDepositsPaused(
-      stakingModuleData.stakingModuleId,
-      {
-        blockHash: stakingModuleData.blockHash,
-      },
-    );
-
-    if (isDepositsPaused) {
-      this.logger.warn('Deposits are paused', { blockHash, stakingModuleId });
-      return;
-    }
-
-    if (isFilteredIntersectionsFound || historicalFrontRunFound) {
-      await this.handleKeysIntersections(stakingModuleData, blockData);
-    } else {
-      if (!noDuplicates) {
-        this.logger.warn('Found duplicated keys', {
-          blockHash,
-          stakingModuleId,
-        });
-        return;
-      }
-
-      // it could throw error if kapi returned old data
-      const usedKeys = await this.findAlreadyDepositedKeys(
-        stakingModuleData.lastChangedBlockHash,
-        validIntersections,
-      );
-
-      this.guardianMetricsService.collectDuplicatedUsedKeysMetrics(
-        stakingModuleData.stakingModuleId,
-        usedKeys.length,
-      );
-
-      // if found used keys, Lido already made deposit on this keys
-      if (usedKeys.length) {
-        this.logger.log('Found that we already deposited on these keys', {
-          blockHash,
-          stakingModuleId,
-        });
-        return;
-      }
-
-      const isValidKeys = await this.isVettedUnusedKeysValid(
-        stakingModuleData,
-        blockData,
-      );
-
-      if (!isValidKeys) {
-        this.logger.error('Staking module contains invalid keys');
-        this.logger.log('State', {
-          blockHash: stakingModuleData.blockHash,
-          lastChangedBlockHash: stakingModuleData.lastChangedBlockHash,
-          stakingModuleId: stakingModuleData.stakingModuleId,
-        });
-        return;
-      }
-
-      await this.handleCorrectKeys(stakingModuleData, blockData);
-    }
+    return isFilteredIntersectionsFound || historicalFrontRunFound;
   }
+
+  // /**
+  //  * Checks keys for intersections with previously deposited keys and handles the situation
+  //  * @param blockData - collected data from the current block
+  //  */
+  // // TODO: rename, because this method more than intersections checks
+  // public async checkKeysIntersections2(
+  //   stakingModuleData: StakingModuleData,
+  //   blockData: BlockData,
+  //   noDuplicates: boolean,
+  // ): Promise<void> {
+  //   const { blockHash } = blockData;
+  //   const { stakingModuleId } = stakingModuleData;
+
+  //   const keysIntersections = this.getKeysIntersections(
+  //     stakingModuleData,
+  //     blockData,
+  //   );
+
+  //   // exclude invalid deposits as they ignored by cl
+  //   const validIntersections = this.excludeInvalidDeposits(keysIntersections);
+
+  //   const filteredIntersections = await this.excludeEligibleIntersections(
+  //     blockData,
+  //     validIntersections,
+  //   );
+
+  //   const isFilteredIntersectionsFound = filteredIntersections.length > 0;
+
+  //   this.guardianMetricsService.collectIntersectionsMetrics(
+  //     stakingModuleData.stakingModuleId,
+  //     keysIntersections,
+  //     filteredIntersections,
+  //   );
+  //   // TODO: add metrics for getHistoricalFrontRun same as for keysIntersections
+  //   const historicalFrontRunFound = await this.getHistoricalFrontRun(blockData);
+
+  //   const isDepositsPaused = await this.securityService.isDepositsPaused(
+  //     stakingModuleData.stakingModuleId,
+  //     {
+  //       blockHash: stakingModuleData.blockHash,
+  //     },
+  //   );
+
+  //   if (isDepositsPaused) {
+  //     this.logger.warn('Deposits are paused', { blockHash, stakingModuleId });
+  //     return;
+  //   }
+
+  //   if (isFilteredIntersectionsFound || historicalFrontRunFound) {
+  //     await this.handleKeysIntersections(stakingModuleData, blockData);
+  //   } else {
+  //     if (!noDuplicates) {
+  //       this.logger.warn('Found duplicated keys', {
+  //         blockHash,
+  //         stakingModuleId,
+  //       });
+  //       return;
+  //     }
+
+  //     // it could throw error if kapi returned old data
+  //     const usedKeys = await this.findAlreadyDepositedKeys(
+  //       stakingModuleData.lastChangedBlockHash,
+  //       validIntersections,
+  //     );
+
+  //     this.guardianMetricsService.collectDuplicatedUsedKeysMetrics(
+  //       stakingModuleData.stakingModuleId,
+  //       usedKeys.length,
+  //     );
+
+  //     // if found used keys, Lido already made deposit on this keys
+  //     if (usedKeys.length) {
+  //       this.logger.log('Found that we already deposited on these keys', {
+  //         blockHash,
+  //         stakingModuleId,
+  //       });
+  //       return;
+  //     }
+
+  //     const isValidKeys = await this.isVettedUnusedKeysValid(
+  //       stakingModuleData,
+  //       blockData,
+  //     );
+
+  //     if (!isValidKeys) {
+  //       this.logger.error('Staking module contains invalid keys');
+  //       this.logger.log('State', {
+  //         blockHash: stakingModuleData.blockHash,
+  //         lastChangedBlockHash: stakingModuleData.lastChangedBlockHash,
+  //         stakingModuleId: stakingModuleData.stakingModuleId,
+  //       });
+  //       return;
+  //     }
+
+  //     await this.handleCorrectKeys(stakingModuleData, blockData);
+  //   }
+  // }
 
   /**
    * Finds the intersection of the next deposit keys in the list of all previously deposited keys
@@ -341,58 +363,19 @@ export class StakingModuleGuardService {
     return intersections;
   }
 
-  public excludeInvalidDeposits(intersections: VerifiedDepositEvent[]) {
-    // Exclude deposits with invalid signature over the deposit data
-    return intersections.filter(({ valid }) => valid);
-  }
-
   /**
    * Excludes invalid deposits and deposits with Lido WC from intersections
    * @param intersections - list of deposits with keys that were deposited earlier
    * @param blockData - collected data from the current block
    */
-  public async excludeEligibleIntersections(
+  public excludeEligibleIntersections(
     blockData: BlockData,
-    validIntersections: VerifiedDepositEvent[],
-  ): Promise<VerifiedDepositEvent[]> {
+    intersections: VerifiedDepositEvent[],
+  ): VerifiedDepositEvent[] {
     // Exclude deposits with Lido withdrawal credentials
-    return validIntersections.filter(
-      (deposit) => deposit.wc !== blockData.lidoWC,
+    return intersections.filter(
+      ({ wc, valid }) => wc !== blockData.lidoWC && valid,
     );
-  }
-
-  /**
-   * If we find an intersection between the unused keys and the deposited keys in the Ethereum deposit contract
-   * with Lido withdrawal credentials, we need to determine whether this deposit was made by Lido.
-   * If it was indeed made by Lido, we set a metric and skip sending deposit messages in the queue for this iteration.
-   */
-  public async findAlreadyDepositedKeys(
-    lastChangedBlockHash: string,
-    intersectionsWithLidoWC: VerifiedDepositEvent[],
-  ) {
-    const depositedPubkeys = intersectionsWithLidoWC.map(
-      (deposit) => deposit.pubkey,
-    );
-    // if depositedPubkeys == [], /find will return validation error
-    if (!depositedPubkeys.length) {
-      return [];
-    }
-
-    // TODO: add staking module id
-    this.logger.log(
-      'Found intersections with lido credentials, need to check used duplicated keys',
-    );
-
-    const { data, meta } = await this.stakingRouterService.getKeysByPubkeys(
-      depositedPubkeys,
-    );
-
-    this.stakingRouterService.isEqualLastChangedBlockHash(
-      lastChangedBlockHash,
-      meta.elBlockSnapshot.lastChangedBlockHash,
-    );
-
-    return data.filter((key) => key.used);
   }
 
   /**
@@ -515,90 +498,91 @@ export class StakingModuleGuardService {
     await this.guardianMessageService.sendDepositMessage(depositMessage);
   }
 
-  public async isVettedUnusedKeysValid(
-    stakingModuleData: StakingModuleData,
-    blockData: BlockData,
-  ): Promise<boolean> {
-    // TODO: consider change state on upper level
-    const { blockNumber, depositRoot } = blockData;
-    const { nonce, stakingModuleId, lastChangedBlockHash } = stakingModuleData;
-    const lastContractsState =
-      this.lastContractsStateByModuleId[stakingModuleId];
+  // public async isVettedUnusedKeysValid(
+  //   stakingModuleData: StakingModuleData,
+  //   blockData: BlockData,
+  // ): Promise<boolean> {
+  //   // TODO: consider change state on upper level
+  //   const { blockNumber, depositRoot } = blockData;
+  //   const { nonce, stakingModuleId, lastChangedBlockHash } = stakingModuleData;
+  //   const lastContractsState =
+  //     this.lastContractsStateByModuleId[stakingModuleId];
 
-    if (
-      lastContractsState &&
-      lastChangedBlockHash === lastContractsState.lastChangedBlockHash &&
-      lastContractsState.invalidKeysFound
-    ) {
-      // if found invalid keys on previous iteration and lastChangedBlockHash returned by kapi was not changed
-      // we dont need to validate again, but we still need to skip deposits until problem will not be solved
-      this.logger.error(
-        `LastChangedBlockHash was not changed and on previous iteration we found invalid keys, skip until solving problem, stakingModuleId: ${stakingModuleId}`,
-      );
+  //   if (
+  //     lastContractsState &&
+  //     lastChangedBlockHash === lastContractsState.lastChangedBlockHash &&
+  //     lastContractsState.invalidKeysFound
+  //   ) {
+  //     // if found invalid keys on previous iteration and lastChangedBlockHash returned by kapi was not changed
+  //     // we dont need to validate again, but we still need to skip deposits until problem will not be solved
+  //     this.logger.error(
+  //       `LastChangedBlockHash was not changed and on previous iteration we found invalid keys, skip until solving problem, stakingModuleId: ${stakingModuleId}`,
+  //     );
 
-      this.lastContractsStateByModuleId[stakingModuleId] = {
-        nonce,
-        depositRoot,
-        blockNumber,
-        lastChangedBlockHash,
-        invalidKeysFound: true,
-      };
+  //     this.lastContractsStateByModuleId[stakingModuleId] = {
+  //       nonce,
+  //       depositRoot,
+  //       blockNumber,
+  //       lastChangedBlockHash,
+  //       invalidKeysFound: true,
+  //     };
 
-      return false;
-    }
+  //     return false;
+  //   }
 
-    if (
-      !lastContractsState ||
-      lastChangedBlockHash !== lastContractsState.lastChangedBlockHash
-    ) {
-      // keys was changed or it is a first attempt, need to validate again
-      const invalidKeys = await this.getInvalidKeys(
-        stakingModuleData,
-        blockData,
-      );
+  //   if (
+  //     !lastContractsState ||
+  //     lastChangedBlockHash !== lastContractsState.lastChangedBlockHash
+  //   ) {
+  //     // keys was changed or it is a first attempt, need to validate again
+  //     const invalidKeys = await this.getInvalidKeys(
+  //       stakingModuleData,
+  //       blockData,
+  //     );
 
-      this.guardianMetricsService.collectInvalidKeysMetrics(
-        stakingModuleData.stakingModuleId,
-        invalidKeys.length,
-      );
+  //     this.guardianMetricsService.collectInvalidKeysMetrics(
+  //       stakingModuleData.stakingModuleId,
+  //       invalidKeys.length,
+  //     );
 
-      // if found invalid keys, update state and exit
-      if (invalidKeys.length) {
-        this.logger.error(
-          `Found invalid keys, will skip deposits until solving problem, stakingModuleId: ${stakingModuleId}`,
-        );
+  //     // if found invalid keys, update state and exit
+  //     if (invalidKeys.length) {
+  //       this.logger.error(
+  //         `Found invalid keys, will skip deposits until solving problem, stakingModuleId: ${stakingModuleId}`,
+  //       );
 
-        // save info about invalid keys in cache
-        this.lastContractsStateByModuleId[stakingModuleId] = {
-          nonce,
-          depositRoot,
-          blockNumber,
-          lastChangedBlockHash,
-          invalidKeysFound: true,
-        };
+  //       // save info about invalid keys in cache
+  //       this.lastContractsStateByModuleId[stakingModuleId] = {
+  //         nonce,
+  //         depositRoot,
+  //         blockNumber,
+  //         lastChangedBlockHash,
+  //         invalidKeysFound: true,
+  //       };
 
-        return false;
-      }
+  //       return false;
+  //     }
 
-      // keys are valid, state will be updated later
-      return true;
-    }
+  //     // keys are valid, state will be updated later
+  //     return true;
+  //   }
 
-    return true;
-  }
+  //   return true;
+  // }
 
   public async getInvalidKeys(
-    stakingModuleData: StakingModuleData,
+    keys: RegistryKey[],
+    stakingModuleId: number,
     blockData: BlockData,
   ): Promise<{ key: string; depositSignature: string }[]> {
     this.logger.log('Start keys validation', {
-      keysCount: stakingModuleData.vettedUnusedKeys.length,
-      stakingModuleId: stakingModuleData.stakingModuleId,
+      keysCount: keys.length,
+      stakingModuleId,
     });
     const validationTimeStart = performance.now();
 
-    const invalidKeysList = await this.keysValidationService.findInvalidKeys(
-      stakingModuleData.vettedUnusedKeys,
+    const invalidKeysList = await this.keysValidationService.getInvalidKeys(
+      keys,
       blockData.lidoWC,
     );
 
@@ -607,13 +591,41 @@ export class StakingModuleGuardService {
       Math.ceil(validationTimeEnd - validationTimeStart) / 1000;
 
     this.logger.log('Keys validated', {
-      stakingModuleId: stakingModuleData.stakingModuleId,
+      stakingModuleId,
       invalidKeysList,
       validationTime,
     });
 
     return invalidKeysList;
   }
+
+  // public async getInvalidKeys(
+  //   stakingModuleData: StakingModuleData,
+  //   blockData: BlockData,
+  // ): Promise<{ key: string; depositSignature: string }[]> {
+  //   this.logger.log('Start keys validation', {
+  //     keysCount: stakingModuleData.vettedUnusedKeys.length,
+  //     stakingModuleId: stakingModuleData.stakingModuleId,
+  //   });
+  //   const validationTimeStart = performance.now();
+
+  //   const invalidKeysList = await this.keysValidationService.findInvalidKeys(
+  //     stakingModuleData.vettedUnusedKeys,
+  //     blockData.lidoWC,
+  //   );
+
+  //   const validationTimeEnd = performance.now();
+  //   const validationTime =
+  //     Math.ceil(validationTimeEnd - validationTimeStart) / 1000;
+
+  //   this.logger.log('Keys validated', {
+  //     stakingModuleId: stakingModuleData.stakingModuleId,
+  //     invalidKeysList,
+  //     validationTime,
+  //   });
+
+  //   return invalidKeysList;
+  // }
 
   /**
    * Compares the states of the contracts to decide if the message needs to be re-signed

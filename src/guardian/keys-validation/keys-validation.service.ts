@@ -37,7 +37,7 @@ export class KeysValidationService {
    *
    * Return list of invalid keys
    */
-  public async findInvalidKeys(
+  public async getInvalidKeys(
     vettedKeys: RegistryKey[],
     withdrawalCredentials: string,
   ): Promise<{ key: string; depositSignature: string }[]> {
@@ -84,6 +84,7 @@ export class KeysValidationService {
     ];
   }
 
+  // TODO: rename
   private divideKeys(vettedKeys: RegistryKey[]): {
     keysNeedingValidation: RegistryKey[];
     unchangedAndInvalidKeys: RegistryKey[];

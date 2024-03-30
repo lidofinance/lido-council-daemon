@@ -125,7 +125,7 @@ export class GuardianService implements OnModuleInit {
 
     try {
       const { data: operatorsByModules, meta } =
-        await this.stakingRouterService.getOperatorsAndModules();
+        await this.keysApiService.getOperatorListWithModule();
 
       const {
         elBlockSnapshot: { blockHash, blockNumber },
@@ -149,6 +149,17 @@ export class GuardianService implements OnModuleInit {
         return;
       }
 
+      // fetch all lido keys
+      const { data: lidoKeys, meta: currMeta } =
+        await this.keysApiService.getKeys();
+
+      // as we fetch at first operators to define vetted keys
+      // and now fetched keys , dat in Keys API could change since those moment and we
+      this.stakingRouterService.isEqualLastChangedBlockHash(
+        meta.elBlockSnapshot.lastChangedBlockHash,
+        currMeta.elBlockSnapshot.lastChangedBlockHash,
+      );
+
       const stakingModulesCount = operatorsByModules.length;
 
       this.logger.log('Staking modules loaded', {
@@ -169,45 +180,142 @@ export class GuardianService implements OnModuleInit {
         blockHash: blockData.blockHash,
       });
 
-      const stakingModulesData =
-        await this.stakingRouterService.getStakingModulesData({
-          data: operatorsByModules,
-          meta,
-        });
+      // will create something like StakingModuleData
+      const stakingModulesData = await Promise.all(
+        operatorsByModules.map(async ({ module: stakingModule }) => {
+          const isDepositsPaused = await this.securityService.isDepositsPaused(
+            stakingModule.id,
+            {
+              blockHash: blockHash,
+            },
+          );
 
-      const modulesIdWithDuplicateKeys: number[] =
-        this.stakingModuleGuardService.getModulesIdsWithDuplicatedVettedUnusedKeys(
-          stakingModulesData,
-          blockData,
-        );
+          return {
+            nonce: stakingModule.nonce,
+            unusedKeys: lidoKeys
+              .filter(
+                (srKey) =>
+                  srKey.moduleAddress == stakingModule.stakingModuleAddress,
+              )
+              .map((srKey) => srKey.key),
+            isDepositsPaused,
+            stakingModuleId: stakingModule.id,
+            stakingModuleAddress: stakingModule.stakingModuleAddress,
+            blockHash: meta.elBlockSnapshot.blockHash,
+            lastChangedBlockHash: meta.elBlockSnapshot.lastChangedBlockHash,
+          };
+        }),
+      );
 
-      const stakingModulesWithoutDuplicates: StakingModuleData[] =
-        this.stakingModuleGuardService.excludeModulesWithDuplicatedKeys(
-          stakingModulesData,
-          modulesIdWithDuplicateKeys,
-        );
+      const modulesOnPause: number[] = [];
 
-      this.logger.log('Staking modules without duplicates', {
-        modulesCount: stakingModulesWithoutDuplicates.length,
-      });
-
+      // search for intersection of unused lido keys and deposited events
       await Promise.all(
         stakingModulesData.map(async (stakingModuleData) => {
-          // stakingModulesWithoutDuplicates - modules without duplicates
-          // if found in this module it means it doesnt have duplicates
+          const foundIntersection =
+            await this.stakingModuleGuardService.checkKeysIntersections(
+              stakingModuleData,
+              blockData,
+            );
 
-          const noDuplicates = !!stakingModulesWithoutDuplicates.find(
-            (srmd) =>
-              srmd.stakingModuleId === stakingModuleData.stakingModuleId,
-          );
+          if (stakingModuleData.isDepositsPaused) {
+            this.logger.warn('Deposits are paused', {
+              blockHash,
+              stakingModuleData: stakingModuleData.stakingModuleId,
+            });
 
-          await this.stakingModuleGuardService.checkKeysIntersections(
-            stakingModuleData,
-            blockData,
-            noDuplicates,
-          );
+            this.guardianMetricsService.collectMetrics(
+              stakingModuleData,
+              blockData,
+            );
+
+            modulesOnPause.push(stakingModuleData.stakingModuleId);
+
+            return;
+          }
+
+          if (foundIntersection) {
+            this.stakingModuleGuardService.handleKeysIntersections(
+              stakingModuleData,
+              blockData,
+            );
+
+            this.guardianMetricsService.collectMetrics(
+              stakingModuleData,
+              blockData,
+            );
+            modulesOnPause.push(stakingModuleData.stakingModuleId);
+
+            return;
+          }
 
           this.guardianMetricsService.collectMetrics(
+            stakingModuleData,
+            blockData,
+          );
+        }),
+      );
+
+      // for all modules frontrun was found or module is on pause
+      if (modulesOnPause.length == stakingModulesData.length) {
+        this.logger.log('All modules are on pause now');
+        return;
+      }
+
+      // search for duplicated keys across all modules
+      // vetted keys
+      const operators = operatorsByModules
+        .map(({ operators }) => operators)
+        .flat();
+      const vettedKeys = this.stakingRouterService.getVettedKeys(
+        operators,
+        lidoKeys,
+      );
+      // duplicated keys across all vetted keys
+      const duplicates =
+        this.stakingModuleGuardService.getDuplicatedKeys(vettedKeys);
+
+      // search for invalid keys across vetted unused keys
+      await Promise.all(
+        stakingModulesData.map(async (stakingModuleData) => {
+          // if module on pause skip deposits
+          if (modulesOnPause.includes(stakingModuleData.stakingModuleId)) {
+            return;
+          }
+
+          const moduleDuplicates = duplicates.filter((key) => {
+            key.moduleAddress == stakingModuleData.stakingModuleAddress;
+          });
+
+          if (moduleDuplicates.length) {
+            this.logger.log('Found duplicated keys', {
+              stakingModuleId: stakingModuleData.stakingModuleId,
+            });
+            return;
+          }
+
+          // vetted unused keys for validation
+          const vettedUnused = vettedKeys.filter((key) => {
+            key.moduleAddress == stakingModuleData.stakingModuleAddress &&
+              !key.used;
+          });
+
+          // found invalid keys
+          const invalidKeys =
+            await this.stakingModuleGuardService.getInvalidKeys(
+              vettedKeys,
+              stakingModuleData.stakingModuleId,
+              blockData,
+            );
+
+          if (invalidKeys.length) {
+            this.logger.log('Found invalid keys', {
+              stakingModuleId: stakingModuleData.stakingModuleId,
+            });
+            return;
+          }
+
+          await this.stakingModuleGuardService.handleCorrectKeys(
             stakingModuleData,
             blockData,
           );

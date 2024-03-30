@@ -62,6 +62,11 @@ export class KeysApiService {
     return result;
   }
 
+  public async getKeys() {
+    const result = await this.fetch<KeyListResponse>(`/v1/keys`);
+    return result;
+  }
+
   public async getOperatorListWithModule() {
     const result = await this.fetch<GroupedByModuleOperatorListResponse>(
       `/v1/operators`,
