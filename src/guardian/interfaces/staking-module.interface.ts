@@ -9,12 +9,3 @@ export interface StakingModuleData {
   stakingModuleAddress: string;
   lastChangedBlockHash: string;
 }
-
-export interface StakingModuleData2 {
-  blockHash: string;
-  unusedKeys: string[];
-  vettedUnusedKeys: RegistryKey[];
-  nonce: number;
-  stakingModuleId: number;
-  lastChangedBlockHash: string;
-}
