@@ -303,7 +303,7 @@ export class GuardianService implements OnModuleInit {
           // found invalid keys
           const invalidKeys =
             await this.stakingModuleGuardService.getInvalidKeys(
-              vettedKeys,
+              vettedUnused,
               stakingModuleData.stakingModuleId,
               blockData,
             );
