@@ -501,34 +501,6 @@ export class StakingModuleGuardService {
     return invalidKeysList;
   }
 
-  // public async getInvalidKeys(
-  //   stakingModuleData: StakingModuleData,
-  //   blockData: BlockData,
-  // ): Promise<{ key: string; depositSignature: string }[]> {
-  //   this.logger.log('Start keys validation', {
-  //     keysCount: stakingModuleData.vettedUnusedKeys.length,
-  //     stakingModuleId: stakingModuleData.stakingModuleId,
-  //   });
-  //   const validationTimeStart = performance.now();
-
-  //   const invalidKeysList = await this.keysValidationService.findInvalidKeys(
-  //     stakingModuleData.vettedUnusedKeys,
-  //     blockData.lidoWC,
-  //   );
-
-  //   const validationTimeEnd = performance.now();
-  //   const validationTime =
-  //     Math.ceil(validationTimeEnd - validationTimeStart) / 1000;
-
-  //   this.logger.log('Keys validated', {
-  //     stakingModuleId: stakingModuleData.stakingModuleId,
-  //     invalidKeysList,
-  //     validationTime,
-  //   });
-
-  //   return invalidKeysList;
-  // }
-
   /**
    * Compares the states of the contracts to decide if the message needs to be re-signed
    * @param firstState - contracts state
