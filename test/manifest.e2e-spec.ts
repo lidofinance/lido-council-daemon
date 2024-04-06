@@ -205,7 +205,6 @@ describe('ganache e2e tests', () => {
   describe('node checks', () => {
     test('should be on correct network', async () => {
       const chainId = await providerService.getChainId();
-      console.log(chainId);
       expect(chainId).toBe(CHAIN_ID);
     });
 
@@ -217,7 +216,6 @@ describe('ganache e2e tests', () => {
     test('should be on correct block number', async () => {
       const provider = providerService.provider;
       const block = await provider.getBlock('latest');
-      console.log(block);
       expect(block.number).toBe(FORK_BLOCK + 3);
     });
 
