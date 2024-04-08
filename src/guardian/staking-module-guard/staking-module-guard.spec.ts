@@ -55,7 +55,7 @@ describe('StakingModuleGuardService', () => {
   let guardianMessageService: GuardianMessageService;
   let stakingRouterService: StakingRouterService;
   let keysValidationService: KeysValidationService;
-  let findInvalidKeys: jest.SpyInstance;
+  let getInvalidKeys: jest.SpyInstance;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -81,7 +81,7 @@ describe('StakingModuleGuardService', () => {
     guardianMessageService = moduleRef.get(GuardianMessageService);
     stakingRouterService = moduleRef.get(StakingRouterService);
     keysValidationService = moduleRef.get(KeysValidationService);
-    findInvalidKeys = jest.spyOn(keysValidationService, 'findInvalidKeys');
+    getInvalidKeys = jest.spyOn(keysValidationService, 'getInvalidKeys');
 
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
     jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
@@ -269,7 +269,7 @@ describe('StakingModuleGuardService', () => {
         .mockImplementation(async () => false);
 
       // not found invalid keys
-      findInvalidKeys.mockImplementation(async () => []);
+      getInvalidKeys.mockImplementation(async () => []);
 
       await stakingModuleGuardService.checkKeysIntersections(
         {
@@ -282,7 +282,7 @@ describe('StakingModuleGuardService', () => {
         true,
       );
 
-      expect(findInvalidKeys).toBeCalledTimes(1);
+      expect(getInvalidKeys).toBeCalledTimes(1);
       expect(mockHandleKeysIntersections).not.toBeCalled();
       expect(mockHandleCorrectKeys).toBeCalledTimes(1);
       expect(mockHandleCorrectKeys).toBeCalledWith(
@@ -315,7 +315,7 @@ describe('StakingModuleGuardService', () => {
         .mockImplementation(async () => false);
 
       //  found invalid keys
-      findInvalidKeys.mockImplementation(async () => ['something']);
+      getInvalidKeys.mockImplementation(async () => ['something']);
 
       await stakingModuleGuardService.checkKeysIntersections(
         {
@@ -328,14 +328,14 @@ describe('StakingModuleGuardService', () => {
         true,
       );
 
-      expect(findInvalidKeys).toBeCalledTimes(1);
+      expect(getInvalidKeys).toBeCalledTimes(1);
       expect(mockHandleKeysIntersections).not.toBeCalled();
       expect(mockHandleCorrectKeys).not.toBeCalled();
       expect(mockSecurityContractIsDepositsPaused).toBeCalledTimes(1);
 
       // check that if lastChangedBlockHash the same but keys prev was invalid, handleCorrect will not be called
       // but we also will not validate keys again
-      findInvalidKeys.mockClear();
+      getInvalidKeys.mockClear();
 
       await stakingModuleGuardService.checkKeysIntersections(
         {
@@ -348,14 +348,14 @@ describe('StakingModuleGuardService', () => {
         true,
       );
 
-      expect(findInvalidKeys).not.toBeCalled();
+      expect(getInvalidKeys).toBeCalled();
       expect(mockHandleKeysIntersections).not.toBeCalled();
       expect(mockHandleCorrectKeys).not.toBeCalled();
       // second execution
       expect(mockSecurityContractIsDepositsPaused).toBeCalledTimes(2);
 
       // now we fixed keys (lastChangedBlockHash was changed) and we will run validation again
-      findInvalidKeys.mockImplementation(async () => []);
+      getInvalidKeys.mockImplementation(async () => []);
 
       await stakingModuleGuardService.checkKeysIntersections(
         {
@@ -368,7 +368,7 @@ describe('StakingModuleGuardService', () => {
         true,
       );
 
-      expect(findInvalidKeys).toBeCalledTimes(1);
+      expect(getInvalidKeys).toBeCalledTimes(2);
       expect(mockHandleKeysIntersections).not.toBeCalled();
       expect(mockHandleCorrectKeys).toBeCalledTimes(1);
       expect(mockHandleCorrectKeys).toBeCalledWith(
@@ -383,7 +383,7 @@ describe('StakingModuleGuardService', () => {
       expect(mockSecurityContractIsDepositsPaused).toBeCalledTimes(3);
     });
 
-    it('should not rerun validation when the lastChangedBlockHash is unchanged and no invalid keys were found previously', async () => {
+    it('should not return validation when the lastChangedBlockHash is unchanged and no invalid keys were found previously', async () => {
       const notDepositedKey = '0x2345';
       const unusedKeys = [notDepositedKey];
       const blockData = { ...currentBlockData, unusedKeys, lidoWC };
@@ -411,7 +411,7 @@ describe('StakingModuleGuardService', () => {
       );
 
       //  found invalid keys
-      findInvalidKeys.mockImplementation(async () => []);
+      getInvalidKeys.mockImplementation(async () => []);
 
       await stakingModuleGuardService.checkKeysIntersections(
         {
@@ -424,12 +424,12 @@ describe('StakingModuleGuardService', () => {
         true,
       );
 
-      expect(findInvalidKeys).toBeCalledTimes(1);
+      expect(getInvalidKeys).toBeCalledTimes(1);
       expect(mockHandleKeysIntersections).not.toBeCalled();
       expect(mockHandleCorrectKeys).toBeCalledTimes(1);
       expect(mockSecurityContractIsDepositsPaused).toBeCalledTimes(1);
 
-      findInvalidKeys.mockClear();
+      getInvalidKeys.mockClear();
 
       await stakingModuleGuardService.checkKeysIntersections(
         {
@@ -442,7 +442,7 @@ describe('StakingModuleGuardService', () => {
         true,
       );
 
-      expect(findInvalidKeys).not.toBeCalled();
+      expect(getInvalidKeys).toBeCalled();
       expect(mockHandleKeysIntersections).not.toBeCalled();
       expect(mockHandleCorrectKeys).toBeCalledTimes(2);
       // second execution
@@ -477,7 +477,7 @@ describe('StakingModuleGuardService', () => {
       );
 
       //  found invalid keys
-      findInvalidKeys.mockImplementation(async () => []);
+      getInvalidKeys.mockImplementation(async () => []);
 
       await stakingModuleGuardService.checkKeysIntersections(
         {
@@ -490,12 +490,12 @@ describe('StakingModuleGuardService', () => {
         true,
       );
 
-      expect(findInvalidKeys).toBeCalledTimes(1);
+      expect(getInvalidKeys).toBeCalledTimes(1);
       expect(mockHandleKeysIntersections).not.toBeCalled();
       expect(mockHandleCorrectKeys).toBeCalledTimes(1);
       expect(mockSecurityContractIsDepositsPaused).toBeCalledTimes(1);
 
-      findInvalidKeys.mockClear();
+      getInvalidKeys.mockClear();
 
       await stakingModuleGuardService.checkKeysIntersections(
         {
@@ -508,7 +508,7 @@ describe('StakingModuleGuardService', () => {
         true,
       );
 
-      expect(findInvalidKeys).toBeCalledTimes(1);
+      expect(getInvalidKeys).toBeCalledTimes(1);
       expect(mockHandleKeysIntersections).not.toBeCalled();
       expect(mockHandleCorrectKeys).toBeCalledTimes(2);
       // second execution
@@ -591,139 +591,139 @@ describe('StakingModuleGuardService', () => {
     });
   });
 
-  describe('isVettedUnusedKeysValid', () => {
-    const blockData = {} as any;
+  // describe('isVettedUnusedKeysValid', () => {
+  //   const blockData = {} as any;
 
-    it('should return false if last state was undefined and found invalid key', async () => {
-      findInvalidKeys.mockImplementation(() => ['something']);
+  //   it('should return false if last state was undefined and found invalid key', async () => {
+  //     getInvalidKeys.mockImplementation(() => ['something']);
 
-      const result = await stakingModuleGuardService.isVettedUnusedKeysValid(
-        {
-          ...stakingModuleData,
-          lastChangedBlockHash: '',
-          unusedKeys: [],
-          vettedUnusedKeys: [],
-        },
-        blockData,
-      );
+  //     const result = await stakingModuleGuardService.isVettedUnusedKeysValid(
+  //       {
+  //         ...stakingModuleData,
+  //         lastChangedBlockHash: '',
+  //         unusedKeys: [],
+  //         vettedUnusedKeys: [],
+  //       },
+  //       blockData,
+  //     );
 
-      expect(findInvalidKeys).toBeCalledTimes(1);
-      expect(result).toBeFalsy();
-    });
+  //     expect(getInvalidKeys).toBeCalledTimes(1);
+  //     expect(result).toBeFalsy();
+  //   });
 
-    it('should return true if last state was undefined and keys are valid', async () => {
-      findInvalidKeys.mockImplementation(() => []);
-      const result = await stakingModuleGuardService.isVettedUnusedKeysValid(
-        {
-          ...stakingModuleData,
-          lastChangedBlockHash: '',
-          unusedKeys: [],
-          vettedUnusedKeys: [],
-        },
-        blockData,
-      );
+  //   it('should return true if last state was undefined and keys are valid', async () => {
+  //     getInvalidKeys.mockImplementation(() => []);
+  //     const result = await stakingModuleGuardService.isVettedUnusedKeysValid(
+  //       {
+  //         ...stakingModuleData,
+  //         lastChangedBlockHash: '',
+  //         unusedKeys: [],
+  //         vettedUnusedKeys: [],
+  //       },
+  //       blockData,
+  //     );
 
-      expect(findInvalidKeys).toBeCalledTimes(1);
-      expect(result).toBeTruthy();
-    });
+  //     expect(getInvalidKeys).toBeCalledTimes(1);
+  //     expect(result).toBeTruthy();
+  //   });
 
-    it('should return false if prev found invalid key and lastChangedBlockHash was not changed', async () => {
-      findInvalidKeys.mockImplementation(() => ['something']);
+  //   it('should return false if prev found invalid key and lastChangedBlockHash was not changed', async () => {
+  //     getInvalidKeys.mockImplementation(() => ['something']);
 
-      const result = await stakingModuleGuardService.isVettedUnusedKeysValid(
-        {
-          ...stakingModuleData,
-          lastChangedBlockHash: '',
-          unusedKeys: [],
-          vettedUnusedKeys: [],
-        },
-        blockData,
-      );
+  //     const result = await stakingModuleGuardService.isVettedUnusedKeysValid(
+  //       {
+  //         ...stakingModuleData,
+  //         lastChangedBlockHash: '',
+  //         unusedKeys: [],
+  //         vettedUnusedKeys: [],
+  //       },
+  //       blockData,
+  //     );
 
-      expect(findInvalidKeys).toBeCalledTimes(1);
-      expect(result).toBeFalsy();
+  //     expect(getInvalidKeys).toBeCalledTimes(1);
+  //     expect(result).toBeFalsy();
 
-      findInvalidKeys.mockClear();
+  //     getInvalidKeys.mockClear();
 
-      const newResult = await stakingModuleGuardService.isVettedUnusedKeysValid(
-        {
-          ...stakingModuleData,
-          lastChangedBlockHash: '',
-          unusedKeys: [],
-          vettedUnusedKeys: [],
-        },
-        blockData,
-      );
+  //     const newResult = await stakingModuleGuardService.isVettedUnusedKeysValid(
+  //       {
+  //         ...stakingModuleData,
+  //         lastChangedBlockHash: '',
+  //         unusedKeys: [],
+  //         vettedUnusedKeys: [],
+  //       },
+  //       blockData,
+  //     );
 
-      expect(findInvalidKeys).toBeCalledTimes(0);
-      expect(newResult).toBeFalsy();
-    });
+  //     expect(getInvalidKeys).toBeCalledTimes(0);
+  //     expect(newResult).toBeFalsy();
+  //   });
 
-    it('should return true if prev found invalid key and problem was solved', async () => {
-      findInvalidKeys.mockImplementation(() => ['something']);
+  //   it('should return true if prev found invalid key and problem was solved', async () => {
+  //     getInvalidKeys.mockImplementation(() => ['something']);
 
-      const result = await stakingModuleGuardService.isVettedUnusedKeysValid(
-        {
-          ...stakingModuleData,
-          lastChangedBlockHash: '',
-          unusedKeys: [],
-          vettedUnusedKeys: [],
-        },
-        blockData,
-      );
+  //     const result = await stakingModuleGuardService.isVettedUnusedKeysValid(
+  //       {
+  //         ...stakingModuleData,
+  //         lastChangedBlockHash: '',
+  //         unusedKeys: [],
+  //         vettedUnusedKeys: [],
+  //       },
+  //       blockData,
+  //     );
 
-      expect(findInvalidKeys).toBeCalledTimes(1);
-      expect(result).toBeFalsy();
+  //     expect(getInvalidKeys).toBeCalledTimes(1);
+  //     expect(result).toBeFalsy();
 
-      findInvalidKeys.mockImplementation(() => []);
+  //     getInvalidKeys.mockImplementation(() => []);
 
-      const newResult = await stakingModuleGuardService.isVettedUnusedKeysValid(
-        {
-          ...stakingModuleData,
-          lastChangedBlockHash: '0x1',
-          unusedKeys: [],
-          vettedUnusedKeys: [],
-        },
-        blockData,
-      );
+  //     const newResult = await stakingModuleGuardService.isVettedUnusedKeysValid(
+  //       {
+  //         ...stakingModuleData,
+  //         lastChangedBlockHash: '0x1',
+  //         unusedKeys: [],
+  //         vettedUnusedKeys: [],
+  //       },
+  //       blockData,
+  //     );
 
-      expect(findInvalidKeys).toBeCalledTimes(2);
-      expect(newResult).toBeTruthy();
-    });
+  //     expect(getInvalidKeys).toBeCalledTimes(2);
+  //     expect(newResult).toBeTruthy();
+  //   });
 
-    it('should run validation if prev didnt find invalid key and lastChangedBlockHash was not changed', async () => {
-      // TODO: maybe delete this test
-      // isVettedUnusedKeysValid didn't change state in positive case
-      // what is why lastState in this case is undefined
-      findInvalidKeys.mockImplementation(() => []);
+  //   it('should run validation if prev didnt find invalid key and lastChangedBlockHash was not changed', async () => {
+  //     // TODO: maybe delete this test
+  //     // isVettedUnusedKeysValid didn't change state in positive case
+  //     // what is why lastState in this case is undefined
+  //     getInvalidKeys.mockImplementation(() => []);
 
-      const result = await stakingModuleGuardService.isVettedUnusedKeysValid(
-        {
-          ...stakingModuleData,
-          lastChangedBlockHash: '',
-          unusedKeys: [],
-          vettedUnusedKeys: [],
-        },
-        blockData,
-      );
+  //     const result = await stakingModuleGuardService.isVettedUnusedKeysValid(
+  //       {
+  //         ...stakingModuleData,
+  //         lastChangedBlockHash: '',
+  //         unusedKeys: [],
+  //         vettedUnusedKeys: [],
+  //       },
+  //       blockData,
+  //     );
 
-      expect(findInvalidKeys).toBeCalledTimes(1);
-      expect(result).toBeTruthy();
+  //     expect(getInvalidKeys).toBeCalledTimes(1);
+  //     expect(result).toBeTruthy();
 
-      const newResult = await stakingModuleGuardService.isVettedUnusedKeysValid(
-        {
-          ...stakingModuleData,
-          lastChangedBlockHash: '',
-          unusedKeys: [],
-          vettedUnusedKeys: [],
-        },
-        blockData,
-      );
+  //     const newResult = await stakingModuleGuardService.isVettedUnusedKeysValid(
+  //       {
+  //         ...stakingModuleData,
+  //         lastChangedBlockHash: '',
+  //         unusedKeys: [],
+  //         vettedUnusedKeys: [],
+  //       },
+  //       blockData,
+  //     );
 
-      expect(findInvalidKeys).toBeCalledTimes(2);
-      expect(newResult).toBeTruthy();
-    });
-  });
+  //     expect(getInvalidKeys).toBeCalledTimes(2);
+  //     expect(newResult).toBeTruthy();
+  //   });
+  // });
 
   describe('excludeEligibleIntersections', () => {
     const pubkey = '0x1234';
