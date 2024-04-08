@@ -10,7 +10,7 @@ import { LoggerModule } from 'common/logger';
 import { ConfigModule } from 'common/config';
 import { MockProviderModule } from 'provider';
 import {
-  invalidKey,
+  invalidKey1,
   invalidKey2,
   invalidKey2GoodSign,
   validKeys,
@@ -20,7 +20,6 @@ import { GENESIS_FORK_VERSION_BY_CHAIN_ID } from 'bls/bls.constants';
 describe('KeysValidationService', () => {
   let keysValidationService: KeysValidationService;
   let keysValidator: KeyValidatorInterface;
-
   let validateKeysFun: jest.SpyInstance;
 
   const wc =
@@ -45,19 +44,16 @@ describe('KeysValidationService', () => {
 
   it('should find and return invalid keys from the provided list', async () => {
     // Test scenario where new invalid keys are added to the list
-    const result = await keysValidationService.findInvalidKeys(
-      [...validKeys, invalidKey, invalidKey2],
+    const result = await keysValidationService.getInvalidKeys(
+      [...validKeys, invalidKey1, invalidKey2],
       wc,
     );
 
-    const expected = [invalidKey, invalidKey2].map((key) => ({
-      key: key.key,
-      depositSignature: key.depositSignature,
-    }));
+    const expected = [invalidKey1, invalidKey2];
 
     const fork = GENESIS_FORK_VERSION_BY_CHAIN_ID[5];
 
-    const depositData = [...validKeys, invalidKey, invalidKey2].map((key) => ({
+    const depositData = [...validKeys, invalidKey1, invalidKey2].map((key) => ({
       key: key.key,
       depositSignature: key.depositSignature,
       withdrawalCredentials: bufferFromHexString(wc),
@@ -71,20 +67,22 @@ describe('KeysValidationService', () => {
 
     validateKeysFun.mockClear();
     // Test scenario where one invalid key was removed from request's list
-    const newResult = await keysValidationService.findInvalidKeys(
-      [...validKeys, invalidKey],
+    const newResult = await keysValidationService.getInvalidKeys(
+      [...validKeys, invalidKey1],
       wc,
     );
 
-    const newExpected = [invalidKey].map((key) => ({
-      key: key.key,
-      depositSignature: key.depositSignature,
-    }));
-
-    expect(keysValidationService['keysCache'].get(invalidKey2.key)).toEqual({
-      isValid: false,
-      signature: invalidKey2.depositSignature,
+    const newExpected = [invalidKey1];
+    const invalidKey2DepositData = JSON.stringify({
+      key: invalidKey2.key,
+      depositSignature: invalidKey2.depositSignature,
+      withdrawalCredentials: bufferFromHexString(wc),
+      genesisForkVersion: Buffer.from(fork.buffer),
     });
+
+    expect(
+      keysValidationService['depositDataCache'].get(invalidKey2DepositData),
+    ).toEqual(false);
 
     expect(validateKeysFun).toBeCalledTimes(1);
     expect(validateKeysFun).toBeCalledWith([]);
@@ -96,41 +94,32 @@ describe('KeysValidationService', () => {
     // if signature was changed we need to repeat validation
     // invalid key could become valid and visa versa
     // Test scenario where new invalid keys are added to the list
-    const result = await keysValidationService.findInvalidKeys(
-      [...validKeys, invalidKey, invalidKey2],
+    const result = await keysValidationService.getInvalidKeys(
+      [...validKeys, invalidKey1, invalidKey2],
       wc,
     );
-
-    const expected = [invalidKey, invalidKey2].map((key) => ({
-      key: key.key,
-      depositSignature: key.depositSignature,
-    }));
-
+    const expected = [invalidKey1, invalidKey2];
     const fork = GENESIS_FORK_VERSION_BY_CHAIN_ID[5];
-
-    const depositData = [...validKeys, invalidKey, invalidKey2].map((key) => ({
+    const depositData = [...validKeys, invalidKey1, invalidKey2].map((key) => ({
       key: key.key,
       depositSignature: key.depositSignature,
       withdrawalCredentials: bufferFromHexString(wc),
       genesisForkVersion: Buffer.from(fork.buffer),
     }));
-
     expect(validateKeysFun).toBeCalledTimes(1);
     expect(validateKeysFun).toBeCalledWith(depositData);
     expect(result).toEqual(expect.arrayContaining(expected));
     expect(result.length).toEqual(expected.length);
-
     validateKeysFun.mockClear();
     // Test scenario where one invalid key was changed
-    const newResult = await keysValidationService.findInvalidKeys(
+    const newResult = await keysValidationService.getInvalidKeys(
       [
         ...validKeys,
-        invalidKey,
+        invalidKey1,
         { ...invalidKey2, depositSignature: invalidKey2GoodSign },
       ],
       wc,
     );
-
     const newDepositData = [
       { ...invalidKey2, depositSignature: invalidKey2GoodSign },
     ].map((key) => ({
@@ -139,12 +128,7 @@ describe('KeysValidationService', () => {
       withdrawalCredentials: bufferFromHexString(wc),
       genesisForkVersion: Buffer.from(fork.buffer),
     }));
-
-    const newExpected = [invalidKey].map((key) => ({
-      key: key.key,
-      depositSignature: key.depositSignature,
-    }));
-
+    const newExpected = [invalidKey1];
     expect(validateKeysFun).toBeCalledTimes(1);
     expect(validateKeysFun).toBeCalledWith(newDepositData);
     expect(newResult).toEqual(expect.arrayContaining(newExpected));

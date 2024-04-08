@@ -1755,16 +1755,9 @@ describe('ganache e2e tests', () => {
 
       validateKeys.mockClear();
 
-      // put in state that we found invalid keys
-      expect(
-        stakingModuleGuardService['lastContractsStateByModuleId'][
-          stakingModule1.id
-        ]?.invalidKeysFound,
-      ).toBeTruthy();
-
       await guardianService.handleNewBlock();
 
-      expect(validateKeys).toBeCalledTimes(0);
+      expect(validateKeys).toBeCalledTimes(1);
       expect(sendDepositMessage).toBeCalledTimes(0);
       expect(sendPauseMessage).toBeCalledTimes(0);
     },
@@ -1900,12 +1893,6 @@ describe('ganache e2e tests', () => {
     );
 
     validateKeys.mockClear();
-
-    expect(
-      stakingModuleGuardService['lastContractsStateByModuleId'][
-        stakingModule1.id
-      ]?.invalidKeysFound,
-    ).toBeTruthy();
 
     await guardianService.handleNewBlock();
 
