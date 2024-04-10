@@ -36,9 +36,12 @@ describe('StakingRouter', () => {
       keysAllStakingModules,
     );
 
-    const result = await stakingRouterService.getStakingModulesData(
-      groupedByModulesOperators,
-    );
+    const result = await stakingRouterService.getStakingModulesData({
+      operatorsByModules: groupedByModulesOperators.data,
+      meta: groupedByModulesOperators.meta,
+      lidoKeys: keysAllStakingModules.data,
+      duplicatedKeys: [],
+    });
 
     // Assertions
     expect(result).toEqual([
@@ -65,6 +68,7 @@ describe('StakingRouter', () => {
           '0x194ac4fd960ed44cb3db53fe1f5a53e983280fd438aeba607ae04f1bb416b4a1',
         stakingModuleId: 1,
         nonce: 364,
+        duplicatedKeys: [],
       },
       {
         unusedKeys: [
@@ -89,25 +93,8 @@ describe('StakingRouter', () => {
         lastChangedBlockHash:
           '0x194ac4fd960ed44cb3db53fe1f5a53e983280fd438aeba607ae04f1bb416b4a1',
         stakingModuleId: 2,
+        duplicatedKeys: [],
       },
     ]);
-  });
-
-  it("should throw error when 'lastChangedBlockHash' values of two requests are different", async () => {
-    (keysApiService.getUnusedKeys as jest.Mock).mockResolvedValue({
-      ...keysAllStakingModules,
-      ...{
-        meta: {
-          elBlockSnapshot: {
-            lastChangedBlockHash:
-              '0xabf3d64e85527d0c80eb6b0378316caceed9a24f535f6f28dad008fdfebe82b8',
-          },
-        },
-      },
-    });
-
-    expect(
-      stakingRouterService.getStakingModulesData(groupedByModulesOperators),
-    ).rejects.toThrowError(new InconsistentLastChangedBlockHash());
   });
 });

@@ -26,6 +26,7 @@ import { StakingModuleData } from './interfaces';
 import { ProviderService } from 'provider';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { MIN_KAPI_VERSION } from './guardian.constants';
+import { getDuplicatedKeys } from './duplicates/keys-duplication-checker';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -125,7 +126,7 @@ export class GuardianService implements OnModuleInit {
 
     try {
       const { data: operatorsByModules, meta } =
-        await this.stakingRouterService.getOperatorsAndModules();
+        await this.keysApiService.getOperatorListWithModule();
 
       const {
         elBlockSnapshot: { blockHash, blockNumber },
@@ -155,6 +156,17 @@ export class GuardianService implements OnModuleInit {
         modulesCount: stakingModulesCount,
       });
 
+      // fetch all lido keys
+      const { data: lidoKeys, meta: currMeta } =
+        await this.keysApiService.getKeys();
+
+      // as we fetch at first operators to define vetted keys
+      // and now fetched keys , dat in Keys API could change since those moment and we
+      this.stakingRouterService.isEqualLastChangedBlockHash(
+        meta.elBlockSnapshot.lastChangedBlockHash,
+        currMeta.elBlockSnapshot.lastChangedBlockHash,
+      );
+
       await this.depositService.handleNewBlock(blockNumber);
 
       // TODO: e2e test 'node operator deposit frontrun' shows that it is possible to find event and not save in cache
@@ -169,42 +181,21 @@ export class GuardianService implements OnModuleInit {
         blockHash: blockData.blockHash,
       });
 
-      const stakingModulesData =
+      const duplicatedKeys = getDuplicatedKeys(lidoKeys);
+
+      const stakingModulesData: StakingModuleData[] =
         await this.stakingRouterService.getStakingModulesData({
-          data: operatorsByModules,
+          operatorsByModules,
           meta,
+          lidoKeys,
+          duplicatedKeys,
         });
-
-      const modulesIdWithDuplicateKeys: number[] =
-        this.stakingModuleGuardService.getModulesIdsWithDuplicatedVettedUnusedKeys(
-          stakingModulesData,
-          blockData,
-        );
-
-      const stakingModulesWithoutDuplicates: StakingModuleData[] =
-        this.stakingModuleGuardService.excludeModulesWithDuplicatedKeys(
-          stakingModulesData,
-          modulesIdWithDuplicateKeys,
-        );
-
-      this.logger.log('Staking modules without duplicates', {
-        modulesCount: stakingModulesWithoutDuplicates.length,
-      });
 
       await Promise.all(
         stakingModulesData.map(async (stakingModuleData) => {
-          // stakingModulesWithoutDuplicates - modules without duplicates
-          // if found in this module it means it doesnt have duplicates
-
-          const noDuplicates = !!stakingModulesWithoutDuplicates.find(
-            (srmd) =>
-              srmd.stakingModuleId === stakingModuleData.stakingModuleId,
-          );
-
           await this.stakingModuleGuardService.checkKeysIntersections(
             stakingModuleData,
             blockData,
-            noDuplicates,
           );
 
           this.guardianMetricsService.collectMetrics(
