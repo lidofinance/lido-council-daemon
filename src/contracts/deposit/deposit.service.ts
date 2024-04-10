@@ -46,20 +46,15 @@ export class DepositService {
     await this.updateEventsCache();
   }
 
-  public async initialize(/* blockNumber: number */) {
-    // const isCacheValid = this.validateCache(cachedEvents, blockNumber);
+  public async initialize(blockNumber: number) {
+    const cachedEvents = await this.getCachedEvents();
+    const isCacheValid = this.validateCache(cachedEvents, blockNumber);
 
+    if (!isCacheValid) await this.deleteCachedEvents();
+    // it is necessary to load fresh events before integrity check
+    // because we can only compare roots of the last 128 blocks.
     await this.updateEventsCache();
-    // const cachedEvents = await this.getCachedEvents();
     await this.integrityCheck();
-    // if (isCacheValid) return;
-
-    // try {
-    //   await this.deleteCachedEvents();
-    // } catch (error) {
-    //   this.logger.error(error);
-    //   process.exit(1);
-    // }
   }
 
   /**
@@ -72,42 +67,8 @@ export class DepositService {
     cachedEvents: VerifiedDepositEventsCache,
     currentBlock: number,
   ): boolean {
-    return (
-      this.validateCacheBlock(cachedEvents, currentBlock) &&
-      this.validateCacheVersion(cachedEvents)
-    );
-  }
-
-  /**
-   * Validates app version in the cache
-   * @param cachedEvents - cached events
-   * @returns true if cached app version is the same
-   */
-  public validateCacheVersion(
-    cachedEvents: VerifiedDepositEventsCache,
-  ): boolean {
-    const isSameVersion = cachedEvents.headers.version === APP_VERSION;
-
-    const versions = {
-      cachedVersion: cachedEvents.headers.version,
-      currentVersion: APP_VERSION,
-    };
-
-    if (isSameVersion) {
-      this.logger.log(
-        'Deposit events cache version matches the application version',
-        versions,
-      );
-    }
-
-    if (!isSameVersion) {
-      this.logger.warn(
-        'Deposit events cache does not match the application version, clearing the cache',
-        versions,
-      );
-    }
-
-    return isSameVersion;
+    // TODO: data-structure check
+    return this.validateCacheBlock(cachedEvents, currentBlock);
   }
 
   /**
@@ -225,8 +186,13 @@ export class DepositService {
    * Delete deposited events cache
    */
   public async deleteCachedEvents(): Promise<void> {
-    await this.cacheService.deleteCache();
-    this.logger.warn('Deposit events cache cleared');
+    try {
+      await this.cacheService.deleteCache();
+      this.logger.log('Deposit events cache cleared');
+    } catch (error) {
+      this.logger.error(error);
+      process.exit(1);
+    }
   }
 
   /**
@@ -277,6 +243,7 @@ export class DepositService {
     const fetchTimeStart = performance.now();
 
     const [currentBlock, initialCache] = await Promise.all([
+      // TODO: check reorg
       this.providerService.getBlockNumber(),
       this.getCachedEvents(),
     ]);
