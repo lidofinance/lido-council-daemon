@@ -30,88 +30,6 @@ export class StakingModuleGuardService {
   private lastContractsStateByModuleId: Record<number, ContractsState | null> =
     {};
 
-  /**
-   * @returns List of staking modules id with duplicates
-   */
-  public getModulesIdsWithDuplicatedVettedUnusedKeys(
-    stakingModulesData: StakingModuleData[],
-    blockData: BlockData,
-  ): number[] {
-    // Collects the duplicate count for each unique key across staking modules
-    // This map collects, for every key, a set of module IDs where the key was found.
-    const keyModuleOccurrences = new Map<string, Set<number>>();
-    // This map collects, for every module, the number of duplicated keys found in it.
-    const moduleDuplicatedKeysCount = new Map<number, number>();
-
-    stakingModulesData.forEach(({ vettedUnusedKeys, stakingModuleId }) => {
-      // This set tracks keys that are duplicated within the same module.
-      const duplicatedKeysInsideOneModule = new Set<string>();
-      vettedUnusedKeys.forEach(({ key }) => {
-        // is a key new for module
-        const isNewKeyForModule = !duplicatedKeysInsideOneModule.has(key);
-        // Mark this key as encountered for this module
-        duplicatedKeysInsideOneModule.add(key);
-
-        // modules where the key was found
-        const moduleIds = keyModuleOccurrences.get(key);
-
-        if (!moduleIds) {
-          // add new key
-          keyModuleOccurrences.set(key, new Set([stakingModuleId]));
-        } else {
-          moduleIds.add(stakingModuleId);
-
-          if (moduleIds.size > 1 || !isNewKeyForModule) {
-            moduleIds.forEach((id) => {
-              moduleDuplicatedKeysCount.set(
-                id,
-                (moduleDuplicatedKeysCount.get(id) || 0) + 1,
-              );
-            });
-          }
-        }
-      });
-    });
-
-    // set metrics
-    stakingModulesData.forEach(({ stakingModuleId }) => {
-      const countOfDuplicatedKeys =
-        moduleDuplicatedKeysCount.get(stakingModuleId) || 0;
-      this.guardianMetricsService.collectDuplicatedVettedUnusedKeysMetrics(
-        stakingModuleId,
-        countOfDuplicatedKeys,
-      );
-    });
-
-    if (moduleDuplicatedKeysCount.size) {
-      const moduleDuplicatedKeysCountList = Array.from(
-        moduleDuplicatedKeysCount,
-      ).map(([stakingModuleId, duplicatedKeys]) => ({
-        stakingModuleId,
-        duplicatedKeys,
-      }));
-      this.logger.error('Found duplicated vetted keys');
-      this.logger.log('Duplicated keys', {
-        blockHash: blockData.blockHash,
-        modulesWithDuplicates: moduleDuplicatedKeysCountList,
-      });
-
-      return Array.from(moduleDuplicatedKeysCount.keys());
-    }
-
-    return [];
-  }
-
-  public excludeModulesWithDuplicatedKeys(
-    stakingModulesData: StakingModuleData[],
-    modulesIdWithDuplicateKeys: number[],
-  ): StakingModuleData[] {
-    return stakingModulesData.filter(
-      ({ stakingModuleId }) =>
-        !modulesIdWithDuplicateKeys.includes(stakingModuleId),
-    );
-  }
-
   isFirstEventEarlier(
     firstEvent: VerifiedDepositEvent,
     secondEvent: VerifiedDepositEvent,
@@ -221,7 +139,6 @@ export class StakingModuleGuardService {
   public async checkKeysIntersections(
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
-    noDuplicates: boolean,
   ): Promise<void> {
     const { blockHash } = blockData;
     const { stakingModuleId } = stakingModuleData;
@@ -264,10 +181,11 @@ export class StakingModuleGuardService {
     if (isFilteredIntersectionsFound || historicalFrontRunFound) {
       await this.handleKeysIntersections(stakingModuleData, blockData);
     } else {
-      if (!noDuplicates) {
+      if (stakingModuleData.duplicatedKeys.length) {
         this.logger.warn('Found duplicated keys', {
           blockHash,
           stakingModuleId,
+          duplicatesAmount: stakingModuleData.duplicatedKeys.length,
         });
         return;
       }

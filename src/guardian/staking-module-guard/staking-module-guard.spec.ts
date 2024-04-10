@@ -116,6 +116,7 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           unusedKeys,
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
       );
@@ -138,6 +139,7 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           unusedKeys,
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
       );
@@ -159,6 +161,7 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           unusedKeys,
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
       );
@@ -232,9 +235,9 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           unusedKeys,
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
-        true,
       );
 
       expect(mockHandleCorrectKeys).not.toBeCalled();
@@ -245,6 +248,7 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           unusedKeys,
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
       );
@@ -277,9 +281,9 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           unusedKeys,
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
-        true,
       );
 
       expect(getInvalidKeys).toBeCalledTimes(1);
@@ -291,6 +295,7 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           unusedKeys,
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
       );
@@ -323,9 +328,9 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           unusedKeys,
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
-        true,
       );
 
       expect(getInvalidKeys).toBeCalledTimes(1);
@@ -343,9 +348,9 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           unusedKeys,
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
-        true,
       );
 
       expect(getInvalidKeys).toBeCalled();
@@ -363,9 +368,9 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '0x1',
           unusedKeys,
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
-        true,
       );
 
       expect(getInvalidKeys).toBeCalledTimes(2);
@@ -377,6 +382,7 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '0x1',
           unusedKeys,
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
       );
@@ -419,9 +425,9 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           unusedKeys,
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
-        true,
       );
 
       expect(getInvalidKeys).toBeCalledTimes(1);
@@ -437,9 +443,9 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           unusedKeys,
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
-        true,
       );
 
       expect(getInvalidKeys).toBeCalled();
@@ -485,9 +491,9 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           unusedKeys,
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
-        true,
       );
 
       expect(getInvalidKeys).toBeCalledTimes(1);
@@ -503,9 +509,9 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '0x1',
           unusedKeys,
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
-        true,
       );
 
       expect(getInvalidKeys).toBeCalledTimes(1);
@@ -545,6 +551,7 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           unusedKeys: [],
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
       );
@@ -554,6 +561,7 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           unusedKeys: [],
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
       );
@@ -582,6 +590,7 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           unusedKeys: [],
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
       );
@@ -590,140 +599,6 @@ describe('StakingModuleGuardService', () => {
       expect(mockSignDepositData).toBeCalledTimes(1);
     });
   });
-
-  // describe('isVettedUnusedKeysValid', () => {
-  //   const blockData = {} as any;
-
-  //   it('should return false if last state was undefined and found invalid key', async () => {
-  //     getInvalidKeys.mockImplementation(() => ['something']);
-
-  //     const result = await stakingModuleGuardService.isVettedUnusedKeysValid(
-  //       {
-  //         ...stakingModuleData,
-  //         lastChangedBlockHash: '',
-  //         unusedKeys: [],
-  //         vettedUnusedKeys: [],
-  //       },
-  //       blockData,
-  //     );
-
-  //     expect(getInvalidKeys).toBeCalledTimes(1);
-  //     expect(result).toBeFalsy();
-  //   });
-
-  //   it('should return true if last state was undefined and keys are valid', async () => {
-  //     getInvalidKeys.mockImplementation(() => []);
-  //     const result = await stakingModuleGuardService.isVettedUnusedKeysValid(
-  //       {
-  //         ...stakingModuleData,
-  //         lastChangedBlockHash: '',
-  //         unusedKeys: [],
-  //         vettedUnusedKeys: [],
-  //       },
-  //       blockData,
-  //     );
-
-  //     expect(getInvalidKeys).toBeCalledTimes(1);
-  //     expect(result).toBeTruthy();
-  //   });
-
-  //   it('should return false if prev found invalid key and lastChangedBlockHash was not changed', async () => {
-  //     getInvalidKeys.mockImplementation(() => ['something']);
-
-  //     const result = await stakingModuleGuardService.isVettedUnusedKeysValid(
-  //       {
-  //         ...stakingModuleData,
-  //         lastChangedBlockHash: '',
-  //         unusedKeys: [],
-  //         vettedUnusedKeys: [],
-  //       },
-  //       blockData,
-  //     );
-
-  //     expect(getInvalidKeys).toBeCalledTimes(1);
-  //     expect(result).toBeFalsy();
-
-  //     getInvalidKeys.mockClear();
-
-  //     const newResult = await stakingModuleGuardService.isVettedUnusedKeysValid(
-  //       {
-  //         ...stakingModuleData,
-  //         lastChangedBlockHash: '',
-  //         unusedKeys: [],
-  //         vettedUnusedKeys: [],
-  //       },
-  //       blockData,
-  //     );
-
-  //     expect(getInvalidKeys).toBeCalledTimes(0);
-  //     expect(newResult).toBeFalsy();
-  //   });
-
-  //   it('should return true if prev found invalid key and problem was solved', async () => {
-  //     getInvalidKeys.mockImplementation(() => ['something']);
-
-  //     const result = await stakingModuleGuardService.isVettedUnusedKeysValid(
-  //       {
-  //         ...stakingModuleData,
-  //         lastChangedBlockHash: '',
-  //         unusedKeys: [],
-  //         vettedUnusedKeys: [],
-  //       },
-  //       blockData,
-  //     );
-
-  //     expect(getInvalidKeys).toBeCalledTimes(1);
-  //     expect(result).toBeFalsy();
-
-  //     getInvalidKeys.mockImplementation(() => []);
-
-  //     const newResult = await stakingModuleGuardService.isVettedUnusedKeysValid(
-  //       {
-  //         ...stakingModuleData,
-  //         lastChangedBlockHash: '0x1',
-  //         unusedKeys: [],
-  //         vettedUnusedKeys: [],
-  //       },
-  //       blockData,
-  //     );
-
-  //     expect(getInvalidKeys).toBeCalledTimes(2);
-  //     expect(newResult).toBeTruthy();
-  //   });
-
-  //   it('should run validation if prev didnt find invalid key and lastChangedBlockHash was not changed', async () => {
-  //     // TODO: maybe delete this test
-  //     // isVettedUnusedKeysValid didn't change state in positive case
-  //     // what is why lastState in this case is undefined
-  //     getInvalidKeys.mockImplementation(() => []);
-
-  //     const result = await stakingModuleGuardService.isVettedUnusedKeysValid(
-  //       {
-  //         ...stakingModuleData,
-  //         lastChangedBlockHash: '',
-  //         unusedKeys: [],
-  //         vettedUnusedKeys: [],
-  //       },
-  //       blockData,
-  //     );
-
-  //     expect(getInvalidKeys).toBeCalledTimes(1);
-  //     expect(result).toBeTruthy();
-
-  //     const newResult = await stakingModuleGuardService.isVettedUnusedKeysValid(
-  //       {
-  //         ...stakingModuleData,
-  //         lastChangedBlockHash: '',
-  //         unusedKeys: [],
-  //         vettedUnusedKeys: [],
-  //       },
-  //       blockData,
-  //     );
-
-  //     expect(getInvalidKeys).toBeCalledTimes(2);
-  //     expect(newResult).toBeTruthy();
-  //   });
-  // });
 
   describe('excludeEligibleIntersections', () => {
     const pubkey = '0x1234';
@@ -797,6 +672,7 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           unusedKeys: [],
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
       );
@@ -824,6 +700,7 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           unusedKeys: [],
           vettedUnusedKeys: [],
+          duplicatedKeys: [],
         },
         blockData,
       );
@@ -911,205 +788,6 @@ describe('StakingModuleGuardService', () => {
         lastChangedBlockHash: 'new hash',
       });
       expect(result).toBeFalsy();
-    });
-  });
-
-  describe('excludeModulesWithDuplicatedKeys', () => {
-    const stakingModules: StakingModuleData[] = [
-      {
-        blockHash: '',
-        unusedKeys: [],
-        vettedUnusedKeys: [],
-        nonce: 0,
-        stakingModuleId: 1,
-        lastChangedBlockHash: '',
-      },
-      {
-        blockHash: '',
-        unusedKeys: [],
-        vettedUnusedKeys: [],
-        nonce: 0,
-        stakingModuleId: 2,
-        lastChangedBlockHash: '',
-      },
-      {
-        blockHash: '',
-        unusedKeys: [],
-        vettedUnusedKeys: [],
-        nonce: 0,
-        stakingModuleId: 3,
-        lastChangedBlockHash: '',
-      },
-    ];
-
-    it('should exclude modules', () => {
-      const moduleIdsWithDuplicateKeys = [2];
-      const expectedStakingModules: StakingModuleData[] = [
-        {
-          blockHash: '',
-          unusedKeys: [],
-          vettedUnusedKeys: [],
-          nonce: 0,
-          stakingModuleId: 1,
-          lastChangedBlockHash: '',
-        },
-        {
-          blockHash: '',
-          unusedKeys: [],
-          vettedUnusedKeys: [],
-          nonce: 0,
-          stakingModuleId: 3,
-          lastChangedBlockHash: '',
-        },
-      ];
-
-      const result = stakingModuleGuardService.excludeModulesWithDuplicatedKeys(
-        stakingModules,
-        moduleIdsWithDuplicateKeys,
-      );
-
-      expect(result.length).toEqual(2);
-      expect(result).toEqual(expect.arrayContaining(expectedStakingModules));
-    });
-
-    it('should return list without changes', () => {
-      const moduleIdsWithDuplicateKeys = [4];
-      const expectedStakingModules: StakingModuleData[] = [
-        {
-          blockHash: '',
-          unusedKeys: [],
-          vettedUnusedKeys: [],
-          nonce: 0,
-          stakingModuleId: 1,
-          lastChangedBlockHash: '',
-        },
-        {
-          blockHash: '',
-          unusedKeys: [],
-          vettedUnusedKeys: [],
-          nonce: 0,
-          stakingModuleId: 2,
-          lastChangedBlockHash: '',
-        },
-        {
-          blockHash: '',
-          unusedKeys: [],
-          vettedUnusedKeys: [],
-          nonce: 0,
-          stakingModuleId: 3,
-          lastChangedBlockHash: '',
-        },
-      ];
-
-      const result = stakingModuleGuardService.excludeModulesWithDuplicatedKeys(
-        stakingModules,
-        moduleIdsWithDuplicateKeys,
-      );
-
-      expect(result.length).toEqual(3);
-      expect(result).toEqual(expect.arrayContaining(expectedStakingModules));
-    });
-
-    it('should return list without changes if duplicated keys were not found', () => {
-      const moduleIdsWithDuplicateKeys = [];
-      const expectedStakingModules: StakingModuleData[] = [
-        {
-          blockHash: '',
-          unusedKeys: [],
-          vettedUnusedKeys: [],
-          nonce: 0,
-          stakingModuleId: 1,
-          lastChangedBlockHash: '',
-        },
-        {
-          blockHash: '',
-          unusedKeys: [],
-          vettedUnusedKeys: [],
-          nonce: 0,
-          stakingModuleId: 2,
-          lastChangedBlockHash: '',
-        },
-        {
-          blockHash: '',
-          unusedKeys: [],
-          vettedUnusedKeys: [],
-          nonce: 0,
-          stakingModuleId: 3,
-          lastChangedBlockHash: '',
-        },
-      ];
-
-      const result = stakingModuleGuardService.excludeModulesWithDuplicatedKeys(
-        stakingModules,
-        moduleIdsWithDuplicateKeys,
-      );
-
-      expect(result.length).toEqual(3);
-      expect(result).toEqual(expect.arrayContaining(expectedStakingModules));
-    });
-  });
-
-  describe('getModulesIdsWithDuplicatedVettedUnusedKeys', () => {
-    const blockData = { blockHash: 'some_hash' } as any;
-
-    it('should found duplicated keys across two module', () => {
-      const result =
-        stakingModuleGuardService.getModulesIdsWithDuplicatedVettedUnusedKeys(
-          vettedKeysDuplicatesAcrossModules,
-          blockData,
-        );
-
-      const addressesOfModulesWithDuplicateKeys = [100, 102];
-
-      // result has all addressesOfModulesWithDuplicateKeys elements
-      // but it also could contain more elements, that is why we check length too
-      expect(result).toEqual(
-        expect.arrayContaining(addressesOfModulesWithDuplicateKeys),
-      );
-      expect(result.length).toEqual(2);
-    });
-
-    it('should found duplicated keys across one module', () => {
-      const result =
-        stakingModuleGuardService.getModulesIdsWithDuplicatedVettedUnusedKeys(
-          vettedKeysDuplicatesAcrossOneModule,
-          blockData,
-        );
-
-      const addressesOfModulesWithDuplicateKeys = [100];
-      expect(result).toEqual(
-        expect.arrayContaining(addressesOfModulesWithDuplicateKeys),
-      );
-      expect(result.length).toEqual(1);
-    });
-
-    it('should found duplicated keys across one module and few', () => {
-      const result =
-        stakingModuleGuardService.getModulesIdsWithDuplicatedVettedUnusedKeys(
-          vettedKeysDuplicatesAcrossOneModuleAndFew,
-          blockData,
-        );
-
-      const addressesOfModulesWithDuplicateKeys = [100, 102];
-      expect(result).toEqual(
-        expect.arrayContaining(addressesOfModulesWithDuplicateKeys),
-      );
-      expect(result.length).toEqual(2);
-    });
-
-    it('should return empty list if duplicated keys were not found', () => {
-      const result =
-        stakingModuleGuardService.getModulesIdsWithDuplicatedVettedUnusedKeys(
-          vettedKeysWithoutDuplicates,
-          blockData,
-        );
-
-      const addressesOfModulesWithDuplicateKeys = [];
-
-      expect(result).toEqual(
-        expect.arrayContaining(addressesOfModulesWithDuplicateKeys),
-      );
-      expect(result.length).toEqual(0);
     });
   });
 

@@ -7,4 +7,5 @@ export interface StakingModuleData {
   nonce: number;
   stakingModuleId: number;
   lastChangedBlockHash: string;
+  duplicatedKeys: RegistryKey[];
 }
