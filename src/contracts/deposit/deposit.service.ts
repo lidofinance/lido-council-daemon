@@ -21,6 +21,8 @@ import { CacheService } from 'cache';
 import { BlockTag } from 'provider';
 import { BlsService } from 'bls';
 import { APP_VERSION } from 'app.constants';
+import { DepositIntegrityCheckerService } from './integrity-checker.service';
+import { parseLittleEndian64 } from './deposit.utils';
 
 @Injectable()
 export class DepositService {
@@ -33,6 +35,7 @@ export class DepositService {
       VerifiedDepositEvent
     >,
     private blsService: BlsService,
+    private depositIntegrityCheckerService: DepositIntegrityCheckerService,
   ) {}
 
   public async handleNewBlock(blockNumber: number): Promise<void> {
@@ -43,18 +46,20 @@ export class DepositService {
     await this.updateEventsCache();
   }
 
-  public async initialize(blockNumber: number) {
-    const cachedEvents = await this.getCachedEvents();
-    const isCacheValid = this.validateCache(cachedEvents, blockNumber);
+  public async initialize(/* blockNumber: number */) {
+    // const isCacheValid = this.validateCache(cachedEvents, blockNumber);
 
-    if (isCacheValid) return;
+    await this.updateEventsCache();
+    // const cachedEvents = await this.getCachedEvents();
+    await this.integrityCheck();
+    // if (isCacheValid) return;
 
-    try {
-      await this.deleteCachedEvents();
-    } catch (error) {
-      this.logger.error(error);
-      process.exit(1);
-    }
+    // try {
+    //   await this.deleteCachedEvents();
+    // } catch (error) {
+    //   this.logger.error(error);
+    //   process.exit(1);
+    // }
   }
 
   /**
@@ -149,7 +154,16 @@ export class DepositService {
       blockHash,
       logIndex,
     } = rawEvent;
-    const { withdrawal_credentials: wc, pubkey, amount, signature } = args;
+    const {
+      withdrawal_credentials: wc,
+      pubkey,
+      amount,
+      signature,
+      index,
+      ...rest
+    } = args;
+
+    const depositCount = rest['4'];
 
     return {
       pubkey,
@@ -160,6 +174,8 @@ export class DepositService {
       blockNumber,
       blockHash,
       logIndex,
+      index,
+      depositCount: parseLittleEndian64(depositCount),
     };
   }
 
@@ -305,7 +321,6 @@ export class DepositService {
 
     const fetchTimeEnd = performance.now();
     const fetchTime = Math.ceil(fetchTimeEnd - fetchTimeStart) / 1000;
-
     // TODO: replace timer with metric
 
     this.logger.log('Deposit events cache is updated', {
@@ -384,6 +399,11 @@ export class DepositService {
     });
 
     return depositRoot;
+  }
+
+  public async integrityCheck() {
+    const cachedEvents = await this.getCachedEvents();
+    await this.depositIntegrityCheckerService.checkIntegrity(cachedEvents);
   }
 
   /**

@@ -8,6 +8,7 @@ import {
   DEPOSIT_CACHE_DEFAULT,
   DEPOSIT_CACHE_FILE_NAME,
 } from './deposit.constants';
+import { DepositIntegrityCheckerService } from './integrity-checker.service';
 
 @Module({
   imports: [
@@ -19,7 +20,7 @@ import {
       DEPOSIT_CACHE_DEFAULT,
     ),
   ],
-  providers: [DepositService],
+  providers: [DepositService, DepositIntegrityCheckerService],
   exports: [DepositService],
 })
 export class DepositModule {}
