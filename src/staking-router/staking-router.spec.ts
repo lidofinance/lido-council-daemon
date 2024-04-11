@@ -5,7 +5,6 @@ import { groupedByModulesOperators } from './operators.fixtures';
 import { keysAllStakingModules } from './keys.fixtures';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
-import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
 
 describe('StakingRouter', () => {
   let stakingRouterService: StakingRouterService;
