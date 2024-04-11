@@ -261,40 +261,6 @@ export class StakingModuleGuardService {
   }
 
   /**
-   * If we find an intersection between the unused keys and the deposited keys in the Ethereum deposit contract
-   * with Lido withdrawal credentials, we need to determine whether this deposit was made by Lido.
-   * If it was indeed made by Lido, we set a metric and skip sending deposit messages in the queue for this iteration.
-   */
-  public async findAlreadyDepositedKeys(
-    lastChangedBlockHash: string,
-    intersectionsWithLidoWC: VerifiedDepositEvent[],
-  ) {
-    const depositedPubkeys = intersectionsWithLidoWC.map(
-      (deposit) => deposit.pubkey,
-    );
-    // if depositedPubkeys == [], /find will return validation error
-    if (!depositedPubkeys.length) {
-      return [];
-    }
-
-    // TODO: add staking module id
-    this.logger.log(
-      'Found intersections with lido credentials, need to check used duplicated keys',
-    );
-
-    const { data, meta } = await this.stakingRouterService.getKeysByPubkeys(
-      depositedPubkeys,
-    );
-
-    this.stakingRouterService.isEqualLastChangedBlockHash(
-      lastChangedBlockHash,
-      meta.elBlockSnapshot.lastChangedBlockHash,
-    );
-
-    return data.filter((key) => key.used);
-  }
-
-  /**
    * Handles the situation when keys have previously deposited copies
    * @param blockData - collected data from the current block
    */
