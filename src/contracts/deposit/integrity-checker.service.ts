@@ -26,6 +26,8 @@ export class DepositIntegrityCheckerService {
     eventsCache.data.sort((a, b) => a.depositCount - b.depositCount);
     const tree = new DepositTree();
 
+    console.time('from tree');
+
     for (const [index, event] of eventsCache.data.entries()) {
       tree.insert(event);
 
@@ -39,6 +41,8 @@ export class DepositIntegrityCheckerService {
       }
     }
 
+    console.timeEnd('from tree');
+    // 27 sec
     const localRoot = tree.getRoot();
 
     return localRoot;
