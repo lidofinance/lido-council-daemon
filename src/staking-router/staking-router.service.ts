@@ -20,13 +20,6 @@ export class StakingRouterService {
     protected readonly keysApiService: KeysApiService,
   ) {}
 
-  async getOperatorsAndModules() {
-    const { data: operatorsByModules, meta: operatorsMeta } =
-      await this.keysApiService.getOperatorListWithModule();
-
-    return { data: operatorsByModules, meta: operatorsMeta };
-  }
-
   /**
    * Return staking module data and block information
    */

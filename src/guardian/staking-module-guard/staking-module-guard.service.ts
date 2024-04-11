@@ -190,26 +190,6 @@ export class StakingModuleGuardService {
         return;
       }
 
-      // it could throw error if kapi returned old data
-      const usedKeys = await this.findAlreadyDepositedKeys(
-        stakingModuleData.lastChangedBlockHash,
-        validIntersections,
-      );
-
-      this.guardianMetricsService.collectDuplicatedUsedKeysMetrics(
-        stakingModuleData.stakingModuleId,
-        usedKeys.length,
-      );
-
-      // if found used keys, Lido already made deposit on this keys
-      if (usedKeys.length) {
-        this.logger.log('Found that we already deposited on these keys', {
-          blockHash,
-          stakingModuleId,
-        });
-        return;
-      }
-
       const invalidKeys = await this.getInvalidKeys(
         stakingModuleData,
         blockData,
