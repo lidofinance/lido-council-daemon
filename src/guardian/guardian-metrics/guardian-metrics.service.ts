@@ -100,11 +100,11 @@ export class GuardianMetricsService {
    * @param blockData - collected data from the current block
    */
   public collectOperatorMetrics(stakingModuleData: StakingModuleData): void {
-    const { unusedKeys, stakingModuleId } = stakingModuleData;
+    const { vettedUnusedKeys, stakingModuleId } = stakingModuleData;
 
-    const operatorsKeysTotal = unusedKeys.length;
+    const operatorsKeysTotal = vettedUnusedKeys.length;
     this.operatorsKeysCounter.set(
-      { type: 'unused', stakingModuleId },
+      { type: 'vetted_unused', stakingModuleId },
       operatorsKeysTotal,
     );
   }

@@ -181,6 +181,13 @@ export class GuardianService implements OnModuleInit {
         blockHash: blockData.blockHash,
       });
 
+      // TODO: add metrics for getHistoricalFrontRun same as for keysIntersections
+      const theftHappened =
+        await this.stakingModuleGuardService.getHistoricalFrontRun(blockData);
+
+      const isDepositsPaused =
+        await this.securityService.isDepositContractPaused(blockData.blockHash);
+
       const duplicatedKeys = getDuplicatedKeys(lidoKeys);
 
       const stakingModulesData: StakingModuleData[] =
@@ -189,16 +196,58 @@ export class GuardianService implements OnModuleInit {
           meta,
           lidoKeys,
           duplicatedKeys,
+          isDepositsPaused,
         });
+
+      if (!isDepositsPaused && theftHappened) {
+        // pause deposit contract for all modules
+        // in current version will send separate transactions to modules
+        await Promise.all(
+          stakingModulesData.map(async (stakingModuleData) => {
+            await this.stakingModuleGuardService.handleKeysIntersections(
+              stakingModuleData,
+              blockData,
+            );
+          }),
+        );
+      }
 
       await Promise.all(
         stakingModulesData.map(async (stakingModuleData) => {
-          await this.stakingModuleGuardService.checkKeysIntersections(
+          const frontRunAttempts =
+            this.stakingModuleGuardService.getFrontRunAttempts(
+              stakingModuleData,
+              blockData,
+            );
+
+          const invalidKeys =
+            await this.stakingModuleGuardService.getInvalidKeys(
+              stakingModuleData,
+              blockData,
+            );
+
+          this.guardianMetricsService.collectMetrics(
             stakingModuleData,
             blockData,
           );
 
-          this.guardianMetricsService.collectMetrics(
+          // TODO: unvetting
+
+          if (
+            [
+              ...invalidKeys,
+              ...frontRunAttempts,
+              ...stakingModuleData.duplicatedKeys,
+            ].length ||
+            theftHappened ||
+            isDepositsPaused ||
+            stakingModuleData.isModuleDepositsPaused
+          ) {
+            // soft pause
+            return;
+          }
+
+          await this.stakingModuleGuardService.handleCorrectKeys(
             stakingModuleData,
             blockData,
           );
