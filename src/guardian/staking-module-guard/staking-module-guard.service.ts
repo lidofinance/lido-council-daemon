@@ -212,6 +212,20 @@ export class StakingModuleGuardService {
   }
 
   /**
+   * pause deposit contract
+   */
+  public async pauseDeposits(
+    stakingModulesData: StakingModuleData[],
+    blockData: BlockData,
+  ) {
+    await Promise.all(
+      stakingModulesData.map(async (stakingModuleData) => {
+        await this.handleKeysIntersections(stakingModuleData, blockData);
+      }),
+    );
+  }
+
+  /**
    * Handles the situation when keys have previously deposited copies
    * @param blockData - collected data from the current block
    */

@@ -202,13 +202,10 @@ export class GuardianService implements OnModuleInit {
       if (!isDepositsPaused && theftHappened) {
         // pause deposit contract for all modules
         // in current version will send separate transactions to modules
-        await Promise.all(
-          stakingModulesData.map(async (stakingModuleData) => {
-            await this.stakingModuleGuardService.handleKeysIntersections(
-              stakingModuleData,
-              blockData,
-            );
-          }),
+
+        await this.stakingModuleGuardService.pauseDeposits(
+          stakingModulesData,
+          blockData,
         );
       }
 
