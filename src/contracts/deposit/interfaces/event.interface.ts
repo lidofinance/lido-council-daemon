@@ -9,6 +9,7 @@ export interface DepositEvent {
   logIndex: number;
   index: string;
   depositCount: number;
+  depositEventHash: Uint8Array;
 }
 
 export interface VerifiedDepositEvent extends DepositEvent {

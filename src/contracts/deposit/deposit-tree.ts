@@ -63,6 +63,11 @@ export class DepositTree {
     this.formBranch(node, this.nodeCount);
   }
 
+  public insertNode(node: Uint8Array) {
+    this.nodeCount++;
+    this.formBranch(node, this.nodeCount);
+  }
+
   public getRoot() {
     let node = DepositTree.ZERO_HASH;
     let size = this.nodeCount;

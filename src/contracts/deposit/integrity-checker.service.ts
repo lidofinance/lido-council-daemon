@@ -29,9 +29,9 @@ export class DepositIntegrityCheckerService {
     console.time('from tree');
 
     for (const [index, event] of eventsCache.data.entries()) {
-      tree.insert(event);
+      tree.insertNode(event.depositEventHash);
 
-      if (index % 20_000 === 0) {
+      if (index % 200_000 === 0) {
         await new Promise((res) => setTimeout(res, 1));
 
         this.logger.log('Checking integrity of saved deposit events', {
@@ -75,7 +75,7 @@ export class DepositIntegrityCheckerService {
 
     const localDepositCount = eventsCache.data.length;
     const remoteDepositCount = await this.getDepositCount(blockTag);
-
+    console.log(localDepositCount, remoteDepositCount);
     if (localDepositCount === remoteDepositCount) return;
 
     this.logger.error(

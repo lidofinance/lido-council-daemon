@@ -23,6 +23,9 @@ import { BlsService } from 'bls';
 import { APP_VERSION } from 'app.constants';
 import { DepositIntegrityCheckerService } from './integrity-checker.service';
 import { parseLittleEndian64 } from './deposit.utils';
+import { DepositTree } from './deposit-tree';
+import { toHexString } from '@chainsafe/ssz';
+import { getCache, putMany } from './leveldb';
 
 @Injectable()
 export class DepositService {
@@ -47,10 +50,13 @@ export class DepositService {
   }
 
   public async initialize(blockNumber: number) {
-    const cachedEvents = await this.getCachedEvents();
+    const cachedEvents = await getCache();
     const isCacheValid = this.validateCache(cachedEvents, blockNumber);
 
-    if (!isCacheValid) await this.deleteCachedEvents();
+    if (!isCacheValid) {
+      throw new Error('CHECK');
+      await this.deleteCachedEvents();
+    }
     // it is necessary to load fresh events before integrity check
     // because we can only compare roots of the last 128 blocks.
     await this.updateEventsCache();
@@ -137,6 +143,12 @@ export class DepositService {
       logIndex,
       index,
       depositCount: parseLittleEndian64(depositCount),
+      depositEventHash: DepositTree.formDepositNode({
+        pubkey,
+        wc,
+        signature,
+        amount,
+      }),
     };
   }
 
@@ -154,7 +166,8 @@ export class DepositService {
    * @returns event group
    */
   public async getCachedEvents(): Promise<VerifiedDepositEventsCache> {
-    const { headers, ...rest } = await this.cacheService.getCache();
+    //
+    const { headers, ...rest } = await getCache();
     const deploymentBlock = await this.getDeploymentBlockByNetwork();
 
     return {
@@ -187,8 +200,11 @@ export class DepositService {
    */
   public async deleteCachedEvents(): Promise<void> {
     try {
-      await this.cacheService.deleteCache();
-      this.logger.log('Deposit events cache cleared');
+      // await this.cacheService.deleteCache();
+
+      this.logger.error('Deposit events cache cleared');
+      throw new Error('cache deleted');
+      // process.exit(1);
     } catch (error) {
       this.logger.error(error);
       process.exit(1);
@@ -248,10 +264,10 @@ export class DepositService {
       this.getCachedEvents(),
     ]);
 
-    const updatedCachedEvents = {
-      headers: { ...initialCache.headers },
-      data: [...initialCache.data],
-    };
+    // const updatedCachedEvents = {
+    //   headers: { ...initialCache.headers },
+    //   data: [...initialCache.data],
+    // };
     const firstNotCachedBlock = initialCache.headers.endBlock + 1;
     const toBlock = currentBlock - DEPOSIT_EVENTS_CACHE_LAG_BLOCKS;
 
@@ -262,37 +278,39 @@ export class DepositService {
     ) {
       const chunkStartBlock = block;
       const chunkToBlock = Math.min(toBlock, block + DEPOSIT_EVENTS_STEP - 1);
-
+      console.time('fetch events')
       const chunkEventGroup = await this.fetchEventsFallOver(
         chunkStartBlock,
         chunkToBlock,
       );
+      console.timeEnd('fetch events')
 
-      updatedCachedEvents.headers.endBlock = chunkEventGroup.endBlock;
-      updatedCachedEvents.data = updatedCachedEvents.data.concat(
-        chunkEventGroup.events,
-      );
-
+      console.time('put events')
+      await putMany(chunkEventGroup.events, {
+        ...initialCache.headers,
+        endBlock: chunkEventGroup.endBlock,
+      });
+      console.timeEnd('put events')
       this.logger.log('Historical events are fetched', {
         toBlock,
         startBlock: chunkStartBlock,
         endBlock: chunkToBlock,
-        events: updatedCachedEvents.data.length,
+        // events: updatedCachedEvents.data.length,
       });
 
-      await this.setCachedEvents(updatedCachedEvents);
+      // await this.setCachedEvents(updatedCachedEvents);
     }
 
-    const totalEvents = updatedCachedEvents.data.length;
-    const newEvents = totalEvents - initialCache.data.length;
+    // const totalEvents = updatedCachedEvents.data.length;
+    // const newEvents = totalEvents - initialCache.data.length;
 
     const fetchTimeEnd = performance.now();
     const fetchTime = Math.ceil(fetchTimeEnd - fetchTimeStart) / 1000;
     // TODO: replace timer with metric
 
     this.logger.log('Deposit events cache is updated', {
-      newEvents,
-      totalEvents,
+      // newEvents,
+      // totalEvents,
       fetchTime,
     });
   }
