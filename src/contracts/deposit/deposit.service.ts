@@ -24,7 +24,6 @@ import { APP_VERSION } from 'app.constants';
 import { DepositIntegrityCheckerService } from './integrity-checker.service';
 import { parseLittleEndian64 } from './deposit.utils';
 import { DepositTree } from './deposit-tree';
-import { toHexString } from '@chainsafe/ssz';
 import { getCache, putMany } from './leveldb';
 
 @Injectable()
@@ -278,19 +277,19 @@ export class DepositService {
     ) {
       const chunkStartBlock = block;
       const chunkToBlock = Math.min(toBlock, block + DEPOSIT_EVENTS_STEP - 1);
-      console.time('fetch events')
+      console.time('fetch events');
       const chunkEventGroup = await this.fetchEventsFallOver(
         chunkStartBlock,
         chunkToBlock,
       );
-      console.timeEnd('fetch events')
+      console.timeEnd('fetch events');
 
-      console.time('put events')
+      console.time('put events');
       await putMany(chunkEventGroup.events, {
         ...initialCache.headers,
         endBlock: chunkEventGroup.endBlock,
       });
-      console.timeEnd('put events')
+      console.timeEnd('put events');
       this.logger.log('Historical events are fetched', {
         toBlock,
         startBlock: chunkStartBlock,

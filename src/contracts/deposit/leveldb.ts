@@ -96,6 +96,7 @@ export async function getCache() {
     return { data, headers };
     // LEVEL_NOT_FOUND
   } catch (error) {
+    // TODO: handle error
     console.log(error);
     return DEPOSIT_CACHE_DEFAULT;
   }
