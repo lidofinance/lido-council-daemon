@@ -92,6 +92,13 @@ export class DepositTree {
     return finalRoot;
   }
 
+  public clone() {
+    const tree = new DepositTree();
+    tree.branch = [...this.branch];
+    tree.nodeCount = this.nodeCount;
+    return tree;
+  }
+
   static formDepositNode(nodeData: NodeData): Uint8Array {
     return DepositData.hashTreeRoot({
       withdrawalCredentials: fromHexString(nodeData.wc),

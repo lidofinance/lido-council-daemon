@@ -45,7 +45,8 @@ export class DepositService {
 
     // The event cache is stored with an N block lag to avoid caching data from uncle blocks
     // so we don't worry about blockHash here
-    await this.updateEventsCache();
+    const toBlockNumber = await this.updateEventsCache();
+    await this.depositIntegrityCheckerService.checkFinalizedRoot(toBlockNumber);
   }
 
   public async initialize(blockNumber: number) {
@@ -56,10 +57,12 @@ export class DepositService {
       throw new Error('CHECK');
       await this.deleteCachedEvents();
     }
+    await this.depositIntegrityCheckerService.initialize(cachedEvents);
     // it is necessary to load fresh events before integrity check
     // because we can only compare roots of the last 128 blocks.
-    await this.updateEventsCache();
-    await this.integrityCheck();
+    const toBlockNumber = await this.updateEventsCache();
+    await this.depositIntegrityCheckerService.checkFinalizedRoot(toBlockNumber);
+    // await this.integrityCheck();
   }
 
   /**
@@ -254,7 +257,7 @@ export class DepositService {
    * Updates the cache deposited events
    * The last N blocks are not stored, in order to avoid storing reorganized blocks
    */
-  public async updateEventsCache(): Promise<void> {
+  public async updateEventsCache(): Promise<number> {
     const fetchTimeStart = performance.now();
 
     const [currentBlock, initialCache] = await Promise.all([
@@ -263,10 +266,6 @@ export class DepositService {
       this.getCachedEvents(),
     ]);
 
-    // const updatedCachedEvents = {
-    //   headers: { ...initialCache.headers },
-    //   data: [...initialCache.data],
-    // };
     const firstNotCachedBlock = initialCache.headers.endBlock + 1;
     const toBlock = currentBlock - DEPOSIT_EVENTS_CACHE_LAG_BLOCKS;
 
@@ -289,19 +288,17 @@ export class DepositService {
         ...initialCache.headers,
         endBlock: chunkEventGroup.endBlock,
       });
+
+      await this.depositIntegrityCheckerService.putFinalizedEvents(
+        chunkEventGroup.events,
+      );
       console.timeEnd('put events');
       this.logger.log('Historical events are fetched', {
         toBlock,
         startBlock: chunkStartBlock,
         endBlock: chunkToBlock,
-        // events: updatedCachedEvents.data.length,
       });
-
-      // await this.setCachedEvents(updatedCachedEvents);
     }
-
-    // const totalEvents = updatedCachedEvents.data.length;
-    // const newEvents = totalEvents - initialCache.data.length;
 
     const fetchTimeEnd = performance.now();
     const fetchTime = Math.ceil(fetchTimeEnd - fetchTimeStart) / 1000;
@@ -312,6 +309,8 @@ export class DepositService {
       // totalEvents,
       fetchTime,
     });
+
+    return toBlock;
   }
 
   /**
@@ -347,6 +346,11 @@ export class DepositService {
     });
 
     const mergedEvents = cachedEvents.data.concat(freshEvents);
+
+    await this.depositIntegrityCheckerService.checkLatestRoot(
+      blockNumber,
+      freshEvents,
+    );
 
     return {
       events: mergedEvents,
