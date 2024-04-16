@@ -4,11 +4,11 @@ import { Configuration } from 'common/config';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { StakingModuleData } from 'guardian';
 import { getVettedUnusedKeys } from './vetted-keys';
-import { RegistryOperator } from 'keys-api/interfaces/RegistryOperator';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
-import { SRModule } from 'keys-api/interfaces';
 import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
-import { GroupedByModuleOperatorListResponse } from 'keys-api/interfaces/GroupedByModuleOperatorListResponse';
+import { Meta } from 'keys-api/interfaces/Meta';
+import { SROperatorListWithModule } from 'keys-api/interfaces/SROperatorListWithModule';
+import { SecurityService } from 'contracts/security';
 
 @Injectable()
 export class StakingRouterService {
@@ -16,45 +16,54 @@ export class StakingRouterService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) protected logger: LoggerService,
     protected readonly config: Configuration,
     protected readonly keysApiService: KeysApiService,
+    private securityService: SecurityService,
   ) {}
-
-  async getOperatorsAndModules() {
-    const { data: operatorsByModules, meta: operatorsMeta } =
-      await this.keysApiService.getOperatorListWithModule();
-
-    return { data: operatorsByModules, meta: operatorsMeta };
-  }
 
   /**
    * Return staking module data and block information
    */
-  public async getStakingModulesData(
-    data: GroupedByModuleOperatorListResponse,
-  ): Promise<StakingModuleData[]> {
-    const { data: operatorsByModules, meta: operatorsMeta } = data;
-
-    const { data: unusedKeys, meta: unusedKeysMeta } =
-      await this.keysApiService.getUnusedKeys();
-
-    const blockHash = operatorsMeta.elBlockSnapshot.blockHash;
-    const lastChangedBlockHash =
-      operatorsMeta.elBlockSnapshot.lastChangedBlockHash;
-
-    this.isEqualLastChangedBlockHash(
-      lastChangedBlockHash,
-      unusedKeysMeta.elBlockSnapshot.lastChangedBlockHash,
-    );
-
-    const stakingModulesData = operatorsByModules.map(
-      ({ operators, module: stakingModule }) =>
-        this.processModuleData({
+  public async getStakingModulesData({
+    operatorsByModules,
+    meta,
+    lidoKeys,
+    isDepositsPaused,
+  }: {
+    operatorsByModules: SROperatorListWithModule[];
+    meta: Meta;
+    lidoKeys: RegistryKey[];
+    isDepositsPaused: boolean;
+  }): Promise<StakingModuleData[]> {
+    const stakingModulesData = await Promise.all(
+      operatorsByModules.map(async ({ operators, module: stakingModule }) => {
+        const unusedKeys = lidoKeys.filter(
+          (key) =>
+            !key.used &&
+            key.moduleAddress === stakingModule.stakingModuleAddress,
+        );
+        const moduleVettedUnusedKeys = getVettedUnusedKeys(
           operators,
-          stakingModule,
           unusedKeys,
-          blockHash,
-          // Will set the lastChangedBlockHash for the module in KAPI, not the personal module's lastChangedBlockHash
-          lastChangedBlockHash,
-        }),
+        );
+
+        // check pause
+
+        const isModuleDepositsPaused =
+          await this.securityService.isModuleDepositsPaused(stakingModule.id, {
+            blockHash: meta.elBlockSnapshot.blockHash,
+          });
+
+        return {
+          unusedKeys: unusedKeys.map((srKey) => srKey.key),
+          isModuleDepositsPaused,
+          isDepositsPaused,
+          nonce: stakingModule.nonce,
+          stakingModuleId: stakingModule.id,
+          stakingModuleAddress: stakingModule.stakingModuleAddress,
+          blockHash: meta.elBlockSnapshot.blockHash,
+          lastChangedBlockHash: meta.elBlockSnapshot.lastChangedBlockHash,
+          vettedUnusedKeys: moduleVettedUnusedKeys,
+        };
+      }),
     );
 
     return stakingModulesData;
@@ -72,38 +81,6 @@ export class StakingRouterService {
 
       throw new InconsistentLastChangedBlockHash();
     }
-  }
-
-  private processModuleData({
-    operators,
-    stakingModule,
-    unusedKeys,
-    blockHash,
-    lastChangedBlockHash,
-  }: {
-    operators: RegistryOperator[];
-    stakingModule: SRModule;
-    unusedKeys: RegistryKey[];
-    blockHash: string;
-    lastChangedBlockHash: string;
-  }): StakingModuleData {
-    const moduleUnusedKeys = unusedKeys.filter(
-      (key) => key.moduleAddress === stakingModule.stakingModuleAddress,
-    );
-
-    const moduleVettedUnusedKeys = getVettedUnusedKeys(
-      operators,
-      moduleUnusedKeys,
-    );
-
-    return {
-      unusedKeys: moduleUnusedKeys.map((srKey) => srKey.key),
-      nonce: stakingModule.nonce,
-      stakingModuleId: stakingModule.id,
-      blockHash,
-      lastChangedBlockHash,
-      vettedUnusedKeys: moduleVettedUnusedKeys,
-    };
   }
 
   public async getKeysByPubkeys(pubkeys: string[]) {

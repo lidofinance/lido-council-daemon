@@ -18,7 +18,6 @@ import {
   METRIC_OPERATORS_KEYS_TOTAL,
   METRIC_KEYS_API_REQUEST_DURATION,
   METRIC_DUPLICATED_VETTED_UNUSED_KEYS_TOTAL,
-  METRIC_DUPLICATED_USED_KEYS_TOTAL,
   METRIC_INVALID_KEYS_TOTAL,
 } from './prometheus.constants';
 
@@ -100,12 +99,6 @@ export const PrometheusKeysApiRequestsProvider = makeHistogramProvider({
 export const PrometheusVettedUnusedKeysProvider = makeGaugeProvider({
   name: METRIC_DUPLICATED_VETTED_UNUSED_KEYS_TOTAL,
   help: 'Number of duplicated vetted unused keys events',
-  labelNames: ['stakingModuleId'] as const,
-});
-
-export const PrometheusUsedKeysProvider = makeGaugeProvider({
-  name: METRIC_DUPLICATED_USED_KEYS_TOTAL,
-  help: 'Number of duplicated used keys events',
   labelNames: ['stakingModuleId'] as const,
 });
 

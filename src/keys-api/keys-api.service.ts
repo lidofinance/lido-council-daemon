@@ -42,9 +42,7 @@ export class KeysApiService {
   }
 
   /**
-   *
-   * @param The /v1/keys/find API endpoint returns keys along with their duplicates
-   * @returns
+   * The /v1/keys/find API endpoint returns keys along with their duplicates
    */
   public async getKeysByPubkeys(pubkeys: string[]) {
     const result = await this.fetch<KeyListResponse>(`/v1/keys/find`, {
@@ -57,11 +55,6 @@ export class KeysApiService {
     return result;
   }
 
-  public async getUnusedKeys() {
-    const result = await this.fetch<KeyListResponse>(`/v1/keys?used=false`);
-    return result;
-  }
-
   public async getOperatorListWithModule() {
     const result = await this.fetch<GroupedByModuleOperatorListResponse>(
       `/v1/operators`,
@@ -70,12 +63,19 @@ export class KeysApiService {
   }
 
   /**
-   *
    * @param The /v1/status API endpoint returns chainId, appVersion, El and Cl meta
    * @returns
    */
   public async getKeysApiStatus(): Promise<Status> {
     const result = await this.fetch<Status>(`/v1/status`);
+    return result;
+  }
+
+  /**
+   * The /v1/keys endpoint returns full list of keys
+   */
+  public async getKeys() {
+    const result = await this.fetch<KeyListResponse>(`/v1/keys`);
     return result;
   }
 }
