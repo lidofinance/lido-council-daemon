@@ -12,7 +12,7 @@ import { SecurityModule } from 'contracts/security';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { LidoModule } from 'contracts/lido';
 import { MessagesModule } from 'messages';
-import { StakingRouterModule, StakingRouterService } from 'staking-router';
+import { StakingRouterModule } from 'staking-router';
 import { GuardianMetricsModule } from './guardian-metrics';
 import { GuardianMessageModule } from './guardian-message';
 import { StakingModuleGuardModule } from './staking-module-guard';
@@ -91,19 +91,17 @@ describe('GuardianService', () => {
         },
       }));
 
-    const getKeys = jest
-      .spyOn(keysApiService, 'getKeys')
-      .mockImplementation(async () => ({
-        data: [],
-        meta: {
-          elBlockSnapshot: {
-            blockNumber: 0,
-            blockHash: 'string',
-            timestamp: 0,
-            lastChangedBlockHash: '',
-          },
+    jest.spyOn(keysApiService, 'getKeys').mockImplementation(async () => ({
+      data: [],
+      meta: {
+        elBlockSnapshot: {
+          blockNumber: 0,
+          blockHash: 'string',
+          timestamp: 0,
+          lastChangedBlockHash: '',
         },
-      }));
+      },
+    }));
 
     const getBlockGuardServiceMock = jest
       .spyOn(blockGuardService, 'isNeedToProcessNewState')

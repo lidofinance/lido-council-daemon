@@ -189,13 +189,4 @@ export class SecurityService {
 
     return false;
   }
-
-  /**
-   * Check if deposits paused for all staking modules
-   */
-  public async pauseDepositContract(blockTag?: BlockTag) {
-    // const contract = await this.repositoryService.getCachedDSMContract();
-
-    return false;
-  }
 }

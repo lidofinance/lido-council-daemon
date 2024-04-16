@@ -7,7 +7,6 @@ export interface StakingModuleData {
   stakingModuleId: number;
   stakingModuleAddress: string;
   lastChangedBlockHash: string;
-  duplicatedKeys: RegistryKey[];
   isModuleDepositsPaused: boolean;
   isDepositsPaused: boolean;
 }

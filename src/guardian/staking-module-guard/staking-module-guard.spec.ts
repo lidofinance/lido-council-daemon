@@ -17,9 +17,8 @@ import {
   GuardianMessageService,
 } from '../guardian-message';
 import { StakingModuleGuardService } from './staking-module-guard.service';
-import { StakingModuleData } from 'guardian/interfaces';
+
 import { KeysValidationModule } from 'guardian/keys-validation/keys-validation.module';
-import { KeysValidationService } from 'guardian/keys-validation/keys-validation.service';
 import { vettedKeys } from './keys.fixtures';
 
 jest.mock('../../transport/stomp/stomp.client');
