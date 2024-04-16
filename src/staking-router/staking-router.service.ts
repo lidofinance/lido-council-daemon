@@ -26,13 +26,11 @@ export class StakingRouterService {
     operatorsByModules,
     meta,
     lidoKeys,
-    duplicatedKeys,
     isDepositsPaused,
   }: {
     operatorsByModules: SROperatorListWithModule[];
     meta: Meta;
     lidoKeys: RegistryKey[];
-    duplicatedKeys: RegistryKey[];
     isDepositsPaused: boolean;
   }): Promise<StakingModuleData[]> {
     const stakingModulesData = await Promise.all(
@@ -64,9 +62,6 @@ export class StakingRouterService {
           blockHash: meta.elBlockSnapshot.blockHash,
           lastChangedBlockHash: meta.elBlockSnapshot.lastChangedBlockHash,
           vettedUnusedKeys: moduleVettedUnusedKeys,
-          duplicatedKeys: duplicatedKeys.filter(
-            (key) => key.moduleAddress === stakingModule.stakingModuleAddress,
-          ),
         };
       }),
     );

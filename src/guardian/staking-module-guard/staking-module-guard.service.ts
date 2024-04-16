@@ -119,6 +119,11 @@ export class StakingModuleGuardService {
       return false;
     }
 
+    // TODO: deposit could be made by someone else
+    // and publey maybe not used. and we are able to unvet it
+    // but we will pause
+    // so maybe we need to filter by used field
+
     const lidoDepositedKeys = await this.stakingRouterService.getKeysByPubkeys(
       frontRunnedDepositKeys,
     );
@@ -144,6 +149,9 @@ export class StakingModuleGuardService {
       blockData,
     );
 
+    // if we have one ineligible and eligible events for the same key we should check which one was first
+    // or we will report key for unvetting without reason
+    // at the same time such vetted unused key will be reported as duplicated too
     const frontRunAttempts = this.excludeEligibleIntersections(
       blockData,
       keysIntersections,
@@ -157,6 +165,7 @@ export class StakingModuleGuardService {
 
     const keys = new Set(frontRunAttempts.map((deposit) => deposit.pubkey));
 
+    // list can have duplicated keys
     return stakingModuleData.vettedUnusedKeys.filter((key) =>
       keys.has(key.key),
     );

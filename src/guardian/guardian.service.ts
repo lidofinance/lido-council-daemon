@@ -188,20 +188,29 @@ export class GuardianService implements OnModuleInit {
       const isDepositsPaused =
         await this.securityService.isDepositContractPaused(blockData.blockHash);
 
+      // betted filter not vetted keys for first iteration
+      // as we can't define which one were first
+
+      // send vetted keys
       const duplicatedKeys = getDuplicatedKeys(lidoKeys);
+
+      // filter unvetted keys from duplicatedKeys list
 
       const stakingModulesData: StakingModuleData[] =
         await this.stakingRouterService.getStakingModulesData({
           operatorsByModules,
           meta,
           lidoKeys,
-          duplicatedKeys,
           isDepositsPaused,
         });
 
       if (!isDepositsPaused && theftHappened) {
         // pause deposit contract for all modules
         // in current version will send separate transactions to modules
+        this.logger.error('Pausing deposits for all modules', {
+          isDepositsPaused,
+          theftHappened,
+        });
 
         await this.stakingModuleGuardService.pauseDeposits(
           stakingModulesData,
@@ -228,14 +237,16 @@ export class GuardianService implements OnModuleInit {
             blockData,
           );
 
+          const moduleDuplicatedKeys = duplicatedKeys.filter(
+            (key) =>
+              key.moduleAddress === stakingModuleData.stakingModuleAddress,
+          );
+
           // TODO: unvetting
 
           if (
-            [
-              ...invalidKeys,
-              ...frontRunAttempts,
-              ...stakingModuleData.duplicatedKeys,
-            ].length ||
+            [...invalidKeys, ...frontRunAttempts, ...moduleDuplicatedKeys]
+              .length ||
             theftHappened ||
             isDepositsPaused ||
             stakingModuleData.isModuleDepositsPaused

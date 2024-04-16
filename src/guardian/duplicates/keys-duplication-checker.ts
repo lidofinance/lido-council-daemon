@@ -1,5 +1,7 @@
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 
+// TODO: we should send for unvetting only vetted keys
+
 /**
  * Function identify original keys and return only duplicated keys
  */
