@@ -51,7 +51,7 @@ export class StakingModuleGuardService {
    * @param blockData
    * @returns
    */
-  async getHistoricalFrontRun(blockData: BlockData) {
+  public async getHistoricalFrontRun(blockData: BlockData) {
     const { depositedEvents, lidoWC } = blockData;
     const potentialLidoDepositsEvents = depositedEvents.events.filter(
       ({ wc, valid }) => wc === lidoWC && valid,
@@ -119,6 +119,11 @@ export class StakingModuleGuardService {
       return false;
     }
 
+    // TODO: deposit could be made by someone else
+    // and publey maybe not used. and we are able to unvet it
+    // but we will pause
+    // so maybe we need to filter by used field
+
     const lidoDepositedKeys = await this.stakingRouterService.getKeysByPubkeys(
       frontRunnedDepositKeys,
     );
@@ -129,84 +134,41 @@ export class StakingModuleGuardService {
       this.logger.warn('historical front-run found');
     }
 
-    return isLidoDepositedKeys;
+    return !!isLidoDepositedKeys;
   }
+
   /**
-   * Checks keys for intersections with previously deposited keys and handles the situation
-   * @param blockData - collected data from the current block
+   * Return intersections with previously deposited keys
    */
-  // TODO: rename, because this method more than intersections checks
-  public async checkKeysIntersections(
+  public getFrontRunAttempts(
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
-  ): Promise<void> {
-    const { blockHash } = blockData;
-    const { stakingModuleId } = stakingModuleData;
-
+  ): RegistryKey[] {
     const keysIntersections = this.getKeysIntersections(
       stakingModuleData,
       blockData,
     );
 
-    // exclude invalid deposits as they ignored by cl
-    const validIntersections = this.excludeInvalidDeposits(keysIntersections);
-
-    const filteredIntersections = await this.excludeEligibleIntersections(
+    // if we have one ineligible and eligible events for the same key we should check which one was first
+    // or we will report key for unvetting without reason
+    // at the same time such vetted unused key will be reported as duplicated too
+    const frontRunAttempts = this.excludeEligibleIntersections(
       blockData,
-      validIntersections,
+      keysIntersections,
     );
-
-    const isFilteredIntersectionsFound = filteredIntersections.length > 0;
 
     this.guardianMetricsService.collectIntersectionsMetrics(
       stakingModuleData.stakingModuleId,
       keysIntersections,
-      filteredIntersections,
-    );
-    // TODO: add metrics for getHistoricalFrontRun same as for keysIntersections
-    const historicalFrontRunFound = await this.getHistoricalFrontRun(blockData);
-
-    const isDepositsPaused = await this.securityService.isDepositsPaused(
-      stakingModuleData.stakingModuleId,
-      {
-        blockHash: stakingModuleData.blockHash,
-      },
+      frontRunAttempts,
     );
 
-    if (isDepositsPaused) {
-      this.logger.warn('Deposits are paused', { blockHash, stakingModuleId });
-      return;
-    }
+    const keys = new Set(frontRunAttempts.map((deposit) => deposit.pubkey));
 
-    if (isFilteredIntersectionsFound || historicalFrontRunFound) {
-      await this.handleKeysIntersections(stakingModuleData, blockData);
-    } else {
-      if (stakingModuleData.duplicatedKeys.length) {
-        this.logger.warn('Found duplicated keys', {
-          blockHash,
-          stakingModuleId,
-          duplicatesAmount: stakingModuleData.duplicatedKeys.length,
-        });
-        return;
-      }
-
-      const invalidKeys = await this.getInvalidKeys(
-        stakingModuleData,
-        blockData,
-      );
-
-      if (invalidKeys.length) {
-        this.logger.error('Staking module contains invalid keys');
-        this.logger.log('State', {
-          blockHash: stakingModuleData.blockHash,
-          lastChangedBlockHash: stakingModuleData.lastChangedBlockHash,
-          stakingModuleId: stakingModuleData.stakingModuleId,
-        });
-        return;
-      }
-
-      await this.handleCorrectKeys(stakingModuleData, blockData);
-    }
+    // list can have duplicated keys
+    return stakingModuleData.vettedUnusedKeys.filter((key) =>
+      keys.has(key.key),
+    );
   }
 
   /**
@@ -220,11 +182,15 @@ export class StakingModuleGuardService {
     blockData: BlockData,
   ): VerifiedDepositEvent[] {
     const { blockHash, depositRoot, depositedEvents } = blockData;
-    const { nonce, unusedKeys, stakingModuleId } = stakingModuleData;
-
-    const unusedKeysSet = new Set(unusedKeys);
+    const {
+      nonce,
+      vettedUnusedKeys: keys,
+      stakingModuleId,
+    } = stakingModuleData;
+    const vettedUnusedKeys = keys.map((key) => key.key);
+    const vettedUnusedKeysSet = new Set(vettedUnusedKeys);
     const intersections = depositedEvents.events.filter(({ pubkey }) =>
-      unusedKeysSet.has(pubkey),
+      vettedUnusedKeysSet.has(pubkey),
     );
 
     if (intersections.length) {
@@ -240,23 +206,31 @@ export class StakingModuleGuardService {
     return intersections;
   }
 
-  public excludeInvalidDeposits(intersections: VerifiedDepositEvent[]) {
-    // Exclude deposits with invalid signature over the deposit data
-    return intersections.filter(({ valid }) => valid);
+  /**
+   * Excludes invalid deposits and deposits with Lido WC from intersections
+   * @param blockData - collected data from the current block
+   * @param intersections - list of deposits with keys that were deposited earlier
+   */
+  public excludeEligibleIntersections(
+    blockData: BlockData,
+    intersections: VerifiedDepositEvent[],
+  ): VerifiedDepositEvent[] {
+    return intersections.filter(
+      ({ wc, valid }) => wc !== blockData.lidoWC && valid,
+    );
   }
 
   /**
-   * Excludes invalid deposits and deposits with Lido WC from intersections
-   * @param intersections - list of deposits with keys that were deposited earlier
-   * @param blockData - collected data from the current block
+   * pause deposit contract
    */
-  public async excludeEligibleIntersections(
+  public async pauseDeposits(
+    stakingModulesData: StakingModuleData[],
     blockData: BlockData,
-    validIntersections: VerifiedDepositEvent[],
-  ): Promise<VerifiedDepositEvent[]> {
-    // Exclude deposits with Lido withdrawal credentials
-    return validIntersections.filter(
-      (deposit) => deposit.wc !== blockData.lidoWC,
+  ) {
+    await Promise.all(
+      stakingModulesData.map(async (stakingModuleData) => {
+        await this.handleKeysIntersections(stakingModuleData, blockData);
+      }),
     );
   }
 

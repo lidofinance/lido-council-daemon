@@ -216,7 +216,9 @@ describe('SecurityService', () => {
           ]);
         });
 
-      const isPaused = await securityService.isDepositsPaused(TEST_MODULE_ID);
+      const isPaused = await securityService.isModuleDepositsPaused(
+        TEST_MODULE_ID,
+      );
       expect(isPaused).toBe(!expected);
       expect(mockProviderCalla).toBeCalledTimes(1);
     });

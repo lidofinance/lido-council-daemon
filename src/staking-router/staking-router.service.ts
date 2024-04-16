@@ -4,13 +4,11 @@ import { Configuration } from 'common/config';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { StakingModuleData } from 'guardian';
 import { getVettedUnusedKeys } from './vetted-keys';
-import { RegistryOperator } from 'keys-api/interfaces/RegistryOperator';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
-import { SRModule } from 'keys-api/interfaces';
 import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
-import { GroupedByModuleOperatorListResponse } from 'keys-api/interfaces/GroupedByModuleOperatorListResponse';
 import { Meta } from 'keys-api/interfaces/Meta';
 import { SROperatorListWithModule } from 'keys-api/interfaces/SROperatorListWithModule';
+import { SecurityService } from 'contracts/security';
 
 @Injectable()
 export class StakingRouterService {
@@ -18,6 +16,7 @@ export class StakingRouterService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) protected logger: LoggerService,
     protected readonly config: Configuration,
     protected readonly keysApiService: KeysApiService,
+    private securityService: SecurityService,
   ) {}
 
   /**
@@ -27,15 +26,15 @@ export class StakingRouterService {
     operatorsByModules,
     meta,
     lidoKeys,
-    duplicatedKeys,
+    isDepositsPaused,
   }: {
     operatorsByModules: SROperatorListWithModule[];
     meta: Meta;
     lidoKeys: RegistryKey[];
-    duplicatedKeys: RegistryKey[];
+    isDepositsPaused: boolean;
   }): Promise<StakingModuleData[]> {
-    const stakingModulesData = operatorsByModules.map(
-      ({ operators, module: stakingModule }) => {
+    const stakingModulesData = await Promise.all(
+      operatorsByModules.map(async ({ operators, module: stakingModule }) => {
         const unusedKeys = lidoKeys.filter(
           (key) =>
             !key.used &&
@@ -46,18 +45,25 @@ export class StakingRouterService {
           unusedKeys,
         );
 
+        // check pause
+
+        const isModuleDepositsPaused =
+          await this.securityService.isModuleDepositsPaused(stakingModule.id, {
+            blockHash: meta.elBlockSnapshot.blockHash,
+          });
+
         return {
           unusedKeys: unusedKeys.map((srKey) => srKey.key),
+          isModuleDepositsPaused,
+          isDepositsPaused,
           nonce: stakingModule.nonce,
           stakingModuleId: stakingModule.id,
+          stakingModuleAddress: stakingModule.stakingModuleAddress,
           blockHash: meta.elBlockSnapshot.blockHash,
           lastChangedBlockHash: meta.elBlockSnapshot.lastChangedBlockHash,
           vettedUnusedKeys: moduleVettedUnusedKeys,
-          duplicatedKeys: duplicatedKeys.filter(
-            (key) => key.moduleAddress === stakingModule.stakingModuleAddress,
-          ),
         };
-      },
+      }),
     );
 
     return stakingModulesData;

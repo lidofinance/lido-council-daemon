@@ -125,9 +125,9 @@ export class SecurityService {
   }
 
   /**
-   * Returns the current state of deposits
+   * Returns the current state of deposits for module
    */
-  public async isDepositsPaused(
+  public async isModuleDepositsPaused(
     stakingModuleId: number,
     blockTag?: BlockTag,
   ): Promise<boolean> {
@@ -163,6 +163,11 @@ export class SecurityService {
 
     const { r, _vs: vs } = signature;
 
+    // instead of signPauseData will be one function pauseDeposits(
+    //     uint256 blockNumber,
+    //     Signature memory sig
+    // )
+
     const tx = await contract.pauseDeposits(blockNumber, stakingModuleId, {
       r,
       vs,
@@ -174,5 +179,14 @@ export class SecurityService {
     await tx.wait();
 
     this.logger.warn('Block confirmation received');
+  }
+
+  /**
+   * Check if deposits paused for all staking modules
+   */
+  public async isDepositContractPaused(blockTag?: BlockTag) {
+    // const contract = await this.repositoryService.getCachedDSMContract();
+
+    return false;
   }
 }

@@ -181,24 +181,81 @@ export class GuardianService implements OnModuleInit {
         blockHash: blockData.blockHash,
       });
 
+      // TODO: add metrics for getHistoricalFrontRun same as for keysIntersections
+      const theftHappened =
+        await this.stakingModuleGuardService.getHistoricalFrontRun(blockData);
+
+      const isDepositsPaused =
+        await this.securityService.isDepositContractPaused(blockData.blockHash);
+
+      // betted filter not vetted keys for first iteration
+      // as we can't define which one were first
+
+      // send vetted keys
       const duplicatedKeys = getDuplicatedKeys(lidoKeys);
+
+      // filter unvetted keys from duplicatedKeys list
 
       const stakingModulesData: StakingModuleData[] =
         await this.stakingRouterService.getStakingModulesData({
           operatorsByModules,
           meta,
           lidoKeys,
-          duplicatedKeys,
+          isDepositsPaused,
         });
+
+      if (!isDepositsPaused && theftHappened) {
+        // pause deposit contract for all modules
+        // in current version will send separate transactions to modules
+        this.logger.error('Pausing deposits for all modules', {
+          isDepositsPaused,
+          theftHappened,
+        });
+
+        await this.stakingModuleGuardService.pauseDeposits(
+          stakingModulesData,
+          blockData,
+        );
+      }
 
       await Promise.all(
         stakingModulesData.map(async (stakingModuleData) => {
-          await this.stakingModuleGuardService.checkKeysIntersections(
+          const frontRunAttempts =
+            this.stakingModuleGuardService.getFrontRunAttempts(
+              stakingModuleData,
+              blockData,
+            );
+
+          const invalidKeys =
+            await this.stakingModuleGuardService.getInvalidKeys(
+              stakingModuleData,
+              blockData,
+            );
+
+          this.guardianMetricsService.collectMetrics(
             stakingModuleData,
             blockData,
           );
 
-          this.guardianMetricsService.collectMetrics(
+          const moduleDuplicatedKeys = duplicatedKeys.filter(
+            (key) =>
+              key.moduleAddress === stakingModuleData.stakingModuleAddress,
+          );
+
+          // TODO: unvetting
+
+          if (
+            [...invalidKeys, ...frontRunAttempts, ...moduleDuplicatedKeys]
+              .length ||
+            theftHappened ||
+            isDepositsPaused ||
+            stakingModuleData.isModuleDepositsPaused
+          ) {
+            // soft pause
+            return;
+          }
+
+          await this.stakingModuleGuardService.handleCorrectKeys(
             stakingModuleData,
             blockData,
           );

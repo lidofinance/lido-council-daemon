@@ -103,6 +103,7 @@ export const mockedKeysApiOperators = (
     }));
 };
 
+// remove one of functions: mockedKeysApiOperators or mockedKeysApiOperatorsMany
 export const mockedKeysApiOperatorsMany = (
   keysApiService: KeysApiService,
   data: { operators: RegistryOperator[]; module: SRModule }[],
@@ -118,12 +119,12 @@ export const mockedKeysApiOperatorsMany = (
     }));
 };
 
-export const mockedKeysApiUnusedKeys = (
+export const mockedKeysApiGetAllKeys = (
   keysApiService: KeysApiService,
   mockedKeys: RegistryKey[],
   mockedMeta: ELBlockSnapshot,
 ) => {
-  jest.spyOn(keysApiService, 'getUnusedKeys').mockImplementation(async () => ({
+  jest.spyOn(keysApiService, 'getKeys').mockImplementation(async () => ({
     data: mockedKeys,
     meta: {
       elBlockSnapshot: mockedMeta,
@@ -131,7 +132,7 @@ export const mockedKeysApiUnusedKeys = (
   }));
 };
 
-export const mockedKeysWithDuplicates = (
+export const mockedKeysApiFind = (
   keysApiService: KeysApiService,
   mockedKeys: RegistryKey[],
   mockedMeta: ELBlockSnapshot,
