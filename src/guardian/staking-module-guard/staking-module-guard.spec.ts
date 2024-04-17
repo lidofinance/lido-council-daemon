@@ -8,7 +8,6 @@ import { PrometheusModule } from 'common/prometheus';
 import { SecurityModule, SecurityService } from 'contracts/security';
 import { RepositoryModule } from 'contracts/repository';
 import { LidoModule } from 'contracts/lido';
-import { MessageType } from 'messages';
 import { StakingModuleGuardModule } from './staking-module-guard.module';
 import { StakingRouterModule, StakingRouterService } from 'staking-router';
 import { GuardianMetricsModule } from '../guardian-metrics';
@@ -104,6 +103,9 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           vettedUnusedKeys: vettedKeys,
           isModuleDepositsPaused: false,
+          invalidKeys: [],
+          duplicatedKeys: [],
+          frontRunKeys: [],
         },
         blockData,
       );
@@ -127,6 +129,9 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           vettedUnusedKeys: vettedKeys,
           isModuleDepositsPaused: false,
+          invalidKeys: [],
+          duplicatedKeys: [],
+          frontRunKeys: [],
         },
         blockData,
       );
@@ -148,6 +153,9 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           vettedUnusedKeys: [],
           isModuleDepositsPaused: false,
+          invalidKeys: [],
+          duplicatedKeys: [],
+          frontRunKeys: [],
         },
         blockData,
       );
@@ -186,6 +194,9 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           vettedUnusedKeys: [],
           isModuleDepositsPaused: false,
+          invalidKeys: [],
+          duplicatedKeys: [],
+          frontRunKeys: [],
         },
         blockData,
       );
@@ -195,6 +206,9 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           vettedUnusedKeys: [],
           isModuleDepositsPaused: false,
+          invalidKeys: [],
+          duplicatedKeys: [],
+          frontRunKeys: [],
         },
         blockData,
       );
@@ -223,6 +237,9 @@ describe('StakingModuleGuardService', () => {
           lastChangedBlockHash: '',
           vettedUnusedKeys: [],
           isModuleDepositsPaused: false,
+          invalidKeys: [],
+          duplicatedKeys: [],
+          frontRunKeys: [],
         },
         blockData,
       );
@@ -275,70 +292,6 @@ describe('StakingModuleGuardService', () => {
 
       expect(filteredIntersections).toHaveLength(1);
       expect(filteredIntersections).toEqual(intersections);
-    });
-  });
-
-  describe('handleKeysIntersections', () => {
-    const signature = {} as any;
-    const blockData = { blockNumber: 1 } as any;
-    const type = MessageType.PAUSE;
-
-    beforeEach(async () => {
-      jest
-        .spyOn(securityService, 'signPauseData')
-        .mockImplementation(async () => signature);
-    });
-
-    it('should pause deposits', async () => {
-      jest
-        .spyOn(guardianMessageService, 'sendMessageFromGuardian')
-        .mockImplementation(async () => undefined);
-
-      const mockPauseDeposits = jest
-        .spyOn(securityService, 'pauseDeposits')
-        .mockImplementation(async () => undefined);
-
-      await stakingModuleGuardService.handleKeysIntersections(
-        {
-          ...stakingModuleData,
-          lastChangedBlockHash: '',
-          vettedUnusedKeys: [],
-          isModuleDepositsPaused: false,
-        },
-        blockData,
-      );
-
-      expect(mockPauseDeposits).toBeCalledTimes(1);
-      expect(mockPauseDeposits).toBeCalledWith(
-        blockData.blockNumber,
-        TEST_MODULE_ID,
-        signature,
-      );
-    });
-
-    it('should send pause message', async () => {
-      const mockSendMessageFromGuardian = jest
-        .spyOn(guardianMessageService, 'sendMessageFromGuardian')
-        .mockImplementation(async () => undefined);
-
-      jest
-        .spyOn(securityService, 'pauseDeposits')
-        .mockImplementation(async () => undefined);
-
-      await stakingModuleGuardService.handleKeysIntersections(
-        {
-          ...stakingModuleData,
-          lastChangedBlockHash: '',
-          vettedUnusedKeys: [],
-          isModuleDepositsPaused: false,
-        },
-        blockData,
-      );
-
-      expect(mockSendMessageFromGuardian).toBeCalledTimes(1);
-      expect(mockSendMessageFromGuardian).toBeCalledWith(
-        expect.objectContaining({ type, signature, ...blockData }),
-      );
     });
   });
 

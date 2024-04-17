@@ -18,17 +18,17 @@
       },
       {
         "internalType": "uint256",
-        "name": "_maxDepositsPerBlock",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_minDepositBlockDistance",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
         "name": "_pauseIntentValidityPeriodBlocks",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_unvetIntentValidityPeriodBlocks",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_maxOperatorsPerUnvetting",
         "type": "uint256"
       }
     ],
@@ -47,11 +47,6 @@
   },
   {
     "inputs": [],
-    "name": "DepositNonceChanged",
-    "type": "error"
-  },
-  {
-    "inputs": [],
     "name": "DepositRootChanged",
     "type": "error"
   },
@@ -63,6 +58,11 @@
   {
     "inputs": [],
     "name": "DepositUnexpectedBlockHash",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "DepositsNotPaused",
     "type": "error"
   },
   {
@@ -79,6 +79,11 @@
   {
     "inputs": [],
     "name": "InvalidSignature",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ModuleNonceChanged",
     "type": "error"
   },
   {
@@ -110,7 +115,22 @@
   },
   {
     "inputs": [],
-    "name": "SignatureNotSorted",
+    "name": "SignaturesNotSorted",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "UnvetIntentExpired",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "UnvetPayloadInvalid",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "UnvetUnexpectedBlockHash",
     "type": "error"
   },
   {
@@ -143,12 +163,6 @@
         "internalType": "address",
         "name": "guardian",
         "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint24",
-        "name": "stakingModuleId",
-        "type": "uint24"
       }
     ],
     "name": "DepositsPaused",
@@ -156,14 +170,7 @@
   },
   {
     "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint24",
-        "name": "stakingModuleId",
-        "type": "uint24"
-      }
-    ],
+    "inputs": [],
     "name": "DepositsUnpaused",
     "type": "event"
   },
@@ -216,7 +223,7 @@
         "type": "uint256"
       }
     ],
-    "name": "MaxDepositsChanged",
+    "name": "LastDepositBlockChanged",
     "type": "event"
   },
   {
@@ -229,7 +236,7 @@
         "type": "uint256"
       }
     ],
-    "name": "MinDepositBlockDistanceChanged",
+    "name": "MaxOperatorsPerUnvettingChanged",
     "type": "event"
   },
   {
@@ -256,6 +263,19 @@
       }
     ],
     "name": "PauseIntentValidityPeriodBlocksChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newValue",
+        "type": "uint256"
+      }
+    ],
+    "name": "UnvetIntentValidityPeriodBlocksChanged",
     "type": "event"
   },
   {
@@ -318,6 +338,32 @@
         "internalType": "contract IStakingRouter",
         "name": "",
         "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "UNVET_MESSAGE_PREFIX",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "VERSION",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -480,7 +526,7 @@
   },
   {
     "inputs": [],
-    "name": "getMaxDeposits",
+    "name": "getLastDepositBlock",
     "outputs": [
       {
         "internalType": "uint256",
@@ -493,7 +539,7 @@
   },
   {
     "inputs": [],
-    "name": "getMinDepositBlockDistance",
+    "name": "getMaxOperatorsPerUnvetting",
     "outputs": [
       {
         "internalType": "uint256",
@@ -531,6 +577,32 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "getUnvetIntentValidityPeriodBlocks",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "isDepositsPaused",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -553,12 +625,26 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "blockNumber",
+        "name": "stakingModuleId",
         "type": "uint256"
-      },
+      }
+    ],
+    "name": "isMinDepositDistancePassed",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
       {
         "internalType": "uint256",
-        "name": "stakingModuleId",
+        "name": "blockNumber",
         "type": "uint256"
       },
       {
@@ -623,20 +709,7 @@
         "type": "uint256"
       }
     ],
-    "name": "setMaxDeposits",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "newValue",
-        "type": "uint256"
-      }
-    ],
-    "name": "setMinDepositBlockDistance",
+    "name": "setMaxOperatorsPerUnvetting",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -671,11 +744,73 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "stakingModuleId",
+        "name": "newValue",
         "type": "uint256"
       }
     ],
+    "name": "setUnvetIntentValidityPeriodBlocks",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "unpauseDeposits",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "blockNumber",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "blockHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint256",
+        "name": "stakingModuleId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "nonce",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes",
+        "name": "nodeOperatorIds",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bytes",
+        "name": "vettedSigningKeysCounts",
+        "type": "bytes"
+      },
+      {
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "r",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "vs",
+            "type": "bytes32"
+          }
+        ],
+        "internalType": "struct DepositSecurityModule.Signature",
+        "name": "sig",
+        "type": "tuple"
+      }
+    ],
+    "name": "unvetSigningKeys",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

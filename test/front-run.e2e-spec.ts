@@ -937,6 +937,109 @@ describe('ganache e2e tests', () => {
     TESTS_TIMEOUT,
   );
 
+  test(
+    'historical front-run',
+    async () => {
+      const tempProvider = new ethers.providers.JsonRpcProvider(
+        `http://127.0.0.1:${GANACHE_PORT}`,
+      );
+      const forkBlock = await tempProvider.getBlock(FORK_BLOCK);
+      const currentBlock = await tempProvider.getBlock('latest');
+
+      // create correct sign for deposit message for pk
+      const goodDepositMessage = {
+        pubkey: pk,
+        withdrawalCredentials: fromHexString(GOOD_WC),
+        amount: 32000000000, // gwei!
+      };
+      const goodSigningRoot = computeRoot(goodDepositMessage);
+      const goodSig = sk.sign(goodSigningRoot).toBytes();
+
+      const keys = [
+        {
+          key: toHexString(pk),
+          depositSignature: toHexString(goodSig),
+          operatorIndex: 0,
+          used: false,
+          index: 0,
+          moduleAddress: NOP_REGISTRY,
+        },
+      ];
+
+      // mocked curated module
+      const stakingModule = mockedModule(currentBlock, currentBlock.hash);
+      const meta = mockedMeta(currentBlock, currentBlock.hash);
+
+      mockedKeysApiOperatorsMany(
+        keysApiService,
+        [{ operators: mockedOperators, module: stakingModule }],
+        meta,
+      );
+
+      mockedKeysApiGetAllKeys(keysApiService, keys, meta);
+      mockedKeysApiFind(keysApiService, keys, meta);
+
+      // make bad deposit
+      const badDepositMessage = {
+        pubkey: pk,
+        withdrawalCredentials: fromHexString(BAD_WC),
+        amount: 1000000000, // gwei!
+      };
+      const badSigningRoot = computeRoot(badDepositMessage);
+      const badSig = sk.sign(badSigningRoot).toBytes();
+
+      await depositService.setCachedEvents({
+        data: [
+          {
+            valid: true,
+            pubkey: toHexString(pk),
+            amount: '32000000000',
+            wc: BAD_WC,
+            signature: toHexString(badSig),
+            tx: '0x122',
+            blockHash: '0x123456',
+            blockNumber: currentBlock.number - 1,
+            logIndex: 1,
+          },
+          {
+            valid: true,
+            pubkey: toHexString(pk),
+            amount: '32000000000',
+            wc: GOOD_WC,
+            signature: toHexString(goodSig),
+            tx: '0x123',
+            blockHash: currentBlock.hash,
+            blockNumber: currentBlock.number,
+            logIndex: 1,
+          },
+        ],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          version: '1',
+        },
+      });
+
+      await guardianService.handleNewBlock();
+
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+      expect(sendPauseMessage).toBeCalledTimes(1);
+      expect(sendDepositMessage).toBeCalledTimes(0);
+
+      const routerContract = StakingRouterAbi__factory.connect(
+        STAKING_ROUTER,
+        providerService.provider,
+      );
+      const isOnPause = await routerContract.getStakingModuleIsDepositsPaused(
+        1,
+      );
+
+      expect(isOnPause).toBe(true);
+    },
+    TESTS_TIMEOUT,
+  );
+
   // test(
   //   'reorganization',
   //   async () => {

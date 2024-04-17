@@ -134,4 +134,8 @@ export class InMemoryConfiguration implements Configuration {
   @IsOptional()
   @IsString()
   KEYS_API_HOST = 'http://localhost';
+
+  @IsOptional()
+  @IsString()
+  LOCATOR_DEVNET_ADDRESS;
 }

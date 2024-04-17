@@ -7,6 +7,7 @@ import {
   MessageRequiredFields,
   MessagesService,
   MessageType,
+  MessageUnvet,
 } from 'messages';
 import { BlockData } from '../interfaces';
 import { APP_NAME, APP_VERSION } from 'app.constants';
@@ -58,6 +59,13 @@ export class GuardianMessageService {
     return this.sendMessageFromGuardian({
       ...message,
       type: MessageType.PAUSE,
+    });
+  }
+
+  public sendUnvetMessage(message: Omit<MessageUnvet, 'type'>) {
+    return this.sendMessageFromGuardian({
+      ...message,
+      type: MessageType.UNVET,
     });
   }
 

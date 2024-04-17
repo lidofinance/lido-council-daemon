@@ -8,9 +8,4 @@ export const LIDO_LOCATOR_BY_NETWORK: {
   [CHAINS.Holesky]: '0x28FAB2059C713A7F9D8c86Db49f9bb0e96Af1ef8',
 };
 
-export const getLidoLocatorAddress = (chainId: CHAINS): string => {
-  const address = LIDO_LOCATOR_BY_NETWORK[chainId];
-  if (!address) throw new Error(`Chain ${chainId} is not supported`);
-
-  return address;
-};
+export { CHAINS };

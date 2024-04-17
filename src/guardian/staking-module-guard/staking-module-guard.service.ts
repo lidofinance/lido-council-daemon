@@ -13,6 +13,7 @@ import { StakingRouterService } from 'staking-router';
 import { KeysValidationService } from 'guardian/keys-validation/keys-validation.service';
 import { performance } from 'perf_hooks';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
+import { UnvettingService } from 'guardian/unvetting/unvetting.service';
 
 @Injectable()
 export class StakingModuleGuardService {
@@ -25,6 +26,7 @@ export class StakingModuleGuardService {
     private guardianMetricsService: GuardianMetricsService,
     private guardianMessageService: GuardianMessageService,
     private keysValidationService: KeysValidationService,
+    private unvettingService: UnvettingService,
   ) {}
 
   private lastContractsStateByModuleId: Record<number, ContractsState | null> =
@@ -120,7 +122,7 @@ export class StakingModuleGuardService {
     }
 
     // TODO: deposit could be made by someone else
-    // and publey maybe not used. and we are able to unvet it
+    // and pubkey maybe not used. and we are able to unvet it
     // but we will pause
     // so maybe we need to filter by used field
 
@@ -135,6 +137,43 @@ export class StakingModuleGuardService {
     }
 
     return !!isLidoDepositedKeys;
+  }
+
+  /**
+   * filter from the list all keys that are not vetted as unused
+   */
+  public filterNotVettedUnusedKeys(
+    stakingModuleData: StakingModuleData,
+    keys: RegistryKey[],
+  ) {
+    // maybe name them everywhere waitingDepositKeys
+    const vettedUnusedKeys = stakingModuleData.vettedUnusedKeys;
+
+    const vettedUnused = keys.filter((key) => {
+      vettedUnusedKeys.some(
+        (k) =>
+          k.index == key.index &&
+          k.operatorIndex == key.operatorIndex &&
+          // extra check
+          k.key == key.key,
+      );
+    });
+
+    return vettedUnused;
+  }
+
+  public async alreadyPausedDeposits(blockData: BlockData, version: number) {
+    if (version === 3) {
+      const alreadyPaused = await this.securityService.isDepositContractPaused(
+        blockData.blockHash,
+      );
+
+      return alreadyPaused;
+    }
+
+    // for earlier versions DSM contact didn't have this method
+    // we check pause for every method via staking router contract
+    return false;
   }
 
   /**
@@ -220,25 +259,83 @@ export class StakingModuleGuardService {
     );
   }
 
+  public async pauseDepositsV3(
+    blockData: BlockData,
+    theftHappened: boolean,
+    alreadyPausedDeposits: boolean,
+    version: number,
+  ): Promise<void> {
+    if (version !== 3 || alreadyPausedDeposits || !theftHappened) {
+      return;
+    }
+
+    const {
+      blockNumber,
+      blockHash,
+      guardianAddress,
+      guardianIndex,
+      depositRoot,
+    } = blockData;
+
+    const signature = await this.securityService.signPauseDataV3(blockNumber);
+
+    const pauseMessage = {
+      depositRoot,
+      guardianAddress,
+      guardianIndex,
+      blockNumber,
+      blockHash,
+      signature,
+    };
+
+    this.logger.warn('Suspicious case detected, initialize the module pause', {
+      blockHash,
+    });
+
+    // Call pause without waiting for completion
+    this.securityService
+      .pauseDepositsV3(blockNumber, signature)
+      .catch((error) => this.logger.error(error));
+
+    await this.guardianMessageService.sendPauseMessage(pauseMessage);
+  }
+
   /**
-   * pause deposit contract
+   * pause all modules, old version of contract
    */
-  public async pauseDeposits(
+  public async pauseDepositsV2(
     stakingModulesData: StakingModuleData[],
     blockData: BlockData,
+    theftHappened: boolean,
+    version: number,
   ) {
+    if (version === 3 || !theftHappened) {
+      return;
+    }
+
     await Promise.all(
       stakingModulesData.map(async (stakingModuleData) => {
-        await this.handleKeysIntersections(stakingModuleData, blockData);
+        if (stakingModuleData.isModuleDepositsPaused) {
+          this.logger.log('Deposits are already paused for module', {
+            blockHash: blockData.blockHash,
+            stakingModuleId: stakingModuleData.stakingModuleId,
+          });
+        } else {
+          this.logger.log('Pause deposits for module', {
+            blockHash: blockData.blockHash,
+            stakingModuleId: stakingModuleData.stakingModuleId,
+          });
+          this.pauseModuleDeposits(stakingModuleData, blockData);
+        }
       }),
     );
   }
 
   /**
-   * Handles the situation when keys have previously deposited copies
+   * pause module
    * @param blockData - collected data from the current block
    */
-  public async handleKeysIntersections(
+  public async pauseModuleDeposits(
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
   ): Promise<void> {
@@ -252,9 +349,9 @@ export class StakingModuleGuardService {
 
     const { nonce, stakingModuleId } = stakingModuleData;
 
-    const signature = await this.securityService.signPauseData(
+    const signature = await this.securityService.signPauseDataV2(
       blockNumber,
-      stakingModuleId,
+      stakingModuleData.stakingModuleId,
     );
 
     const pauseMessage = {
@@ -275,7 +372,7 @@ export class StakingModuleGuardService {
 
     // Call pause without waiting for completion
     this.securityService
-      .pauseDeposits(blockNumber, stakingModuleId, signature)
+      .pauseDepositsV2(blockNumber, stakingModuleId, signature)
       .catch((error) => this.logger.error(error));
 
     await this.guardianMessageService.sendPauseMessage(pauseMessage);
@@ -380,6 +477,25 @@ export class StakingModuleGuardService {
     });
 
     return invalidKeysList;
+  }
+
+  public async handleUnvetting(
+    stakingModuleData: StakingModuleData,
+    blockData: BlockData,
+    version: number,
+  ) {
+    if (version !== 3) {
+      this.logger.warn(
+        'Council do unvetting only since 3 version of DSM contract',
+        version,
+      );
+      return;
+    }
+    await this.unvettingService.handleUnvetting(
+      stakingModuleData.stakingModuleId,
+      stakingModuleData,
+      blockData,
+    );
   }
 
   /**

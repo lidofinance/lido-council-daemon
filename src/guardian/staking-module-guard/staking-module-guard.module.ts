@@ -8,6 +8,7 @@ import { GuardianMessageModule } from '../guardian-message';
 
 import { StakingModuleGuardService } from './staking-module-guard.service';
 import { KeysValidationModule } from 'guardian/keys-validation/keys-validation.module';
+import { UnvettingModule } from 'guardian/unvetting/unvetting.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { KeysValidationModule } from 'guardian/keys-validation/keys-validation.m
     GuardianMetricsModule,
     GuardianMessageModule,
     KeysValidationModule,
+    UnvettingModule,
   ],
   providers: [StakingModuleGuardService],
   exports: [StakingModuleGuardService],
