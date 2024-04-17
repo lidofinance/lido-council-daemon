@@ -188,14 +188,7 @@ export class GuardianService implements OnModuleInit {
       const isDepositsPaused =
         await this.securityService.isDepositContractPaused(blockData.blockHash);
 
-      // betted filter not vetted keys for first iteration
-      // as we can't define which one were first
-
-      // send vetted keys
-      const duplicatedKeys = getDuplicatedKeys(lidoKeys);
-
-      // filter unvetted keys from duplicatedKeys list
-
+      // TODO: better devide this function on few and list below
       const stakingModulesData: StakingModuleData[] =
         await this.stakingRouterService.getStakingModulesData({
           operatorsByModules,
@@ -203,6 +196,13 @@ export class GuardianService implements OnModuleInit {
           lidoKeys,
           isDepositsPaused,
         });
+
+      // here should be noticed that in current version we can't identify original key by date of creation
+      // so both not vetted key and vetted will be considered as duplicates currently
+      // for production it is not good
+      // and better to check only vetted keys here,
+      // for first iteration will leave all keys with non-vetted
+      const duplicatedKeys = getDuplicatedKeys(lidoKeys);
 
       if (!isDepositsPaused && theftHappened) {
         // pause deposit contract for all modules

@@ -1,7 +1,5 @@
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 
-// TODO: we should send for unvetting only vetted keys
-
 /**
  * Function identify original keys and return only duplicated keys
  */
@@ -14,7 +12,6 @@ export function getDuplicatedKeys(keys: RegistryKey[]): RegistryKey[] {
 
   // filter original messages
   for (const [_, occurrences] of duplicatedKeys) {
-    // console.log(occurrences);
     // If the list of duplicates contains a deposited key, it will be considered the original,
     // and the other keys will be considered duplicates.
     // This applies whether the keys are in one module or two, and whether they are for one operator or two.
