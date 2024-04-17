@@ -137,7 +137,6 @@ describe('ganache e2e tests', () => {
     // Prepare a signer for the unlocked Ganache account
     if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
     const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
-
     const tempProvider = new ethers.providers.JsonRpcProvider(
       `http://127.0.0.1:${GANACHE_PORT}`,
     );
