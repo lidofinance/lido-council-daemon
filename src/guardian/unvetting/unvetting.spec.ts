@@ -1,3 +1,0 @@
-import {} from './bytes';
-
-describe('', () => {});
