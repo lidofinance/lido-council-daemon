@@ -150,13 +150,15 @@ export class StakingModuleGuardService {
     const vettedUnusedKeys = stakingModuleData.vettedUnusedKeys;
 
     const vettedUnused = keys.filter((key) => {
-      vettedUnusedKeys.some(
+      const r = vettedUnusedKeys.some(
         (k) =>
           k.index == key.index &&
           k.operatorIndex == key.operatorIndex &&
           // extra check
           k.key == key.key,
       );
+
+      return r;
     });
 
     return vettedUnused;
@@ -491,6 +493,7 @@ export class StakingModuleGuardService {
       );
       return;
     }
+
     await this.unvettingService.handleUnvetting(
       stakingModuleData.stakingModuleId,
       stakingModuleData,

@@ -13,10 +13,11 @@ export function packNodeOperatorIds(nodeOperatorIds) {
   for (const id of nodeOperatorIds) {
     hexString += decimalToHexBytes(id, 8);
   }
+
   return `0x${hexString}`;
 }
 
-export function packVettedSigningKeysCounts(vettedSigningKeysCounts) {
+export function packVettedSigningKeysCounts(vettedSigningKeysCounts: number[]) {
   let hexString = '';
   for (const count of vettedSigningKeysCounts) {
     hexString += decimalToHexBytes(count, 16);

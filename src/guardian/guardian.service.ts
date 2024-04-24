@@ -262,6 +262,13 @@ export class GuardianService implements OnModuleInit {
           stakingModuleData.frontRunKeys = frontRunKeys;
           stakingModuleData.duplicatedKeys = duplicatedKeysReqUnvetting;
 
+          this.logger.log('Keys that require unvetting', {
+            invalidKeys: invalidKeys.length,
+            frontRunKeys: frontRunKeys.length,
+            duplicatedKeys: duplicatedKeysReqUnvetting.length,
+            stakingModuleDataId: stakingModuleData.stakingModuleId,
+          });
+
           this.stakingModuleGuardService.handleUnvetting(
             stakingModuleData,
             blockData,
