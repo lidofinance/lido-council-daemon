@@ -185,17 +185,25 @@ export class GuardianService implements OnModuleInit {
       const theftHappened =
         await this.stakingModuleGuardService.getHistoricalFrontRun(blockData);
 
-      const isDepositsPaused =
-        await this.securityService.isDepositContractPaused(blockData.blockHash);
-
       // TODO: better devide this function on few and list below
       const stakingModulesData: StakingModuleData[] =
         await this.stakingRouterService.getStakingModulesData({
           operatorsByModules,
           meta,
           lidoKeys,
-          isDepositsPaused,
         });
+
+      const version = await this.securityService.version({
+        blockHash: blockData.blockHash,
+      });
+
+      this.logger.log('DSM contract version:', version);
+
+      const alreadyPausedDeposits =
+        await this.stakingModuleGuardService.alreadyPausedDeposits(
+          blockData,
+          version,
+        );
 
       // here should be noticed that in current version we can't identify original key by date of creation
       // so both not vetted key and vetted will be considered as duplicates currently
@@ -204,23 +212,24 @@ export class GuardianService implements OnModuleInit {
       // for first iteration will leave all keys with non-vetted
       const duplicatedKeys = getDuplicatedKeys(lidoKeys);
 
-      if (!isDepositsPaused && theftHappened) {
-        // pause deposit contract for all modules
-        // in current version will send separate transactions to modules
-        this.logger.error('Pausing deposits for all modules', {
-          isDepositsPaused,
-          theftHappened,
-        });
+      // TODO: rename or move condition from function
+      await this.stakingModuleGuardService.pauseDepositsV3(
+        blockData,
+        theftHappened,
+        alreadyPausedDeposits,
+        version,
+      );
 
-        await this.stakingModuleGuardService.pauseDeposits(
-          stakingModulesData,
-          blockData,
-        );
-      }
+      await this.stakingModuleGuardService.pauseDepositsV2(
+        stakingModulesData,
+        blockData,
+        theftHappened,
+        version,
+      );
 
       await Promise.all(
         stakingModulesData.map(async (stakingModuleData) => {
-          const frontRunAttempts =
+          const frontRunKeys =
             this.stakingModuleGuardService.getFrontRunAttempts(
               stakingModuleData,
               blockData,
@@ -232,23 +241,48 @@ export class GuardianService implements OnModuleInit {
               blockData,
             );
 
-          this.guardianMetricsService.collectMetrics(
-            stakingModuleData,
-            blockData,
-          );
-
           const moduleDuplicatedKeys = duplicatedKeys.filter(
             (key) =>
               key.moduleAddress === stakingModuleData.stakingModuleAddress,
           );
 
-          // TODO: unvetting
+          const duplicatedKeysReqUnvetting =
+            this.stakingModuleGuardService.filterNotVettedUnusedKeys(
+              stakingModuleData,
+              moduleDuplicatedKeys,
+            );
+
+          const keysForUnvetting = [
+            ...invalidKeys,
+            ...frontRunKeys,
+            ...duplicatedKeysReqUnvetting,
+          ];
+
+          stakingModuleData.invalidKeys = invalidKeys;
+          stakingModuleData.frontRunKeys = frontRunKeys;
+          stakingModuleData.duplicatedKeys = duplicatedKeysReqUnvetting;
+
+          this.logger.log('Keys that require unvetting', {
+            invalidKeys: invalidKeys.length,
+            frontRunKeys: frontRunKeys.length,
+            duplicatedKeys: duplicatedKeysReqUnvetting.length,
+            stakingModuleDataId: stakingModuleData.stakingModuleId,
+          });
+
+          this.stakingModuleGuardService.handleUnvetting(
+            stakingModuleData,
+            blockData,
+            version,
+          );
+
+          this.guardianMetricsService.collectMetrics(
+            stakingModuleData,
+            blockData,
+          );
 
           if (
-            [...invalidKeys, ...frontRunAttempts, ...moduleDuplicatedKeys]
-              .length ||
-            theftHappened ||
-            isDepositsPaused ||
+            keysForUnvetting.length ||
+            alreadyPausedDeposits ||
             stakingModuleData.isModuleDepositsPaused
           ) {
             // soft pause

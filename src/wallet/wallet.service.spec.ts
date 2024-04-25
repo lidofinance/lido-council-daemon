@@ -100,7 +100,7 @@ describe('WalletService', () => {
     it('should sign pause data', async () => {
       const prefix = hexZeroPad('0x1', 32);
       const blockNumber = 1;
-      const signature = await walletService.signPauseData({
+      const signature = await walletService.signPauseDataV2({
         prefix,
         blockNumber,
         stakingModuleId: TEST_MODULE_ID,

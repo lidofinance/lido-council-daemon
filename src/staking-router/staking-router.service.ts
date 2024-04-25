@@ -26,12 +26,10 @@ export class StakingRouterService {
     operatorsByModules,
     meta,
     lidoKeys,
-    isDepositsPaused,
   }: {
     operatorsByModules: SROperatorListWithModule[];
     meta: Meta;
     lidoKeys: RegistryKey[];
-    isDepositsPaused: boolean;
   }): Promise<StakingModuleData[]> {
     const stakingModulesData = await Promise.all(
       operatorsByModules.map(async ({ operators, module: stakingModule }) => {
@@ -55,13 +53,15 @@ export class StakingRouterService {
         return {
           unusedKeys: unusedKeys.map((srKey) => srKey.key),
           isModuleDepositsPaused,
-          isDepositsPaused,
           nonce: stakingModule.nonce,
           stakingModuleId: stakingModule.id,
           stakingModuleAddress: stakingModule.stakingModuleAddress,
           blockHash: meta.elBlockSnapshot.blockHash,
           lastChangedBlockHash: meta.elBlockSnapshot.lastChangedBlockHash,
           vettedUnusedKeys: moduleVettedUnusedKeys,
+          duplicatedKeys: [],
+          invalidKeys: [],
+          frontRunKeys: [],
         };
       }),
     );
