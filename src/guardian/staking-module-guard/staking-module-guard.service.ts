@@ -297,7 +297,10 @@ export class StakingModuleGuardService {
     // Call pause without waiting for completion
     this.securityService
       .pauseDepositsV3(blockNumber, signature)
-      .catch((error) => this.logger.error(error));
+      .catch((error) => {
+        this.logger.error('Pause trx failed', { blockHash });
+        this.logger.error(error);
+      });
 
     await this.guardianMessageService.sendPauseMessage(pauseMessage);
   }
@@ -327,7 +330,7 @@ export class StakingModuleGuardService {
             blockHash: blockData.blockHash,
             stakingModuleId: stakingModuleData.stakingModuleId,
           });
-          this.pauseModuleDeposits(stakingModuleData, blockData);
+          await this.pauseModuleDeposits(stakingModuleData, blockData);
         }
       }),
     );
@@ -494,11 +497,7 @@ export class StakingModuleGuardService {
       return;
     }
 
-    await this.unvettingService.handleUnvetting(
-      stakingModuleData.stakingModuleId,
-      stakingModuleData,
-      blockData,
-    );
+    await this.unvettingService.handleUnvetting(stakingModuleData, blockData);
   }
 
   /**

@@ -197,7 +197,7 @@ export class GuardianService implements OnModuleInit {
         blockHash: blockData.blockHash,
       });
 
-      this.logger.log('DSM contract version:', version);
+      this.logger.log('DSM contract version:', { version });
 
       const alreadyPausedDeposits =
         await this.stakingModuleGuardService.alreadyPausedDeposits(
@@ -235,11 +235,20 @@ export class GuardianService implements OnModuleInit {
               blockData,
             );
 
+          this.logger.log('Front-run keys', {
+            count: frontRunKeys.length,
+            stakingModuleId: stakingModuleData.stakingModuleId,
+          });
+
           const invalidKeys =
             await this.stakingModuleGuardService.getInvalidKeys(
               stakingModuleData,
               blockData,
             );
+          this.logger.log('Invalid signature keys', {
+            count: invalidKeys.length,
+            stakingModuleId: stakingModuleData.stakingModuleId,
+          });
 
           const moduleDuplicatedKeys = duplicatedKeys.filter(
             (key) =>
@@ -252,24 +261,16 @@ export class GuardianService implements OnModuleInit {
               moduleDuplicatedKeys,
             );
 
-          const keysForUnvetting = [
-            ...invalidKeys,
-            ...frontRunKeys,
-            ...duplicatedKeysReqUnvetting,
-          ];
+          this.logger.log('Duplicated keys', {
+            count: duplicatedKeysReqUnvetting.length,
+            stakingModuleId: stakingModuleData.stakingModuleId,
+          });
 
           stakingModuleData.invalidKeys = invalidKeys;
           stakingModuleData.frontRunKeys = frontRunKeys;
           stakingModuleData.duplicatedKeys = duplicatedKeysReqUnvetting;
 
-          this.logger.log('Keys that require unvetting', {
-            invalidKeys: invalidKeys.length,
-            frontRunKeys: frontRunKeys.length,
-            duplicatedKeys: duplicatedKeysReqUnvetting.length,
-            stakingModuleDataId: stakingModuleData.stakingModuleId,
-          });
-
-          this.stakingModuleGuardService.handleUnvetting(
+          await this.stakingModuleGuardService.handleUnvetting(
             stakingModuleData,
             blockData,
             version,
@@ -280,12 +281,20 @@ export class GuardianService implements OnModuleInit {
             blockData,
           );
 
+          const keysForUnvetting = [
+            ...invalidKeys,
+            ...frontRunKeys,
+            ...duplicatedKeysReqUnvetting,
+          ];
+
           if (
             keysForUnvetting.length ||
             alreadyPausedDeposits ||
             stakingModuleData.isModuleDepositsPaused
           ) {
-            // soft pause
+            this.logger.warn('Module on soft pause', {
+              stakingModuleId: stakingModuleData.stakingModuleId,
+            });
             return;
           }
 

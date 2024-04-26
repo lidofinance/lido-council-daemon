@@ -15,6 +15,7 @@ async function bootstrap() {
   app.useLogger(logger);
 
   process.on('unhandledRejection', async (error) => {
+    logger.log('Unhandled rejection');
     logger.error(error);
 
     await app.close();

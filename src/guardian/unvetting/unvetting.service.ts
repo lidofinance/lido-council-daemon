@@ -1,23 +1,23 @@
-import { Injectable } from '@nestjs/common';
-import { OneAtTime, StakingModuleId } from 'common/decorators';
+import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { SecurityService } from 'contracts/security';
 import { GuardianMessageService } from 'guardian/guardian-message';
 import { BlockData, StakingModuleData } from 'guardian/interfaces';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { packNodeOperatorIds, packVettedSigningKeysCounts } from './bytes';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 @Injectable()
 export class UnvettingService {
   constructor(
     private securityService: SecurityService,
     private guardianMessageService: GuardianMessageService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
   ) {}
   /**
    * keys of one module
    */
-  @OneAtTime()
   async handleUnvetting(
-    @StakingModuleId stakingModuleId: number,
+    // TODO: remove this parameter
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
   ) {
@@ -27,37 +27,46 @@ export class UnvettingService {
       ...stakingModuleData.frontRunKeys,
     ];
 
+    if (!keys.length) {
+      this.logger.log('Did not find keys for unvetting. Keys are correct.', {
+        stakingModuleId: stakingModuleData.stakingModuleId,
+      });
+      return;
+    }
+
     const maxOperatorsPerUnvetting = await this.getMaxOperatorsPerUnvetting();
     const chunks = this.getNewVettedAmount(keys, maxOperatorsPerUnvetting);
 
-    Promise.all(
+    await Promise.all(
       chunks.map(async ({ operatorIds, vettedKeysByOperator }) => {
         const signature = await this.securityService.signUnvetData(
           stakingModuleData.nonce,
           blockData.blockNumber,
           blockData.blockHash,
-          stakingModuleId,
+          stakingModuleData.stakingModuleId,
           operatorIds,
           vettedKeysByOperator,
         );
 
-        this.securityService.unvetSigningKeys(
-          stakingModuleData.nonce,
-          blockData.blockNumber,
-          blockData.blockHash,
-          stakingModuleId,
-          operatorIds,
-          vettedKeysByOperator,
-          signature,
-        );
+        this.securityService
+          .unvetSigningKeys(
+            stakingModuleData.nonce,
+            blockData.blockNumber,
+            blockData.blockHash,
+            stakingModuleData.stakingModuleId,
+            operatorIds,
+            vettedKeysByOperator,
+            signature,
+          )
+          .catch((error) => this.logger.error(error));
 
-        this.guardianMessageService.sendUnvetMessage({
+        await this.guardianMessageService.sendUnvetMessage({
           nonce: stakingModuleData.nonce,
           blockNumber: blockData.blockNumber,
           blockHash: blockData.blockHash,
           guardianAddress: blockData.guardianAddress,
           guardianIndex: blockData.guardianIndex,
-          stakingModuleId,
+          stakingModuleId: stakingModuleData.stakingModuleId,
           operatorIds,
           vettedKeysByOperator,
           signature,

@@ -275,11 +275,12 @@ export class SecurityService {
    * @param vettedKeysByOperator
    * @param signature
    */
+  @OneAtTime()
   public async unvetSigningKeys(
     nonce: number,
     blockNumber: number,
     blockHash: string,
-    stakingModuleId: number,
+    @StakingModuleId stakingModuleId: number,
     operatorIds: string,
     vettedKeysByOperator: string,
     signature: Signature,
