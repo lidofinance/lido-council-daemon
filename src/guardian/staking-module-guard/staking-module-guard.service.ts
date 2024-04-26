@@ -166,9 +166,9 @@ export class StakingModuleGuardService {
 
   public async alreadyPausedDeposits(blockData: BlockData, version: number) {
     if (version === 3) {
-      const alreadyPaused = await this.securityService.isDepositContractPaused(
-        blockData.blockHash,
-      );
+      const alreadyPaused = await this.securityService.isDepositContractPaused({
+        blockHash: blockData.blockHash,
+      });
 
       return alreadyPaused;
     }
