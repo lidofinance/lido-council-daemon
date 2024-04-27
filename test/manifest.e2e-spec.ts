@@ -79,6 +79,8 @@ import { LidoModule } from '../src/contracts/lido';
 import { KeysApiService } from '../src/keys-api/keys-api.service';
 import { KeysApiModule } from '../src/keys-api/keys-api.module';
 
+import { LevelDBService } from '../src/contracts/deposit/leveldb';
+
 import { ProviderService } from '../src/provider';
 import { GanacheProviderModule } from '../src/provider';
 
@@ -103,6 +105,7 @@ describe('ganache e2e tests', () => {
   let depositService: DepositService;
   let blsService: BlsService;
   let guardianMessageService: GuardianMessageService;
+  let levelDBService: LevelDBService;
 
   let sendDepositMessage: jest.SpyInstance;
   let sendPauseMessage: jest.SpyInstance;
@@ -137,6 +140,8 @@ describe('ganache e2e tests', () => {
 
   afterEach(async () => {
     await server.close();
+    await levelDBService.deleteCache();
+    await levelDBService.close();
   });
 
   beforeEach(async () => {
@@ -180,10 +185,13 @@ describe('ganache e2e tests', () => {
     keyValidator = moduleRef.get(KeyValidatorInterface);
     securityService = moduleRef.get(SecurityService);
     stakingModuleGuardService = moduleRef.get(StakingModuleGuardService);
+    levelDBService = moduleRef.get(LevelDBService);
 
     // Initializing needed service instead of the whole app
     blsService = moduleRef.get(BlsService);
     await blsService.onModuleInit();
+
+    await levelDBService.initialize();
 
     jest
       .spyOn(lidoService, 'getWithdrawalCredentials')
