@@ -131,6 +131,13 @@ export class DepositService {
 
     const depositCount = rest['4'];
 
+    const depositDataRoot = DepositTree.formDepositNode({
+      pubkey,
+      wc,
+      signature,
+      amount,
+    });
+
     return {
       pubkey,
       wc,
@@ -142,12 +149,7 @@ export class DepositService {
       logIndex,
       index,
       depositCount: parseLittleEndian64(depositCount),
-      depositDataRoot: DepositTree.formDepositNode({
-        pubkey,
-        wc,
-        signature,
-        amount,
-      }),
+      depositDataRoot,
     };
   }
 
