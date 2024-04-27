@@ -17,7 +17,6 @@ export class UnvettingService {
    * keys of one module
    */
   async handleUnvetting(
-    // TODO: remove this parameter
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
   ) {
