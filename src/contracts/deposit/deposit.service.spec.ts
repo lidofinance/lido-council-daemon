@@ -68,6 +68,8 @@ describe('DepositService', () => {
     mockLocator(locatorService);
     await mockRepository(repositoryService);
 
+    await cacheService.initialize();
+
     jest
       .spyOn(repositoryService, 'getDepositAddress')
       .mockImplementation(async () => depositAddress);
