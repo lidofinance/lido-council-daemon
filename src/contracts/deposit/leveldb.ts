@@ -26,7 +26,7 @@ async function putDepositEvent(
   const { depositEventHash, ...rest } = depositEvent;
   const value = {
     ...rest,
-    depositEventHash: Array.from(depositEventHash), // Сериализация Uint8Array
+    depositEventHash: Array.from(depositEventHash),
   };
   const key = generateDepositKey(value.depositCount);
   await db.put(key, JSON.stringify(value));
@@ -36,7 +36,7 @@ function serializeDepositEvent(depositEvent: VerifiedDepositEvent) {
   const { depositEventHash, ...rest } = depositEvent;
   const value = {
     ...rest,
-    depositEventHash: Array.from(depositEventHash), // Сериализация Uint8Array
+    depositEventHash: Array.from(depositEventHash),
   };
   return JSON.stringify(value);
 }
@@ -46,7 +46,8 @@ async function getDepositEvent(key: number): Promise<DepositEvent> {
   const data = JSON.parse(await db.get(strKey));
   const depositEvent: DepositEvent = {
     ...data,
-    depositEventHash: new Uint8Array(data.depositEventHash), // Десериализация в Uint8Array
+    // depositDataRoot
+    depositEventHash: new Uint8Array(data.depositEventHash),
   };
   return depositEvent;
 }
@@ -55,7 +56,7 @@ function parseDepositEvent(dataString: string): VerifiedDepositEvent {
   const data = JSON.parse(dataString);
   const depositEvent: VerifiedDepositEvent = {
     ...data,
-    depositEventHash: new Uint8Array(data.depositEventHash), // Десериализация в Uint8Array
+    depositEventHash: new Uint8Array(data.depositEventHash),
   };
   return depositEvent;
 }
@@ -91,8 +92,7 @@ export async function getCache() {
     const headers: VerifiedDepositEventsCacheHeaders = JSON.parse(
       await headersDB.get('header'),
     );
-    console.log(data.length, '72327');
-    console.log(headers);
+
     return { data, headers };
     // LEVEL_NOT_FOUND
   } catch (error) {
