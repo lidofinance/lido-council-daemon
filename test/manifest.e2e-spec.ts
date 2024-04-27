@@ -117,6 +117,22 @@ describe('ganache e2e tests', () => {
   beforeEach(async () => {
     server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
     await server.listen(GANACHE_PORT);
+
+    if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
+
+    const tempProvider = new ethers.providers.JsonRpcProvider(
+      `http://127.0.0.1:${GANACHE_PORT}`,
+    );
+
+    const wallet = new ethers.Wallet(
+      process.env.WALLET_PRIVATE_KEY,
+      tempProvider,
+    );
+
+    await wallet.sendTransaction({
+      to: SECURITY_MODULE_OWNER,
+      value: ethers.utils.parseEther('2'),
+    });
   });
 
   afterEach(async () => {
@@ -127,18 +143,17 @@ describe('ganache e2e tests', () => {
     // Prepare a signer for the unlocked Ganache account
     if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
     const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
+
     const tempProvider = new ethers.providers.JsonRpcProvider(
       `http://127.0.0.1:${GANACHE_PORT}`,
     );
     const tempSigner = tempProvider.getSigner(SECURITY_MODULE_OWNER);
-
-    // Add our address to guardians and set consensus to 1
+    // // Add our address to guardians and set consensus to 1
     const securityContract = SecurityAbi__factory.connect(
       SECURITY_MODULE,
       tempSigner,
     );
     await securityContract.functions.addGuardian(wallet.address, 1);
-
     const moduleRef = await Test.createTestingModule({
       imports: [
         GanacheProviderModule.forRoot(),
@@ -188,29 +203,29 @@ describe('ganache e2e tests', () => {
   });
 
   describe('node checks', () => {
-    it('should be on correct network', async () => {
+    test('should be on correct network', async () => {
       const chainId = await providerService.getChainId();
       expect(chainId).toBe(CHAIN_ID);
     });
 
-    it('should be able to create new blocks', async () => {
+    test('should be able to create new blocks', async () => {
       const isMining = await providerService.provider.send('eth_mining', []);
       expect(isMining).toBe(true);
     });
 
-    it('should be on correct block number', async () => {
+    test('should be on correct block number', async () => {
       const provider = providerService.provider;
       const block = await provider.getBlock('latest');
-      expect(block.number).toBe(FORK_BLOCK + 2);
+      expect(block.number).toBe(FORK_BLOCK + 3);
     });
 
-    it('testing address should have some eth', async () => {
+    test('testing address should have some eth', async () => {
       const provider = providerService.provider;
       const balance = await provider.getBalance(walletService.address);
       expect(balance.gte(WeiPerEther.mul(34))).toBe(true);
     });
 
-    it('needed contract should not be already on pause', async () => {
+    test('needed contract should not be already on pause', async () => {
       const routerContract = StakingRouterAbi__factory.connect(
         STAKING_ROUTER,
         providerService.provider,
@@ -343,7 +358,7 @@ describe('ganache e2e tests', () => {
         expect.objectContaining({
           blockNumber: newBlock.number,
           guardianAddress: wallet.address,
-          guardianIndex: 9,
+          guardianIndex: 6,
           stakingModuleId: 1,
         }),
       );
@@ -391,9 +406,9 @@ describe('ganache e2e tests', () => {
         },
         // simple dvt
         {
-          key: '0xb3c90525010a5710d43acbea46047fc37ed55306d032527fa15dd7e8cd8a9a5fa490347cc5fce59936fb8300683cd9f3',
+          key: '0xa9e4c3d9b71b82ae78da55a686208bb2b6b0b31f7a100f2d9ea46beb86088432dc3d320ccebadef9563e8be4c6ad8e63',
           depositSignature:
-            '0x8a77d9411781360cc107344a99f6660b206d2c708ae7fa35565b76ec661a0b86b6c78f5b5691d2cf469c27d0655dfc6311451a9e0501f3c19c6f7e35a770d1a908bfec7cba2e07339dc633b8b6626216ce76ec0fa48ee56aaaf2f9dc7ccb2fe2',
+            '0xadfcf17804e128039df67d7ecf9f4312bbc17eacd57c76539a4d8cbb7e02cba246083200dd95bd5a83fdfcbcbf7051001432f2aef4e867f9cb426e850744a66b8842ebdb8d22d26bf7531ebdcc72e7dbae608fd4c5dde4a7bf43e65aff002c37',
           operatorIndex: 0,
           used: false,
           moduleAddress: FAKE_SIMPLE_DVT,
@@ -528,7 +543,7 @@ describe('ganache e2e tests', () => {
         expect.objectContaining({
           blockNumber: newBlock.number,
           guardianAddress: wallet.address,
-          guardianIndex: 9,
+          guardianIndex: 6,
           stakingModuleId: 1,
         }),
       );
@@ -538,7 +553,7 @@ describe('ganache e2e tests', () => {
         expect.objectContaining({
           blockNumber: newBlock.number,
           guardianAddress: wallet.address,
-          guardianIndex: 9,
+          guardianIndex: 6,
           stakingModuleId: 2,
         }),
       );
@@ -872,7 +887,7 @@ describe('ganache e2e tests', () => {
         expect.objectContaining({
           blockNumber: newBlock.number,
           guardianAddress: wallet.address,
-          guardianIndex: 9,
+          guardianIndex: 6,
           stakingModuleId: 1,
         }),
       );
@@ -1082,36 +1097,36 @@ describe('ganache e2e tests', () => {
       // list of keys for /keys?used=false mock
       const unusedKeys = [
         {
-          key: '0xa9bfaa8207ee6c78644c079ffc91b6e5abcc5eede1b7a06abb8fb40e490a75ea269c178dd524b65185299d2bbd2eb7b2',
+          key: '0xa4d381739a4cc9554bf01c49e827a22ae99d429a79bd74ecfa86b72210c151644e511ce1c5fa4e5fb8d355dec35239e2',
           depositSignature:
-            '0xaa5f2a1053ba7d197495df44d4a32b7ae10265cf9e38560a16b782978c0a24271a113c9538453b7e45f35cb64c7adb460d7a9fe8c8ce6b8c80ca42fd5c48e180c73fc08f7d35ba32e39f32c902fd333faf47611827f0b7813f11c4c518dd2e59',
+            '0xac50577d80539bf0a9ac0ea98d7a98e4bb3c644c28d53c57204c297081cbef7ca47975a2fffc05b873b406e3f08b4b6902e57c61b0d98dc7eac49d677c82a5c4f695232158360c7595c4414f5f27c9a7ab1bbdbafa4f85c967f82a4f68cb6f5e',
           operatorIndex: 0,
           used: false,
           index: 0,
           moduleAddress: NOP_REGISTRY,
         },
         {
-          key: '0xa9bfaa8207ee6c78644c079ffc91b6e5abcc5eede1b7a06abb8fb40e490a75ea269c178dd524b65185299d2bbd2eb7b2',
+          key: '0xa4d381739a4cc9554bf01c49e827a22ae99d429a79bd74ecfa86b72210c151644e511ce1c5fa4e5fb8d355dec35239e2',
           depositSignature:
-            '0xaa5f2a1053ba7d197495df44d4a32b7ae10265cf9e38560a16b782978c0a24271a113c9538453b7e45f35cb64c7adb460d7a9fe8c8ce6b8c80ca42fd5c48e180c73fc08f7d35ba32e39f32c902fd333faf47611827f0b7813f11c4c518dd2e59',
+            '0xac50577d80539bf0a9ac0ea98d7a98e4bb3c644c28d53c57204c297081cbef7ca47975a2fffc05b873b406e3f08b4b6902e57c61b0d98dc7eac49d677c82a5c4f695232158360c7595c4414f5f27c9a7ab1bbdbafa4f85c967f82a4f68cb6f5e',
           operatorIndex: 0,
           used: false,
           index: 1,
           moduleAddress: NOP_REGISTRY,
         },
         {
-          key: '0xa9bfaa8207ee6c78644c079ffc91b6e5abcc5eede1b7a06abb8fb40e490a75ea269c178dd524b65185299d2bbd2eb7b2',
+          key: '0xa4d381739a4cc9554bf01c49e827a22ae99d429a79bd74ecfa86b72210c151644e511ce1c5fa4e5fb8d355dec35239e2',
           depositSignature:
-            '0xaa5f2a1053ba7d197495df44d4a32b7ae10265cf9e38560a16b782978c0a24271a113c9538453b7e45f35cb64c7adb460d7a9fe8c8ce6b8c80ca42fd5c48e180c73fc08f7d35ba32e39f32c902fd333faf47611827f0b7813f11c4c518dd2e59',
+            '0xac50577d80539bf0a9ac0ea98d7a98e4bb3c644c28d53c57204c297081cbef7ca47975a2fffc05b873b406e3f08b4b6902e57c61b0d98dc7eac49d677c82a5c4f695232158360c7595c4414f5f27c9a7ab1bbdbafa4f85c967f82a4f68cb6f5e',
           operatorIndex: 0,
           used: false,
           index: 12,
           moduleAddress: NOP_REGISTRY,
         },
         {
-          key: '0xb3c90525010a5710d43acbea46047fc37ed55306d032527fa15dd7e8cd8a9a5fa490347cc5fce59936fb8300683cd9f3',
+          key: '0xa9e4c3d9b71b82ae78da55a686208bb2b6b0b31f7a100f2d9ea46beb86088432dc3d320ccebadef9563e8be4c6ad8e63',
           depositSignature:
-            '0x8a77d9411781360cc107344a99f6660b206d2c708ae7fa35565b76ec661a0b86b6c78f5b5691d2cf469c27d0655dfc6311451a9e0501f3c19c6f7e35a770d1a908bfec7cba2e07339dc633b8b6626216ce76ec0fa48ee56aaaf2f9dc7ccb2fe2',
+            '0xadfcf17804e128039df67d7ecf9f4312bbc17eacd57c76539a4d8cbb7e02cba246083200dd95bd5a83fdfcbcbf7051001432f2aef4e867f9cb426e850744a66b8842ebdb8d22d26bf7531ebdcc72e7dbae608fd4c5dde4a7bf43e65aff002c37',
           operatorIndex: 0,
           used: false,
           moduleAddress: FAKE_SIMPLE_DVT,
@@ -1155,7 +1170,7 @@ describe('ganache e2e tests', () => {
         expect.objectContaining({
           blockNumber: currentBlock.number,
           guardianAddress: wallet.address,
-          guardianIndex: 9,
+          guardianIndex: 6,
           stakingModuleId: 2,
         }),
       );
@@ -1165,18 +1180,18 @@ describe('ganache e2e tests', () => {
       // council will resume deposits to module
       const unusedKeysWithoutDuplicates = [
         {
-          key: '0xa9bfaa8207ee6c78644c079ffc91b6e5abcc5eede1b7a06abb8fb40e490a75ea269c178dd524b65185299d2bbd2eb7b2',
+          key: '0xa4d381739a4cc9554bf01c49e827a22ae99d429a79bd74ecfa86b72210c151644e511ce1c5fa4e5fb8d355dec35239e2',
           depositSignature:
-            '0xaa5f2a1053ba7d197495df44d4a32b7ae10265cf9e38560a16b782978c0a24271a113c9538453b7e45f35cb64c7adb460d7a9fe8c8ce6b8c80ca42fd5c48e180c73fc08f7d35ba32e39f32c902fd333faf47611827f0b7813f11c4c518dd2e59',
+            '0xac50577d80539bf0a9ac0ea98d7a98e4bb3c644c28d53c57204c297081cbef7ca47975a2fffc05b873b406e3f08b4b6902e57c61b0d98dc7eac49d677c82a5c4f695232158360c7595c4414f5f27c9a7ab1bbdbafa4f85c967f82a4f68cb6f5e',
           operatorIndex: 0,
           used: false,
           index: 0,
           moduleAddress: NOP_REGISTRY,
         },
         {
-          key: '0xb3c90525010a5710d43acbea46047fc37ed55306d032527fa15dd7e8cd8a9a5fa490347cc5fce59936fb8300683cd9f3',
+          key: '0xa9e4c3d9b71b82ae78da55a686208bb2b6b0b31f7a100f2d9ea46beb86088432dc3d320ccebadef9563e8be4c6ad8e63',
           depositSignature:
-            '0x8a77d9411781360cc107344a99f6660b206d2c708ae7fa35565b76ec661a0b86b6c78f5b5691d2cf469c27d0655dfc6311451a9e0501f3c19c6f7e35a770d1a908bfec7cba2e07339dc633b8b6626216ce76ec0fa48ee56aaaf2f9dc7ccb2fe2',
+            '0xadfcf17804e128039df67d7ecf9f4312bbc17eacd57c76539a4d8cbb7e02cba246083200dd95bd5a83fdfcbcbf7051001432f2aef4e867f9cb426e850744a66b8842ebdb8d22d26bf7531ebdcc72e7dbae608fd4c5dde4a7bf43e65aff002c37',
           operatorIndex: 0,
           used: false,
           moduleAddress: FAKE_SIMPLE_DVT,
@@ -1214,7 +1229,7 @@ describe('ganache e2e tests', () => {
         expect.objectContaining({
           blockNumber: newBlock.number,
           guardianAddress: wallet.address,
-          guardianIndex: 9,
+          guardianIndex: 6,
           stakingModuleId: 1,
         }),
       );
@@ -1223,7 +1238,7 @@ describe('ganache e2e tests', () => {
         expect.objectContaining({
           blockNumber: newBlock.number,
           guardianAddress: wallet.address,
-          guardianIndex: 9,
+          guardianIndex: 6,
           stakingModuleId: 2,
         }),
       );
@@ -1299,18 +1314,18 @@ describe('ganache e2e tests', () => {
       // list of keys for /keys?used=false mock
       const unusedKeys = [
         {
-          key: '0xa9bfaa8207ee6c78644c079ffc91b6e5abcc5eede1b7a06abb8fb40e490a75ea269c178dd524b65185299d2bbd2eb7b2',
+          key: '0xa4d381739a4cc9554bf01c49e827a22ae99d429a79bd74ecfa86b72210c151644e511ce1c5fa4e5fb8d355dec35239e2',
           depositSignature:
-            '0xaa5f2a1053ba7d197495df44d4a32b7ae10265cf9e38560a16b782978c0a24271a113c9538453b7e45f35cb64c7adb460d7a9fe8c8ce6b8c80ca42fd5c48e180c73fc08f7d35ba32e39f32c902fd333faf47611827f0b7813f11c4c518dd2e59',
+            '0xac50577d80539bf0a9ac0ea98d7a98e4bb3c644c28d53c57204c297081cbef7ca47975a2fffc05b873b406e3f08b4b6902e57c61b0d98dc7eac49d677c82a5c4f695232158360c7595c4414f5f27c9a7ab1bbdbafa4f85c967f82a4f68cb6f5e',
           operatorIndex: 0,
           used: false,
           index: 0,
           moduleAddress: NOP_REGISTRY,
         },
         {
-          key: '0xa9bfaa8207ee6c78644c079ffc91b6e5abcc5eede1b7a06abb8fb40e490a75ea269c178dd524b65185299d2bbd2eb7b2',
+          key: '0xa4d381739a4cc9554bf01c49e827a22ae99d429a79bd74ecfa86b72210c151644e511ce1c5fa4e5fb8d355dec35239e2',
           depositSignature:
-            '0xaa5f2a1053ba7d197495df44d4a32b7ae10265cf9e38560a16b782978c0a24271a113c9538453b7e45f35cb64c7adb460d7a9fe8c8ce6b8c80ca42fd5c48e180c73fc08f7d35ba32e39f32c902fd333faf47611827f0b7813f11c4c518dd2e59',
+            '0xac50577d80539bf0a9ac0ea98d7a98e4bb3c644c28d53c57204c297081cbef7ca47975a2fffc05b873b406e3f08b4b6902e57c61b0d98dc7eac49d677c82a5c4f695232158360c7595c4414f5f27c9a7ab1bbdbafa4f85c967f82a4f68cb6f5e',
           operatorIndex: 0,
           used: false,
           index: 0,
@@ -1340,18 +1355,18 @@ describe('ganache e2e tests', () => {
       // council will resume deposits to module
       const unusedKeysWithoutDuplicates = [
         {
-          key: '0xa9bfaa8207ee6c78644c079ffc91b6e5abcc5eede1b7a06abb8fb40e490a75ea269c178dd524b65185299d2bbd2eb7b2',
+          key: '0xa4d381739a4cc9554bf01c49e827a22ae99d429a79bd74ecfa86b72210c151644e511ce1c5fa4e5fb8d355dec35239e2',
           depositSignature:
-            '0xaa5f2a1053ba7d197495df44d4a32b7ae10265cf9e38560a16b782978c0a24271a113c9538453b7e45f35cb64c7adb460d7a9fe8c8ce6b8c80ca42fd5c48e180c73fc08f7d35ba32e39f32c902fd333faf47611827f0b7813f11c4c518dd2e59',
+            '0xac50577d80539bf0a9ac0ea98d7a98e4bb3c644c28d53c57204c297081cbef7ca47975a2fffc05b873b406e3f08b4b6902e57c61b0d98dc7eac49d677c82a5c4f695232158360c7595c4414f5f27c9a7ab1bbdbafa4f85c967f82a4f68cb6f5e',
           operatorIndex: 0,
           used: false,
           index: 0,
           moduleAddress: NOP_REGISTRY,
         },
         {
-          key: '0xb3c90525010a5710d43acbea46047fc37ed55306d032527fa15dd7e8cd8a9a5fa490347cc5fce59936fb8300683cd9f3',
+          key: '0xa9e4c3d9b71b82ae78da55a686208bb2b6b0b31f7a100f2d9ea46beb86088432dc3d320ccebadef9563e8be4c6ad8e63',
           depositSignature:
-            '0x8a77d9411781360cc107344a99f6660b206d2c708ae7fa35565b76ec661a0b86b6c78f5b5691d2cf469c27d0655dfc6311451a9e0501f3c19c6f7e35a770d1a908bfec7cba2e07339dc633b8b6626216ce76ec0fa48ee56aaaf2f9dc7ccb2fe2',
+            '0xadfcf17804e128039df67d7ecf9f4312bbc17eacd57c76539a4d8cbb7e02cba246083200dd95bd5a83fdfcbcbf7051001432f2aef4e867f9cb426e850744a66b8842ebdb8d22d26bf7531ebdcc72e7dbae608fd4c5dde4a7bf43e65aff002c37',
           operatorIndex: 0,
           used: false,
           moduleAddress: FAKE_SIMPLE_DVT,
@@ -1405,7 +1420,7 @@ describe('ganache e2e tests', () => {
         expect.objectContaining({
           blockNumber: newBlock.number,
           guardianAddress: wallet.address,
-          guardianIndex: 9,
+          guardianIndex: 6,
           stakingModuleId: 1,
         }),
       );
@@ -1414,7 +1429,7 @@ describe('ganache e2e tests', () => {
         expect.objectContaining({
           blockNumber: newBlock.number,
           guardianAddress: wallet.address,
-          guardianIndex: 9,
+          guardianIndex: 6,
           stakingModuleId: 2,
         }),
       );
@@ -1486,9 +1501,9 @@ describe('ganache e2e tests', () => {
       // list of keys for /keys?used=false mock
       const unusedKeys = [
         {
-          key: '0xa9bfaa8207ee6c78644c079ffc91b6e5abcc5eede1b7a06abb8fb40e490a75ea269c178dd524b65185299d2bbd2eb7b2',
+          key: '0xa4d381739a4cc9554bf01c49e827a22ae99d429a79bd74ecfa86b72210c151644e511ce1c5fa4e5fb8d355dec35239e2',
           depositSignature:
-            '0xaa5f2a1053ba7d197495df44d4a32b7ae10265cf9e38560a16b782978c0a24271a113c9538453b7e45f35cb64c7adb460d7a9fe8c8ce6b8c80ca42fd5c48e180c73fc08f7d35ba32e39f32c902fd333faf47611827f0b7813f11c4c518dd2e59',
+            '0xac50577d80539bf0a9ac0ea98d7a98e4bb3c644c28d53c57204c297081cbef7ca47975a2fffc05b873b406e3f08b4b6902e57c61b0d98dc7eac49d677c82a5c4f695232158360c7595c4414f5f27c9a7ab1bbdbafa4f85c967f82a4f68cb6f5e',
           operatorIndex: 0,
           used: false,
           index: 0,
@@ -1626,7 +1641,7 @@ describe('ganache e2e tests', () => {
         expect.objectContaining({
           blockNumber: newBlock.number,
           guardianAddress: wallet.address,
-          guardianIndex: 9,
+          guardianIndex: 6,
           stakingModuleId: 1,
         }),
       );
@@ -1931,7 +1946,7 @@ describe('ganache e2e tests', () => {
       expect.objectContaining({
         blockNumber: block1.number,
         guardianAddress: wallet.address,
-        guardianIndex: 9,
+        guardianIndex: 6,
         stakingModuleId: 1,
       }),
     );
@@ -2010,9 +2025,9 @@ describe('ganache e2e tests', () => {
       moduleAddress: NOP_REGISTRY,
     };
     const dvtKey = {
-      key: '0xa9bfaa8207ee6c78644c079ffc91b6e5abcc5eede1b7a06abb8fb40e490a75ea269c178dd524b65185299d2bbd2eb7b2',
+      key: '0xa4d381739a4cc9554bf01c49e827a22ae99d429a79bd74ecfa86b72210c151644e511ce1c5fa4e5fb8d355dec35239e2',
       depositSignature:
-        '0xaa5f2a1053ba7d197495df44d4a32b7ae10265cf9e38560a16b782978c0a24271a113c9538453b7e45f35cb64c7adb460d7a9fe8c8ce6b8c80ca42fd5c48e180c73fc08f7d35ba32e39f32c902fd333faf47611827f0b7813f11c4c518dd2e59',
+        '0xac50577d80539bf0a9ac0ea98d7a98e4bb3c644c28d53c57204c297081cbef7ca47975a2fffc05b873b406e3f08b4b6902e57c61b0d98dc7eac49d677c82a5c4f695232158360c7595c4414f5f27c9a7ab1bbdbafa4f85c967f82a4f68cb6f5e',
       operatorIndex: 0,
       used: false,
       index: 0,
@@ -2209,7 +2224,7 @@ describe('ganache e2e tests', () => {
         expect.objectContaining({
           blockNumber: newBlock.number,
           guardianAddress: wallet.address,
-          guardianIndex: 9,
+          guardianIndex: 6,
           stakingModuleId: 1,
         }),
       );
