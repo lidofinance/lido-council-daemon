@@ -2128,6 +2128,9 @@ describe('ganache e2e tests', () => {
             blockHash: forkBlock.hash,
             blockNumber: forkBlock.number,
             logIndex: 1,
+            depositCount: 1,
+            depositDataRoot: new Uint8Array(),
+            index: '',
           },
         ],
         headers: {
