@@ -54,3 +54,4 @@ lerna-debug.log*
 /ansible
 
 leveldb-spec
+leveldb-cache
