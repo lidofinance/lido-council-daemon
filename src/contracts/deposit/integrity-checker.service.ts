@@ -34,7 +34,7 @@ export class DepositIntegrityCheckerService {
     console.time('from tree');
 
     for (const [index, event] of eventsCache.data.entries()) {
-      tree.insertNode(event.depositEventHash);
+      tree.insertNode(event.depositDataRoot);
 
       if (index % 200_000 === 0) {
         await new Promise((res) => setTimeout(res, 1));
@@ -107,7 +107,7 @@ export class DepositIntegrityCheckerService {
     console.time('from tree');
 
     for (const [index, event] of eventsCache.entries()) {
-      tree.insertNode(event.depositEventHash);
+      tree.insertNode(event.depositDataRoot);
 
       if (index % 200_000 === 0) {
         await new Promise((res) => setTimeout(res, 1));

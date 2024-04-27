@@ -7,7 +7,7 @@ import { Interface } from '@ethersproject/abi';
 import { LoggerService } from '@nestjs/common';
 import { getNetwork } from '@ethersproject/networks';
 import { sleep } from 'utils';
-import { CacheService } from 'cache';
+import { LevelDBService } from './leveldb';
 import {
   ERRORS_LIMIT_EXCEEDED,
   MockProviderModule,
@@ -15,10 +15,7 @@ import {
 } from 'provider';
 import { DepositAbi__factory } from 'generated';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
-import {
-  VerifiedDepositEventsCacheHeaders,
-  VerifiedDepositEvent,
-} from './interfaces';
+
 import { DepositModule } from './deposit.module';
 import { DepositService } from './deposit.service';
 import { PrometheusModule } from 'common/prometheus';
@@ -34,10 +31,7 @@ const mockSleep = sleep as jest.MockedFunction<typeof sleep>;
 
 describe('DepositService', () => {
   let providerService: ProviderService;
-  let cacheService: CacheService<
-    VerifiedDepositEventsCacheHeaders,
-    VerifiedDepositEvent
-  >;
+  let cacheService: LevelDBService;
   let depositService: DepositService;
   let loggerService: LoggerService;
   let repositoryService: RepositoryService;
@@ -59,7 +53,7 @@ describe('DepositService', () => {
     }).compile();
 
     providerService = moduleRef.get(ProviderService);
-    cacheService = moduleRef.get(CacheService);
+    cacheService = moduleRef.get(LevelDBService);
     depositService = moduleRef.get(DepositService);
     repositoryService = moduleRef.get(RepositoryService);
     blsService = moduleRef.get(BlsService);
@@ -125,7 +119,7 @@ describe('DepositService', () => {
       };
 
       const mockCache = jest
-        .spyOn(cacheService, 'getCache')
+        .spyOn(cacheService, 'getEventsCache')
         .mockImplementation(async () => cache);
 
       const result = await depositService.getCachedEvents();
@@ -145,7 +139,7 @@ describe('DepositService', () => {
       };
 
       const mockCache = jest
-        .spyOn(cacheService, 'getCache')
+        .spyOn(cacheService, 'getEventsCache')
         .mockImplementation(async () => cache);
 
       const result = await depositService.getCachedEvents();
@@ -161,7 +155,7 @@ describe('DepositService', () => {
       const eventGroup = {} as any;
 
       const mockSetCache = jest
-        .spyOn(cacheService, 'setCache')
+        .spyOn(cacheService, 'insertEventsCacheBatch')
         .mockImplementation(async () => undefined);
 
       await depositService.setCachedEvents(eventGroup);

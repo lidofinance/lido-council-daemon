@@ -1,12 +1,14 @@
 import { DynamicModule, Module } from '@nestjs/common';
-import { CACHE_DEFAULT_VALUE } from 'cache';
 import { ProviderModule } from 'provider';
-import { DB_DIR } from './leveldb.constants';
+import { DB_DIR, DB_DEFAULT_VALUE } from './leveldb.constants';
 import { LevelDBService } from './leveldb.service';
 
 @Module({})
 export class LevelDBModule {
-  static register(defaultValue: unknown, cacheDir = 'cache'): DynamicModule {
+  static register(
+    defaultValue: unknown,
+    cacheDir = 'leveldb-cache',
+  ): DynamicModule {
     return {
       module: LevelDBModule,
       imports: [ProviderModule],
@@ -17,7 +19,7 @@ export class LevelDBModule {
           useValue: cacheDir,
         },
         {
-          provide: CACHE_DEFAULT_VALUE,
+          provide: DB_DEFAULT_VALUE,
           useValue: defaultValue,
         },
       ],

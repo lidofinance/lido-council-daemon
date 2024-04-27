@@ -11,20 +11,17 @@ import {
 } from './deposit.constants';
 import {
   DepositEvent,
-  VerifiedDepositEvent,
   VerifiedDepositEventsCache,
-  VerifiedDepositEventsCacheHeaders,
   VerifiedDepositEventGroup,
 } from './interfaces';
 import { RepositoryService } from 'contracts/repository';
-import { CacheService } from 'cache';
 import { BlockTag } from 'provider';
 import { BlsService } from 'bls';
 import { APP_VERSION } from 'app.constants';
 import { DepositIntegrityCheckerService } from './integrity-checker.service';
 import { parseLittleEndian64 } from './deposit.utils';
 import { DepositTree } from './deposit-tree';
-import { getCache, putMany } from './leveldb';
+import { LevelDBService } from './leveldb';
 
 @Injectable()
 export class DepositService {
@@ -32,12 +29,10 @@ export class DepositService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
     private repositoryService: RepositoryService,
-    private cacheService: CacheService<
-      VerifiedDepositEventsCacheHeaders,
-      VerifiedDepositEvent
-    >,
+
     private blsService: BlsService,
     private depositIntegrityCheckerService: DepositIntegrityCheckerService,
+    private levelDBCacheService: LevelDBService,
   ) {}
 
   public async handleNewBlock(blockNumber: number): Promise<void> {
@@ -50,7 +45,9 @@ export class DepositService {
   }
 
   public async initialize(blockNumber: number) {
-    const cachedEvents = await getCache();
+    await this.levelDBCacheService.initialize();
+
+    const cachedEvents = await this.levelDBCacheService.getEventsCache();
     const isCacheValid = this.validateCache(cachedEvents, blockNumber);
 
     if (!isCacheValid) {
@@ -145,7 +142,7 @@ export class DepositService {
       logIndex,
       index,
       depositCount: parseLittleEndian64(depositCount),
-      depositEventHash: DepositTree.formDepositNode({
+      depositDataRoot: DepositTree.formDepositNode({
         pubkey,
         wc,
         signature,
@@ -168,8 +165,8 @@ export class DepositService {
    * @returns event group
    */
   public async getCachedEvents(): Promise<VerifiedDepositEventsCache> {
-    //
-    const { headers, ...rest } = await getCache();
+    const { headers, ...rest } =
+      await this.levelDBCacheService.getEventsCache();
     const deploymentBlock = await this.getDeploymentBlockByNetwork();
 
     return {
@@ -188,7 +185,8 @@ export class DepositService {
   public async setCachedEvents(
     cachedEvents: VerifiedDepositEventsCache,
   ): Promise<void> {
-    return await this.cacheService.setCache({
+    await this.levelDBCacheService.deleteCache();
+    await this.levelDBCacheService.insertEventsCacheBatch({
       ...cachedEvents,
       headers: {
         ...cachedEvents.headers,
@@ -284,9 +282,12 @@ export class DepositService {
       console.timeEnd('fetch events');
 
       console.time('put events');
-      await putMany(chunkEventGroup.events, {
-        ...initialCache.headers,
-        endBlock: chunkEventGroup.endBlock,
+      await this.levelDBCacheService.insertEventsCacheBatch({
+        headers: {
+          ...initialCache.headers,
+          endBlock: chunkEventGroup.endBlock,
+        },
+        data: chunkEventGroup.events,
       });
 
       await this.depositIntegrityCheckerService.putFinalizedEvents(
