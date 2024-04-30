@@ -26,6 +26,7 @@ import {
   SignPauseDataParams,
   SignUnvetDataParams,
 } from './wallet.interfaces';
+import { utils } from 'ethers';
 
 @Injectable()
 export class WalletService implements OnModuleInit {
@@ -215,7 +216,7 @@ export class WalletService implements OnModuleInit {
     operatorIds,
     vettedKeysByOperator,
   }: SignUnvetDataParams): Promise<Signature> {
-    const encodedData = defaultAbiCoder.encode(
+    const encodedData = utils.solidityPack(
       ['bytes32', 'uint256', 'bytes32', 'uint256', 'uint256', 'bytes', 'bytes'],
       [
         prefix,
@@ -228,7 +229,24 @@ export class WalletService implements OnModuleInit {
       ],
     );
 
+    this.logger.debug?.('Sign data:', {
+      prefix,
+      blockNumber,
+      blockHash,
+      stakingModuleId,
+      nonce,
+      operatorIds,
+      vettedKeysByOperator,
+    });
+
     const messageHash = keccak256(encodedData);
+
+    this.logger.debug?.('Message hash:', {
+      messageHash,
+      blockHash,
+      blockNumber,
+    });
+
     return this.signMessage(messageHash);
   }
 }

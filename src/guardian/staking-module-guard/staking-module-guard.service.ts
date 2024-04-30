@@ -164,6 +164,14 @@ export class StakingModuleGuardService {
     return vettedUnused;
   }
 
+  getVettedKeys(stakingModulesData: StakingModuleData[]) {
+    return stakingModulesData
+      .map((stakingModule) => {
+        return stakingModule.vettedKeys;
+      })
+      .flat();
+  }
+
   public async alreadyPausedDeposits(blockData: BlockData, version: number) {
     if (version === 3) {
       const alreadyPaused = await this.securityService.isDepositContractPaused({

@@ -3,7 +3,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Configuration } from 'common/config';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { StakingModuleData } from 'guardian';
-import { getVettedUnusedKeys } from './vetted-keys';
+import { getVettedKeys, getVettedUnusedKeys } from './vetted-keys';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
 import { Meta } from 'keys-api/interfaces/Meta';
@@ -33,25 +33,19 @@ export class StakingRouterService {
   }): Promise<StakingModuleData[]> {
     const stakingModulesData = await Promise.all(
       operatorsByModules.map(async ({ operators, module: stakingModule }) => {
-        const unusedKeys = lidoKeys.filter(
-          (key) =>
-            !key.used &&
-            key.moduleAddress === stakingModule.stakingModuleAddress,
+        const keys = lidoKeys.filter(
+          (key) => key.moduleAddress === stakingModule.stakingModuleAddress,
         );
-        const moduleVettedUnusedKeys = getVettedUnusedKeys(
-          operators,
-          unusedKeys,
-        );
+        const moduleVettedKeys = getVettedKeys(operators, keys);
+        const moduleVettedUnusedKeys = getVettedUnusedKeys(moduleVettedKeys);
 
         // check pause
-
         const isModuleDepositsPaused =
           await this.securityService.isModuleDepositsPaused(stakingModule.id, {
             blockHash: meta.elBlockSnapshot.blockHash,
           });
 
         return {
-          unusedKeys: unusedKeys.map((srKey) => srKey.key),
           isModuleDepositsPaused,
           nonce: stakingModule.nonce,
           stakingModuleId: stakingModule.id,
@@ -59,6 +53,7 @@ export class StakingRouterService {
           blockHash: meta.elBlockSnapshot.blockHash,
           lastChangedBlockHash: meta.elBlockSnapshot.lastChangedBlockHash,
           vettedUnusedKeys: moduleVettedUnusedKeys,
+          vettedKeys: moduleVettedKeys,
           duplicatedKeys: [],
           invalidKeys: [],
           frontRunKeys: [],

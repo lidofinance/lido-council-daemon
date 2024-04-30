@@ -219,7 +219,7 @@ export class RepositoryService {
    * Returns a prefix from the contract with which the pause message should be signed
    */
   public async getUnvetMessagePrefix(): Promise<string> {
-    if (this.cachedDSMPrefixes.pause) return this.cachedDSMPrefixes.pause;
+    if (this.cachedDSMPrefixes.unvet) return this.cachedDSMPrefixes.unvet;
     const contract = await this.getCachedDSMContract();
     this.cachedDSMPrefixes.unvet = await contract.UNVET_MESSAGE_PREFIX();
 

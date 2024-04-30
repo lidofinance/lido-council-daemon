@@ -185,7 +185,6 @@ export class GuardianService implements OnModuleInit {
       const theftHappened =
         await this.stakingModuleGuardService.getHistoricalFrontRun(blockData);
 
-      // TODO: better devide this function on few and list below
       const stakingModulesData: StakingModuleData[] =
         await this.stakingRouterService.getStakingModulesData({
           operatorsByModules,
@@ -210,7 +209,13 @@ export class GuardianService implements OnModuleInit {
       // for production it is not good
       // and better to check only vetted keys here,
       // for first iteration will leave all keys with non-vetted
-      const duplicatedKeys = getDuplicatedKeys(lidoKeys);
+
+      // filter vetted keys
+
+      const vettedKeys =
+        this.stakingModuleGuardService.getVettedKeys(stakingModulesData);
+
+      const duplicatedKeys = getDuplicatedKeys(vettedKeys);
 
       // TODO: rename or move condition from function
       await this.stakingModuleGuardService.pauseDepositsV3(
@@ -255,20 +260,14 @@ export class GuardianService implements OnModuleInit {
               key.moduleAddress === stakingModuleData.stakingModuleAddress,
           );
 
-          const duplicatedKeysReqUnvetting =
-            this.stakingModuleGuardService.filterNotVettedUnusedKeys(
-              stakingModuleData,
-              moduleDuplicatedKeys,
-            );
-
           this.logger.log('Duplicated keys', {
-            count: duplicatedKeysReqUnvetting.length,
+            count: moduleDuplicatedKeys.length,
             stakingModuleId: stakingModuleData.stakingModuleId,
           });
 
           stakingModuleData.invalidKeys = invalidKeys;
           stakingModuleData.frontRunKeys = frontRunKeys;
-          stakingModuleData.duplicatedKeys = duplicatedKeysReqUnvetting;
+          stakingModuleData.duplicatedKeys = moduleDuplicatedKeys;
 
           await this.stakingModuleGuardService.handleUnvetting(
             stakingModuleData,
@@ -284,7 +283,7 @@ export class GuardianService implements OnModuleInit {
           const keysForUnvetting = [
             ...invalidKeys,
             ...frontRunKeys,
-            ...duplicatedKeysReqUnvetting,
+            ...moduleDuplicatedKeys,
           ];
 
           if (
