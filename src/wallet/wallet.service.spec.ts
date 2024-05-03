@@ -12,7 +12,6 @@ import { WalletModule } from 'wallet';
 import { WALLET_PRIVATE_KEY } from './wallet.constants';
 import { WalletService } from './wallet.service';
 import {
-  defaultAbiCoder,
   keccak256,
   recoverAddress,
   solidityKeccak256,

@@ -42,7 +42,7 @@ export function OneAtTime<T extends (...args: any[]) => Promise<any>>() {
         stakingModuleIdArgs.length > 0 ? args[stakingModuleIdArgs[0]] : null;
 
       if ((moduleId && isExecutingMap.get(moduleId)) || isExecuting) {
-        this.logger?.log(`Already running ${propertyName}`, {
+        this.logger?.debug(`Already running ${propertyName}`, {
           propertyName,
           executing: isExecuting,
         });
