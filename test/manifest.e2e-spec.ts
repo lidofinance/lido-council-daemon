@@ -88,6 +88,7 @@ import { BlsService } from '../src/bls';
 import { GuardianMessageService } from '../src/guardian/guardian-message';
 import { KeyValidatorInterface } from '@lido-nestjs/key-validation';
 import { StakingModuleGuardService } from 'guardian/staking-module-guard';
+import { DepositIntegrityCheckerService } from 'contracts/deposit/integrity-checker.service';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -116,6 +117,7 @@ describe('ganache e2e tests', () => {
   let securityService: SecurityService;
 
   let stakingModuleGuardService: StakingModuleGuardService;
+  let depositIntegrityCheckerService: DepositIntegrityCheckerService;
 
   beforeEach(async () => {
     server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
@@ -186,6 +188,9 @@ describe('ganache e2e tests', () => {
     securityService = moduleRef.get(SecurityService);
     stakingModuleGuardService = moduleRef.get(StakingModuleGuardService);
     levelDBService = moduleRef.get(LevelDBService);
+    depositIntegrityCheckerService = moduleRef.get(
+      DepositIntegrityCheckerService,
+    );
 
     // Initializing needed service instead of the whole app
     blsService = moduleRef.get(BlsService);
@@ -199,6 +204,12 @@ describe('ganache e2e tests', () => {
 
     jest
       .spyOn(guardianMessageService, 'pingMessageBroker')
+      .mockImplementation(() => Promise.resolve());
+    jest
+      .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
+      .mockImplementation(() => Promise.resolve());
+    jest
+      .spyOn(depositIntegrityCheckerService, 'checkFinalizedRoot')
       .mockImplementation(() => Promise.resolve());
     sendDepositMessage = jest
       .spyOn(guardianMessageService, 'sendDepositMessage')
