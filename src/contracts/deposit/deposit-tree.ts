@@ -12,9 +12,10 @@ type NodeData = {
 };
 export class DepositTree {
   static DEPOSIT_CONTRACT_TREE_DEPTH = 32;
-  static ZERO_HASH =
-    '0x0000000000000000000000000000000000000000000000000000000000000000';
-  zeroHashes: string[] = new Array(DepositTree.DEPOSIT_CONTRACT_TREE_DEPTH);
+  static ZERO_HASH = fromHexString(
+    '0x0000000000000000000000000000000000000000000000000000000000000000',
+  );
+  zeroHashes: Uint8Array[] = new Array(DepositTree.DEPOSIT_CONTRACT_TREE_DEPTH);
   branch: Uint8Array[] = [];
   nodeCount = 0;
 
@@ -29,13 +30,10 @@ export class DepositTree {
       height < DepositTree.DEPOSIT_CONTRACT_TREE_DEPTH - 1;
       height++
     ) {
-      const hash = ethers.utils.sha256(
-        ethers.utils.concat([
-          ethers.utils.arrayify(this.zeroHashes[height]),
-          ethers.utils.arrayify(this.zeroHashes[height]),
-        ]),
+      this.zeroHashes[height + 1] = digest2Bytes32(
+        this.zeroHashes[height],
+        this.zeroHashes[height],
       );
-      this.zeroHashes[height + 1] = ethers.utils.hexlify(hash);
     }
   }
 
@@ -63,6 +61,11 @@ export class DepositTree {
     this.formBranch(node, this.nodeCount);
   }
 
+  public insertNode(node: Uint8Array) {
+    this.nodeCount++;
+    this.formBranch(node, this.nodeCount);
+  }
+
   public getRoot() {
     let node = DepositTree.ZERO_HASH;
     let size = this.nodeCount;
@@ -72,19 +75,10 @@ export class DepositTree {
       height++
     ) {
       if ((size & 1) == 1) {
-        node = ethers.utils.soliditySha256(
-          ['bytes32', 'bytes32'],
-          [this.branch[height], node],
-        );
-        // node = sha256(abi.encodePacked(branch[height], node));
+        node = digest2Bytes32(this.branch[height], node);
       } else {
-        node = ethers.utils.soliditySha256(
-          ['bytes32', 'bytes32'],
-          [node, this.zeroHashes[height]],
-        );
-        // node = sha256(abi.encodePacked(node, this.zeroHashes[height]));
+        node = digest2Bytes32(node, this.zeroHashes[height]);
       }
-      // TODO: check max number js
       size /= 2;
     }
     const finalRoot = ethers.utils.soliditySha256(
@@ -95,8 +89,14 @@ export class DepositTree {
         '0x000000000000000000000000000000000000000000000000',
       ],
     );
-
     return finalRoot;
+  }
+
+  public clone() {
+    const tree = new DepositTree();
+    tree.branch = [...this.branch];
+    tree.nodeCount = this.nodeCount;
+    return tree;
   }
 
   static formDepositNode(nodeData: NodeData): Uint8Array {
