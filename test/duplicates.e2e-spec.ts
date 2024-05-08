@@ -235,7 +235,7 @@ describe('ganache e2e tests', () => {
   });
 
   test(
-    'skip deposit if find duplicated key2',
+    'skip deposit if find duplicated key',
     async () => {
       const tempProvider = new ethers.providers.JsonRpcProvider(
         `http://127.0.0.1:${GANACHE_PORT}`,
