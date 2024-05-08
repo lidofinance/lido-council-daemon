@@ -36,7 +36,7 @@ it('OneAtTime', async () => {
   testOneAtTime.test(1);
   testOneAtTime.test(2);
 
-  await testOneAtTime.sleep(1100);
+  await testOneAtTime.sleep(2200);
 
   expect(testOneAtTime.value).toEqual(1);
   expect(testOneAtTime.executionLog).toEqual(['start-1', 'end-1']);
@@ -58,7 +58,7 @@ it('StakingModuleId', async () => {
   testOneAtTime.testStakingModuleId(1, 2);
   testOneAtTime.testStakingModuleId(2, 2);
 
-  await testOneAtTime.sleep(1500);
+  await testOneAtTime.sleep(3300);
 
   expect(testOneAtTime.executionLog.length).toEqual(4);
   expect(testOneAtTime.executionLog).toEqual(

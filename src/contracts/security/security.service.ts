@@ -10,8 +10,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Counter } from 'prom-client';
 import { BlockTag, ProviderService } from 'provider';
 import { WalletService } from 'wallet';
-import { Contract, ethers } from 'ethers';
-import { error } from 'console';
+import { ethers } from 'ethers';
 
 @Injectable()
 export class SecurityService {

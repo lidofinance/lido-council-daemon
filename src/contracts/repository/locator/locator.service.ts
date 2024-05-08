@@ -44,6 +44,8 @@ export class LocatorService {
     const locatorAddress = await this.getLocatorAddress();
     const provider = this.providerService.provider;
 
+    console.log('locatorAddress', locatorAddress);
+
     this.cachedLidoLocatorContract = LocatorAbi__factory.connect(
       locatorAddress,
       provider,

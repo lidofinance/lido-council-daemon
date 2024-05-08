@@ -20,8 +20,11 @@ jobs:
         run: yarn test
       - name: Run e2e transports
         run: docker-compose -f docker-compose.test.yml up -d
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
       - name: Run e2e tests
         run: yarn test:e2e
         env:
           RPC_URL: ${{ secrets.RPC_URL }}
           WALLET_PRIVATE_KEY: ${{ secrets.WALLET_PRIVATE_KEY }}
+          ANVIL_PATH: ""

@@ -112,8 +112,6 @@ describe('ganache e2e tests', () => {
 
   let securityService: SecurityService;
 
-  let stakingModuleGuardService: StakingModuleGuardService;
-
   beforeEach(async () => {
     server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
     await server.listen(GANACHE_PORT);

@@ -379,6 +379,8 @@ export class DepositService {
    */
   public async getDepositRoot(blockTag?: BlockTag): Promise<string> {
     const contract = await this.repositoryService.getCachedDepositContract();
+
+    console.log('address', contract.address);
     const depositRoot = await contract.get_deposit_root({
       blockTag: blockTag as any,
     });
