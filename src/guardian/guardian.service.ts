@@ -289,6 +289,7 @@ export class GuardianService implements OnModuleInit {
           if (
             keysForUnvetting.length ||
             alreadyPausedDeposits ||
+            theftHappened ||
             stakingModuleData.isModuleDepositsPaused
           ) {
             this.logger.warn('Module on soft pause', {
