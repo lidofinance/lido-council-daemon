@@ -14,25 +14,49 @@ export class DepositIntegrityCheckerService {
     private repositoryService: RepositoryService,
   ) {}
 
+  /**
+   * Initializes the deposit tree with an initial cache of verified deposit events.
+   * @param {VerifiedDepositEventsCache} initialEventsCache - Cache of verified deposit events to initialize the tree.
+   */
   public async initialize(initialEventsCache: VerifiedDepositEventsCache) {
     await this.putEventsToTree(this.finalizedTree, initialEventsCache.data);
   }
 
-  public async putFinalizedEvents(eventsCache: VerifiedDepositEvent[]) {
+  /**
+   * Inserts a list of finalized verified deposit events into the deposit tree and returns the updated tree.
+   * @param {VerifiedDepositEvent[]} eventsCache - Array of verified deposit events to be added to the tree.
+   * @returns {Promise<DepositTree>} The updated deposit tree after adding the events.
+   */
+  public async putFinalizedEvents(
+    eventsCache: VerifiedDepositEvent[],
+  ): Promise<DepositTree> {
     await this.putEventsToTree(this.finalizedTree, eventsCache);
     return this.finalizedTree;
   }
 
-  public async putLatestEvents(eventsCache: VerifiedDepositEvent[]) {
+  /**
+   * Inserts a list of latest verified deposit events into a clone of the deposit tree and returns the cloned tree.
+   * @param {VerifiedDepositEvent[]} eventsCache - Array of verified deposit events to be added to the cloned tree.
+   * @returns {Promise<DepositTree>} The cloned and updated deposit tree after adding the events.
+   */
+  public async putLatestEvents(
+    eventsCache: VerifiedDepositEvent[],
+  ): Promise<DepositTree> {
     const clone = this.finalizedTree.clone();
     await this.putEventsToTree(clone, eventsCache);
     return clone;
   }
 
+  /**
+   * Checks the integrity of the latest root against the blockchain deposit root for a given block number.
+   * @param {number} blockNumber - Block number to check the deposit root against.
+   * @param {VerifiedDepositEvent[]} eventsCache - Latest events to verify against the deposit root.
+   * @returns {Promise<void>} A promise that resolves if the roots match, otherwise throws an error.
+   */
   public async checkLatestRoot(
     blockNumber: number,
     eventsCache: VerifiedDepositEvent[],
-  ) {
+  ): Promise<void> {
     const tree = await this.putLatestEvents(
       eventsCache.sort((a, b) => a.depositCount - b.depositCount),
     );
@@ -40,10 +64,21 @@ export class DepositIntegrityCheckerService {
     return this.checkRoot(blockNumber, tree);
   }
 
-  public async checkFinalizedRoot(blockNumber: number) {
+  /**
+   * Checks the integrity of the finalized root against the blockchain deposit root for a given block number.
+   * @param {number} blockNumber - Block number to check the deposit root against.
+   * @returns {Promise<void>} A promise that resolves if the roots match, otherwise throws an error.
+   */
+  public async checkFinalizedRoot(blockNumber: number): Promise<void> {
     return this.checkRoot(blockNumber, this.finalizedTree);
   }
 
+  /**
+   * A private helper method to compare the local deposit tree root with the remote deposit root from the blockchain.
+   * @param {number} blockNumber - Block number associated with the deposit root to verify.
+   * @param {DepositTree} tree - Deposit tree to use for comparison.
+   * @returns {Promise<void>} A promise that resolves if the roots match, otherwise logs an error and throws.
+   */
   private async checkRoot(blockNumber: number, tree: DepositTree) {
     const localRoot = tree.getRoot();
     const remoteRoot = await this.getDepositRoot(blockNumber);
@@ -65,12 +100,15 @@ export class DepositIntegrityCheckerService {
     );
   }
 
+  /**
+   * Inserts verified deposit events into the provided deposit tree and logs progress periodically.
+   * @param {DepositTree} tree - Deposit tree to insert events into.
+   * @param {VerifiedDepositEvent[]} eventsCache - Events to insert into the tree.
+   */
   public async putEventsToTree(
     tree: DepositTree,
     eventsCache: VerifiedDepositEvent[],
   ) {
-    console.time('from tree');
-
     for (const [index, event] of eventsCache.entries()) {
       tree.insertNode(event.depositDataRoot);
 
@@ -86,7 +124,9 @@ export class DepositIntegrityCheckerService {
   }
 
   /**
-   * Returns a deposit root
+   * Retrieves the deposit root from the blockchain for a specific block.
+   * @param {BlockTag | undefined} blockTag - Specific block number or tag to retrieve the deposit root for.
+   * @returns {Promise<string>} Promise that resolves with the deposit root.
    */
   public async getDepositRoot(blockTag?: BlockTag): Promise<string> {
     const contract = await this.repositoryService.getCachedDepositContract();
@@ -95,9 +135,5 @@ export class DepositIntegrityCheckerService {
     });
 
     return depositRoot;
-  }
-
-  clean() {
-    this.finalizedTree = new DepositTree();
   }
 }
