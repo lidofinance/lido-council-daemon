@@ -2,9 +2,11 @@ import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { RepositoryService } from 'contracts/repository';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { BlockTag } from 'provider';
-import { VerifiedDepositEventsCache } from './';
-import { DepositTree } from './deposit-tree';
-import { VerifiedDepositEvent } from './interfaces';
+import { DepositTree } from '../deposit-tree';
+import {
+  VerifiedDepositEvent,
+  VerifiedDepositEventsCache,
+} from '../interfaces';
 
 @Injectable()
 export class DepositIntegrityCheckerService {
