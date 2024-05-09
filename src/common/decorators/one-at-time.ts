@@ -1,5 +1,8 @@
 const stakingModuleId = Symbol('StakingModuleId');
 
+/**
+ * A decorator that marks a specific parameter in a method for identifying the staking module ID
+ */
 export function StakingModuleId(
   target: any,
   propertyKey: string | symbol,
@@ -24,6 +27,11 @@ export function StakingModuleId(
   }
 }
 
+/**
+ * A decorator factory that produces a method decorator ensuring a function executes one at a time.
+ * Calls to the decorated method are restricted so that only one instance can be executed concurrently,
+ * either globally or per staking module ID
+ */
 export function OneAtTime<T extends (...args: any[]) => Promise<any>>() {
   return function (
     target: any,
