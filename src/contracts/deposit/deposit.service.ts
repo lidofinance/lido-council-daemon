@@ -18,7 +18,7 @@ import { RepositoryService } from 'contracts/repository';
 import { BlockTag } from 'provider';
 import { BlsService } from 'bls';
 import { APP_VERSION } from 'app.constants';
-import { DepositIntegrityCheckerService } from './integrity-checker.service';
+import { DepositIntegrityCheckerService } from './integrity-checker';
 import { parseLittleEndian64 } from './deposit.utils';
 import { DepositTree } from './deposit-tree';
 import { LevelDBService } from './leveldb';
@@ -51,15 +51,13 @@ export class DepositService {
     const isCacheValid = this.validateCache(cachedEvents, blockNumber);
 
     if (!isCacheValid) {
-      throw new Error('CHECK');
-      await this.deleteCachedEvents();
+      process.exit(1);
     }
     await this.depositIntegrityCheckerService.initialize(cachedEvents);
     // it is necessary to load fresh events before integrity check
     // because we can only compare roots of the last 128 blocks.
     const toBlockNumber = await this.updateEventsCache();
     await this.depositIntegrityCheckerService.checkFinalizedRoot(toBlockNumber);
-    // await this.integrityCheck();
   }
 
   /**
@@ -72,7 +70,6 @@ export class DepositService {
     cachedEvents: VerifiedDepositEventsCache,
     currentBlock: number,
   ): boolean {
-    // TODO: data-structure check
     return this.validateCacheBlock(cachedEvents, currentBlock);
   }
 
@@ -198,22 +195,6 @@ export class DepositService {
   }
 
   /**
-   * Delete deposited events cache
-   */
-  public async deleteCachedEvents(): Promise<void> {
-    try {
-      // await this.cacheService.deleteCache();
-
-      this.logger.error('Deposit events cache cleared');
-      throw new Error('cache deleted');
-      // process.exit(1);
-    } catch (error) {
-      this.logger.error(error);
-      process.exit(1);
-    }
-  }
-
-  /**
    * Returns events in the block range
    * If the request failed, it tries to repeat it or split it into two
    * @param startBlock - start of the range
@@ -261,13 +242,16 @@ export class DepositService {
     const fetchTimeStart = performance.now();
 
     const [currentBlock, initialCache] = await Promise.all([
-      // TODO: check reorg
+      // TODO: check reorg, add finalized
       this.providerService.getBlockNumber(),
       this.getCachedEvents(),
     ]);
 
     const firstNotCachedBlock = initialCache.headers.endBlock + 1;
     const toBlock = currentBlock - DEPOSIT_EVENTS_CACHE_LAG_BLOCKS;
+
+    const totalEventsCount = initialCache.data.length;
+    let newEventsCount = 0;
 
     for (
       let block = firstNotCachedBlock;
@@ -276,14 +260,12 @@ export class DepositService {
     ) {
       const chunkStartBlock = block;
       const chunkToBlock = Math.min(toBlock, block + DEPOSIT_EVENTS_STEP - 1);
-      console.time('fetch events');
+
       const chunkEventGroup = await this.fetchEventsFallOver(
         chunkStartBlock,
         chunkToBlock,
       );
-      console.timeEnd('fetch events');
 
-      console.time('put events');
       await this.levelDBCacheService.insertEventsCacheBatch({
         headers: {
           ...initialCache.headers,
@@ -295,7 +277,9 @@ export class DepositService {
       await this.depositIntegrityCheckerService.putFinalizedEvents(
         chunkEventGroup.events,
       );
-      console.timeEnd('put events');
+
+      newEventsCount += chunkEventGroup.events.length;
+
       this.logger.log('Historical events are fetched', {
         toBlock,
         startBlock: chunkStartBlock,
@@ -308,8 +292,8 @@ export class DepositService {
     // TODO: replace timer with metric
 
     this.logger.log('Deposit events cache is updated', {
-      // newEvents,
-      // totalEvents,
+      newEventsCount,
+      totalEventsCount: totalEventsCount + newEventsCount,
       fetchTime,
     });
 
@@ -390,11 +374,6 @@ export class DepositService {
     });
 
     return depositRoot;
-  }
-
-  public async integrityCheck() {
-    const cachedEvents = await this.getCachedEvents();
-    await this.depositIntegrityCheckerService.checkIntegrity(cachedEvents);
   }
 
   /**
