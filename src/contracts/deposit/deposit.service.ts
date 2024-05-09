@@ -51,15 +51,14 @@ export class DepositService {
     const isCacheValid = this.validateCache(cachedEvents, blockNumber);
 
     if (!isCacheValid) {
+      // TODO: make useful error
       throw new Error('CHECK');
-      await this.deleteCachedEvents();
     }
     await this.depositIntegrityCheckerService.initialize(cachedEvents);
     // it is necessary to load fresh events before integrity check
     // because we can only compare roots of the last 128 blocks.
     const toBlockNumber = await this.updateEventsCache();
     await this.depositIntegrityCheckerService.checkFinalizedRoot(toBlockNumber);
-    // await this.integrityCheck();
   }
 
   /**
@@ -261,7 +260,7 @@ export class DepositService {
     const fetchTimeStart = performance.now();
 
     const [currentBlock, initialCache] = await Promise.all([
-      // TODO: check reorg
+      // TODO: check reorg, add finalized
       this.providerService.getBlockNumber(),
       this.getCachedEvents(),
     ]);
@@ -276,14 +275,12 @@ export class DepositService {
     ) {
       const chunkStartBlock = block;
       const chunkToBlock = Math.min(toBlock, block + DEPOSIT_EVENTS_STEP - 1);
-      console.time('fetch events');
+
       const chunkEventGroup = await this.fetchEventsFallOver(
         chunkStartBlock,
         chunkToBlock,
       );
-      console.timeEnd('fetch events');
 
-      console.time('put events');
       await this.levelDBCacheService.insertEventsCacheBatch({
         headers: {
           ...initialCache.headers,
@@ -295,7 +292,7 @@ export class DepositService {
       await this.depositIntegrityCheckerService.putFinalizedEvents(
         chunkEventGroup.events,
       );
-      console.timeEnd('put events');
+
       this.logger.log('Historical events are fetched', {
         toBlock,
         startBlock: chunkStartBlock,
@@ -390,11 +387,6 @@ export class DepositService {
     });
 
     return depositRoot;
-  }
-
-  public async integrityCheck() {
-    const cachedEvents = await this.getCachedEvents();
-    await this.depositIntegrityCheckerService.checkIntegrity(cachedEvents);
   }
 
   /**
