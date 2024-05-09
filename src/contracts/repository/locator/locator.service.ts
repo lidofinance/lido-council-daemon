@@ -61,7 +61,7 @@ export class LocatorService {
 
   getLidoLocatorAddress = (chainId: CHAINS): string => {
     const address =
-      this.config.LOCATOR_DEVNET_ADDRESS ?? LIDO_LOCATOR_BY_NETWORK[chainId];
+      this.config.LOCATOR_ADDRESS ?? LIDO_LOCATOR_BY_NETWORK[chainId];
     if (!address) throw new Error(`Chain ${chainId} is not supported`);
 
     return address;
