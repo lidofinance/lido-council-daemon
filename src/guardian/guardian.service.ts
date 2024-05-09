@@ -204,14 +204,16 @@ export class GuardianService implements OnModuleInit {
           version,
         );
 
+      if (alreadyPausedDeposits) {
+        this.logger.warn('Deposits are already paused', {
+          blockNumber: blockData.blockNumber,
+        });
+      }
+
       // here should be noticed that in current version we can't identify original key by date of creation
       // so both not vetted key and vetted will be considered as duplicates currently
       // for production it is not good
-      // and better to check only vetted keys here,
-      // for first iteration will leave all keys with non-vetted
-
-      // filter vetted keys
-
+      // and better to check only vetted keys here
       const vettedKeys =
         this.stakingModuleGuardService.getVettedKeys(stakingModulesData);
 
@@ -280,19 +282,14 @@ export class GuardianService implements OnModuleInit {
             blockData,
           );
 
-          const keysForUnvetting = [
-            ...invalidKeys,
-            ...frontRunKeys,
-            ...moduleDuplicatedKeys,
-          ];
-
           if (
-            keysForUnvetting.length ||
-            alreadyPausedDeposits ||
-            theftHappened ||
-            stakingModuleData.isModuleDepositsPaused
+            !this.stakingModuleGuardService.canDeposit(
+              stakingModuleData,
+              theftHappened,
+              alreadyPausedDeposits,
+            )
           ) {
-            this.logger.warn('Module on soft pause', {
+            this.logger.warn('Module is on soft pause', {
               stakingModuleId: stakingModuleData.stakingModuleId,
             });
             return;

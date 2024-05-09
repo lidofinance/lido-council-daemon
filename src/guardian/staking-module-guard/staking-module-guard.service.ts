@@ -269,6 +269,26 @@ export class StakingModuleGuardService {
     );
   }
 
+  public canDeposit(
+    stakingModuleData: StakingModuleData,
+    theftHappened: boolean,
+    alreadyPausedDeposits: boolean,
+  ): boolean {
+    const keysForUnvetting = [
+      ...stakingModuleData.invalidKeys,
+      ...stakingModuleData.frontRunKeys,
+      ...stakingModuleData.duplicatedKeys,
+    ];
+
+    // if neither of this conditions is true, deposits are allowed for module
+    return !(
+      keysForUnvetting.length ||
+      alreadyPausedDeposits ||
+      theftHappened ||
+      stakingModuleData.isModuleDepositsPaused
+    );
+  }
+
   public async pauseDepositsV3(
     blockData: BlockData,
     theftHappened: boolean,
@@ -279,38 +299,30 @@ export class StakingModuleGuardService {
       return;
     }
 
-    const {
-      blockNumber,
-      blockHash,
-      guardianAddress,
-      guardianIndex,
-      depositRoot,
-    } = blockData;
+    const { blockNumber, guardianAddress, guardianIndex } = blockData;
 
     const signature = await this.securityService.signPauseDataV3(blockNumber);
 
     const pauseMessage = {
-      depositRoot,
       guardianAddress,
       guardianIndex,
       blockNumber,
-      blockHash,
       signature,
     };
 
     this.logger.warn('Suspicious case detected, initialize the module pause', {
-      blockHash,
+      blockNumber,
     });
 
     // Call pause without waiting for completion
     this.securityService
       .pauseDepositsV3(blockNumber, signature)
       .catch((error) => {
-        this.logger.error('Pause trx failed', { blockHash });
+        this.logger.error('Pause trx failed', { blockNumber });
         this.logger.error(error);
       });
 
-    await this.guardianMessageService.sendPauseMessage(pauseMessage);
+    await this.guardianMessageService.sendPauseMessageV3(pauseMessage);
   }
 
   /**
@@ -388,7 +400,7 @@ export class StakingModuleGuardService {
       .pauseDepositsV2(blockNumber, stakingModuleId, signature)
       .catch((error) => this.logger.error(error));
 
-    await this.guardianMessageService.sendPauseMessage(pauseMessage);
+    await this.guardianMessageService.sendPauseMessageV2(pauseMessage);
   }
 
   /**

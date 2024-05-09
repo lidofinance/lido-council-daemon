@@ -10,8 +10,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Counter } from 'prom-client';
 import { BlockTag, ProviderService } from 'provider';
 import { WalletService } from 'wallet';
-import { Contract, ethers } from 'ethers';
-import { error } from 'console';
+import { ethers } from 'ethers';
 
 @Injectable()
 export class SecurityService {
@@ -37,17 +36,17 @@ export class SecurityService {
   /**
    * Returns an instance of the contract that can send signed transactions
    */
-  public async getContractWithSigner(): Promise<SecurityAbi> {
+  public getContractWithSigner(): SecurityAbi {
     const wallet = this.walletService.wallet;
     const provider = this.providerService.provider;
     const walletWithProvider = wallet.connect(provider);
-    const contract = await this.repositoryService.getCachedDSMContract();
+    const contract = this.repositoryService.getCachedDSMContract();
     const contractWithSigner = contract.connect(walletWithProvider);
 
     return contractWithSigner;
   }
 
-  public async getContractV2WithSigner() {
+  public getContractV2WithSigner() {
     const oldAbi = [
       {
         inputs: [
@@ -86,7 +85,7 @@ export class SecurityService {
       },
     ];
 
-    const contract = await this.repositoryService.getCachedDSMContract();
+    const contract = this.repositoryService.getCachedDSMContract();
 
     const oldContract = new ethers.Contract(
       contract.address,
@@ -154,7 +153,7 @@ export class SecurityService {
   }
 
   /**
-   * Signs a message to pause deposit contract with the prefix from the contract
+   * Signs a message to pause deposits with the prefix from the contract
    */
   public async signPauseDataV3(blockNumber: number): Promise<Signature> {
     const prefix = await this.repositoryService.getPauseMessagePrefix();
@@ -175,10 +174,10 @@ export class SecurityService {
     blockNumber: number,
     signature: Signature,
   ): Promise<ContractReceipt | void> {
-    this.logger.warn('Try to pause deposits');
+    this.logger.warn('Try to pause deposits', { blockNumber });
     this.pauseAttempts.inc();
 
-    const contract = await this.getContractWithSigner();
+    const contract = this.getContractWithSigner();
 
     const { r, _vs: vs } = signature;
     const tx = await contract.pauseDeposits(blockNumber, {
@@ -186,12 +185,15 @@ export class SecurityService {
       vs,
     });
 
-    this.logger.warn('Pause transaction sent', { txHash: tx.hash });
-    this.logger.warn('Waiting for block confirmation');
+    this.logger.warn('Pause transaction sent', {
+      txHash: tx.hash,
+      blockNumber,
+    });
+    this.logger.warn('Waiting for block confirmation', { blockNumber });
 
     await tx.wait();
 
-    this.logger.warn('Block confirmation received');
+    this.logger.warn('Block confirmation received', { blockNumber });
   }
 
   /**
@@ -222,10 +224,10 @@ export class SecurityService {
     @StakingModuleId stakingModuleId: number,
     signature: Signature,
   ): Promise<ContractReceipt | void> {
-    this.logger.warn('Try to pause deposits');
+    this.logger.warn('Try to pause deposits', { stakingModuleId, blockNumber });
     this.pauseAttempts.inc();
 
-    const contract = await this.getContractV2WithSigner();
+    const contract = this.getContractV2WithSigner();
 
     const { r, _vs: vs } = signature;
     const tx = await contract.pauseDeposits(blockNumber, stakingModuleId, {
@@ -233,16 +235,26 @@ export class SecurityService {
       vs,
     });
 
-    this.logger.warn('Pause transaction sent', { txHash: tx.hash });
-    this.logger.warn('Waiting for block confirmation');
+    this.logger.warn('Pause transaction sent', {
+      txHash: tx.hash,
+      blockNumber,
+      stakingModuleId,
+    });
+    this.logger.warn('Waiting for block confirmation', {
+      blockNumber,
+      stakingModuleId,
+    });
 
     await tx.wait();
 
-    this.logger.warn('Block confirmation received');
+    this.logger.warn('Block confirmation received', {
+      blockNumber,
+      stakingModuleId,
+    });
   }
 
   /**
-   * Signs a message to deposit buffered ethers with the prefix from the contract
+   * Signs a message to unvet keys
    */
   public async signUnvetData(
     nonce: number,
@@ -267,13 +279,6 @@ export class SecurityService {
 
   /**
    * Send transaction to unvet signing keys
-   * @param nonce
-   * @param blockNumber
-   * @param blockHash
-   * @param stakingModuleId
-   * @param operatorIds
-   * @param vettedKeysByOperator
-   * @param signature
    */
   @OneAtTime()
   public async unvetSigningKeys(
@@ -290,7 +295,7 @@ export class SecurityService {
       blockNumber,
     });
 
-    const contract = await this.getContractWithSigner();
+    const contract = this.getContractWithSigner();
 
     const { r, _vs: vs } = signature;
     const tx = await contract.unvetSigningKeys(
@@ -306,21 +311,25 @@ export class SecurityService {
       },
     );
 
-    this.logger.warn('Unvet transaction sent', { txHash: tx.hash });
-    this.logger.warn('Waiting for block confirmation');
+    this.logger.warn('Unvet transaction sent', {
+      txHash: tx.hash,
+      blockNumber,
+      stakingModuleId,
+    });
+    this.logger.warn('Waiting for block confirmation', { blockNumber });
 
     await tx.wait();
 
-    this.logger.warn('Block confirmation received');
+    this.logger.warn('Block confirmation received', { blockNumber });
   }
 
   /**
-   * Amount of operators in one unvetting transaction
+   * Return the maximum number of operators in one unvetting transaction
    */
   public async getMaxOperatorsPerUnvetting(
     blockTag?: BlockTag,
   ): Promise<number> {
-    const contract = await this.getContractWithSigner();
+    const contract = this.getContractWithSigner();
 
     const maxOperatorsPerUnvetting = await contract.getMaxOperatorsPerUnvetting(
       {
@@ -332,7 +341,7 @@ export class SecurityService {
   }
 
   public async version(blockTag?: BlockTag): Promise<number> {
-    const contract = await this.getContractWithSigner();
+    const contract = this.getContractWithSigner();
     try {
       const version = await contract.VERSION({
         blockTag: blockTag as any,
@@ -340,7 +349,7 @@ export class SecurityService {
       return version.toNumber();
     } catch (error) {
       this.logger.error(
-        'Error fetch version, possibly locator returned old version of DSM contract',
+        'Error while fetching the version; the locator may have returned an outdated version of the DSM contract',
       );
 
       return 1;

@@ -196,7 +196,7 @@ describe('ganache e2e tests', () => {
       .spyOn(guardianMessageService, 'sendDepositMessage')
       .mockImplementation(() => Promise.resolve());
     sendPauseMessage = jest
-      .spyOn(guardianMessageService, 'sendPauseMessage')
+      .spyOn(guardianMessageService, 'sendPauseMessageV2')
       .mockImplementation(() => Promise.resolve());
 
     validateKeys = jest.spyOn(keyValidator, 'validateKeys');

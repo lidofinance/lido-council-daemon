@@ -3,7 +3,8 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import {
   MessageDeposit,
   MessageMeta,
-  MessagePause,
+  MessagePauseV2,
+  MessagePauseV3,
   MessageRequiredFields,
   MessagesService,
   MessageType,
@@ -52,10 +53,21 @@ export class GuardianMessageService {
   }
 
   /**
-   * Sends a pause message to the message broker
+   * Sends a pause message of version 2 to the message broker
    * @param message - MessagePause object
    */
-  public sendPauseMessage(message: Omit<MessagePause, 'type'>) {
+  public sendPauseMessageV2(message: Omit<MessagePauseV2, 'type'>) {
+    return this.sendMessageFromGuardian({
+      ...message,
+      type: MessageType.PAUSE,
+    });
+  }
+
+  /**
+   * Sends a pause message of version 3 to the message broker
+   * @param message - MessagePause object
+   */
+  public sendPauseMessageV3(message: Omit<MessagePauseV3, 'type'>) {
     return this.sendMessageFromGuardian({
       ...message,
       type: MessageType.PAUSE,
@@ -91,6 +103,7 @@ export class GuardianMessageService {
     if (messageData.guardianIndex == -1) {
       this.logger.warn(
         'Your address is not in the Guardian List. The message will not be sent',
+        { type: messageData.type },
       );
       return;
     }

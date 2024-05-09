@@ -1,4 +1,4 @@
-export function decimalToHexBytes(number, bytes) {
+export function decimalToHexBytes(number: number, bytes: number) {
   // Convert the number to hexadecimal
   let hexRepresentation = number.toString(16);
 
@@ -8,7 +8,7 @@ export function decimalToHexBytes(number, bytes) {
   return hexRepresentation;
 }
 
-export function packNodeOperatorIds(nodeOperatorIds) {
+export function packNodeOperatorIds(nodeOperatorIds: number[]) {
   let hexString = '';
   for (const id of nodeOperatorIds) {
     hexString += decimalToHexBytes(id, 8);

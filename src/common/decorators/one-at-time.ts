@@ -50,13 +50,13 @@ export function OneAtTime<T extends (...args: any[]) => Promise<any>>() {
         return;
       }
 
-      try {
-        if (moduleId) {
-          isExecutingMap.set(args[stakingModuleIdArgs[0]], true);
-        } else {
-          isExecuting = true;
-        }
+      if (moduleId) {
+        isExecutingMap.set(moduleId, true);
+      } else {
+        isExecuting = true;
+      }
 
+      try {
         return await method?.apply(this, args);
       } catch (error) {
         this.logger.error(error);

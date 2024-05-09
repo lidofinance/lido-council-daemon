@@ -15,7 +15,6 @@ export class LocatorService {
    * Returns DSM contract address
    */
   public async getDSMAddress(blockTag: BlockTag): Promise<string> {
-    // return '0x4c04377f90eb1e42d845ab21de874803b8773669';
     const lidoLocator = await this.getLidoLocatorAbiContract();
     return await lidoLocator.depositSecurityModule({
       blockTag: blockTag as any,

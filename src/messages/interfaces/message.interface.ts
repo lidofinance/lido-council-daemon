@@ -31,10 +31,17 @@ export interface MessageApp {
   name?: string;
 }
 
-export interface MessagePause extends MessageRequiredFields {
+export interface MessagePauseV2 extends MessageRequiredFields {
   depositRoot: string;
+  nonce: number;
   blockNumber: number;
   blockHash: string;
+  signature: Signature;
+  stakingModuleId: number;
+}
+
+export interface MessagePauseV3 extends MessageRequiredFields {
+  blockNumber: number;
   signature: Signature;
 }
 
