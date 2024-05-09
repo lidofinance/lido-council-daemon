@@ -250,6 +250,9 @@ export class DepositService {
     const firstNotCachedBlock = initialCache.headers.endBlock + 1;
     const toBlock = currentBlock - DEPOSIT_EVENTS_CACHE_LAG_BLOCKS;
 
+    const totalEventsCount = initialCache.data.length;
+    let newEventsCount = 0;
+
     for (
       let block = firstNotCachedBlock;
       block <= toBlock;
@@ -275,6 +278,8 @@ export class DepositService {
         chunkEventGroup.events,
       );
 
+      newEventsCount += chunkEventGroup.events.length;
+
       this.logger.log('Historical events are fetched', {
         toBlock,
         startBlock: chunkStartBlock,
@@ -287,8 +292,8 @@ export class DepositService {
     // TODO: replace timer with metric
 
     this.logger.log('Deposit events cache is updated', {
-      // newEvents,
-      // totalEvents,
+      newEventsCount,
+      totalEventsCount: totalEventsCount + newEventsCount,
       fetchTime,
     });
 
