@@ -51,8 +51,7 @@ export class DepositService {
     const isCacheValid = this.validateCache(cachedEvents, blockNumber);
 
     if (!isCacheValid) {
-      // TODO: make useful error
-      throw new Error('CHECK');
+      process.exit(1);
     }
     await this.depositIntegrityCheckerService.initialize(cachedEvents);
     // it is necessary to load fresh events before integrity check
@@ -71,7 +70,6 @@ export class DepositService {
     cachedEvents: VerifiedDepositEventsCache,
     currentBlock: number,
   ): boolean {
-    // TODO: data-structure check
     return this.validateCacheBlock(cachedEvents, currentBlock);
   }
 
@@ -194,22 +192,6 @@ export class DepositService {
         version: APP_VERSION,
       },
     });
-  }
-
-  /**
-   * Delete deposited events cache
-   */
-  public async deleteCachedEvents(): Promise<void> {
-    try {
-      // await this.cacheService.deleteCache();
-
-      this.logger.error('Deposit events cache cleared');
-      throw new Error('cache deleted');
-      // process.exit(1);
-    } catch (error) {
-      this.logger.error(error);
-      process.exit(1);
-    }
   }
 
   /**
