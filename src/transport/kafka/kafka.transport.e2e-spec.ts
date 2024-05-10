@@ -38,7 +38,7 @@ describe('KafkaTransport', () => {
             new Kafka({
               logLevel: logLevel.DEBUG,
               clientId: 'test-client',
-              brokers: ['127.0.0.1:9092'],
+              brokers: ['localhost:9092'],
               logCreator: () => () => void 0,
             }),
         },
