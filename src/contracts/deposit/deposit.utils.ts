@@ -12,3 +12,9 @@ const changeEndianness = (string: any) => {
 export const parseLittleEndian64 = (str: string) => {
   return parseInt(changeEndianness(str), 16);
 };
+
+export const toLittleEndian64 = (value: number): string => {
+  const buffer = Buffer.allocUnsafe(8);
+  buffer.writeBigUInt64LE(BigInt(value));
+  return '0x' + buffer.toString('hex');
+};
