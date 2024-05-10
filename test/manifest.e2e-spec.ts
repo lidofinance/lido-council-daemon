@@ -80,6 +80,7 @@ import { KeysApiService } from '../src/keys-api/keys-api.service';
 import { KeysApiModule } from '../src/keys-api/keys-api.module';
 
 import { LevelDBService } from '../src/contracts/deposit/leveldb';
+import { DepositIntegrityCheckerService } from '../src/contracts/deposit/integrity-checker';
 
 import { ProviderService } from '../src/provider';
 import { GanacheProviderModule } from '../src/provider';
@@ -88,7 +89,6 @@ import { BlsService } from '../src/bls';
 import { GuardianMessageService } from '../src/guardian/guardian-message';
 import { KeyValidatorInterface } from '@lido-nestjs/key-validation';
 import { StakingModuleGuardService } from 'guardian/staking-module-guard';
-import { DepositIntegrityCheckerService } from 'contracts/deposit/integrity-checker.service';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
