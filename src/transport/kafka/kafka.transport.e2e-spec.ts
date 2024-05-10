@@ -5,11 +5,11 @@ import { ConfigModule } from 'common/config';
 import { sleep } from 'utils';
 import { MockProviderModule } from 'provider';
 import { KafkaTransport } from './kafka.transport';
-import { Kafka } from 'kafkajs';
+import { Kafka, logLevel } from 'kafkajs';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { MessageType } from '../../messages';
 
-describe.skip('KafkaTransport', () => {
+describe('KafkaTransport', () => {
   let transport: KafkaTransport;
   let moduleRef: TestingModule;
   let loggerService: LoggerService;
@@ -27,8 +27,9 @@ describe.skip('KafkaTransport', () => {
           provide: Kafka,
           useFactory: async () =>
             new Kafka({
+              logLevel: logLevel.DEBUG,
               clientId: 'test-client',
-              brokers: ['localhost:9092'],
+              brokers: ['127.0.0.1:9092'],
               logCreator: () => () => void 0,
             }),
         },
@@ -58,13 +59,13 @@ describe.skip('KafkaTransport', () => {
       await transport.publish('test', { label: 'first' }, MessageType.PING);
       await transport.publish('test', { label: 'second' }, MessageType.PING);
 
-      await sleep(10_000);
+      await sleep(15_000);
 
       expect(receivedMessages.length).toBe(2);
       expect(receivedMessages[0]).toHaveProperty('label');
       expect(receivedMessages[0].label).toBe('first');
       expect(receivedMessages[1]).toHaveProperty('label');
       expect(receivedMessages[1].label).toBe('second');
-    }, 20_000);
+    }, 30_000);
   });
 });
