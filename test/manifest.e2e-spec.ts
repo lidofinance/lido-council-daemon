@@ -92,7 +92,7 @@ jest.mock('../src/transport/stomp/stomp.client.ts');
 
 jest.setTimeout(10_000);
 
-describe.skip('ganache e2e tests', () => {
+describe('ganache e2e tests', () => {
   let server: ReturnType<typeof makeServer>;
 
   let providerService: ProviderService;
