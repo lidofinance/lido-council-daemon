@@ -2,12 +2,21 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { LoggerService } from '@nestjs/common';
 import { LoggerModule } from 'common/logger';
 import { ConfigModule } from 'common/config';
-import { sleep } from 'utils';
 import { MockProviderModule } from 'provider';
 import { KafkaTransport } from './kafka.transport';
 import { Kafka, logLevel } from 'kafkajs';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { MessageType } from '../../messages';
+
+const waitFor = async (cb: () => boolean) => {
+  return new Promise((res) => {
+    const interval = setInterval(() => {
+      if (!cb()) return;
+      clearInterval(interval);
+      res(true);
+    }, 1000);
+  });
+};
 
 describe('KafkaTransport', () => {
   let transport: KafkaTransport;
@@ -59,13 +68,13 @@ describe('KafkaTransport', () => {
       await transport.publish('test', { label: 'first' }, MessageType.PING);
       await transport.publish('test', { label: 'second' }, MessageType.PING);
 
-      await sleep(15_000);
+      await waitFor(() => receivedMessages.length > 1);
 
       expect(receivedMessages.length).toBe(2);
       expect(receivedMessages[0]).toHaveProperty('label');
       expect(receivedMessages[0].label).toBe('first');
       expect(receivedMessages[1]).toHaveProperty('label');
       expect(receivedMessages[1].label).toBe('second');
-    }, 30_000);
+    }, 60_000);
   });
 });
