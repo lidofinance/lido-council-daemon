@@ -226,7 +226,7 @@ describe('SecurityService', () => {
       mockGetContractWithSigner = jest
         .spyOn(securityService, 'getContractV2WithSigner')
         .mockImplementation(
-          async () => ({ pauseDeposits: mockPauseDeposits } as any),
+          () => ({ pauseDeposits: mockPauseDeposits } as any),
         );
 
       signature = await securityService.signPauseDataV2(
