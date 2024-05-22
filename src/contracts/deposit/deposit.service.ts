@@ -314,6 +314,7 @@ export class DepositService {
     if (!isCacheValid) process.exit(1);
 
     const firstNotCachedBlock = cachedEvents.headers.endBlock + 1;
+    // TODO: if blockNumber == cachedEvents.headers.endBlock, than firstNotCachedBlock > endBlock
     const freshEventGroup = await this.fetchEventsFallOver(
       firstNotCachedBlock,
       endBlock,

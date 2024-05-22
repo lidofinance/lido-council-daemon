@@ -1,5 +1,14 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
-import { LidoAbi, LidoAbi__factory, LocatorAbi } from 'generated';
+import {
+  CsmAbi,
+  CsmAbi__factory,
+  IStakingModuleAbi__factory,
+  LidoAbi,
+  LidoAbi__factory,
+  LocatorAbi,
+  SigningKeyAbi,
+  SigningKeyAbi__factory,
+} from 'generated';
 import { SecurityAbi, SecurityAbi__factory } from 'generated';
 import { DepositAbi, DepositAbi__factory } from 'generated';
 import { StakingRouterAbi, StakingRouterAbi__factory } from 'generated';
@@ -8,12 +17,17 @@ import { BlockTag, ProviderService } from 'provider';
 import { sleep } from 'utils';
 import { LocatorService } from './locator/locator.service';
 import {
+  COMMUNITY_ONCHAIN_DEVNET0_V1_TYPE,
+  COMMUNITY_ONCHAIN_V1_TYPE,
+  CURATED_ONCHAIN_V1_TYPE,
   DEPOSIT_ABI,
   DSM_ABI,
   INIT_CONTRACTS_TIMEOUT,
   LIDO_ABI,
   STAKING_ROUTER_ABI,
 } from './repository.constants';
+import { ethers } from 'ethers';
+import { StakingModule } from './interfaces/staking-module';
 
 @Injectable()
 export class RepositoryService {
@@ -30,6 +44,7 @@ export class RepositoryService {
   // if the contracts are updated we will change these addresses too
   private cachedDSMPrefixes: Record<string, string> = {};
   private permanentContractsCache: Record<string, DepositAbi> = {};
+  private stakingModulesCache: Record<string, StakingModule> = {};
 
   /**
    * Init cache for each contract
@@ -40,6 +55,7 @@ export class RepositoryService {
     await this.initCachedDSMContract(blockTag);
     await this.initCachedDepositContract(blockTag);
     await this.initCachedStakingRouterAbiContract(blockTag);
+    await this.initCachedStakingModulesContracts(blockTag);
   }
 
   /**
@@ -86,6 +102,15 @@ export class RepositoryService {
   }
 
   /**
+   * Get Node Operator Registry contract impl
+   */
+  public getCachedStakingModulesContracts(): Readonly<
+    Record<string, StakingModule>
+  > {
+    return this.stakingModulesCache;
+  }
+
+  /**
    * Get cached contract impl
    */
   private getFromCache(abiKey: string) {
@@ -110,10 +135,30 @@ export class RepositoryService {
       this.tempContractsCache[contractKey] &&
       this.tempContractsCache[contractKey].address !== address
     ) {
-      this.logger.log('Contract address was changed', { address, contractKey });
+      this.logger.log('Contract address  was changed', {
+        address,
+        contractKey,
+      });
     }
 
     this.tempContractsCache[contractKey] = impl;
+  }
+
+  public setStakingModuleCache(address: string, impl: SigningKeyAbi | CsmAbi) {
+    if (!this.stakingModulesCache[address]) {
+      this.logger.log('Contract initial address', { address });
+    }
+
+    if (
+      this.stakingModulesCache[address] &&
+      this.stakingModulesCache[address].impl.address !== address
+    ) {
+      this.logger.log('Contract address was changed', {
+        address,
+      });
+    }
+
+    this.stakingModulesCache[address] = { impl };
   }
 
   private setPermanentContractCache(
@@ -192,6 +237,63 @@ export class RepositoryService {
       STAKING_ROUTER_ABI,
       StakingRouterAbi__factory.connect(stakingRouterAddress, provider),
     );
+  }
+
+  private async initCachedStakingModulesContracts(
+    blockTag: BlockTag,
+  ): Promise<void> {
+    const stakingRouter = await this.getCachedStakingRouterContract();
+    const stakingModules = await stakingRouter.getStakingModules({
+      blockTag: blockTag as any,
+    });
+    await Promise.all(
+      stakingModules.map(async (stakingModule) => {
+        const type = await this.getStakingModuleType(
+          stakingModule.stakingModuleAddress,
+          blockTag,
+        );
+
+        const provider = this.providerService.provider;
+
+        if (type === CURATED_ONCHAIN_V1_TYPE) {
+          this.setStakingModuleCache(
+            stakingModule.stakingModuleAddress,
+            SigningKeyAbi__factory.connect(
+              stakingModule.stakingModuleAddress,
+              provider,
+            ),
+          );
+          return;
+        }
+
+        if (
+          type === COMMUNITY_ONCHAIN_V1_TYPE ||
+          type === COMMUNITY_ONCHAIN_DEVNET0_V1_TYPE
+        ) {
+          this.setStakingModuleCache(
+            stakingModule.stakingModuleAddress,
+            CsmAbi__factory.connect(
+              stakingModule.stakingModuleAddress,
+              provider,
+            ),
+          );
+          return;
+        }
+      }),
+    );
+  }
+
+  public async getStakingModuleType(
+    contractAddress: string,
+    blockTag: BlockTag,
+  ): Promise<string> {
+    const contract = IStakingModuleAbi__factory.connect(
+      contractAddress,
+      this.providerService.provider,
+    );
+
+    const type = await contract.getType({ blockTag } as any);
+    return ethers.utils.parseBytes32String(type);
   }
 
   /**

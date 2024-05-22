@@ -1,0 +1,201 @@
+import { Inject, Injectable } from '@nestjs/common';
+import { Level } from 'level';
+import { join } from 'path';
+import { DB_DIR, DB_DEFAULT_VALUE } from './leveldb.constants';
+import { ProviderService } from 'provider';
+import { SigningKeyEvent } from '../interfaces/event.interface';
+import { SigningKeyEventsCacheHeaders } from '../interfaces/cache.interface';
+import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
+
+@Injectable()
+export class LevelDBService {
+  private db!: Level<string, string>;
+  constructor(
+    private providerService: ProviderService,
+    @Inject(DB_DIR) private cacheDir: string,
+    @Inject(DB_DEFAULT_VALUE)
+    private cacheDefaultValue: {
+      data: SigningKeyEvent[];
+      headers: SigningKeyEventsCacheHeaders;
+    },
+  ) {}
+
+  public async initialize() {
+    await this.setupLevel();
+  }
+
+  /**
+   * Initializes LevelDB with JSON encoding at the cache directory path.
+   *
+   * @returns {Promise<void>} A promise that resolves when the database is successfully initialized.
+   * @private
+   */
+  private async setupLevel() {
+    this.db = new Level(await this.getDBDirPath(), {
+      valueEncoding: 'json',
+    });
+    await this.db.open();
+  }
+
+  /**
+   * Fetches and constructs the cache directory path for the current blockchain network.
+   *
+   * @returns {Promise<string>} A promise that resolves to the full path of the network-specific cache directory.
+   * @private
+   */
+  private async getDBDirPath(): Promise<string> {
+    const chainId = await this.providerService.getChainId();
+    const networkDir = `chain-${chainId}`;
+
+    return join(this.cacheDir, networkDir);
+  }
+
+  /**
+   * Asynchronously retrieves signing key events and headers from the database.
+   * Iterates through entries starting with 'signingKey:' to collect data and fetches headers stored under 'header'.
+   * Handles errors by logging and returning default cache values.
+   *
+   * @returns {Promise<{data: SigningKeyEvent[], headers: SigningKeyEventsCacheHeaders}>} Cache data and headers.
+   * @public
+   */
+  public async getEventsCache(): Promise<{
+    data: SigningKeyEvent[];
+    headers: SigningKeyEventsCacheHeaders;
+  }> {
+    try {
+      const stream = this.db.iterator({
+        gte: 'signingKey:',
+        lte: 'signingKey:\xFF',
+      });
+
+      const data: SigningKeyEvent[] = [];
+
+      for await (const [, value] of stream) {
+        data.push(this.parseSigningKeyEvent(value));
+      }
+      const headers: SigningKeyEventsCacheHeaders = JSON.parse(
+        await this.db.get('headers'),
+      );
+
+      return { data, headers };
+    } catch (error: any) {
+      if (error.code === 'LEVEL_NOT_FOUND') return this.cacheDefaultValue;
+      throw error;
+    }
+  }
+
+  /**
+   * @param {RegistryKey[]} keys - key's list
+   * @returns {Promise<SigningKeyEvent[]>} list of all events with the {key, operatorIndex} part of key
+   * @public
+   */
+  public async getCachedEvents(
+    keys: RegistryKey[],
+  ): Promise<SigningKeyEvent[]> {
+    try {
+      const data: SigningKeyEvent[] = [];
+      for (const key of keys) {
+        const stream = this.db.iterator({
+          gte: `signingKey:${key.key}:${key.operatorIndex}`,
+          lte: `signingKey:${key.key}:${key.operatorIndex}\xFF`,
+        });
+
+        for await (const [, value] of stream) {
+          data.push(this.parseSigningKeyEvent(value));
+        }
+      }
+      return data;
+    } catch (error: any) {
+      if (error.code === 'LEVEL_NOT_FOUND') return [];
+      throw error;
+    }
+  }
+
+  /**
+   * Generates a signing key event keys for storage.
+   */
+  private generateStorageKey(
+    key: string,
+    operatorIndex: number,
+    blockNumber: number,
+    logIndex: number,
+  ): string {
+    return `signingKey:${key}:${operatorIndex}:${blockNumber}:${logIndex}`;
+  }
+
+  /**
+   * Parses a JSON string to a SigningKeyEvent.
+   *
+   * @param {string} dataString - The JSON string representing a signing key event.
+   * @returns {SigningKeyEvent} The parsed signing key event.
+   * @private
+   */
+  private parseSigningKeyEvent(dataString: string): SigningKeyEvent {
+    const data = JSON.parse(dataString);
+    return data;
+  }
+
+  /**
+   * Serializes a SigningKeyEvent into a JSON string.
+   *
+   * @param {SigningKeyEvent} signingKeyEvent - The signing key event to serialize.
+   * @returns {string} The serialized JSON string of the signing key event.
+   * @public
+   */
+  public serializeEventDate(signingKeyEvent: SigningKeyEvent) {
+    return JSON.stringify({
+      blockNumber: signingKeyEvent.blockNumber,
+      logIndex: signingKeyEvent.logIndex,
+    });
+  }
+
+  /**
+   * Inserts a batch of signing key events and a header into the database.
+   *
+   * @param {SigningKeyEvent[]} events - An array of signing key events to be inserted into the database.
+   * @param {SigningKeyEventsCacheHeaders} header - The header information to be stored along with the events.
+   * @returns {Promise<void>} A promise that resolves when all operations have been successfully committed to the database.
+   * @public
+   */
+  public async insertEventsCacheBatch(records: {
+    data: SigningKeyEvent[];
+    headers: SigningKeyEventsCacheHeaders;
+  }) {
+    const ops = records.data.map((event) => ({
+      type: 'put' as const,
+      key: this.generateStorageKey(
+        event.key,
+        event.operatorIndex,
+        event.blockNumber,
+        event.logIndex,
+      ),
+      value: this.serializeEventDate(event),
+    }));
+    ops.push({
+      type: 'put',
+      key: 'headers',
+      value: JSON.stringify(records.headers),
+    });
+    await this.db.batch(ops);
+  }
+
+  /**
+   * Clears all entries from the database.
+   *
+   * @returns {Promise<void>}
+   * @public
+   */
+  public async deleteCache(): Promise<void> {
+    await this.db.clear();
+  }
+
+  /**
+   * Close the database connection.
+   *
+   * @returns {Promise<void>}
+   * @public
+   */
+  public async close(): Promise<void> {
+    await this.db.close();
+  }
+}

@@ -26,6 +26,7 @@ import { StakingModuleData } from './interfaces';
 import { ProviderService } from 'provider';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { MIN_KAPI_VERSION } from './guardian.constants';
+import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -49,6 +50,7 @@ export class GuardianService implements OnModuleInit {
 
     private providerService: ProviderService,
     private keysApiService: KeysApiService,
+    private signingKeyEventsCacheService: SigningKeyEventsCacheService,
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -62,6 +64,7 @@ export class GuardianService implements OnModuleInit {
         await Promise.all([
           this.depositService.initialize(block.number),
           this.securityService.initialize({ blockHash }),
+          this.signingKeyEventsCacheService.initialize(block.number),
         ]);
 
         const chainId = await this.providerService.getChainId();
@@ -90,6 +93,7 @@ export class GuardianService implements OnModuleInit {
         // The event cache is stored with an N block lag to avoid caching data from uncle blocks
         // so we don't worry about blockHash here
         await this.depositService.updateEventsCache();
+        await this.signingKeyEventsCacheService.updateEventsCache();
 
         this.subscribeToModulesUpdates();
       } catch (error) {
@@ -156,6 +160,7 @@ export class GuardianService implements OnModuleInit {
       });
 
       await this.depositService.handleNewBlock(blockNumber);
+      await this.signingKeyEventsCacheService.handleNewBlock(blockNumber);
 
       // TODO: e2e test 'node operator deposit frontrun' shows that it is possible to find event and not save in cache
       const blockData = await this.blockGuardService.getCurrentBlockData({
