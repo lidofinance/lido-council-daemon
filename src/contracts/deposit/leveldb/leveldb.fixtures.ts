@@ -4,7 +4,6 @@ import { VerifiedDepositEvent, VerifiedDepositEventsCacheHeaders } from '..';
 export const headersMock: VerifiedDepositEventsCacheHeaders = {
   startBlock: 1000,
   endBlock: 1050,
-  version: '1.0',
 };
 
 // Mock for VerifiedDepositEvent

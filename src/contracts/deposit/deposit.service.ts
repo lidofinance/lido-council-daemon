@@ -189,7 +189,6 @@ export class DepositService {
       ...cachedEvents,
       headers: {
         ...cachedEvents.headers,
-        version: APP_VERSION,
       },
     });
   }

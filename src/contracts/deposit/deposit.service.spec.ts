@@ -167,10 +167,7 @@ describe('DepositService', () => {
         await depositService.setCachedEvents(eventGroup);
 
         expect(mockSetCache).toBeCalledTimes(1);
-        expect(mockSetCache).toBeCalledWith({
-          ...eventGroup,
-          headers: { version: APP_VERSION },
-        });
+        expect(mockSetCache).toBeCalledWith({ headers: {} });
       });
     });
 
