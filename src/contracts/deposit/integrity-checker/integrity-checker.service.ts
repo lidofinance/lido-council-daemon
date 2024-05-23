@@ -7,6 +7,7 @@ import {
   VerifiedDepositEvent,
   VerifiedDepositEventsCache,
 } from '../interfaces';
+import { DEPOSIT_TREE_STEP_SYNC } from './constants';
 
 @Injectable()
 export class DepositIntegrityCheckerService {
@@ -114,7 +115,7 @@ export class DepositIntegrityCheckerService {
     for (const [index, event] of eventsCache.entries()) {
       tree.insertNode(event.depositDataRoot);
 
-      if (index % 200_000 === 0) {
+      if (index % DEPOSIT_TREE_STEP_SYNC === 0) {
         await new Promise((res) => setTimeout(res, 1));
 
         this.logger.log('Checking integrity of saved deposit events', {

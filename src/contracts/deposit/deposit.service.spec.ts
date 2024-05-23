@@ -21,7 +21,6 @@ import { DepositService } from './deposit.service';
 import { PrometheusModule } from 'common/prometheus';
 import { LoggerModule } from 'common/logger';
 import { ConfigModule } from 'common/config';
-import { APP_VERSION } from 'app.constants';
 import { BlsService } from 'bls';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { mockLocator } from 'contracts/repository/locator/locator.mock';
@@ -360,7 +359,7 @@ describe('DepositService', () => {
         const mockSetCachedEvents = jest
           .spyOn(cacheService, 'insertEventsCacheBatch')
           .mockImplementation(async () => undefined);
-        ///!!!
+
         await depositService.updateEventsCache();
 
         expect(mockSetCachedEvents).toBeCalledTimes(1);

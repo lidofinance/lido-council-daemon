@@ -17,7 +17,6 @@ import {
 import { RepositoryService } from 'contracts/repository';
 import { BlockTag } from 'provider';
 import { BlsService } from 'bls';
-import { APP_VERSION } from 'app.constants';
 import { DepositIntegrityCheckerService } from './integrity-checker';
 import { parseLittleEndian64 } from './deposit.utils';
 import { DepositTree } from './deposit-tree';
