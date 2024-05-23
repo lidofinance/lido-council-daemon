@@ -318,7 +318,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
@@ -472,7 +471,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
       const originalIsDepositsPaused = securityService.isDepositsPaused;
@@ -625,7 +623,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
@@ -739,7 +736,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
@@ -860,7 +856,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
@@ -977,7 +972,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
@@ -1095,7 +1089,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
@@ -1312,7 +1305,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
@@ -1502,7 +1494,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
@@ -1588,7 +1579,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
@@ -1712,7 +1702,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: block0.number,
           endBlock: block0.number,
-          version: '1',
         },
       });
 
@@ -1774,7 +1763,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: block1.number,
           endBlock: block1.number,
-          version: '1',
         },
       });
 
@@ -1853,7 +1841,6 @@ describe('ganache e2e tests', () => {
       headers: {
         startBlock: block0.number,
         endBlock: block0.number,
-        version: '1',
       },
     });
 
@@ -1915,7 +1902,6 @@ describe('ganache e2e tests', () => {
       headers: {
         startBlock: block1.number,
         endBlock: block1.number,
-        version: '1',
       },
     });
 
@@ -2015,7 +2001,6 @@ describe('ganache e2e tests', () => {
       headers: {
         startBlock: block0.number,
         endBlock: block0.number,
-        version: '1',
       },
     });
 
@@ -2170,7 +2155,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
