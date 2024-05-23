@@ -155,6 +155,7 @@ export class SigningKeyEventsCacheService {
             return {
               operatorIndex: rawEvent.args[0].toNumber(),
               key: rawEvent.args[1],
+              moduleAddress: address,
               blockNumber: rawEvent.blockNumber,
               logIndex: rawEvent.logIndex,
               blockHash: rawEvent.blockHash,
@@ -202,7 +203,7 @@ export class SigningKeyEventsCacheService {
    */
   public async getEventsForOperatorsKeys(
     keys: RegistryKey[],
-  ): Promise<SigningKeyEvent[]> {
+  ): Promise<SigningKeyEventsCache> {
     return await this.levelDBCacheService.getCachedEvents(keys);
   }
 

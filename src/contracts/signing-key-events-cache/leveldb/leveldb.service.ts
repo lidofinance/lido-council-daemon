@@ -86,41 +86,51 @@ export class LevelDBService {
 
   /**
    * @param {RegistryKey[]} keys - key's list
-   * @returns {Promise<SigningKeyEvent[]>} list of all events with the {key, operatorIndex} part of key
+   * @returns {Promise<{data: SigningKeyEvent[], headers: SigningKeyEventsCacheHeaders}>} Cache data and headers.
    * @public
    */
-  public async getCachedEvents(
-    keys: RegistryKey[],
-  ): Promise<SigningKeyEvent[]> {
+  public async getCachedEvents(keys: RegistryKey[]): Promise<{
+    data: SigningKeyEvent[];
+    headers: SigningKeyEventsCacheHeaders;
+  }> {
     try {
       const data: SigningKeyEvent[] = [];
       for (const key of keys) {
         const stream = this.db.iterator({
-          gte: `signingKey:${key.key}:${key.operatorIndex}`,
-          lte: `signingKey:${key.key}:${key.operatorIndex}\xFF`,
+          gte: `signingKey:${key.key}:${key.operatorIndex}:${key.moduleAddress}`,
+          lte: `signingKey:${key.key}:${key.operatorIndex}:${key.moduleAddress}\xFF`,
         });
 
         for await (const [, value] of stream) {
           data.push(this.parseSigningKeyEvent(value));
         }
       }
-      return data;
+
+      const headers: SigningKeyEventsCacheHeaders = JSON.parse(
+        await this.db.get('headers'),
+      );
+
+      return {
+        data,
+        headers,
+      };
     } catch (error: any) {
-      if (error.code === 'LEVEL_NOT_FOUND') return [];
+      if (error.code === 'LEVEL_NOT_FOUND') return this.cacheDefaultValue;
       throw error;
     }
   }
 
   /**
-   * Generates a signing key event keys for storage.
+   * Generates a signing key event key for storage.
    */
-  private generateStorageKey(
-    key: string,
-    operatorIndex: number,
-    blockNumber: number,
-    logIndex: number,
-  ): string {
-    return `signingKey:${key}:${operatorIndex}:${blockNumber}:${logIndex}`;
+  private generateSigningKeyEventStorageKey({
+    key,
+    operatorIndex,
+    moduleAddress,
+    blockNumber,
+    logIndex,
+  }: SigningKeyEvent): string {
+    return `signingKey:${key}:${operatorIndex}:${moduleAddress}:${blockNumber}:${logIndex}`;
   }
 
   /**
@@ -143,10 +153,7 @@ export class LevelDBService {
    * @public
    */
   public serializeEventDate(signingKeyEvent: SigningKeyEvent) {
-    return JSON.stringify({
-      blockNumber: signingKeyEvent.blockNumber,
-      logIndex: signingKeyEvent.logIndex,
-    });
+    return JSON.stringify(signingKeyEvent);
   }
 
   /**
@@ -163,12 +170,7 @@ export class LevelDBService {
   }) {
     const ops = records.data.map((event) => ({
       type: 'put' as const,
-      key: this.generateStorageKey(
-        event.key,
-        event.operatorIndex,
-        event.blockNumber,
-        event.logIndex,
-      ),
+      key: this.generateSigningKeyEventStorageKey(event),
       value: this.serializeEventDate(event),
     }));
     ops.push({

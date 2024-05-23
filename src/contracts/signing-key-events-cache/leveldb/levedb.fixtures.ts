@@ -1,7 +1,8 @@
 import { SigningKeyEventsCacheHeaders } from '../interfaces/cache.interface';
 import { SigningKeyEvent } from '../interfaces/event.interface';
 
-export const keysMock = [
+export const keysMock1 = [
+  // real holesky keys
   {
     key: '0x80d12670ec69b62abd4d24c828136cbb1666a63374a66269031d6101973419b66711ed712d17da05d7ca6c0b28ecd21f',
     depositSignature:
@@ -11,15 +12,7 @@ export const keysMock = [
     moduleAddress: '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
     index: 0,
   },
-  {
-    key: '0x81011ad6ebe5c7844e59b1799e12de769f785f66df3f63debb06149c1782d574c8c2cd9c923fa881e9dcf6d413159863',
-    depositSignature:
-      '0xb56e6da7917b081ff3c8c786066124daf17ab87d10775a472cde02436444f843ea5b4f35de21906314967db503e300c510e30e990f48ff3d498e38f5d0ed55faf5398a64bac975ceb133f7fa50016054129881038aafcc792a6af9ee6a588838',
-    operatorIndex: 1,
-    used: true,
-    moduleAddress: '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
-    index: 1,
-  },
+  // fake key
   {
     key: '0x80d12670ec69b62abd4d24c828136cbb1666a63374a66269031d6101973419b66711ed712d17da05d7ca6c0b28ecd21f',
     depositSignature:
@@ -31,10 +24,24 @@ export const keysMock = [
   },
 ];
 
-export const eventsMock = [
+export const keysMock = [
+  ...keysMock1,
+  {
+    key: '0x81011ad6ebe5c7844e59b1799e12de769f785f66df3f63debb06149c1782d574c8c2cd9c923fa881e9dcf6d413159863',
+    depositSignature:
+      '0xb56e6da7917b081ff3c8c786066124daf17ab87d10775a472cde02436444f843ea5b4f35de21906314967db503e300c510e30e990f48ff3d498e38f5d0ed55faf5398a64bac975ceb133f7fa50016054129881038aafcc792a6af9ee6a588838',
+    operatorIndex: 1,
+    used: true,
+    moduleAddress: '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
+    index: 1,
+  },
+];
+
+export const eventsMock1 = [
   {
     key: '0x80d12670ec69b62abd4d24c828136cbb1666a63374a66269031d6101973419b66711ed712d17da05d7ca6c0b28ecd21f',
     operatorIndex: 1,
+    moduleAddress: '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
     logIndex: 1,
     blockNumber: 1591260,
     blockHash: '0x1',
@@ -42,21 +49,28 @@ export const eventsMock = [
   {
     key: '0x80d12670ec69b62abd4d24c828136cbb1666a63374a66269031d6101973419b66711ed712d17da05d7ca6c0b28ecd21f',
     operatorIndex: 2,
+    moduleAddress: '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
     logIndex: 2,
     blockNumber: 1591260,
     blockHash: '0x1',
   },
   {
-    key: '0x81011ad6ebe5c7844e59b1799e12de769f785f66df3f63debb06149c1782d574c8c2cd9c923fa881e9dcf6d413159863',
+    key: '0x80d12670ec69b62abd4d24c828136cbb1666a63374a66269031d6101973419b66711ed712d17da05d7ca6c0b28ecd21f',
     operatorIndex: 1,
-    logIndex: 1,
+    moduleAddress: '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
+    logIndex: 2,
     blockNumber: 1591261,
     blockHash: '0x2',
   },
+];
+
+export const eventsMock = [
+  ...eventsMock1,
   {
-    key: '0x80d12670ec69b62abd4d24c828136cbb1666a63374a66269031d6101973419b66711ed712d17da05d7ca6c0b28ecd21f',
+    key: '0x81011ad6ebe5c7844e59b1799e12de769f785f66df3f63debb06149c1782d574c8c2cd9c923fa881e9dcf6d413159863',
     operatorIndex: 1,
-    logIndex: 2,
+    moduleAddress: '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
+    logIndex: 1,
     blockNumber: 1591261,
     blockHash: '0x2',
   },

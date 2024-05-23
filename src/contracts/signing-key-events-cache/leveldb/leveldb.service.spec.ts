@@ -4,7 +4,7 @@ import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { LevelDBModule } from './leveldb.module';
 import { LevelDBService } from './leveldb.service';
-import { cacheMock } from './levedb.fixtures';
+import { cacheMock, eventsMock1, keysMock1 } from './levedb.fixtures';
 
 describe('dbService', () => {
   const defaultCacheValue = {
@@ -46,6 +46,18 @@ describe('dbService', () => {
     await dbService.insertEventsCacheBatch(expected);
     const result = await dbService.getEventsCache();
 
-    expect(result).toEqual(expected);
+    expect(result.headers).toEqual(expected.headers);
+    expect(result.data.length).toEqual(expected.data.length);
+    expect(result.data).toEqual(expect.arrayContaining(expected.data));
+  });
+
+  it('should return all values with the same key, node operator and module address', async () => {
+    await dbService.insertEventsCacheBatch(cacheMock);
+    const result = await dbService.getCachedEvents(keysMock1);
+    const expected = eventsMock1;
+
+    expect(result.headers).toEqual(cacheMock.headers);
+    expect(result.data.length).toEqual(expected.length);
+    expect(result.data).toEqual(expect.arrayContaining(expected));
   });
 });

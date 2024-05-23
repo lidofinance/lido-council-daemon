@@ -1,6 +1,7 @@
 export interface SigningKeyEvent {
   operatorIndex: number;
   key: string;
+  moduleAddress: string;
   logIndex: number;
   blockNumber: number;
   blockHash: string;
