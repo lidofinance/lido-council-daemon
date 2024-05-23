@@ -242,7 +242,7 @@ export class DepositService {
     const fetchTimeStart = performance.now();
 
     const [currentBlock, initialCache] = await Promise.all([
-      this.providerService.getFinalizedBlockNumber(),
+      this.providerService.getBlockNumber(),
       this.getCachedEvents(),
     ]);
 

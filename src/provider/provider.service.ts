@@ -52,28 +52,6 @@ export class ProviderService {
   }
 
   /**
-   * Returns finalized block number
-   */
-  public async getFinalizedBlockNumber(): Promise<number> {
-    const finalizedBlock = this.getFinalizedBlock();
-
-    return (await finalizedBlock).number;
-  }
-
-  /**
-   * Returns finalized block
-   */
-  public async getFinalizedBlock(): Promise<Block> {
-    const block = await this.provider.getBlock('finalized');
-
-    if (block === null) {
-      throw new Error('error receiving finalized block');
-    }
-
-    return block;
-  }
-
-  /**
    * Returns current block
    */
   public async getBlock(): Promise<Block> {

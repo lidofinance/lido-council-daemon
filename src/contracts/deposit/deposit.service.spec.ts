@@ -328,10 +328,6 @@ describe('DepositService', () => {
         jest
           .spyOn(providerService, 'getBlockNumber')
           .mockImplementation(async () => currentBlock);
-
-        jest
-          .spyOn(providerService, 'getFinalizedBlockNumber')
-          .mockImplementation(async () => currentBlock);
       });
 
       it('should collect events', async () => {
@@ -401,10 +397,6 @@ describe('DepositService', () => {
 
         jest
           .spyOn(providerService, 'getBlockNumber')
-          .mockImplementation(async () => currentBlock);
-
-        jest
-          .spyOn(providerService, 'getFinalizedBlockNumber')
           .mockImplementation(async () => currentBlock);
       });
 
