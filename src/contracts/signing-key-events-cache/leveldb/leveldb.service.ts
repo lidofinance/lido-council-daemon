@@ -85,11 +85,11 @@ export class LevelDBService {
   }
 
   /**
-   * @param {RegistryKey[]} keys - key's list
+   * @param {string[]} keys - public keys list
    * @returns {Promise<{data: SigningKeyEvent[], headers: SigningKeyEventsCacheHeaders}>} Cache data and headers.
    * @public
    */
-  public async getCachedEvents(keys: RegistryKey[]): Promise<{
+  public async getCachedEvents(keys: string[]): Promise<{
     data: SigningKeyEvent[];
     headers: SigningKeyEventsCacheHeaders;
   }> {
@@ -97,8 +97,8 @@ export class LevelDBService {
       const data: SigningKeyEvent[] = [];
       for (const key of keys) {
         const stream = this.db.iterator({
-          gte: `signingKey:${key.key}:${key.operatorIndex}:${key.moduleAddress}`,
-          lte: `signingKey:${key.key}:${key.operatorIndex}:${key.moduleAddress}\xFF`,
+          gte: `signingKey:${key}`,
+          lte: `signingKey:${key}\xFF`,
         });
 
         for await (const [, value] of stream) {
@@ -125,12 +125,10 @@ export class LevelDBService {
    */
   private generateSigningKeyEventStorageKey({
     key,
-    operatorIndex,
-    moduleAddress,
     blockNumber,
     logIndex,
   }: SigningKeyEvent): string {
-    return `signingKey:${key}:${operatorIndex}:${moduleAddress}:${blockNumber}:${logIndex}`;
+    return `signingKey:${key}:${blockNumber}:${logIndex}`;
   }
 
   /**

@@ -199,12 +199,13 @@ export class SigningKeyEventsCacheService {
   }
 
   /**
-   * Got operators' unique keys list and find earliest event for them in cache
+   * Got operators' keys list and find return all events for them
    */
   public async getEventsForOperatorsKeys(
-    keys: RegistryKey[],
+    keys: string[],
   ): Promise<SigningKeyEventsCache> {
-    return await this.levelDBCacheService.getCachedEvents(keys);
+    const uniqueKeys = Array.from(new Set(keys));
+    return await this.levelDBCacheService.getCachedEvents(uniqueKeys);
   }
 
   /**
