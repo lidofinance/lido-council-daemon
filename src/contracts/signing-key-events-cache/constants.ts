@@ -2,7 +2,6 @@ import { CHAINS } from '@lido-sdk/constants';
 
 export const SIGNING_KEYS_CACHE_DEFAULT = Object.freeze({
   headers: {
-    version: '-1',
     startBlock: 0,
     endBlock: 0,
   },

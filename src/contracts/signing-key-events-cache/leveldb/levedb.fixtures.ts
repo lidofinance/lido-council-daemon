@@ -79,7 +79,6 @@ export const eventsMock = [
 export const headersMock: SigningKeyEventsCacheHeaders = {
   startBlock: 1591259,
   endBlock: 1593259,
-  version: '1.0',
 };
 
 export const cacheMock: {
