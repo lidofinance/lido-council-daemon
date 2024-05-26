@@ -210,14 +210,15 @@ export class SigningKeyEventsCacheService {
   }
 
   /**
-   * Returns all signing keys events based on cache and fresh data
+   * Returns all signing keys events based on cache and fresh data for keys list
    */
-  public async getAllSigningKeyEvents(
+  public async getUpdatedSigningKeyEvents(
+    key: string,
     blockNumber: number,
     blockHash: string,
   ): Promise<SigningKeyEventsGroup> {
     const endBlock = blockNumber;
-    const cachedEvents = await this.getCachedEvents();
+    const cachedEvents = await this.getEventsForOperatorsKeys([key]);
 
     const isCacheValid = this.validateCacheBlock(cachedEvents, blockNumber);
     if (!isCacheValid) process.exit(1);
@@ -242,7 +243,11 @@ export class SigningKeyEventsCacheService {
       lastEventBlockHash,
     });
 
-    const mergedEvents = cachedEvents.data.concat(freshEvents);
+    const keyFreshEvents = freshEventGroup.events.filter(
+      (event) => event.key == key,
+    );
+
+    const mergedEvents = cachedEvents.data.concat(keyFreshEvents);
 
     return {
       events: mergedEvents,

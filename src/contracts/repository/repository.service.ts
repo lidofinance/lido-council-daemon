@@ -233,10 +233,7 @@ export class RepositoryService {
   private async initCachedStakingModulesContracts(
     blockTag: BlockTag,
   ): Promise<void> {
-    const stakingRouter = await this.getCachedStakingRouterContract();
-    const stakingModules = await stakingRouter.getStakingModules({
-      blockTag: blockTag as any,
-    });
+    const stakingModules = await this.getStakingModules(blockTag);
     await Promise.all(
       stakingModules.map(async (stakingModule) => {
         const type = await this.getStakingModuleType(
@@ -272,6 +269,15 @@ export class RepositoryService {
         }
       }),
     );
+  }
+
+  public async getStakingModules(blockTag: BlockTag) {
+    const stakingRouter = await this.getCachedStakingRouterContract();
+    const stakingModules = await stakingRouter.getStakingModules({
+      blockTag: blockTag as any,
+    });
+
+    return stakingModules;
   }
 
   public async getStakingModuleType(

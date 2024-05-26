@@ -138,8 +138,7 @@ export class LevelDBService {
    * @private
    */
   private parseSigningKeyEvent(dataString: string): SigningKeyEvent {
-    const data = JSON.parse(dataString);
-    return data;
+    return JSON.parse(dataString);
   }
 
   /**

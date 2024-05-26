@@ -3,7 +3,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Configuration } from 'common/config';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { StakingModuleData } from 'guardian';
-import { getVettedKeys, getVettedUnusedKeys } from './vetted-keys';
+import { getVettedUnusedKeys } from './vetted-keys';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
 import { Meta } from 'keys-api/interfaces/Meta';
@@ -33,11 +33,16 @@ export class StakingRouterService {
   }): Promise<StakingModuleData[]> {
     const stakingModulesData = await Promise.all(
       operatorsByModules.map(async ({ operators, module: stakingModule }) => {
-        const keys = lidoKeys.filter(
-          (key) => key.moduleAddress === stakingModule.stakingModuleAddress,
+        const unusedKeys = lidoKeys.filter(
+          (key) =>
+            !key.used &&
+            key.moduleAddress === stakingModule.stakingModuleAddress,
         );
-        const moduleVettedKeys = getVettedKeys(operators, keys);
-        const moduleVettedUnusedKeys = getVettedUnusedKeys(moduleVettedKeys);
+
+        const moduleVettedUnusedKeys = getVettedUnusedKeys(
+          operators,
+          unusedKeys,
+        );
 
         // check pause
         const isModuleDepositsPaused =
@@ -53,7 +58,6 @@ export class StakingRouterService {
           blockHash: meta.elBlockSnapshot.blockHash,
           lastChangedBlockHash: meta.elBlockSnapshot.lastChangedBlockHash,
           vettedUnusedKeys: moduleVettedUnusedKeys,
-          vettedKeys: moduleVettedKeys,
           duplicatedKeys: [],
           invalidKeys: [],
           frontRunKeys: [],

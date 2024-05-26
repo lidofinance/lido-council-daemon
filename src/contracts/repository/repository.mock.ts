@@ -16,6 +16,10 @@ export const mockRepository = async (repositoryService: RepositoryService) => {
     .spyOn(repositoryService, 'getAttestMessagePrefix')
     .mockImplementation(async () => hexZeroPad('0x1', 32));
 
+  jest
+    .spyOn(repositoryService, 'getStakingModules')
+    .mockImplementation(async () => []);
+
   await repositoryService.initCachedContracts('latest');
   jest.spyOn(repositoryService, 'getCachedLidoContract');
 

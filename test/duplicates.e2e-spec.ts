@@ -718,7 +718,10 @@ describe('ganache e2e tests', () => {
         },
       ];
 
-      const keys = [...unusedKeys, { ...unusedKeys[0], used: true }];
+      const keys = [
+        ...unusedKeys,
+        { ...unusedKeys[0], operatorIndex: 1, used: true },
+      ];
       mockedKeysApiGetAllKeys(keysApiService, keys, meta);
 
       // Check that module was not paused
@@ -756,7 +759,7 @@ describe('ganache e2e tests', () => {
 
       mockedKeysApiGetAllKeys(
         keysApiService,
-        [{ ...unusedKeys[0], used: true }],
+        [{ ...unusedKeys[0], operatorIndex: 1, used: true }],
         newMeta,
       );
 

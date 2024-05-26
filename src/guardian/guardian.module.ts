@@ -12,6 +12,7 @@ import { GuardianMessageModule } from './guardian-message';
 import { GuardianMetricsModule } from './guardian-metrics';
 import { KeysApiModule } from 'keys-api/keys-api.module';
 import { SigningKeyEventsCacheModule } from 'contracts/signing-key-events-cache';
+import { KeysDuplicationCheckerModule } from './duplicates';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { SigningKeyEventsCacheModule } from 'contracts/signing-key-events-cache'
     GuardianMetricsModule,
     KeysApiModule,
     SigningKeyEventsCacheModule,
+    KeysDuplicationCheckerModule,
   ],
   providers: [GuardianService],
   exports: [GuardianService],

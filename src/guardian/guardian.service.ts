@@ -26,8 +26,8 @@ import { StakingModuleData } from './interfaces';
 import { ProviderService } from 'provider';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { MIN_KAPI_VERSION } from './guardian.constants';
-import { getDuplicatedKeys } from './duplicates/keys-duplication-checker';
 import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
+import { KeysDuplicationCheckerService } from './duplicates';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -52,6 +52,7 @@ export class GuardianService implements OnModuleInit {
     private providerService: ProviderService,
     private keysApiService: KeysApiService,
     private signingKeyEventsCacheService: SigningKeyEventsCacheService,
+    private keysDuplicationCheckerService: KeysDuplicationCheckerService,
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -214,14 +215,11 @@ export class GuardianService implements OnModuleInit {
         });
       }
 
-      // here should be noticed that in current version we can't identify original key by date of creation
-      // so both not vetted key and vetted will be considered as duplicates currently
-      // for production it is not good
-      // and better to check only vetted keys here
-      const vettedKeys =
-        this.stakingModuleGuardService.getVettedKeys(stakingModulesData);
-
-      const duplicatedKeys = getDuplicatedKeys(vettedKeys);
+      const duplicatedKeys =
+        await this.keysDuplicationCheckerService.getDuplicatedKeys(
+          lidoKeys,
+          blockData,
+        );
 
       // TODO: rename or move condition from function
       await this.stakingModuleGuardService.pauseDepositsV3(
@@ -266,14 +264,20 @@ export class GuardianService implements OnModuleInit {
               key.moduleAddress === stakingModuleData.stakingModuleAddress,
           );
 
+          const duplicatedKeysReqUnvetting =
+            this.stakingModuleGuardService.filterNotVettedUnusedKeys(
+              stakingModuleData,
+              moduleDuplicatedKeys,
+            );
+
           this.logger.log('Duplicated keys', {
-            count: moduleDuplicatedKeys.length,
+            count: duplicatedKeysReqUnvetting.length,
             stakingModuleId: stakingModuleData.stakingModuleId,
           });
 
           stakingModuleData.invalidKeys = invalidKeys;
           stakingModuleData.frontRunKeys = frontRunKeys;
-          stakingModuleData.duplicatedKeys = moduleDuplicatedKeys;
+          stakingModuleData.duplicatedKeys = duplicatedKeysReqUnvetting;
 
           await this.stakingModuleGuardService.handleUnvetting(
             stakingModuleData,
