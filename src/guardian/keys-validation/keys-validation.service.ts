@@ -26,7 +26,7 @@ export class KeysValidationService {
 
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER)
-    protected readonly logger: LoggerService,
+    private readonly logger: LoggerService,
     private readonly keyValidator: KeyValidatorInterface,
     private readonly provider: ProviderService,
   ) {
@@ -100,7 +100,7 @@ export class KeysValidationService {
   ): [DepositData, boolean | undefined][] {
     return depositListData.map((depositData) => [
       depositData,
-      this.depositDataCache.get(JSON.stringify(depositData)),
+      this.depositDataCache.get(this.serializeDepositData(depositData)),
     ]);
   }
 
@@ -117,7 +117,18 @@ export class KeysValidationService {
 
   private async updateCache(validatedKeys: [Key & DepositData, boolean][]) {
     validatedKeys.forEach(([depositData, isValid]) =>
-      this.depositDataCache.set(JSON.stringify(depositData), isValid),
+      this.depositDataCache.set(
+        this.serializeDepositData(depositData),
+        isValid,
+      ),
     );
+  }
+
+  private serializeDepositData(depositData: DepositData): string {
+    return JSON.stringify({
+      ...depositData,
+      withdrawalCredentials: depositData.withdrawalCredentials.toString('hex'),
+      genesisForkVersion: depositData.genesisForkVersion.toString('hex'),
+    });
   }
 }

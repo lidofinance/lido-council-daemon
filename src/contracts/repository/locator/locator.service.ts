@@ -7,7 +7,7 @@ import { Configuration } from 'common/config';
 @Injectable()
 export class LocatorService {
   constructor(
-    private providerService: ProviderService,
+    private readonly providerService: ProviderService,
     private readonly config: Configuration,
   ) {}
   private cachedLidoLocatorContract: LocatorAbi | undefined;
@@ -56,14 +56,10 @@ export class LocatorService {
   public async getLocatorAddress(): Promise<string> {
     const chainId = await this.providerService.getChainId();
 
-    return this.getLidoLocatorAddress(chainId);
-  }
-
-  getLidoLocatorAddress = (chainId: CHAINS): string => {
     const address =
       this.config.LOCATOR_ADDRESS ?? LIDO_LOCATOR_BY_NETWORK[chainId];
     if (!address) throw new Error(`Chain ${chainId} is not supported`);
 
     return address;
-  };
+  }
 }

@@ -11,7 +11,7 @@ export function getDuplicatedKeys(keys: RegistryKey[]): RegistryKey[] {
   const duplicates: RegistryKey[] = [];
 
   // filter original messages
-  for (const [_, occurrences] of duplicatedKeys) {
+  for (const [, occurrences] of duplicatedKeys) {
     // If the list of duplicates contains a deposited key, it will be considered the original,
     // and the other keys will be considered duplicates.
     // This applies whether the keys are in one module or two, and whether they are for one operator or two.
@@ -53,7 +53,7 @@ export function identifyDuplicateKeys(
     keysOccurrences.set(key.key, occurrences);
   });
   return [...keysOccurrences].filter(
-    ([_, occurrences]) => occurrences.length > 1,
+    ([, occurrences]) => occurrences.length > 1,
   );
 }
 

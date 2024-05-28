@@ -50,21 +50,23 @@ describe('getVettedKeys', () => {
   });
 });
 
-test('', () => {
-  const keys = [
-    { operatorIndex: 1, index: 0, used: true },
-    { operatorIndex: 1, index: 1, used: true },
-    { operatorIndex: 1, index: 2, used: false },
-    { operatorIndex: 2, index: 0, used: false },
-    { operatorIndex: 4, index: 0, used: true },
-  ] as any;
+describe('getVettedUnusedKeys', () => {
+  test('should correctly filter and sort keys for multiple operators', () => {
+    const keys = [
+      { operatorIndex: 1, index: 0, used: true },
+      { operatorIndex: 1, index: 1, used: true },
+      { operatorIndex: 1, index: 2, used: false },
+      { operatorIndex: 2, index: 0, used: false },
+      { operatorIndex: 4, index: 0, used: true },
+    ] as any;
 
-  const expected = [
-    { operatorIndex: 1, index: 2, used: false },
-    { operatorIndex: 2, index: 0, used: false },
-  ] as any;
+    const expected = [
+      { operatorIndex: 1, index: 2, used: false },
+      { operatorIndex: 2, index: 0, used: false },
+    ] as any;
 
-  expect(getVettedUnusedKeys(keys)).toEqual(expected);
+    expect(getVettedUnusedKeys(keys)).toEqual(expected);
+  });
 });
 
 // describe('getVettedUnusedKeys', () => {

@@ -1,4 +1,3 @@
-import 'reflect-metadata';
 import { OneAtTime, StakingModuleId } from './one-at-time';
 
 class TestOneAtTime {
@@ -12,7 +11,7 @@ class TestOneAtTime {
   }
 
   @OneAtTime()
-  async test(value) {
+  async test(value: number) {
     this.executionLog.push(`start-${value}`);
     this.value = value;
 

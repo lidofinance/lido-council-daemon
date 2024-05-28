@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 const stakingModuleId = Symbol('StakingModuleId');
 
 /**
