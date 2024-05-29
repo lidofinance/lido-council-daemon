@@ -1,5 +1,6 @@
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 
+// goerli keys
 export const validKeys: RegistryKey[] = [
   {
     key: '0xa9bfaa8207ee6c78644c079ffc91b6e5abcc5eede1b7a06abb8fb40e490a75ea269c178dd524b65185299d2bbd2eb7b2',

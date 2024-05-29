@@ -137,5 +137,5 @@ export class InMemoryConfiguration implements Configuration {
 
   @IsOptional()
   @IsString()
-  LOCATOR_ADDRESS;
+  LOCATOR_DEVNET_ADDRESS = '';
 }

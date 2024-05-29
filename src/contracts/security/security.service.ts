@@ -4,13 +4,12 @@ import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { METRIC_PAUSE_ATTEMPTS } from 'common/prometheus';
 import { OneAtTime, StakingModuleId } from 'common/decorators';
-import { SecurityAbi } from 'generated';
+import { SecurityAbi, SecurityPauseV2Abi__factory } from 'generated';
 import { RepositoryService } from 'contracts/repository';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Counter } from 'prom-client';
 import { BlockTag, ProviderService } from 'provider';
 import { WalletService } from 'wallet';
-import { ethers } from 'ethers';
 
 @Injectable()
 export class SecurityService {
@@ -47,49 +46,10 @@ export class SecurityService {
   }
 
   public getContractV2WithSigner() {
-    const oldAbi = [
-      {
-        inputs: [
-          {
-            internalType: 'uint256',
-            name: 'blockNumber',
-            type: 'uint256',
-          },
-          {
-            internalType: 'uint256',
-            name: 'stakingModuleId',
-            type: 'uint256',
-          },
-          {
-            components: [
-              {
-                internalType: 'bytes32',
-                name: 'r',
-                type: 'bytes32',
-              },
-              {
-                internalType: 'bytes32',
-                name: 'vs',
-                type: 'bytes32',
-              },
-            ],
-            internalType: 'struct DepositSecurityModule.Signature',
-            name: 'sig',
-            type: 'tuple',
-          },
-        ],
-        name: 'pauseDeposits',
-        outputs: [],
-        stateMutability: 'nonpayable',
-        type: 'function',
-      },
-    ];
-
     const contract = this.repositoryService.getCachedDSMContract();
 
-    const oldContract = new ethers.Contract(
+    const oldContract = SecurityPauseV2Abi__factory.connect(
       contract.address,
-      oldAbi,
       this.providerService.provider,
     );
 
@@ -165,7 +125,7 @@ export class SecurityService {
   }
 
   /**
-   * Sends a transaction to pause deposit contract
+   * Sends a transaction to pause deposits
    * @param blockNumber - the block number for which the message is signed
    * @param signature - message signature
    */
@@ -197,7 +157,7 @@ export class SecurityService {
   }
 
   /**
-   * Signs a message to pause deposit contract with the prefix from the contract
+   * Signs a message to pause deposits with the prefix from the contract
    */
   public async signPauseDataV2(
     blockNumber: number,
@@ -316,11 +276,17 @@ export class SecurityService {
       blockNumber,
       stakingModuleId,
     });
-    this.logger.warn('Waiting for block confirmation', { blockNumber });
+    this.logger.warn('Waiting for block confirmation', {
+      blockNumber,
+      stakingModuleId,
+    });
 
     await tx.wait();
 
-    this.logger.warn('Block confirmation received', { blockNumber });
+    this.logger.warn('Block confirmation received', {
+      blockNumber,
+      stakingModuleId,
+    });
   }
 
   /**

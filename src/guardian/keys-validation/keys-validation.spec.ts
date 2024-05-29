@@ -76,10 +76,9 @@ describe('KeysValidationService', () => {
     const invalidKey2DepositData = JSON.stringify({
       key: invalidKey2.key,
       depositSignature: invalidKey2.depositSignature,
-      withdrawalCredentials: bufferFromHexString(wc),
-      genesisForkVersion: Buffer.from(fork.buffer),
+      withdrawalCredentials: wc.replace(/^0x/, ''),
+      genesisForkVersion: Buffer.from(fork.buffer).toString('hex'),
     });
-
     expect(
       keysValidationService['depositDataCache'].get(invalidKey2DepositData),
     ).toEqual(false);
