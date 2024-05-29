@@ -83,8 +83,6 @@ import { GanacheProviderModule } from '../src/provider';
 
 import { BlsService } from '../src/bls';
 import { GuardianMessageService } from '../src/guardian/guardian-message';
-import { KeyValidatorInterface } from '@lido-nestjs/key-validation';
-import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -106,12 +104,7 @@ describe('ganache e2e tests', () => {
   let sendDepositMessage: jest.SpyInstance;
   let sendPauseMessage: jest.SpyInstance;
 
-  let keyValidator: KeyValidatorInterface;
-  let validateKeys: jest.SpyInstance;
-
   let securityService: SecurityService;
-
-  let stakingModuleGuardService: StakingModuleGuardService;
 
   beforeEach(async () => {
     server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
@@ -177,7 +170,6 @@ describe('ganache e2e tests', () => {
     lidoService = moduleRef.get(LidoService);
     depositService = moduleRef.get(DepositService);
     guardianMessageService = moduleRef.get(GuardianMessageService);
-    keyValidator = moduleRef.get(KeyValidatorInterface);
     securityService = moduleRef.get(SecurityService);
 
     // Initializing needed service instead of the whole app
@@ -933,7 +925,6 @@ describe('ganache e2e tests', () => {
       const tempProvider = new ethers.providers.JsonRpcProvider(
         `http://127.0.0.1:${GANACHE_PORT}`,
       );
-      const forkBlock = await tempProvider.getBlock(FORK_BLOCK);
       const currentBlock = await tempProvider.getBlock('latest');
 
       // create correct sign for deposit message for pk

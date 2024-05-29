@@ -219,20 +219,14 @@ export class GuardianService implements OnModuleInit {
 
       const duplicatedKeys = getDuplicatedKeys(vettedKeys);
 
-      // TODO: rename or move condition from function
-      await this.stakingModuleGuardService.pauseDepositsV3(
-        blockData,
-        theftHappened,
-        alreadyPausedDeposits,
-        version,
-      );
-
-      await this.stakingModuleGuardService.pauseDepositsV2(
-        stakingModulesData,
-        blockData,
-        theftHappened,
-        version,
-      );
+      if (version === 3 && !alreadyPausedDeposits && theftHappened) {
+        await this.stakingModuleGuardService.handlePauseV3(blockData);
+      } else if (theftHappened) {
+        await this.stakingModuleGuardService.handlePauseV2(
+          stakingModulesData,
+          blockData,
+        );
+      }
 
       await Promise.all(
         stakingModulesData.map(async (stakingModuleData) => {

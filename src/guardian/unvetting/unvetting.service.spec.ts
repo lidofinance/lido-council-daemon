@@ -11,6 +11,7 @@ import { LoggerModule } from 'common/logger';
 import { UnvettingModule } from './unvetting.module';
 import { PrometheusModule } from 'common/prometheus';
 import { MockProviderModule } from 'provider';
+import { resolve } from 'path';
 
 jest.mock('../../transport/stomp/stomp.client');
 
@@ -125,6 +126,8 @@ describe('UnvettingService', () => {
 
       await service.handleUnvetting(stakingModuleData, blockData);
 
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
       expect(unvetSigningKeysMock).toBeCalledTimes(2);
       expect(unvetSigningKeysMock).toBeCalledWith(
         1,
@@ -199,6 +202,8 @@ describe('UnvettingService', () => {
       } as any;
 
       await service.handleUnvetting(stakingModuleData, blockData);
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
       expect(unvetSigningKeysMock).toBeCalledTimes(2);
       expect(unvetSigningKeysMock).toBeCalledWith(

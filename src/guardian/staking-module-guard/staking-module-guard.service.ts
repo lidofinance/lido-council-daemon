@@ -289,16 +289,7 @@ export class StakingModuleGuardService {
     );
   }
 
-  public async pauseDepositsV3(
-    blockData: BlockData,
-    theftHappened: boolean,
-    alreadyPausedDeposits: boolean,
-    version: number,
-  ): Promise<void> {
-    if (version !== 3 || alreadyPausedDeposits || !theftHappened) {
-      return;
-    }
-
+  public async handlePauseV3(blockData: BlockData): Promise<void> {
     const { blockNumber, guardianAddress, guardianIndex } = blockData;
 
     const signature = await this.securityService.signPauseDataV3(blockNumber);
@@ -328,16 +319,10 @@ export class StakingModuleGuardService {
   /**
    * pause all modules, old version of contract
    */
-  public async pauseDepositsV2(
+  public async handlePauseV2(
     stakingModulesData: StakingModuleData[],
     blockData: BlockData,
-    theftHappened: boolean,
-    version: number,
   ) {
-    if (version === 3 || !theftHappened) {
-      return;
-    }
-
     await Promise.all(
       stakingModulesData.map(async (stakingModuleData) => {
         if (stakingModuleData.isModuleDepositsPaused) {

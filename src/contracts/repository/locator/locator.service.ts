@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { LocatorAbi, LocatorAbi__factory } from 'generated';
 import { BlockTag, ProviderService } from 'provider';
-import { CHAINS, LIDO_LOCATOR_BY_NETWORK } from './locator.constants';
+import { LIDO_LOCATOR_BY_NETWORK } from './locator.constants';
 import { Configuration } from 'common/config';
 
 @Injectable()
