@@ -240,12 +240,11 @@ export class SecurityService {
   /**
    * Send transaction to unvet signing keys
    */
-  @OneAtTime()
   public async unvetSigningKeys(
     nonce: number,
     blockNumber: number,
     blockHash: string,
-    @StakingModuleId stakingModuleId: number,
+    stakingModuleId: number,
     operatorIds: string,
     vettedKeysByOperator: string,
     signature: Signature,

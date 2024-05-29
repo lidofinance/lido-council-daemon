@@ -5,6 +5,7 @@ import { BlockData, StakingModuleData } from 'guardian/interfaces';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { packNodeOperatorIds, packVettedSigningKeysCounts } from './bytes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { OneAtTime, StakingModuleId } from 'common/decorators';
 
 type UnvetData = { operatorIds: string; vettedKeysByOperator: string };
 
@@ -43,12 +44,27 @@ export class UnvettingService {
       maxOperatorsPerUnvetting,
     );
 
+    this.unvetSignKeysChunk(
+      stakingModuleData,
+      stakingModuleData.stakingModuleId,
+      blockData,
+      chunks,
+    ).catch((error) => this.logger.error(error));
+  }
+
+  @OneAtTime()
+  async unvetSignKeysChunk(
+    stakingModuleData: StakingModuleData,
+    @StakingModuleId stakingModuleId: number,
+    blockData: BlockData,
+    chunks: UnvetData[],
+  ) {
     for await (const { operatorIds, vettedKeysByOperator } of chunks) {
       const signature = await this.securityService.signUnvetData(
         stakingModuleData.nonce,
         blockData.blockNumber,
         blockData.blockHash,
-        stakingModuleData.stakingModuleId,
+        stakingModuleId,
         operatorIds,
         vettedKeysByOperator,
       );
