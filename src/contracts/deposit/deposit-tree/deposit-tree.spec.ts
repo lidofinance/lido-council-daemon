@@ -14,14 +14,23 @@ describe('DepositTree', () => {
   });
 
   test('insert should correctly modify the tree', () => {
-    const nodeData = {
+    depositTree.insert({
       pubkey: '0xaabbccdd',
       wc: '0x11223344',
       amount: '0x0000000000000001', // Little endian of 1
       signature: '0x55667788',
-    };
-    depositTree.insert(nodeData);
+    });
+
     expect(depositTree.nodeCount).toBe(1);
+
+    depositTree.insert({
+      pubkey: '0xaabbccdd',
+      wc: '0x11223344',
+      amount: '0x0000000000000002', // Little endian of 2
+      signature: '0x55667788',
+    });
+
+    expect(depositTree.nodeCount).toBe(2);
   });
 
   test('clone should create an exact copy of the tree', () => {
