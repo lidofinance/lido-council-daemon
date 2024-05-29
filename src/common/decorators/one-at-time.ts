@@ -69,9 +69,11 @@ export function OneAtTime<T extends (...args: any[]) => Promise<any>>(
         isExecuting = true;
       }
 
+      let handler: NodeJS.Timeout | undefined;
+
       try {
         const execTimeout = new Promise((_, reject) => {
-          setTimeout(() => {
+          handler = setTimeout(() => {
             reject(
               new Error(
                 `Timeout: ${propertyName} took longer than ${timeout}ms`,
@@ -88,6 +90,10 @@ export function OneAtTime<T extends (...args: any[]) => Promise<any>>(
           isExecutingMap.set(moduleId, false);
         } else {
           isExecuting = false;
+        }
+
+        if (handler !== undefined) {
+          clearTimeout(handler);
         }
       }
     } as T;

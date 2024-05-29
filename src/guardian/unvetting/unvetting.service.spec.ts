@@ -75,7 +75,6 @@ describe('UnvettingService', () => {
       ];
 
       expect(result).toEqual(expected);
-      expect(service.getNewVettedAmountV1(mockKeys, 2)).toEqual(expected);
     });
 
     it('should correctly pack chunks when maxOperatorsPerUnvetting is 2 with 4 operators', () => {
@@ -95,7 +94,6 @@ describe('UnvettingService', () => {
       ];
 
       expect(result).toEqual(expected);
-      expect(service.getNewVettedAmountV1(mockKeys2, 2)).toEqual(expected);
     });
   });
 

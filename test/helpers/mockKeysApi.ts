@@ -66,7 +66,7 @@ export const mockedOperators: RegistryOperator[] = [
     stakingLimit: 12,
     stoppedValidators: 0,
     totalSigningKeys: 12,
-    usedSigningKeys: 0,
+    usedSigningKeys: 9,
     index: 0,
     active: true,
     moduleAddress: NOP_REGISTRY,
