@@ -10,7 +10,7 @@ class TestOneAtTime {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  @OneAtTime()
+  @OneAtTime(2000)
   async test(value: number) {
     this.executionLog.push(`start-${value}`);
     this.value = value;
@@ -19,7 +19,7 @@ class TestOneAtTime {
     this.executionLog.push(`end-${value}`);
   }
 
-  @OneAtTime()
+  @OneAtTime(2000)
   async testStakingModuleId(@StakingModuleId id, value) {
     this.executionLog.push(`start-${id}-${value}`);
     this.stakingModuleId.set(id, value);
