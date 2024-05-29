@@ -87,23 +87,6 @@ export const mockedDvtOperators: RegistryOperator[] = [
   },
 ];
 
-export const mockedKeysApiOperators = (
-  keysApiService: KeysApiService,
-  mockedOperators: RegistryOperator[],
-  mockedModule: SRModule,
-  mockedMeta: ELBlockSnapshot,
-) => {
-  jest
-    .spyOn(keysApiService, 'getOperatorListWithModule')
-    .mockImplementation(async () => ({
-      data: [{ operators: mockedOperators, module: mockedModule }],
-      meta: {
-        elBlockSnapshot: mockedMeta,
-      },
-    }));
-};
-
-// remove one of functions: mockedKeysApiOperators or mockedKeysApiOperatorsMany
 export const mockedKeysApiOperatorsMany = (
   keysApiService: KeysApiService,
   data: { operators: RegistryOperator[]; module: SRModule }[],

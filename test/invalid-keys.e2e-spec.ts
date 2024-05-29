@@ -10,7 +10,6 @@ import {
   mockedDvtOperators,
   mockedKeysApiFind,
   mockedKeysApiGetAllKeys,
-  mockedKeysApiOperators,
   mockedKeysApiOperatorsMany,
   mockedMeta,
   mockedModule,
@@ -289,10 +288,9 @@ describe('ganache e2e tests', () => {
       const stakingModule = mockedModule(block0, block0.hash);
       const meta = mockedMeta(block0, block0.hash);
 
-      mockedKeysApiOperators(
+      mockedKeysApiOperatorsMany(
         keysApiService,
-        mockedOperators,
-        stakingModule,
+        [{ operators: mockedOperators, module: stakingModule }],
         meta,
       );
 
@@ -352,10 +350,9 @@ describe('ganache e2e tests', () => {
       const meta1 = mockedMeta(block1, block0.hash);
       const stakingModule1 = mockedModule(block1, block0.hash, 6047);
 
-      mockedKeysApiOperators(
+      mockedKeysApiOperatorsMany(
         keysApiService,
-        mockedOperators,
-        stakingModule1,
+        [{ operators: mockedOperators, module: stakingModule1 }],
         meta1,
       );
 
@@ -424,10 +421,9 @@ describe('ganache e2e tests', () => {
     const stakingModule = mockedModule(block0, block0.hash);
     const meta = mockedMeta(block0, block0.hash);
 
-    mockedKeysApiOperators(
+    mockedKeysApiOperatorsMany(
       keysApiService,
-      mockedOperators,
-      stakingModule,
+      [{ operators: mockedOperators, module: stakingModule }],
       meta,
     );
 
@@ -488,10 +484,9 @@ describe('ganache e2e tests', () => {
     // list of keys for /keys?used=false mock
     mockedKeysApiGetAllKeys(keysApiService, [fixedKey], meta1);
 
-    mockedKeysApiOperators(
+    mockedKeysApiOperatorsMany(
       keysApiService,
-      mockedOperators,
-      stakingModule1,
+      [{ operators: mockedOperators, module: stakingModule1 }],
       meta1,
     );
 
