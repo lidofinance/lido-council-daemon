@@ -58,6 +58,10 @@ export class DepositTree {
 
       node = digest2Bytes32(this.branch[height], node);
 
+      // Using size /= 2 is not a mistake. In JavaScript, when performing bitwise operations
+      // like & 1, floating-point numbers are implicitly converted to integers, discarding the fractional part.
+      // This ensures the algorithm works correctly and matches the logic of a Solidity smart contract.
+      // Solidity does not have floating-point numbers, and all division is performed as integer division, rounding down the result.
       size /= 2;
     }
   }
