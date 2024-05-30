@@ -7,6 +7,9 @@ export interface DepositEvent {
   blockNumber: number;
   blockHash: string;
   logIndex: number;
+  index: string;
+  depositCount: number;
+  depositDataRoot: Uint8Array;
 }
 
 export interface VerifiedDepositEvent extends DepositEvent {

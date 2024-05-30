@@ -62,6 +62,7 @@ describe('ganache e2e tests', () => {
   let securityService;
   let sendDepositMessage;
   let sendPauseMessage;
+  let levelDBService;
 
   beforeEach(async () => {
     ({
@@ -74,11 +75,12 @@ describe('ganache e2e tests', () => {
       securityService,
       sendDepositMessage,
       sendPauseMessage,
+      levelDBService,
     } = await setupTestingModule());
   });
 
   afterEach(async () => {
-    await closeServer(server);
+    await closeServer(server, levelDBService);
   });
 
   describe('node checks', () => {
@@ -169,6 +171,9 @@ describe('ganache e2e tests', () => {
             blockHash: forkBlock.hash,
             blockNumber: forkBlock.number,
             logIndex: 1,
+            depositCount: 1,
+            depositDataRoot: new Uint8Array(),
+            index: '',
           },
         ],
         headers: {
@@ -306,6 +311,9 @@ describe('ganache e2e tests', () => {
             blockHash: forkBlock.hash,
             blockNumber: forkBlock.number,
             logIndex: 1,
+            depositCount: 1,
+            depositDataRoot: new Uint8Array(),
+            index: '',
           },
         ],
         headers: {
@@ -871,6 +879,9 @@ describe('ganache e2e tests', () => {
             blockHash: '0x123456',
             blockNumber: currentBlock.number - 1,
             logIndex: 1,
+            depositCount: 1,
+            depositDataRoot: new Uint8Array(),
+            index: '',
           },
           {
             valid: true,
@@ -882,6 +893,9 @@ describe('ganache e2e tests', () => {
             blockHash: currentBlock.hash,
             blockNumber: currentBlock.number,
             logIndex: 1,
+            depositCount: 2,
+            depositDataRoot: new Uint8Array(),
+            index: '',
           },
         ],
         headers: {

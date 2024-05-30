@@ -62,6 +62,7 @@ describe('ganache e2e tests', () => {
   let sendDepositMessage;
   let sendPauseMessage;
   let validateKeys;
+  let levelDBService;
 
   beforeEach(async () => {
     ({
@@ -76,11 +77,12 @@ describe('ganache e2e tests', () => {
       sendDepositMessage,
       sendPauseMessage,
       validateKeys,
+      levelDBService,
     } = await setupTestingModule());
   });
 
   afterEach(async () => {
-    await closeServer(server);
+    await closeServer(server, levelDBService);
   });
 
   describe('node checks', () => {

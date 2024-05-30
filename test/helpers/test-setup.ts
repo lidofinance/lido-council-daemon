@@ -29,6 +29,8 @@ import { GanacheProviderModule, ProviderService } from 'provider';
 import { WalletModule, WalletService } from 'wallet';
 import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 import { BlsService } from 'bls';
+import { LevelDBService } from 'contracts/deposit/leveldb';
+import { DepositIntegrityCheckerService } from 'contracts/deposit/integrity-checker';
 
 export const setupTestingModule = async () => {
   const server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
@@ -83,9 +85,15 @@ export const setupTestingModule = async () => {
   const keyValidator = moduleRef.get(KeyValidatorInterface);
   const securityService = moduleRef.get(SecurityService);
   const stakingModuleGuardService = moduleRef.get(StakingModuleGuardService);
+  const levelDBService = moduleRef.get(LevelDBService);
+  const depositIntegrityCheckerService = moduleRef.get(
+    DepositIntegrityCheckerService,
+  );
 
   const blsService = moduleRef.get(BlsService);
   await blsService.onModuleInit();
+
+  await levelDBService.initialize();
 
   jest
     .spyOn(lidoService, 'getWithdrawalCredentials')
@@ -100,6 +108,12 @@ export const setupTestingModule = async () => {
     .spyOn(guardianMessageService, 'sendPauseMessageV2')
     .mockImplementation(() => Promise.resolve());
   const validateKeys = jest.spyOn(keyValidator, 'validateKeys');
+  jest
+    .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
+    .mockImplementation(() => Promise.resolve());
+  jest
+    .spyOn(depositIntegrityCheckerService, 'checkFinalizedRoot')
+    .mockImplementation(() => Promise.resolve());
 
   const getFrontRunAttempts = jest.spyOn(
     stakingModuleGuardService,
@@ -123,9 +137,12 @@ export const setupTestingModule = async () => {
     sendPauseMessage,
     validateKeys,
     getFrontRunAttempts,
+    levelDBService,
   };
 };
 
-export const closeServer = async (server) => {
+export const closeServer = async (server, levelDBService) => {
   await server.close();
+  await levelDBService.deleteCache();
+  await levelDBService.close();
 };
