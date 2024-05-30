@@ -26,7 +26,6 @@ import { StakingModuleData } from './interfaces';
 import { ProviderService } from 'provider';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { MIN_KAPI_VERSION } from './guardian.constants';
-import { getDuplicatedKeys } from './duplicates/keys-duplication-checker';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -169,7 +168,6 @@ export class GuardianService implements OnModuleInit {
 
       await this.depositService.handleNewBlock(blockNumber);
 
-      // TODO: e2e test 'node operator deposit frontrun' shows that it is possible to find event and not save in cache
       const blockData = await this.blockGuardService.getCurrentBlockData({
         blockHash,
         blockNumber,
@@ -190,6 +188,7 @@ export class GuardianService implements OnModuleInit {
           operatorsByModules,
           meta,
           lidoKeys,
+          blockData,
         });
 
       const version = await this.securityService.version({
@@ -210,15 +209,6 @@ export class GuardianService implements OnModuleInit {
         });
       }
 
-      // here should be noticed that in current version we can't identify original key by date of creation
-      // so both not vetted key and vetted will be considered as duplicates currently
-      // for production it is not good
-      // and better to check only vetted keys here
-      const vettedKeys =
-        this.stakingModuleGuardService.getVettedKeys(stakingModulesData);
-
-      const duplicatedKeys = getDuplicatedKeys(vettedKeys);
-
       if (version === 3 && !alreadyPausedDeposits && theftHappened) {
         await this.stakingModuleGuardService.handlePauseV3(blockData);
       } else if (theftHappened) {
@@ -230,41 +220,6 @@ export class GuardianService implements OnModuleInit {
 
       await Promise.all(
         stakingModulesData.map(async (stakingModuleData) => {
-          const frontRunKeys =
-            this.stakingModuleGuardService.getFrontRunAttempts(
-              stakingModuleData,
-              blockData,
-            );
-
-          this.logger.log('Front-run keys', {
-            count: frontRunKeys.length,
-            stakingModuleId: stakingModuleData.stakingModuleId,
-          });
-
-          const invalidKeys =
-            await this.stakingModuleGuardService.getInvalidKeys(
-              stakingModuleData,
-              blockData,
-            );
-          this.logger.log('Invalid signature keys', {
-            count: invalidKeys.length,
-            stakingModuleId: stakingModuleData.stakingModuleId,
-          });
-
-          const moduleDuplicatedKeys = duplicatedKeys.filter(
-            (key) =>
-              key.moduleAddress === stakingModuleData.stakingModuleAddress,
-          );
-
-          this.logger.log('Duplicated keys', {
-            count: moduleDuplicatedKeys.length,
-            stakingModuleId: stakingModuleData.stakingModuleId,
-          });
-
-          stakingModuleData.invalidKeys = invalidKeys;
-          stakingModuleData.frontRunKeys = frontRunKeys;
-          stakingModuleData.duplicatedKeys = moduleDuplicatedKeys;
-
           await this.stakingModuleGuardService.handleUnvetting(
             stakingModuleData,
             blockData,

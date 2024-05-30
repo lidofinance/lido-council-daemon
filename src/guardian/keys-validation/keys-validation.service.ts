@@ -25,8 +25,6 @@ export class KeysValidationService {
   private depositDataCache: LRUCache<string, boolean>;
 
   constructor(
-    @Inject(WINSTON_MODULE_NEST_PROVIDER)
-    private readonly logger: LoggerService,
     private readonly keyValidator: KeyValidatorInterface,
     private readonly provider: ProviderService,
   ) {

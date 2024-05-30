@@ -11,7 +11,6 @@ import { LoggerModule } from 'common/logger';
 import { UnvettingModule } from './unvetting.module';
 import { PrometheusModule } from 'common/prometheus';
 import { MockProviderModule } from 'provider';
-import { resolve } from 'path';
 
 jest.mock('../../transport/stomp/stomp.client');
 

@@ -59,40 +59,42 @@ export class UnvettingService {
     blockData: BlockData,
     chunks: UnvetData[],
   ) {
-    for await (const { operatorIds, vettedKeysByOperator } of chunks) {
-      const signature = await this.securityService.signUnvetData(
-        stakingModuleData.nonce,
-        blockData.blockNumber,
-        blockData.blockHash,
-        stakingModuleId,
-        operatorIds,
-        vettedKeysByOperator,
-      );
-
-      this.securityService
-        .unvetSigningKeys(
+    await Promise.all(
+      chunks.map(async ({ operatorIds, vettedKeysByOperator }) => {
+        const signature = await this.securityService.signUnvetData(
           stakingModuleData.nonce,
           blockData.blockNumber,
           blockData.blockHash,
-          stakingModuleData.stakingModuleId,
+          stakingModuleId,
+          operatorIds,
+          vettedKeysByOperator,
+        );
+
+        await this.securityService
+          .unvetSigningKeys(
+            stakingModuleData.nonce,
+            blockData.blockNumber,
+            blockData.blockHash,
+            stakingModuleData.stakingModuleId,
+            operatorIds,
+            vettedKeysByOperator,
+            signature,
+          )
+          .catch((error) => this.logger.error(error));
+
+        await this.guardianMessageService.sendUnvetMessage({
+          nonce: stakingModuleData.nonce,
+          blockNumber: blockData.blockNumber,
+          blockHash: blockData.blockHash,
+          guardianAddress: blockData.guardianAddress,
+          guardianIndex: blockData.guardianIndex,
+          stakingModuleId: stakingModuleId,
           operatorIds,
           vettedKeysByOperator,
           signature,
-        )
-        .catch((error) => this.logger.error(error));
-
-      await this.guardianMessageService.sendUnvetMessage({
-        nonce: stakingModuleData.nonce,
-        blockNumber: blockData.blockNumber,
-        blockHash: blockData.blockHash,
-        guardianAddress: blockData.guardianAddress,
-        guardianIndex: blockData.guardianIndex,
-        stakingModuleId: stakingModuleData.stakingModuleId,
-        operatorIds,
-        vettedKeysByOperator,
-        signature,
-      });
-    }
+        });
+      }),
+    );
   }
 
   async getMaxOperatorsPerUnvetting() {
@@ -145,7 +147,7 @@ export class UnvettingService {
       (_, i) => i * maxOperatorsPerUnvetting,
     );
 
-    return chunkStartIndices.reduce((acc, startIndex) => {
+    return chunkStartIndices.reduce<UnvetData[]>((acc, startIndex) => {
       const chunk = operatorVettedPairs.slice(
         startIndex,
         startIndex + maxOperatorsPerUnvetting,
@@ -158,6 +160,6 @@ export class UnvettingService {
         ),
       });
       return acc;
-    }, [] as UnvetData[]);
+    }, []);
   }
 }

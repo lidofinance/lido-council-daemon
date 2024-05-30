@@ -9,7 +9,6 @@ import { SecurityModule, SecurityService } from 'contracts/security';
 import { RepositoryModule } from 'contracts/repository';
 import { LidoModule } from 'contracts/lido';
 import { StakingModuleGuardModule } from './staking-module-guard.module';
-import { StakingRouterModule, StakingRouterService } from 'staking-router';
 import { GuardianMetricsModule } from '../guardian-metrics';
 import {
   GuardianMessageModule,
@@ -19,6 +18,8 @@ import { StakingModuleGuardService } from './staking-module-guard.service';
 
 import { KeysValidationModule } from 'guardian/keys-validation/keys-validation.module';
 import { vettedKeys } from './keys.fixtures';
+import { KeysApiModule } from 'keys-api/keys-api.module';
+import { KeysApiService } from 'keys-api/keys-api.service';
 
 jest.mock('../../transport/stomp/stomp.client');
 
@@ -45,7 +46,7 @@ describe('StakingModuleGuardService', () => {
   let securityService: SecurityService;
   let stakingModuleGuardService: StakingModuleGuardService;
   let guardianMessageService: GuardianMessageService;
-  let stakingRouterService: StakingRouterService;
+  let keysApiService: KeysApiService;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -56,7 +57,7 @@ describe('StakingModuleGuardService', () => {
         StakingModuleGuardModule,
         SecurityModule,
         LidoModule,
-        StakingRouterModule,
+        KeysApiModule,
         GuardianMetricsModule,
         GuardianMessageModule,
         RepositoryModule,
@@ -69,14 +70,14 @@ describe('StakingModuleGuardService', () => {
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
     stakingModuleGuardService = moduleRef.get(StakingModuleGuardService);
     guardianMessageService = moduleRef.get(GuardianMessageService);
-    stakingRouterService = moduleRef.get(StakingRouterService);
+    keysApiService = moduleRef.get(KeysApiService);
 
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
     jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
     jest.spyOn(loggerService, 'debug').mockImplementation(() => undefined);
 
     jest
-      .spyOn(stakingRouterService, 'getKeysByPubkeys')
+      .spyOn(keysApiService, 'getKeysByPubkeys')
       .mockImplementation(async () => ({
         data: [],
         meta: {

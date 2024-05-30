@@ -9,11 +9,11 @@ import { GUARDIAN_DEPOSIT_RESIGNING_BLOCKS } from '../guardian.constants';
 import { GuardianMetricsService } from '../guardian-metrics';
 import { GuardianMessageService } from '../guardian-message';
 
-import { StakingRouterService } from 'staking-router';
 import { KeysValidationService } from 'guardian/keys-validation/keys-validation.service';
 import { performance } from 'perf_hooks';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { UnvettingService } from 'guardian/unvetting/unvetting.service';
+import { KeysApiService } from 'keys-api/keys-api.service';
 
 @Injectable()
 export class StakingModuleGuardService {
@@ -22,7 +22,7 @@ export class StakingModuleGuardService {
     private logger: LoggerService,
 
     private securityService: SecurityService,
-    private stakingRouterService: StakingRouterService,
+    private keysApiService: KeysApiService,
     private guardianMetricsService: GuardianMetricsService,
     private guardianMessageService: GuardianMessageService,
     private keysValidationService: KeysValidationService,
@@ -126,7 +126,7 @@ export class StakingModuleGuardService {
     // but we will pause
     // so maybe we need to filter by used field
 
-    const lidoDepositedKeys = await this.stakingRouterService.getKeysByPubkeys(
+    const lidoDepositedKeys = await this.keysApiService.getKeysByPubkeys(
       frontRunnedDepositKeys,
     );
 
