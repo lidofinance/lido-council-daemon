@@ -1,5 +1,4 @@
-import { Inject, Injectable, LoggerService } from '@nestjs/common';
-import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { Injectable } from '@nestjs/common';
 import {
   KeyValidatorInterface,
   bufferFromHexString,
