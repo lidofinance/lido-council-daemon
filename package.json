@@ -26,7 +26,7 @@
     "postinstall": "yarn typechain",
     "docker:build": "docker build -t $npm_package_config_dockerorg/$npm_package_name:$npm_package_version .",
     "docker:push": "docker push $npm_package_config_dockerorg/$npm_package_name:$npm_package_version",
-    "cache:clear": "rimraf cache"
+    "cache:clear": "rimraf cache && rimraf leveldb-cache"
   },
   "dependencies": {
     "@chainsafe/blst": "^0.2.4",
@@ -51,6 +51,7 @@
     "ethers": "^5.4.7",
     "glob": "^7.1.2",
     "kafkajs": "^1.15.0",
+    "level": "^8.0.1",
     "lru-cache": "^9.1.1",
     "nest-winston": "^1.6.1",
     "node-abort-controller": "^3.0.1",

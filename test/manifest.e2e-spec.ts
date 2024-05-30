@@ -79,6 +79,9 @@ import { LidoModule } from '../src/contracts/lido';
 import { KeysApiService } from '../src/keys-api/keys-api.service';
 import { KeysApiModule } from '../src/keys-api/keys-api.module';
 
+import { LevelDBService } from '../src/contracts/deposit/leveldb';
+import { DepositIntegrityCheckerService } from '../src/contracts/deposit/integrity-checker';
+
 import { ProviderService } from '../src/provider';
 import { GanacheProviderModule } from '../src/provider';
 
@@ -103,6 +106,7 @@ describe('ganache e2e tests', () => {
   let depositService: DepositService;
   let blsService: BlsService;
   let guardianMessageService: GuardianMessageService;
+  let levelDBService: LevelDBService;
 
   let sendDepositMessage: jest.SpyInstance;
   let sendPauseMessage: jest.SpyInstance;
@@ -113,6 +117,7 @@ describe('ganache e2e tests', () => {
   let securityService: SecurityService;
 
   let stakingModuleGuardService: StakingModuleGuardService;
+  let depositIntegrityCheckerService: DepositIntegrityCheckerService;
 
   beforeEach(async () => {
     server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
@@ -137,6 +142,8 @@ describe('ganache e2e tests', () => {
 
   afterEach(async () => {
     await server.close();
+    await levelDBService.deleteCache();
+    await levelDBService.close();
   });
 
   beforeEach(async () => {
@@ -180,10 +187,16 @@ describe('ganache e2e tests', () => {
     keyValidator = moduleRef.get(KeyValidatorInterface);
     securityService = moduleRef.get(SecurityService);
     stakingModuleGuardService = moduleRef.get(StakingModuleGuardService);
+    levelDBService = moduleRef.get(LevelDBService);
+    depositIntegrityCheckerService = moduleRef.get(
+      DepositIntegrityCheckerService,
+    );
 
     // Initializing needed service instead of the whole app
     blsService = moduleRef.get(BlsService);
     await blsService.onModuleInit();
+
+    await levelDBService.initialize();
 
     jest
       .spyOn(lidoService, 'getWithdrawalCredentials')
@@ -191,6 +204,12 @@ describe('ganache e2e tests', () => {
 
     jest
       .spyOn(guardianMessageService, 'pingMessageBroker')
+      .mockImplementation(() => Promise.resolve());
+    jest
+      .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
+      .mockImplementation(() => Promise.resolve());
+    jest
+      .spyOn(depositIntegrityCheckerService, 'checkFinalizedRoot')
       .mockImplementation(() => Promise.resolve());
     sendDepositMessage = jest
       .spyOn(guardianMessageService, 'sendDepositMessage')
@@ -291,12 +310,14 @@ describe('ganache e2e tests', () => {
             blockHash: forkBlock.hash,
             blockNumber: forkBlock.number,
             logIndex: 1,
+            depositCount: 1,
+            depositDataRoot: new Uint8Array(),
+            index: '',
           },
         ],
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
@@ -442,12 +463,14 @@ describe('ganache e2e tests', () => {
             blockHash: forkBlock.hash,
             blockNumber: forkBlock.number,
             logIndex: 1,
+            depositCount: 1,
+            depositDataRoot: new Uint8Array(),
+            index: '',
           },
         ],
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
       const originalIsDepositsPaused = securityService.isDepositsPaused;
@@ -600,7 +623,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
@@ -714,7 +736,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
@@ -835,7 +856,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
@@ -952,7 +972,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
@@ -1070,7 +1089,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
@@ -1287,7 +1305,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
@@ -1477,7 +1494,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
@@ -1563,7 +1579,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
@@ -1687,7 +1702,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: block0.number,
           endBlock: block0.number,
-          version: '1',
         },
       });
 
@@ -1749,7 +1763,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: block1.number,
           endBlock: block1.number,
-          version: '1',
         },
       });
 
@@ -1828,7 +1841,6 @@ describe('ganache e2e tests', () => {
       headers: {
         startBlock: block0.number,
         endBlock: block0.number,
-        version: '1',
       },
     });
 
@@ -1890,7 +1902,6 @@ describe('ganache e2e tests', () => {
       headers: {
         startBlock: block1.number,
         endBlock: block1.number,
-        version: '1',
       },
     });
 
@@ -1990,7 +2001,6 @@ describe('ganache e2e tests', () => {
       headers: {
         startBlock: block0.number,
         endBlock: block0.number,
-        version: '1',
       },
     });
 
@@ -2137,12 +2147,14 @@ describe('ganache e2e tests', () => {
             blockHash: forkBlock.hash,
             blockNumber: forkBlock.number,
             logIndex: 1,
+            depositCount: 1,
+            depositDataRoot: new Uint8Array(),
+            index: '',
           },
         ],
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
