@@ -5,6 +5,7 @@ import {
   DB_DIR,
   DB_DEFAULT_VALUE,
   MAX_DEPOSIT_COUNT,
+  DB_LAYER_DIR,
 } from './leveldb.constants';
 import { ProviderService } from 'provider';
 import { VerifiedDepositEvent, VerifiedDepositEventsCacheHeaders } from '..';
@@ -15,6 +16,7 @@ export class LevelDBService {
   constructor(
     private providerService: ProviderService,
     @Inject(DB_DIR) private cacheDir: string,
+    @Inject(DB_LAYER_DIR) private cacheLayerDir: string,
     @Inject(DB_DEFAULT_VALUE)
     private cacheDefaultValue: {
       data: VerifiedDepositEvent[];
@@ -49,7 +51,7 @@ export class LevelDBService {
     const chainId = await this.providerService.getChainId();
     const networkDir = `chain-${chainId}`;
 
-    return join(this.cacheDir, networkDir);
+    return join(this.cacheDir, this.cacheLayerDir, networkDir);
   }
 
   /**
