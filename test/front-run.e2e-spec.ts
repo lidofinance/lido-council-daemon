@@ -1,5 +1,3 @@
-import { Test } from '@nestjs/testing';
-
 // Global Helpers
 import { ethers } from 'ethers';
 import { fromHexString, toHexString } from '@chainsafe/ssz';
@@ -22,15 +20,12 @@ import { WeiPerEther } from '@ethersproject/constants';
 import {
   TESTS_TIMEOUT,
   SLEEP_FOR_RESULT,
-  SECURITY_MODULE,
-  SECURITY_MODULE_OWNER,
   STAKING_ROUTER,
   DEPOSIT_CONTRACT,
   GOOD_WC,
   BAD_WC,
   CHAIN_ID,
   FORK_BLOCK,
-  UNLOCKED_ACCOUNTS,
   GANACHE_PORT,
   NO_PRIVKEY_MESSAGE,
   sk,
@@ -39,13 +34,9 @@ import {
   FAKE_SIMPLE_DVT,
 } from './constants';
 
-// Ganache
-import { makeServer } from './server';
-
 // Contract Factories
 import {
   DepositAbi__factory,
-  SecurityAbi__factory,
   StakingRouterAbi__factory,
 } from './../src/generated';
 
@@ -54,35 +45,7 @@ import {
 import { DepositData } from './../src/bls/bls.containers';
 
 // App modules and services
-
-import { PrometheusModule } from '../src/common/prometheus';
-import { LoggerModule } from '../src/common/logger';
-import { ConfigModule } from '../src/common/config';
-
-import { GuardianService } from '../src/guardian';
-import { GuardianModule } from '../src/guardian';
-
-import { WalletService } from '../src/wallet';
-import { WalletModule } from '../src/wallet';
-
-import { RepositoryModule } from '../src/contracts/repository';
-
-import { DepositService } from '../src/contracts/deposit';
-import { DepositModule } from '../src/contracts/deposit';
-
-import { SecurityModule, SecurityService } from '../src/contracts/security';
-
-import { LidoService } from '../src/contracts/lido';
-import { LidoModule } from '../src/contracts/lido';
-
-import { KeysApiService } from '../src/keys-api/keys-api.service';
-import { KeysApiModule } from '../src/keys-api/keys-api.module';
-
-import { ProviderService } from '../src/provider';
-import { GanacheProviderModule } from '../src/provider';
-
-import { BlsService } from '../src/bls';
-import { GuardianMessageService } from '../src/guardian/guardian-message';
+import { setupTestingModule, closeServer } from './helpers/test-setup';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -90,105 +53,32 @@ jest.mock('../src/transport/stomp/stomp.client.ts');
 jest.setTimeout(10_000);
 
 describe('ganache e2e tests', () => {
-  let server: ReturnType<typeof makeServer>;
-
-  let providerService: ProviderService;
-  let walletService: WalletService;
-  let keysApiService: KeysApiService;
-  let guardianService: GuardianService;
-  let lidoService: LidoService;
-  let depositService: DepositService;
-  let blsService: BlsService;
-  let guardianMessageService: GuardianMessageService;
-
-  let sendDepositMessage: jest.SpyInstance;
-  let sendPauseMessage: jest.SpyInstance;
-
-  let securityService: SecurityService;
+  let server;
+  let providerService;
+  let walletService;
+  let keysApiService;
+  let guardianService;
+  let depositService;
+  let securityService;
+  let sendDepositMessage;
+  let sendPauseMessage;
 
   beforeEach(async () => {
-    server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
-    await server.listen(GANACHE_PORT);
-
-    if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
-
-    const tempProvider = new ethers.providers.JsonRpcProvider(
-      `http://127.0.0.1:${GANACHE_PORT}`,
-    );
-
-    const wallet = new ethers.Wallet(
-      process.env.WALLET_PRIVATE_KEY,
-      tempProvider,
-    );
-
-    await wallet.sendTransaction({
-      to: SECURITY_MODULE_OWNER,
-      value: ethers.utils.parseEther('2'),
-    });
+    ({
+      server,
+      providerService,
+      walletService,
+      keysApiService,
+      guardianService,
+      depositService,
+      securityService,
+      sendDepositMessage,
+      sendPauseMessage,
+    } = await setupTestingModule());
   });
 
   afterEach(async () => {
-    await server.close();
-  });
-
-  beforeEach(async () => {
-    // Prepare a signer for the unlocked Ganache account
-    if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
-    const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
-    const tempProvider = new ethers.providers.JsonRpcProvider(
-      `http://127.0.0.1:${GANACHE_PORT}`,
-    );
-    const tempSigner = tempProvider.getSigner(SECURITY_MODULE_OWNER);
-
-    // Add our address to guardians and set consensus to 1
-    const securityContract = SecurityAbi__factory.connect(
-      SECURITY_MODULE,
-      tempSigner,
-    );
-    await securityContract.functions.addGuardian(wallet.address, 1);
-
-    const moduleRef = await Test.createTestingModule({
-      imports: [
-        GanacheProviderModule.forRoot(),
-        ConfigModule.forRoot(),
-        PrometheusModule,
-        LoggerModule,
-        GuardianModule,
-        RepositoryModule,
-        WalletModule,
-        KeysApiModule,
-        LidoModule,
-        DepositModule,
-        SecurityModule,
-      ],
-    }).compile();
-
-    providerService = moduleRef.get(ProviderService);
-    walletService = moduleRef.get(WalletService);
-    keysApiService = moduleRef.get(KeysApiService);
-    guardianService = moduleRef.get(GuardianService);
-    lidoService = moduleRef.get(LidoService);
-    depositService = moduleRef.get(DepositService);
-    guardianMessageService = moduleRef.get(GuardianMessageService);
-    securityService = moduleRef.get(SecurityService);
-
-    // Initializing needed service instead of the whole app
-    blsService = moduleRef.get(BlsService);
-    await blsService.onModuleInit();
-
-    jest
-      .spyOn(lidoService, 'getWithdrawalCredentials')
-      .mockImplementation(async () => GOOD_WC);
-
-    jest
-      .spyOn(guardianMessageService, 'pingMessageBroker')
-      .mockImplementation(() => Promise.resolve());
-    sendDepositMessage = jest
-      .spyOn(guardianMessageService, 'sendDepositMessage')
-      .mockImplementation(() => Promise.resolve());
-    sendPauseMessage = jest
-      .spyOn(guardianMessageService, 'sendPauseMessageV2')
-      .mockImplementation(() => Promise.resolve());
+    await closeServer(server);
   });
 
   describe('node checks', () => {
