@@ -619,8 +619,6 @@ describe('ganache e2e tests', () => {
       expect(sendDepositMessage).toBeCalledTimes(0);
       expect(sendPauseMessage).toBeCalledTimes(0);
 
-      // TODO: here will unvet call for unused duplicated key
-
       // after deleting duplicates in staking module,
       // council will resume deposits to module
 
@@ -660,7 +658,7 @@ describe('ganache e2e tests', () => {
 
   // TODO: test('adding not vetted duplicate will not set on soft pause module')
   // that is a case that we had vetted unused keys and someone added unvetted unused key after
-  // we should define first key as original, second as duplicate, but as second key is not vetted we should filter it from filan result
+  // we should define first key as original, second as duplicate, but as second key is not vetted we should filter it from final result
   // and not set soft pause of this key
 
   test(
