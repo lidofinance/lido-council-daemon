@@ -48,6 +48,7 @@ export const eventsMock = [
 ];
 
 export const headersMock: SigningKeyEventsCacheHeaders = {
+  stakingModulesAddresses: ['0x11a93807078f8BB880c1BD0ee4C387537de4b4b6'],
   startBlock: 1591259,
   endBlock: 1593259,
 };
@@ -58,4 +59,13 @@ export const cacheMock: {
 } = {
   data: eventsMock,
   headers: headersMock,
+};
+
+export const newEvent = {
+  key: '0x81011ad6ebe5c7844e59b1799e12de769f785f66df3f63debb06149c1782d574c8c2cd9c923fa881e9dcf6d413159863',
+  operatorIndex: 1,
+  moduleAddress: '0x77b13807078f8BB880c1BD0ee4C387537de4b4b6',
+  logIndex: 1,
+  blockNumber: 1593261,
+  blockHash: '0x3',
 };

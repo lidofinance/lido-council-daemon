@@ -19,7 +19,11 @@ describe('dbService', () => {
       imports: [
         ConfigModule.forRoot(),
         MockProviderModule.forRoot(),
-        LevelDBModule.register(defaultCacheValue, 'leveldb-signing-keys-spec'),
+        LevelDBModule.register(
+          defaultCacheValue,
+          'leveldb-spec',
+          'signing-keys-spec',
+        ),
         LoggerModule,
       ],
     }).compile();

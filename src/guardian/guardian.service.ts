@@ -93,6 +93,7 @@ export class GuardianService implements OnModuleInit {
         // The event cache is stored with an N block lag to avoid caching data from uncle blocks
         // so we don't worry about blockHash here
         await this.depositService.updateEventsCache();
+        await this.signingKeyEventsCacheService.updateEventsCache();
 
         this.subscribeToModulesUpdates();
       } catch (error) {

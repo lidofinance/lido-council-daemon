@@ -98,9 +98,7 @@ export class RepositoryService {
   /**
    * Get Node Operator Registry contract impl
    */
-  public getCachedStakingModulesContracts(): Readonly<
-    Record<string, StakingModule>
-  > {
+  public getCachedStakingModulesContracts(): Record<string, StakingModule> {
     return this.stakingModulesCache;
   }
 

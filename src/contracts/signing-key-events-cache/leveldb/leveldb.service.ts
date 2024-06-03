@@ -120,6 +120,27 @@ export class LevelDBService {
     }
   }
 
+  /** Get header
+   * @returns {Promise<{ headers: SigningKeyEventsCacheHeaders}>} Cache  headers.
+   * @public
+   */
+  public async getHeader(): Promise<{
+    headers: SigningKeyEventsCacheHeaders;
+  }> {
+    try {
+      const headers: SigningKeyEventsCacheHeaders = JSON.parse(
+        await this.db.get('headers'),
+      );
+
+      return {
+        headers,
+      };
+    } catch (error: any) {
+      if (error.code === 'LEVEL_NOT_FOUND') return this.cacheDefaultValue;
+      throw error;
+    }
+  }
+
   /**
    * Generates a signing key event key for storage.
    */

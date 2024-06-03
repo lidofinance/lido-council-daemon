@@ -7,7 +7,10 @@ import {
   SigningKeyEventsGroup,
 } from './interfaces/event.interface';
 import { LevelDBService } from './leveldb';
-import { SigningKeyEventsCache } from './interfaces/cache.interface';
+import {
+  SigningKeyEventsCache,
+  SigningKeyEventsCacheHeaders,
+} from './interfaces/cache.interface';
 import {
   CURATED_MODULE_DEPLOYMENT_BLOCK_NETWORK,
   FETCHING_EVENTS_STEP,
@@ -26,10 +29,15 @@ export class SigningKeyEventsCacheService {
   ) {}
 
   public async handleNewBlock(blockNumber): Promise<void> {
-    // update for every SIGNING_KEY_EVENTS_CACHE_UPDATE_BLOCK_RATE block
-    if (blockNumber % SIGNING_KEY_EVENTS_CACHE_UPDATE_BLOCK_RATE !== 0) return;
-
-    await this.updateEventsCache();
+    const wasUpdated = await this.stakingModuleListWasUpdated();
+    if (wasUpdated) {
+      this.logger.log('Staking module list was updated. Deleting cache');
+      this.levelDBCacheService.deleteCache();
+      await this.updateEventsCache();
+    } else if (blockNumber % SIGNING_KEY_EVENTS_CACHE_UPDATE_BLOCK_RATE === 0) {
+      // update for every SIGNING_KEY_EVENTS_CACHE_UPDATE_BLOCK_RATE block
+      await this.updateEventsCache();
+    }
   }
 
   public async initialize(blockNumber) {
@@ -42,6 +50,12 @@ export class SigningKeyEventsCacheService {
 
     if (!isCacheValid) {
       process.exit(1);
+    }
+
+    const wasUpdated = await this.stakingModuleListWasUpdated();
+    if (wasUpdated) {
+      this.logger.log('Staking module list was updated. Deleting cache');
+      this.levelDBCacheService.deleteCache();
     }
 
     await this.updateEventsCache();
@@ -81,6 +95,8 @@ export class SigningKeyEventsCacheService {
       await this.levelDBCacheService.insertEventsCacheBatch({
         headers: {
           ...initialCache.headers,
+          // as we update staking modules addresses always before run of this method, we can update value on every iteration
+          stakingModulesAddresses: chunkEventGroup.stakingModulesAddresses,
           endBlock: chunkEventGroup.endBlock,
         },
         data: chunkEventGroup.events,
@@ -106,6 +122,39 @@ export class SigningKeyEventsCacheService {
     });
 
     return toBlock;
+  }
+
+  public async stakingModuleListWasUpdated(): Promise<boolean> {
+    const currentModules = await this.getStakingModules();
+    const {
+      headers: { stakingModulesAddresses: previousModules },
+    } = await this.levelDBCacheService.getHeader();
+
+    const isDifferentLength = currentModules.length !== previousModules.length;
+    const hasNewModules = currentModules.some(
+      (module) => !previousModules.includes(module),
+    );
+
+    const wasUpdated = isDifferentLength || hasNewModules;
+
+    if (wasUpdated) {
+      this.logger.warn(
+        'Staking module list was changed. Need to clear and update cache',
+        {
+          previousModules,
+          currentModules,
+        },
+      );
+    }
+
+    return wasUpdated;
+  }
+
+  private async getStakingModules(): Promise<string[]> {
+    const stakingModulesContracts =
+      await this.repositoryService.getCachedStakingModulesContracts();
+
+    return Object.keys(stakingModulesContracts);
   }
 
   /**
@@ -140,6 +189,8 @@ export class SigningKeyEventsCacheService {
       await this.repositoryService.getCachedStakingModulesContracts();
 
     const events: SigningKeyEvent[] = [];
+
+    const stakingModulesAddresses = Object.keys(stakingModulesContracts);
 
     await Promise.all(
       Object.entries(stakingModulesContracts).map(
@@ -176,7 +227,7 @@ export class SigningKeyEventsCacheService {
       ),
     );
 
-    return { events, startBlock, endBlock };
+    return { events, stakingModulesAddresses, startBlock, endBlock };
   }
 
   /**
@@ -224,7 +275,7 @@ export class SigningKeyEventsCacheService {
     if (!isCacheValid) process.exit(1);
 
     const firstNotCachedBlock = cachedEvents.headers.endBlock + 1;
-    // TODO: if blockNumber == cachedEvents.headers.endBlock, than firstNotCachedBlock > endBlock
+
     const freshEventGroup = await this.fetchEventsFallOver(
       firstNotCachedBlock,
       endBlock,
@@ -251,6 +302,7 @@ export class SigningKeyEventsCacheService {
 
     return {
       events: mergedEvents,
+      stakingModulesAddresses: cachedEvents.headers.stakingModulesAddresses,
       startBlock: cachedEvents.headers.startBlock,
       endBlock,
     };
