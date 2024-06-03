@@ -267,6 +267,9 @@ export class RepositoryService {
           );
           return;
         }
+
+        this.logger.error(new Error(`Staking Module type ${type} is unknown`));
+        process.exit(1);
       }),
     );
   }

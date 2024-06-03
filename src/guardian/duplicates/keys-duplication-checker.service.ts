@@ -30,15 +30,12 @@ export class KeysDuplicationCheckerService {
     blockData: BlockData,
   ): Promise<RegistryKey[]> {
     // List of all duplicates
-    // First element of subarrays is a key, second - all it's occurrences
-    const duplicatedKeys: [string, RegistryKey[]][] =
-      this.findDuplicateKeys(keys);
+    // First element of sub-arrays is a key, second - all it's occurrences
+    const duplicatedKeys = this.findDuplicateKeys(keys);
     const duplicates: RegistryKey[] = [];
 
     for (const [key, occurrences] of duplicatedKeys) {
-      const operators = new Set(
-        occurrences.map((key) => `${key.moduleAddress}-${key.operatorIndex}`),
-      );
+      const operators = this.extractOperators(occurrences);
 
       // Case: Duplicates across one operator
       if (operators.size == 1) {
@@ -49,38 +46,19 @@ export class KeysDuplicationCheckerService {
 
       // Case: Deposited keys
       if (occurrences.some((key) => key.used)) {
-        duplicates.push(...this.filterNonDepositedKeys(occurrences));
+        duplicates.push(...occurrences.filter((key) => !key.used));
         continue;
       }
 
       // Case: Duplicates across multiple operators
-      const events = await this.fetchSigningKeyEvents(key, blockData);
-      const originalEvent = this.findOriginalEvent(events);
-
-      this.checkMissingOperators(operators, events, blockData); // Sanity check for operator events
-
-      // Case: owner of original key has duplicated keys
-      const keyOwnerKeys = occurrences.filter(
-        (key) =>
-          key.moduleAddress === originalEvent.moduleAddress &&
-          key.operatorIndex === originalEvent.operatorIndex,
-      );
-
-      const originalKey = this.findOriginalKeyWithinOperator(keyOwnerKeys);
-
-      this.logger.log('Original key is', {
-        ...{
-          originalKey,
-          createBlockNumber: originalEvent.blockNumber,
-          createBlockHash: originalEvent.blockHash,
-          createLogINdex: originalEvent.logIndex,
-        },
-        currentBlockNumber: blockData.blockNumber,
-        currentBlockhash: blockData.blockHash,
-      });
 
       duplicates.push(
-        ...occurrences.filter((k) => !this.isSameKey(k, originalKey)),
+        ...(await this.getDuplicatesAcrossFewOperators(
+          key,
+          occurrences,
+          operators,
+          blockData,
+        )),
       );
     }
     return duplicates;
@@ -100,8 +78,18 @@ export class KeysDuplicationCheckerService {
     );
   }
 
-  private filterNonDepositedKeys(occurrences: RegistryKey[]): RegistryKey[] {
-    return occurrences.filter((key) => !key.used);
+  private extractOperators(occurrences: RegistryKey[]): Set<string> {
+    return new Set(
+      occurrences.map((key) => `${key.moduleAddress}-${key.operatorIndex}`),
+    );
+  }
+
+  private findDuplicatesWithinOperator(
+    operatorKeys: RegistryKey[],
+  ): RegistryKey[] {
+    // Assuming keys belong to a single operator
+    const originalKey = this.findOriginalKeyWithinOperator(operatorKeys);
+    return operatorKeys.filter((key) => key.index !== originalKey.index);
   }
 
   private findOriginalKeyWithinOperator(
@@ -113,12 +101,29 @@ export class KeysDuplicationCheckerService {
     );
   }
 
-  private findDuplicatesWithinOperator(
-    operatorKeys: RegistryKey[],
-  ): RegistryKey[] {
-    // Assuming keys belong to a single operator
-    const originalKey = this.findOriginalKeyWithinOperator(operatorKeys);
-    return operatorKeys.filter((key) => key.index !== originalKey.index);
+  private async getDuplicatesAcrossFewOperators(
+    key: string,
+    occurrences: RegistryKey[],
+    operators: Set<string>,
+    blockData: BlockData,
+  ) {
+    const events = await this.fetchSigningKeyEvents(key, blockData);
+    this.checkOperatorsWithMissingEvents(operators, events, blockData); // Sanity check for operator events
+    const originalEvent = this.findOriginalEvent(events);
+    const originalKey = this.findOriginalKey(occurrences, originalEvent);
+
+    this.logger.log('Original key is', {
+      ...{
+        originalKey,
+        createBlockNumber: originalEvent.blockNumber,
+        createBlockHash: originalEvent.blockHash,
+        createLogINdex: originalEvent.logIndex,
+      },
+      currentBlockNumber: blockData.blockNumber,
+      currentBlockHash: blockData.blockHash,
+    });
+
+    return occurrences.filter((k) => !this.isSameKey(k, originalKey));
   }
 
   private async fetchSigningKeyEvents(
@@ -134,7 +139,7 @@ export class KeysDuplicationCheckerService {
     return events;
   }
 
-  private findOriginalEvent(events: any[]): any {
+  private findOriginalEvent(events: SigningKeyEvent[]): SigningKeyEvent {
     return events.reduce(
       (prev, curr) =>
         prev.blockNumber < curr.blockNumber ||
@@ -145,12 +150,24 @@ export class KeysDuplicationCheckerService {
     );
   }
 
+  private findOriginalKey(
+    occurrences: RegistryKey[],
+    originalEvent: SigningKeyEvent,
+  ): RegistryKey {
+    const keyOwnerKeys = occurrences.filter(
+      (key) =>
+        key.moduleAddress === originalEvent.moduleAddress &&
+        key.operatorIndex === originalEvent.operatorIndex,
+    );
+    return this.findOriginalKeyWithinOperator(keyOwnerKeys);
+  }
+
   /**
    * Sanity check to ensure all operators have corresponding events.
    */
-  private checkMissingOperators(
+  private checkOperatorsWithMissingEvents(
     operators: Set<string>,
-    events: any[],
+    events: SigningKeyEvent[],
     blockData: BlockData,
   ) {
     const eventOperators = new Set(
@@ -164,7 +181,7 @@ export class KeysDuplicationCheckerService {
       this.logger.error('Missing events for operators', {
         missingOperators,
         currentBlockNumber: blockData.blockNumber,
-        currentBlockhash: blockData.blockHash,
+        currentBlockHash: blockData.blockHash,
       });
       throw new Error('Missing events for some operators');
     }
