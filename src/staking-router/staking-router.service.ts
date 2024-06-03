@@ -1,22 +1,22 @@
 import { Injectable, LoggerService, Inject } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { Configuration } from 'common/config';
-import { KeysApiService } from 'keys-api/keys-api.service';
-import { StakingModuleData } from 'guardian';
+import { StakingModuleData, BlockData } from 'guardian';
 import { getVettedUnusedKeys } from './vetted-keys';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
 import { Meta } from 'keys-api/interfaces/Meta';
 import { SROperatorListWithModule } from 'keys-api/interfaces/SROperatorListWithModule';
 import { SecurityService } from 'contracts/security';
+import { StakingModuleGuardService } from 'guardian/staking-module-guard';
+import { KeysDuplicationCheckerService } from 'guardian/duplicates';
 
 @Injectable()
 export class StakingRouterService {
   constructor(
-    @Inject(WINSTON_MODULE_NEST_PROVIDER) protected logger: LoggerService,
-    protected readonly config: Configuration,
-    protected readonly keysApiService: KeysApiService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private securityService: SecurityService,
+    private stakingModuleGuardService: StakingModuleGuardService,
+    private keysDuplicationCheckerService: KeysDuplicationCheckerService,
   ) {}
 
   /**
@@ -26,12 +26,14 @@ export class StakingRouterService {
     operatorsByModules,
     meta,
     lidoKeys,
+    blockData,
   }: {
     operatorsByModules: SROperatorListWithModule[];
     meta: Meta;
     lidoKeys: RegistryKey[];
+    blockData: BlockData;
   }): Promise<StakingModuleData[]> {
-    const stakingModulesData = await Promise.all(
+    const stakingModulesData: StakingModuleData[] = await Promise.all(
       operatorsByModules.map(async ({ operators, module: stakingModule }) => {
         const unusedKeys = lidoKeys.filter(
           (key) =>
@@ -65,7 +67,79 @@ export class StakingRouterService {
       }),
     );
 
+    const duplicatedKeys =
+      await this.keysDuplicationCheckerService.getDuplicatedKeys(
+        lidoKeys,
+        blockData,
+      );
+
+    await Promise.all(
+      stakingModulesData.map(async (stakingModuleData) => {
+        const frontRunKeys = this.stakingModuleGuardService.getFrontRunAttempts(
+          stakingModuleData,
+          blockData,
+        );
+
+        stakingModuleData.frontRunKeys = frontRunKeys;
+
+        this.logger.log('Front-run keys', {
+          count: frontRunKeys.length,
+          stakingModuleId: stakingModuleData.stakingModuleId,
+          blockNumber: meta.elBlockSnapshot.blockNumber,
+        });
+
+        const invalidKeys = await this.stakingModuleGuardService.getInvalidKeys(
+          stakingModuleData,
+          blockData,
+        );
+
+        this.logger.log('Invalid signature keys', {
+          count: invalidKeys.length,
+          stakingModuleId: stakingModuleData.stakingModuleId,
+          blockNumber: meta.elBlockSnapshot.blockNumber,
+        });
+
+        stakingModuleData.invalidKeys = invalidKeys;
+
+        const moduleDuplicatedVettedUnusedKeys =
+          this.filterModuleNotVettedUnusedKeys(
+            stakingModuleData.stakingModuleAddress,
+            stakingModuleData.vettedUnusedKeys,
+            duplicatedKeys,
+          );
+
+        this.logger.log('Duplicated keys', {
+          count: moduleDuplicatedVettedUnusedKeys.length,
+          stakingModuleId: stakingModuleData.stakingModuleId,
+          blockNumber: meta.elBlockSnapshot.blockNumber,
+        });
+
+        stakingModuleData.duplicatedKeys = moduleDuplicatedVettedUnusedKeys;
+      }),
+    );
+
     return stakingModulesData;
+  }
+
+  /**
+   * filter from the list all keys that are not vetted as unused
+   */
+  private filterModuleNotVettedUnusedKeys(
+    stakingModuleAddress: string,
+    vettedUnusedKeys: RegistryKey[],
+    keys: RegistryKey[],
+  ) {
+    const vettedUnused = keys
+      .filter((key) => key.moduleAddress === stakingModuleAddress)
+      .filter((key) => {
+        const r = vettedUnusedKeys.some(
+          (k) => k.index == key.index && k.operatorIndex == key.operatorIndex,
+        );
+
+        return r;
+      });
+
+    return vettedUnused;
   }
 
   public isEqualLastChangedBlockHash(
@@ -80,9 +154,5 @@ export class StakingRouterService {
 
       throw new InconsistentLastChangedBlockHash();
     }
-  }
-
-  public async getKeysByPubkeys(pubkeys: string[]) {
-    return await this.keysApiService.getKeysByPubkeys(pubkeys);
   }
 }

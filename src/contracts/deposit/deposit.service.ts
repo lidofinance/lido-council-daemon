@@ -11,16 +11,16 @@ import {
 } from './deposit.constants';
 import {
   DepositEvent,
-  VerifiedDepositEvent,
   VerifiedDepositEventsCache,
-  VerifiedDepositEventsCacheHeaders,
   VerifiedDepositEventGroup,
 } from './interfaces';
 import { RepositoryService } from 'contracts/repository';
-import { CacheService } from 'cache';
 import { BlockTag } from 'provider';
 import { BlsService } from 'bls';
-import { APP_VERSION } from 'app.constants';
+import { DepositIntegrityCheckerService } from './integrity-checker';
+import { parseLittleEndian64 } from './deposit.utils';
+import { DepositTree } from './deposit-tree';
+import { LevelDBService } from './leveldb';
 
 @Injectable()
 export class DepositService {
@@ -28,11 +28,10 @@ export class DepositService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
     private repositoryService: RepositoryService,
-    private cacheService: CacheService<
-      VerifiedDepositEventsCacheHeaders,
-      VerifiedDepositEvent
-    >,
+
     private blsService: BlsService,
+    private depositIntegrityCheckerService: DepositIntegrityCheckerService,
+    private levelDBCacheService: LevelDBService,
   ) {}
 
   public async handleNewBlock(blockNumber: number): Promise<void> {
@@ -40,21 +39,24 @@ export class DepositService {
 
     // The event cache is stored with an N block lag to avoid caching data from uncle blocks
     // so we don't worry about blockHash here
-    await this.updateEventsCache();
+    const toBlockNumber = await this.updateEventsCache();
+    await this.depositIntegrityCheckerService.checkFinalizedRoot(toBlockNumber);
   }
 
   public async initialize(blockNumber: number) {
-    const cachedEvents = await this.getCachedEvents();
+    await this.levelDBCacheService.initialize();
+
+    const cachedEvents = await this.levelDBCacheService.getEventsCache();
     const isCacheValid = this.validateCache(cachedEvents, blockNumber);
 
-    if (isCacheValid) return;
-
-    try {
-      await this.deleteCachedEvents();
-    } catch (error) {
-      this.logger.error(error);
+    if (!isCacheValid) {
       process.exit(1);
     }
+    await this.depositIntegrityCheckerService.initialize(cachedEvents);
+    // it is necessary to load fresh events before integrity check
+    // because we can only compare roots of the last 128 blocks.
+    const toBlockNumber = await this.updateEventsCache();
+    await this.depositIntegrityCheckerService.checkFinalizedRoot(toBlockNumber);
   }
 
   /**
@@ -67,42 +69,7 @@ export class DepositService {
     cachedEvents: VerifiedDepositEventsCache,
     currentBlock: number,
   ): boolean {
-    return (
-      this.validateCacheBlock(cachedEvents, currentBlock) &&
-      this.validateCacheVersion(cachedEvents)
-    );
-  }
-
-  /**
-   * Validates app version in the cache
-   * @param cachedEvents - cached events
-   * @returns true if cached app version is the same
-   */
-  public validateCacheVersion(
-    cachedEvents: VerifiedDepositEventsCache,
-  ): boolean {
-    const isSameVersion = cachedEvents.headers.version === APP_VERSION;
-
-    const versions = {
-      cachedVersion: cachedEvents.headers.version,
-      currentVersion: APP_VERSION,
-    };
-
-    if (isSameVersion) {
-      this.logger.log(
-        'Deposit events cache version matches the application version',
-        versions,
-      );
-    }
-
-    if (!isSameVersion) {
-      this.logger.warn(
-        'Deposit events cache does not match the application version, clearing the cache',
-        versions,
-      );
-    }
-
-    return isSameVersion;
+    return this.validateCacheBlock(cachedEvents, currentBlock);
   }
 
   /**
@@ -149,7 +116,23 @@ export class DepositService {
       blockHash,
       logIndex,
     } = rawEvent;
-    const { withdrawal_credentials: wc, pubkey, amount, signature } = args;
+    const {
+      withdrawal_credentials: wc,
+      pubkey,
+      amount,
+      signature,
+      index,
+      ...rest
+    } = args;
+
+    const depositCount = rest['4'];
+
+    const depositDataRoot = DepositTree.formDepositNode({
+      pubkey,
+      wc,
+      signature,
+      amount,
+    });
 
     return {
       pubkey,
@@ -160,6 +143,9 @@ export class DepositService {
       blockNumber,
       blockHash,
       logIndex,
+      index,
+      depositCount: parseLittleEndian64(depositCount),
+      depositDataRoot,
     };
   }
 
@@ -177,7 +163,8 @@ export class DepositService {
    * @returns event group
    */
   public async getCachedEvents(): Promise<VerifiedDepositEventsCache> {
-    const { headers, ...rest } = await this.cacheService.getCache();
+    const { headers, ...rest } =
+      await this.levelDBCacheService.getEventsCache();
     const deploymentBlock = await this.getDeploymentBlockByNetwork();
 
     return {
@@ -196,21 +183,13 @@ export class DepositService {
   public async setCachedEvents(
     cachedEvents: VerifiedDepositEventsCache,
   ): Promise<void> {
-    return await this.cacheService.setCache({
+    await this.levelDBCacheService.deleteCache();
+    await this.levelDBCacheService.insertEventsCacheBatch({
       ...cachedEvents,
       headers: {
         ...cachedEvents.headers,
-        version: APP_VERSION,
       },
     });
-  }
-
-  /**
-   * Delete deposited events cache
-   */
-  public async deleteCachedEvents(): Promise<void> {
-    await this.cacheService.deleteCache();
-    this.logger.warn('Deposit events cache cleared');
   }
 
   /**
@@ -257,7 +236,7 @@ export class DepositService {
    * Updates the cache deposited events
    * The last N blocks are not stored, in order to avoid storing reorganized blocks
    */
-  public async updateEventsCache(): Promise<void> {
+  public async updateEventsCache(): Promise<number> {
     const fetchTimeStart = performance.now();
 
     const [currentBlock, initialCache] = await Promise.all([
@@ -265,12 +244,11 @@ export class DepositService {
       this.getCachedEvents(),
     ]);
 
-    const updatedCachedEvents = {
-      headers: { ...initialCache.headers },
-      data: [...initialCache.data],
-    };
     const firstNotCachedBlock = initialCache.headers.endBlock + 1;
     const toBlock = currentBlock - DEPOSIT_EVENTS_CACHE_LAG_BLOCKS;
+
+    const totalEventsCount = initialCache.data.length;
+    let newEventsCount = 0;
 
     for (
       let block = firstNotCachedBlock;
@@ -285,34 +263,38 @@ export class DepositService {
         chunkToBlock,
       );
 
-      updatedCachedEvents.headers.endBlock = chunkEventGroup.endBlock;
-      updatedCachedEvents.data = updatedCachedEvents.data.concat(
+      await this.levelDBCacheService.insertEventsCacheBatch({
+        headers: {
+          ...initialCache.headers,
+          endBlock: chunkEventGroup.endBlock,
+        },
+        data: chunkEventGroup.events,
+      });
+
+      await this.depositIntegrityCheckerService.putFinalizedEvents(
         chunkEventGroup.events,
       );
+
+      newEventsCount += chunkEventGroup.events.length;
 
       this.logger.log('Historical events are fetched', {
         toBlock,
         startBlock: chunkStartBlock,
         endBlock: chunkToBlock,
-        events: updatedCachedEvents.data.length,
       });
-
-      await this.setCachedEvents(updatedCachedEvents);
     }
-
-    const totalEvents = updatedCachedEvents.data.length;
-    const newEvents = totalEvents - initialCache.data.length;
 
     const fetchTimeEnd = performance.now();
     const fetchTime = Math.ceil(fetchTimeEnd - fetchTimeStart) / 1000;
-
     // TODO: replace timer with metric
 
     this.logger.log('Deposit events cache is updated', {
-      newEvents,
-      totalEvents,
+      newEventsCount,
+      totalEventsCount: totalEventsCount + newEventsCount,
       fetchTime,
     });
+
+    return toBlock;
   }
 
   /**
@@ -349,6 +331,11 @@ export class DepositService {
     });
 
     const mergedEvents = cachedEvents.data.concat(freshEvents);
+
+    await this.depositIntegrityCheckerService.checkLatestRoot(
+      blockNumber,
+      freshEvents,
+    );
 
     return {
       events: mergedEvents,

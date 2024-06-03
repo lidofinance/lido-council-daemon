@@ -75,7 +75,6 @@ describe('UnvettingService', () => {
       ];
 
       expect(result).toEqual(expected);
-      expect(service.getNewVettedAmountV1(mockKeys, 2)).toEqual(expected);
     });
 
     it('should correctly pack chunks when maxOperatorsPerUnvetting is 2 with 4 operators', () => {
@@ -95,7 +94,6 @@ describe('UnvettingService', () => {
       ];
 
       expect(result).toEqual(expected);
-      expect(service.getNewVettedAmountV1(mockKeys2, 2)).toEqual(expected);
     });
   });
 
@@ -126,6 +124,8 @@ describe('UnvettingService', () => {
       } as any;
 
       await service.handleUnvetting(stakingModuleData, blockData);
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
       expect(unvetSigningKeysMock).toBeCalledTimes(2);
       expect(unvetSigningKeysMock).toBeCalledWith(
@@ -201,6 +201,8 @@ describe('UnvettingService', () => {
       } as any;
 
       await service.handleUnvetting(stakingModuleData, blockData);
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
       expect(unvetSigningKeysMock).toBeCalledTimes(2);
       expect(unvetSigningKeysMock).toBeCalledWith(

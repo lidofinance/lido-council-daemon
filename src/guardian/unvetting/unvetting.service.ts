@@ -5,6 +5,9 @@ import { BlockData, StakingModuleData } from 'guardian/interfaces';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { packNodeOperatorIds, packVettedSigningKeysCounts } from './bytes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { OneAtTime, StakingModuleId } from 'common/decorators';
+
+type UnvetData = { operatorIds: string; vettedKeysByOperator: string };
 
 @Injectable()
 export class UnvettingService {
@@ -15,7 +18,7 @@ export class UnvettingService {
   ) {}
 
   /**
-   *
+   * Unvet invalid, duplicated, front-runned keys. Sending transaction in Security contract, sending messages in broker
    */
   async handleUnvetting(
     stakingModuleData: StakingModuleData,
@@ -41,40 +44,57 @@ export class UnvettingService {
       maxOperatorsPerUnvetting,
     );
 
-    for await (const { operatorIds, vettedKeysByOperator } of chunks) {
-      const signature = await this.securityService.signUnvetData(
-        stakingModuleData.nonce,
-        blockData.blockNumber,
-        blockData.blockHash,
-        stakingModuleData.stakingModuleId,
-        operatorIds,
-        vettedKeysByOperator,
-      );
+    this.unvetSignKeysChunk(
+      stakingModuleData,
+      stakingModuleData.stakingModuleId,
+      blockData,
+      chunks,
+    ).catch((error) => this.logger.error(error));
+  }
 
-      this.securityService
-        .unvetSigningKeys(
+  @OneAtTime()
+  async unvetSignKeysChunk(
+    stakingModuleData: StakingModuleData,
+    @StakingModuleId stakingModuleId: number,
+    blockData: BlockData,
+    chunks: UnvetData[],
+  ) {
+    await Promise.all(
+      chunks.map(async ({ operatorIds, vettedKeysByOperator }) => {
+        const signature = await this.securityService.signUnvetData(
           stakingModuleData.nonce,
           blockData.blockNumber,
           blockData.blockHash,
-          stakingModuleData.stakingModuleId,
+          stakingModuleId,
+          operatorIds,
+          vettedKeysByOperator,
+        );
+
+        await this.securityService
+          .unvetSigningKeys(
+            stakingModuleData.nonce,
+            blockData.blockNumber,
+            blockData.blockHash,
+            stakingModuleData.stakingModuleId,
+            operatorIds,
+            vettedKeysByOperator,
+            signature,
+          )
+          .catch((error) => this.logger.error(error));
+
+        await this.guardianMessageService.sendUnvetMessage({
+          nonce: stakingModuleData.nonce,
+          blockNumber: blockData.blockNumber,
+          blockHash: blockData.blockHash,
+          guardianAddress: blockData.guardianAddress,
+          guardianIndex: blockData.guardianIndex,
+          stakingModuleId: stakingModuleId,
           operatorIds,
           vettedKeysByOperator,
           signature,
-        )
-        .catch((error) => this.logger.error(error));
-
-      await this.guardianMessageService.sendUnvetMessage({
-        nonce: stakingModuleData.nonce,
-        blockNumber: blockData.blockNumber,
-        blockHash: blockData.blockHash,
-        guardianAddress: blockData.guardianAddress,
-        guardianIndex: blockData.guardianIndex,
-        stakingModuleId: stakingModuleData.stakingModuleId,
-        operatorIds,
-        vettedKeysByOperator,
-        signature,
-      });
-    }
+        });
+      }),
+    );
   }
 
   async getMaxOperatorsPerUnvetting() {
@@ -84,7 +104,7 @@ export class UnvettingService {
   getNewVettedAmount(
     keysForUnvetting: RegistryKey[],
     maxOperatorsPerUnvetting: number,
-  ): { operatorIds: string; vettedKeysByOperator: string }[] {
+  ): UnvetData[] {
     const operatorNewVettedAmount = this.findNewVettedAmount(keysForUnvetting);
     return this.packByChunks(operatorNewVettedAmount, maxOperatorsPerUnvetting);
   }
@@ -115,7 +135,7 @@ export class UnvettingService {
   packByChunks(
     operatorNewVettedAmount: Map<number, number>,
     maxOperatorsPerUnvetting: number,
-  ): { operatorIds: string; vettedKeysByOperator: string }[] {
+  ): UnvetData[] {
     const operatorVettedPairs = Array.from(operatorNewVettedAmount.entries());
 
     const chunksAmount = Math.ceil(
@@ -127,7 +147,7 @@ export class UnvettingService {
       (_, i) => i * maxOperatorsPerUnvetting,
     );
 
-    return chunkStartIndices.reduce((acc, startIndex) => {
+    return chunkStartIndices.reduce<UnvetData[]>((acc, startIndex) => {
       const chunk = operatorVettedPairs.slice(
         startIndex,
         startIndex + maxOperatorsPerUnvetting,
@@ -140,49 +160,6 @@ export class UnvettingService {
         ),
       });
       return acc;
-    }, [] as { operatorIds: string; vettedKeysByOperator: string }[]);
-  }
-
-  getNewVettedAmountV1(
-    keysForUnvetting: RegistryKey[],
-    maxOperatorsPerUnvetting: number,
-  ): {
-    operatorIds: string;
-    vettedKeysByOperator: string;
-  }[] {
-    const operatorNewVettedAmount = new Map<number, number>();
-
-    keysForUnvetting.forEach(({ operatorIndex, index }) => {
-      // vettedAmount is the smallest index of keys in list
-      const vettedAmount = operatorNewVettedAmount.get(operatorIndex);
-      if (vettedAmount === undefined || vettedAmount > index) {
-        operatorNewVettedAmount.set(operatorIndex, index);
-      }
-    });
-
-    const operatorIds = Array.from(operatorNewVettedAmount.keys());
-    const vettedKeysByOperator = Array.from(operatorNewVettedAmount.values());
-
-    const chunks: { operatorIds: string; vettedKeysByOperator: string }[] = [];
-    for (let i = 0; i < operatorIds.length; i += maxOperatorsPerUnvetting) {
-      const chunkOperatorIds = operatorIds.slice(
-        i,
-        i + maxOperatorsPerUnvetting,
-      );
-
-      const chunkVettedKeysByOperator = vettedKeysByOperator.slice(
-        i,
-        i + maxOperatorsPerUnvetting,
-      );
-
-      chunks.push({
-        operatorIds: packNodeOperatorIds(chunkOperatorIds),
-        vettedKeysByOperator: packVettedSigningKeysCounts(
-          chunkVettedKeysByOperator,
-        ),
-      });
-    }
-
-    return chunks;
+    }, []);
   }
 }

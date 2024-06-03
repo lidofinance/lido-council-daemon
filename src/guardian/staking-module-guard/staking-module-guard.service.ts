@@ -9,11 +9,11 @@ import { GUARDIAN_DEPOSIT_RESIGNING_BLOCKS } from '../guardian.constants';
 import { GuardianMetricsService } from '../guardian-metrics';
 import { GuardianMessageService } from '../guardian-message';
 
-import { StakingRouterService } from 'staking-router';
 import { KeysValidationService } from 'guardian/keys-validation/keys-validation.service';
 import { performance } from 'perf_hooks';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { UnvettingService } from 'guardian/unvetting/unvetting.service';
+import { KeysApiService } from 'keys-api/keys-api.service';
 
 @Injectable()
 export class StakingModuleGuardService {
@@ -22,7 +22,7 @@ export class StakingModuleGuardService {
     private logger: LoggerService,
 
     private securityService: SecurityService,
-    private stakingRouterService: StakingRouterService,
+    private keysApiService: KeysApiService,
     private guardianMetricsService: GuardianMetricsService,
     private guardianMessageService: GuardianMessageService,
     private keysValidationService: KeysValidationService,
@@ -126,7 +126,7 @@ export class StakingModuleGuardService {
     // but we will pause
     // so maybe we need to filter by used field
 
-    const lidoDepositedKeys = await this.stakingRouterService.getKeysByPubkeys(
+    const lidoDepositedKeys = await this.keysApiService.getKeysByPubkeys(
       frontRunnedDepositKeys,
     );
 
@@ -137,31 +137,6 @@ export class StakingModuleGuardService {
     }
 
     return !!isLidoDepositedKeys;
-  }
-
-  /**
-   * filter from the list all keys that are not vetted as unused
-   */
-  public filterNotVettedUnusedKeys(
-    stakingModuleData: StakingModuleData,
-    keys: RegistryKey[],
-  ) {
-    // maybe name them everywhere waitingDepositKeys
-    const vettedUnusedKeys = stakingModuleData.vettedUnusedKeys;
-
-    const vettedUnused = keys.filter((key) => {
-      const r = vettedUnusedKeys.some(
-        (k) =>
-          k.index == key.index &&
-          k.operatorIndex == key.operatorIndex &&
-          // extra check
-          k.key == key.key,
-      );
-
-      return r;
-    });
-
-    return vettedUnused;
   }
 
   public async alreadyPausedDeposits(blockData: BlockData, version: number) {
@@ -281,16 +256,7 @@ export class StakingModuleGuardService {
     );
   }
 
-  public async pauseDepositsV3(
-    blockData: BlockData,
-    theftHappened: boolean,
-    alreadyPausedDeposits: boolean,
-    version: number,
-  ): Promise<void> {
-    if (version !== 3 || alreadyPausedDeposits || !theftHappened) {
-      return;
-    }
-
+  public async handlePauseV3(blockData: BlockData): Promise<void> {
     const { blockNumber, guardianAddress, guardianIndex } = blockData;
 
     const signature = await this.securityService.signPauseDataV3(blockNumber);
@@ -320,16 +286,10 @@ export class StakingModuleGuardService {
   /**
    * pause all modules, old version of contract
    */
-  public async pauseDepositsV2(
+  public async handlePauseV2(
     stakingModulesData: StakingModuleData[],
     blockData: BlockData,
-    theftHappened: boolean,
-    version: number,
   ) {
-    if (version === 3 || !theftHappened) {
-      return;
-    }
-
     await Promise.all(
       stakingModulesData.map(async (stakingModuleData) => {
         if (stakingModuleData.isModuleDepositsPaused) {

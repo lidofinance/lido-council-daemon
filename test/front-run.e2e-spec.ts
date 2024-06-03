@@ -1,5 +1,3 @@
-import { Test } from '@nestjs/testing';
-
 // Global Helpers
 import { ethers } from 'ethers';
 import { fromHexString, toHexString } from '@chainsafe/ssz';
@@ -10,7 +8,6 @@ import {
   mockedDvtOperators,
   mockedKeysApiFind,
   mockedKeysApiGetAllKeys,
-  mockedKeysApiOperators,
   mockedKeysApiOperatorsMany,
   mockedMeta,
   mockedModule,
@@ -23,15 +20,12 @@ import { WeiPerEther } from '@ethersproject/constants';
 import {
   TESTS_TIMEOUT,
   SLEEP_FOR_RESULT,
-  SECURITY_MODULE,
-  SECURITY_MODULE_OWNER,
   STAKING_ROUTER,
   DEPOSIT_CONTRACT,
   GOOD_WC,
   BAD_WC,
   CHAIN_ID,
   FORK_BLOCK,
-  UNLOCKED_ACCOUNTS,
   GANACHE_PORT,
   NO_PRIVKEY_MESSAGE,
   sk,
@@ -40,13 +34,9 @@ import {
   FAKE_SIMPLE_DVT,
 } from './constants';
 
-// Ganache
-import { makeServer } from './server';
-
 // Contract Factories
 import {
   DepositAbi__factory,
-  SecurityAbi__factory,
   StakingRouterAbi__factory,
 } from './../src/generated';
 
@@ -55,37 +45,7 @@ import {
 import { DepositData } from './../src/bls/bls.containers';
 
 // App modules and services
-
-import { PrometheusModule } from '../src/common/prometheus';
-import { LoggerModule } from '../src/common/logger';
-import { ConfigModule } from '../src/common/config';
-
-import { GuardianService } from '../src/guardian';
-import { GuardianModule } from '../src/guardian';
-
-import { WalletService } from '../src/wallet';
-import { WalletModule } from '../src/wallet';
-
-import { RepositoryModule } from '../src/contracts/repository';
-
-import { DepositService } from '../src/contracts/deposit';
-import { DepositModule } from '../src/contracts/deposit';
-
-import { SecurityModule, SecurityService } from '../src/contracts/security';
-
-import { LidoService } from '../src/contracts/lido';
-import { LidoModule } from '../src/contracts/lido';
-
-import { KeysApiService } from '../src/keys-api/keys-api.service';
-import { KeysApiModule } from '../src/keys-api/keys-api.module';
-
-import { ProviderService } from '../src/provider';
-import { GanacheProviderModule } from '../src/provider';
-
-import { BlsService } from '../src/bls';
-import { GuardianMessageService } from '../src/guardian/guardian-message';
-import { KeyValidatorInterface } from '@lido-nestjs/key-validation';
-import { StakingModuleGuardService } from 'guardian/staking-module-guard';
+import { setupTestingModule, closeServer } from './helpers/test-setup';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -93,111 +53,34 @@ jest.mock('../src/transport/stomp/stomp.client.ts');
 jest.setTimeout(10_000);
 
 describe('ganache e2e tests', () => {
-  let server: ReturnType<typeof makeServer>;
-
-  let providerService: ProviderService;
-  let walletService: WalletService;
-  let keysApiService: KeysApiService;
-  let guardianService: GuardianService;
-  let lidoService: LidoService;
-  let depositService: DepositService;
-  let blsService: BlsService;
-  let guardianMessageService: GuardianMessageService;
-
-  let sendDepositMessage: jest.SpyInstance;
-  let sendPauseMessage: jest.SpyInstance;
-
-  let keyValidator: KeyValidatorInterface;
-  let validateKeys: jest.SpyInstance;
-
-  let securityService: SecurityService;
-
-  let stakingModuleGuardService: StakingModuleGuardService;
+  let server;
+  let providerService;
+  let walletService;
+  let keysApiService;
+  let guardianService;
+  let depositService;
+  let securityService;
+  let sendDepositMessage;
+  let sendPauseMessage;
+  let levelDBService;
 
   beforeEach(async () => {
-    server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
-    await server.listen(GANACHE_PORT);
-
-    if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
-
-    const tempProvider = new ethers.providers.JsonRpcProvider(
-      `http://127.0.0.1:${GANACHE_PORT}`,
-    );
-
-    const wallet = new ethers.Wallet(
-      process.env.WALLET_PRIVATE_KEY,
-      tempProvider,
-    );
-
-    await wallet.sendTransaction({
-      to: SECURITY_MODULE_OWNER,
-      value: ethers.utils.parseEther('2'),
-    });
+    ({
+      server,
+      providerService,
+      walletService,
+      keysApiService,
+      guardianService,
+      depositService,
+      securityService,
+      sendDepositMessage,
+      sendPauseMessage,
+      levelDBService,
+    } = await setupTestingModule());
   });
 
   afterEach(async () => {
-    await server.close();
-  });
-
-  beforeEach(async () => {
-    // Prepare a signer for the unlocked Ganache account
-    if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
-    const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
-    const tempProvider = new ethers.providers.JsonRpcProvider(
-      `http://127.0.0.1:${GANACHE_PORT}`,
-    );
-    const tempSigner = tempProvider.getSigner(SECURITY_MODULE_OWNER);
-
-    // Add our address to guardians and set consensus to 1
-    const securityContract = SecurityAbi__factory.connect(
-      SECURITY_MODULE,
-      tempSigner,
-    );
-    await securityContract.functions.addGuardian(wallet.address, 1);
-
-    const moduleRef = await Test.createTestingModule({
-      imports: [
-        GanacheProviderModule.forRoot(),
-        ConfigModule.forRoot(),
-        PrometheusModule,
-        LoggerModule,
-        GuardianModule,
-        RepositoryModule,
-        WalletModule,
-        KeysApiModule,
-        LidoModule,
-        DepositModule,
-        SecurityModule,
-      ],
-    }).compile();
-
-    providerService = moduleRef.get(ProviderService);
-    walletService = moduleRef.get(WalletService);
-    keysApiService = moduleRef.get(KeysApiService);
-    guardianService = moduleRef.get(GuardianService);
-    lidoService = moduleRef.get(LidoService);
-    depositService = moduleRef.get(DepositService);
-    guardianMessageService = moduleRef.get(GuardianMessageService);
-    keyValidator = moduleRef.get(KeyValidatorInterface);
-    securityService = moduleRef.get(SecurityService);
-
-    // Initializing needed service instead of the whole app
-    blsService = moduleRef.get(BlsService);
-    await blsService.onModuleInit();
-
-    jest
-      .spyOn(lidoService, 'getWithdrawalCredentials')
-      .mockImplementation(async () => GOOD_WC);
-
-    jest
-      .spyOn(guardianMessageService, 'pingMessageBroker')
-      .mockImplementation(() => Promise.resolve());
-    sendDepositMessage = jest
-      .spyOn(guardianMessageService, 'sendDepositMessage')
-      .mockImplementation(() => Promise.resolve());
-    sendPauseMessage = jest
-      .spyOn(guardianMessageService, 'sendPauseMessageV2')
-      .mockImplementation(() => Promise.resolve());
+    await closeServer(server, levelDBService);
   });
 
   describe('node checks', () => {
@@ -267,10 +150,9 @@ describe('ganache e2e tests', () => {
       const meta = mockedMeta(currentBlock, currentBlock.hash);
       const stakingModule = mockedModule(currentBlock, currentBlock.hash);
 
-      mockedKeysApiOperators(
+      mockedKeysApiOperatorsMany(
         keysApiService,
-        mockedOperators,
-        stakingModule,
+        [{ operators: mockedOperators, module: stakingModule }],
         meta,
       );
 
@@ -289,6 +171,9 @@ describe('ganache e2e tests', () => {
             blockHash: forkBlock.hash,
             blockNumber: forkBlock.number,
             logIndex: 1,
+            depositCount: 1,
+            depositDataRoot: new Uint8Array(),
+            index: '',
           },
         ],
         headers: {
@@ -337,10 +222,9 @@ describe('ganache e2e tests', () => {
       const newMeta = mockedMeta(newBlock, newBlock.hash);
       const updatedStakingModule = mockedModule(currentBlock, newBlock.hash);
 
-      mockedKeysApiOperators(
+      mockedKeysApiOperatorsMany(
         keysApiService,
-        mockedOperators,
-        updatedStakingModule,
+        [{ operators: mockedOperators, module: updatedStakingModule }],
         newMeta,
       );
 
@@ -427,6 +311,9 @@ describe('ganache e2e tests', () => {
             blockHash: forkBlock.hash,
             blockNumber: forkBlock.number,
             logIndex: 1,
+            depositCount: 1,
+            depositDataRoot: new Uint8Array(),
+            index: '',
           },
         ],
         headers: {
@@ -550,10 +437,9 @@ describe('ganache e2e tests', () => {
       ];
       const meta = mockedMeta(currentBlock, currentBlock.hash);
       const stakingModule = mockedModule(currentBlock, currentBlock.hash);
-      mockedKeysApiOperators(
+      mockedKeysApiOperatorsMany(
         keysApiService,
-        mockedOperators,
-        stakingModule,
+        [{ operators: mockedOperators, module: stakingModule }],
         meta,
       );
       mockedKeysApiGetAllKeys(keysApiService, unusedKeys, meta);
@@ -598,10 +484,9 @@ describe('ganache e2e tests', () => {
       const newBlock = await providerService.provider.getBlock('latest');
       const newMeta = mockedMeta(newBlock, newBlock.hash);
       const newStakingModule = mockedModule(currentBlock, currentBlock.hash);
-      mockedKeysApiOperators(
+      mockedKeysApiOperatorsMany(
         keysApiService,
-        mockedOperators,
-        newStakingModule,
+        [{ operators: mockedOperators, module: newStakingModule }],
         newMeta,
       );
       mockedKeysApiGetAllKeys(keysApiService, unusedKeys, newMeta);
@@ -658,10 +543,9 @@ describe('ganache e2e tests', () => {
       const meta = mockedMeta(currentBlock, currentBlock.hash);
       const stakingModule = mockedModule(currentBlock, currentBlock.hash);
 
-      mockedKeysApiOperators(
+      mockedKeysApiOperatorsMany(
         keysApiService,
-        mockedOperators,
-        stakingModule,
+        [{ operators: mockedOperators, module: stakingModule }],
         meta,
       );
 
@@ -718,10 +602,9 @@ describe('ganache e2e tests', () => {
       const newMeta = mockedMeta(newBlock, newBlock.hash);
       const newStakingModule = mockedModule(currentBlock, newBlock.hash);
 
-      mockedKeysApiOperators(
+      mockedKeysApiOperatorsMany(
         keysApiService,
-        mockedOperators,
-        newStakingModule,
+        [{ operators: mockedOperators, module: newStakingModule }],
         newMeta,
       );
 
@@ -767,10 +650,9 @@ describe('ganache e2e tests', () => {
       const meta = mockedMeta(currentBlock, currentBlock.hash);
       const stakingModule = mockedModule(currentBlock, currentBlock.hash);
 
-      mockedKeysApiOperators(
+      mockedKeysApiOperatorsMany(
         keysApiService,
-        mockedOperators,
-        stakingModule,
+        [{ operators: mockedOperators, module: stakingModule }],
         meta,
       );
 
@@ -816,10 +698,9 @@ describe('ganache e2e tests', () => {
       const newMeta = mockedMeta(newBlock, newBlock.hash);
       const newStakingModule = mockedModule(currentBlock, newBlock.hash);
 
-      mockedKeysApiOperators(
+      mockedKeysApiOperatorsMany(
         keysApiService,
-        mockedOperators,
-        newStakingModule,
+        [{ operators: mockedOperators, module: newStakingModule }],
         newMeta,
       );
 
@@ -905,10 +786,9 @@ describe('ganache e2e tests', () => {
       const stakingModule = mockedModule(currentBlock, currentBlock.hash);
       const meta = mockedMeta(currentBlock, currentBlock.hash);
 
-      mockedKeysApiOperators(
+      mockedKeysApiOperatorsMany(
         keysApiService,
-        mockedOperators,
-        stakingModule,
+        [{ operators: mockedOperators, module: stakingModule }],
         meta,
       );
 
@@ -943,7 +823,6 @@ describe('ganache e2e tests', () => {
       const tempProvider = new ethers.providers.JsonRpcProvider(
         `http://127.0.0.1:${GANACHE_PORT}`,
       );
-      const forkBlock = await tempProvider.getBlock(FORK_BLOCK);
       const currentBlock = await tempProvider.getBlock('latest');
 
       // create correct sign for deposit message for pk
@@ -1000,6 +879,9 @@ describe('ganache e2e tests', () => {
             blockHash: '0x123456',
             blockNumber: currentBlock.number - 1,
             logIndex: 1,
+            depositCount: 1,
+            depositDataRoot: new Uint8Array(),
+            index: '',
           },
           {
             valid: true,
@@ -1011,6 +893,9 @@ describe('ganache e2e tests', () => {
             blockHash: currentBlock.hash,
             blockNumber: currentBlock.number,
             logIndex: 1,
+            depositCount: 2,
+            depositDataRoot: new Uint8Array(),
+            index: '',
           },
         ],
         headers: {
