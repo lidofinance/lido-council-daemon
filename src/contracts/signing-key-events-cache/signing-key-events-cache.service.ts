@@ -7,10 +7,7 @@ import {
   SigningKeyEventsGroup,
 } from './interfaces/event.interface';
 import { LevelDBService } from './leveldb';
-import {
-  SigningKeyEventsCache,
-  SigningKeyEventsCacheHeaders,
-} from './interfaces/cache.interface';
+import { SigningKeyEventsCache } from './interfaces/cache.interface';
 import {
   CURATED_MODULE_DEPLOYMENT_BLOCK_NETWORK,
   FETCHING_EVENTS_STEP,
@@ -32,7 +29,7 @@ export class SigningKeyEventsCacheService {
     const wasUpdated = await this.stakingModuleListWasUpdated();
     if (wasUpdated) {
       this.logger.log('Staking module list was updated. Deleting cache');
-      this.levelDBCacheService.deleteCache();
+      await this.levelDBCacheService.deleteCache();
       await this.updateEventsCache();
     } else if (blockNumber % SIGNING_KEY_EVENTS_CACHE_UPDATE_BLOCK_RATE === 0) {
       // update for every SIGNING_KEY_EVENTS_CACHE_UPDATE_BLOCK_RATE block
@@ -55,7 +52,7 @@ export class SigningKeyEventsCacheService {
     const wasUpdated = await this.stakingModuleListWasUpdated();
     if (wasUpdated) {
       this.logger.log('Staking module list was updated. Deleting cache');
-      this.levelDBCacheService.deleteCache();
+      await this.levelDBCacheService.deleteCache();
     }
 
     await this.updateEventsCache();
@@ -125,11 +122,15 @@ export class SigningKeyEventsCacheService {
   }
 
   public async stakingModuleListWasUpdated(): Promise<boolean> {
-    const currentModules = await this.getStakingModules();
     const {
       headers: { stakingModulesAddresses: previousModules },
     } = await this.levelDBCacheService.getHeader();
 
+    if (!previousModules.length) {
+      return false;
+    }
+
+    const currentModules = await this.getStakingModules();
     const isDifferentLength = currentModules.length !== previousModules.length;
     const hasNewModules = currentModules.some(
       (module) => !previousModules.includes(module),

@@ -30,6 +30,7 @@ import { WalletModule, WalletService } from 'wallet';
 import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 import { BlsService } from 'bls';
 import { LevelDBService } from 'contracts/deposit/leveldb';
+import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
 import { DepositIntegrityCheckerService } from 'contracts/deposit/integrity-checker';
 
 export const setupTestingModule = async () => {
@@ -86,6 +87,7 @@ export const setupTestingModule = async () => {
   const securityService = moduleRef.get(SecurityService);
   const stakingModuleGuardService = moduleRef.get(StakingModuleGuardService);
   const levelDBService = moduleRef.get(LevelDBService);
+  const signKeyLevelDBService = moduleRef.get(SignKeyLevelDBService);
   const depositIntegrityCheckerService = moduleRef.get(
     DepositIntegrityCheckerService,
   );
@@ -94,6 +96,7 @@ export const setupTestingModule = async () => {
   await blsService.onModuleInit();
 
   await levelDBService.initialize();
+  await signKeyLevelDBService.initialize();
 
   jest
     .spyOn(lidoService, 'getWithdrawalCredentials')
@@ -138,11 +141,18 @@ export const setupTestingModule = async () => {
     validateKeys,
     getFrontRunAttempts,
     levelDBService,
+    signKeyLevelDBService,
   };
 };
 
-export const closeServer = async (server, levelDBService) => {
+export const closeServer = async (
+  server,
+  levelDBService: LevelDBService,
+  signKeyLevelDBService: SignKeyLevelDBService,
+) => {
   await server.close();
   await levelDBService.deleteCache();
+  await signKeyLevelDBService.deleteCache();
   await levelDBService.close();
+  await signKeyLevelDBService.close();
 };

@@ -5,7 +5,6 @@ import { LoggerModule } from 'common/logger';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { LevelDBModule, LevelDBService } from './leveldb';
 import { mockRepository } from 'contracts/repository/repository.mock';
-import { LocatorModule } from 'contracts/repository/locator/locator.module';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { mockLocator } from 'contracts/repository/locator/locator.mock';
 import { cacheMock, newEvent } from './leveldb/leveldb.fixtures';
