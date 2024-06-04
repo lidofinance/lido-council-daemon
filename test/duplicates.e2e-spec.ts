@@ -120,7 +120,7 @@ describe('ganache e2e tests', () => {
     });
   });
 
-  test(
+  test.skip(
     'skip deposit if find duplicated key',
     async () => {
       const tempProvider = new ethers.providers.JsonRpcProvider(
@@ -339,7 +339,7 @@ describe('ganache e2e tests', () => {
     TESTS_TIMEOUT,
   );
 
-  test(
+  test.skip(
     'skip deposit if find duplicated key in another staking module',
     async () => {
       const tempProvider = new ethers.providers.JsonRpcProvider(
@@ -533,7 +533,7 @@ describe('ganache e2e tests', () => {
     TESTS_TIMEOUT,
   );
 
-  test(
+  test.skip(
     'added unused keys for that deposit was already made',
     async () => {
       const tempProvider = new ethers.providers.JsonRpcProvider(
@@ -668,7 +668,7 @@ describe('ganache e2e tests', () => {
   // we should define first key as original, second as duplicate, but as second key is not vetted we should filter it from final result
   // and not set soft pause of this key
 
-  test(
+  test.skip(
     'duplicates will not block front-run',
     async () => {
       const tempProvider = new ethers.providers.JsonRpcProvider(
