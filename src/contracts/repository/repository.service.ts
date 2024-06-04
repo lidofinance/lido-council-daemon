@@ -135,14 +135,14 @@ export class RepositoryService {
 
   public setStakingModuleCache(address: string, impl: SigningKeyAbi | CsmAbi) {
     if (!this.stakingModulesCache[address]) {
-      this.logger.log('Contract initial address', { address });
+      this.logger.log('Staking module contract initial address', { address });
     }
 
     if (
       this.stakingModulesCache[address] &&
       this.stakingModulesCache[address].impl.address !== address
     ) {
-      this.logger.log('Contract address was changed', {
+      this.logger.log('Staking module contract address was changed', {
         address,
       });
     }

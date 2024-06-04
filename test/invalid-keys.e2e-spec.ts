@@ -1,10 +1,9 @@
 // Global Helpers
 import { ethers } from 'ethers';
-import { fromHexString, toHexString } from '@chainsafe/ssz';
+import { toHexString } from '@chainsafe/ssz';
 
 // Helpers
 import {
-  computeRoot,
   mockedDvtOperators,
   mockedKeysApiFind,
   mockedKeysApiGetAllKeys,
@@ -21,12 +20,9 @@ import {
   TESTS_TIMEOUT,
   SLEEP_FOR_RESULT,
   STAKING_ROUTER,
-  DEPOSIT_CONTRACT,
-  GOOD_WC,
   CHAIN_ID,
   FORK_BLOCK,
   GANACHE_PORT,
-  NO_PRIVKEY_MESSAGE,
   sk,
   pk,
   NOP_REGISTRY,
@@ -34,36 +30,43 @@ import {
 } from './constants';
 
 // Contract Factories
-import {
-  DepositAbi__factory,
-  StakingRouterAbi__factory,
-} from './../src/generated';
-
-// BLS helpers
-
-import { DepositData } from './../src/bls/bls.containers';
-
+import { StakingRouterAbi__factory } from './../src/generated';
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
 
 jest.setTimeout(10_000);
 
 import { setupTestingModule, closeServer } from './helpers/test-setup';
+import { SecurityService } from 'contracts/security';
+import { DepositService } from 'contracts/deposit';
+import { GuardianService } from 'guardian';
+import { KeysApiService } from 'keys-api/keys-api.service';
+import { WalletService } from 'wallet';
+import { ProviderService } from 'provider';
+import { Server } from 'ganache';
+import { GuardianMessageService } from 'guardian/guardian-message';
+import { LevelDBService } from 'contracts/deposit/leveldb';
+import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
+import { KeyValidatorInterface } from '@lido-nestjs/key-validation';
+import { makeDeposit } from './helpers/deposit';
+import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 
 describe('ganache e2e tests', () => {
-  let server;
-  let providerService;
-  let walletService;
-  let keysApiService;
-  let guardianService;
-  let depositService;
-  let securityService;
-  let stakingModuleGuardService;
-  let sendDepositMessage;
-  let sendPauseMessage;
-  let validateKeys;
-  let levelDBService;
-  let signKeyLevelDBService;
+  let server: Server<'ethereum'>;
+  let providerService: ProviderService;
+  let walletService: WalletService;
+  let keysApiService: KeysApiService;
+  let guardianService: GuardianService;
+  let depositService: DepositService;
+  let securityService: SecurityService;
+  let keyValidator: KeyValidatorInterface;
+  let stakingModuleGuardService: StakingModuleGuardService;
+  let sendDepositMessage: jest.SpyInstance;
+  let sendPauseMessage: jest.SpyInstance;
+  let validateKeys: jest.SpyInstance;
+  let levelDBService: LevelDBService;
+  let signKeyLevelDBService: SignKeyLevelDBService;
+  let guardianMessageService: GuardianMessageService;
 
   beforeEach(async () => {
     ({
@@ -75,12 +78,20 @@ describe('ganache e2e tests', () => {
       depositService,
       securityService,
       stakingModuleGuardService,
-      sendDepositMessage,
-      sendPauseMessage,
-      validateKeys,
       levelDBService,
       signKeyLevelDBService,
+      guardianMessageService,
+      keyValidator,
     } = await setupTestingModule());
+
+    sendDepositMessage = jest
+      .spyOn(guardianMessageService, 'sendDepositMessage')
+      .mockImplementation(() => Promise.resolve());
+    sendPauseMessage = jest
+      .spyOn(guardianMessageService, 'sendPauseMessageV2')
+      .mockImplementation(() => Promise.resolve());
+
+    validateKeys = jest.spyOn(keyValidator, 'validateKeys');
   });
 
   afterEach(async () => {
@@ -130,43 +141,13 @@ describe('ganache e2e tests', () => {
       );
       const block0 = await tempProvider.getBlock('latest');
 
-      const goodDepositMessage = {
-        pubkey: pk,
-        withdrawalCredentials: fromHexString(GOOD_WC),
-        amount: 32000000000, // gwei!
-      };
-      const goodSigningRoot = computeRoot(goodDepositMessage);
-      const goodSig = sk.sign(goodSigningRoot).toBytes();
-
-      const goodDepositData = {
-        ...goodDepositMessage,
-        signature: goodSig,
-      };
-      const goodDepositDataRoot = DepositData.hashTreeRoot(goodDepositData);
-
-      if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
-      const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
-
-      // Make a deposit
-      const signer = wallet.connect(providerService.provider);
-      const depositContract = DepositAbi__factory.connect(
-        DEPOSIT_CONTRACT,
-        signer,
-      );
-      await depositContract.deposit(
-        goodDepositData.pubkey,
-        goodDepositData.withdrawalCredentials,
-        goodDepositData.signature,
-        goodDepositDataRoot,
-        { value: ethers.constants.WeiPerEther.mul(32) },
-      );
+      await makeDeposit(pk, sk, providerService);
 
       await depositService.setCachedEvents({
         data: [],
         headers: {
           startBlock: block0.number,
           endBlock: block0.number,
-          version: '1',
         },
       });
 
@@ -227,7 +208,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: block1.number,
           endBlock: block1.number,
-          version: '1',
         },
       });
 
@@ -263,35 +243,10 @@ describe('ganache e2e tests', () => {
     );
     const block0 = await tempProvider.getBlock('latest');
 
-    const goodDepositMessage = {
-      pubkey: pk,
-      withdrawalCredentials: fromHexString(GOOD_WC),
-      amount: 32000000000, // gwei!
-    };
-    const goodSigningRoot = computeRoot(goodDepositMessage);
-    const goodSig = sk.sign(goodSigningRoot).toBytes();
-
-    const goodDepositData = {
-      ...goodDepositMessage,
-      signature: goodSig,
-    };
-    const goodDepositDataRoot = DepositData.hashTreeRoot(goodDepositData);
-
-    if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
-    const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
-
-    // Make a deposit
-    const signer = wallet.connect(providerService.provider);
-    const depositContract = DepositAbi__factory.connect(
-      DEPOSIT_CONTRACT,
-      signer,
-    );
-    await depositContract.deposit(
-      goodDepositData.pubkey,
-      goodDepositData.withdrawalCredentials,
-      goodDepositData.signature,
-      goodDepositDataRoot,
-      { value: ethers.constants.WeiPerEther.mul(32) },
+    const { wallet, deposit_sign: goodSig } = await makeDeposit(
+      pk,
+      sk,
+      providerService,
     );
 
     await depositService.setCachedEvents({
@@ -299,7 +254,6 @@ describe('ganache e2e tests', () => {
       headers: {
         startBlock: block0.number,
         endBlock: block0.number,
-        version: '1',
       },
     });
 
@@ -353,7 +307,6 @@ describe('ganache e2e tests', () => {
       headers: {
         startBlock: block1.number,
         endBlock: block1.number,
-        version: '1',
       },
     });
 
@@ -409,43 +362,13 @@ describe('ganache e2e tests', () => {
     );
     const block0 = await tempProvider.getBlock('latest');
 
-    const goodDepositMessage = {
-      pubkey: pk,
-      withdrawalCredentials: fromHexString(GOOD_WC),
-      amount: 32000000000, // gwei!
-    };
-    const goodSigningRoot = computeRoot(goodDepositMessage);
-    const goodSig = sk.sign(goodSigningRoot).toBytes();
-
-    const goodDepositData = {
-      ...goodDepositMessage,
-      signature: goodSig,
-    };
-    const goodDepositDataRoot = DepositData.hashTreeRoot(goodDepositData);
-
-    if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
-    const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
-
-    // Make a deposit
-    const signer = wallet.connect(providerService.provider);
-    const depositContract = DepositAbi__factory.connect(
-      DEPOSIT_CONTRACT,
-      signer,
-    );
-    await depositContract.deposit(
-      goodDepositData.pubkey,
-      goodDepositData.withdrawalCredentials,
-      goodDepositData.signature,
-      goodDepositDataRoot,
-      { value: ethers.constants.WeiPerEther.mul(32) },
-    );
+    await makeDeposit(pk, sk, providerService);
 
     await depositService.setCachedEvents({
       data: [],
       headers: {
         startBlock: block0.number,
         endBlock: block0.number,
-        version: '1',
       },
     });
 

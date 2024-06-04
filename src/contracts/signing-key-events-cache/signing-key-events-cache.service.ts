@@ -151,7 +151,7 @@ export class SigningKeyEventsCacheService {
     return wasUpdated;
   }
 
-  private async getStakingModules(): Promise<string[]> {
+  public async getStakingModules(): Promise<string[]> {
     const stakingModulesContracts =
       await this.repositoryService.getCachedStakingModulesContracts();
 
@@ -300,13 +300,25 @@ export class SigningKeyEventsCacheService {
     );
 
     const mergedEvents = cachedEvents.data.concat(keyFreshEvents);
-
     return {
       events: mergedEvents,
       stakingModulesAddresses: cachedEvents.headers.stakingModulesAddresses,
       startBlock: cachedEvents.headers.startBlock,
       endBlock,
     };
+  }
+
+  /**
+   * Saves signing keys events events to cache
+   */
+  public async setCachedEvents(
+    cachedEvents: SigningKeyEventsCache,
+  ): Promise<void> {
+    await this.levelDBCacheService.deleteCache();
+    await this.levelDBCacheService.insertEventsCacheBatch({
+      data: cachedEvents.data,
+      headers: cachedEvents.headers,
+    });
   }
 
   /**

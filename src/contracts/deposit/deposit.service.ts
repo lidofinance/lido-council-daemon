@@ -321,7 +321,7 @@ export class DepositService {
 
     this.checkEventsBlockHash(freshEvents, blockNumber, blockHash);
 
-    this.logger.debug?.('Fresh events are fetched', {
+    this.logger.debug?.('Fresh deposit events are fetched', {
       events: freshEvents.length,
       startBlock: firstNotCachedBlock,
       endBlock,

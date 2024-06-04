@@ -117,12 +117,11 @@ export class KeysDuplicationCheckerService {
         originalKey,
         createBlockNumber: originalEvent.blockNumber,
         createBlockHash: originalEvent.blockHash,
-        createLogINdex: originalEvent.logIndex,
+        createLogIndex: originalEvent.logIndex,
       },
       currentBlockNumber: blockData.blockNumber,
       currentBlockHash: blockData.blockHash,
     });
-
     return occurrences.filter((k) => !this.isSameKey(k, originalKey));
   }
 

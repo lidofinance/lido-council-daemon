@@ -17,7 +17,7 @@ import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
 import { DepositModule, DepositService } from 'contracts/deposit';
 import { LidoModule, LidoService } from 'contracts/lido';
-import { RepositoryModule } from 'contracts/repository';
+import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { SecurityModule, SecurityService } from 'contracts/security';
 import { ethers } from 'ethers';
 import { SecurityAbi__factory } from 'generated';
@@ -32,6 +32,7 @@ import { BlsService } from 'bls';
 import { LevelDBService } from 'contracts/deposit/leveldb';
 import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
 import { DepositIntegrityCheckerService } from 'contracts/deposit/integrity-checker';
+import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
 
 export const setupTestingModule = async () => {
   const server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
@@ -91,6 +92,10 @@ export const setupTestingModule = async () => {
   const depositIntegrityCheckerService = moduleRef.get(
     DepositIntegrityCheckerService,
   );
+  const signingKeyEventsCacheService = moduleRef.get(
+    SigningKeyEventsCacheService,
+  );
+  const repositoryService = moduleRef.get(RepositoryService);
 
   const blsService = moduleRef.get(BlsService);
   await blsService.onModuleInit();
@@ -104,24 +109,13 @@ export const setupTestingModule = async () => {
   jest
     .spyOn(guardianMessageService, 'pingMessageBroker')
     .mockImplementation(() => Promise.resolve());
-  const sendDepositMessage = jest
-    .spyOn(guardianMessageService, 'sendDepositMessage')
-    .mockImplementation(() => Promise.resolve());
-  const sendPauseMessage = jest
-    .spyOn(guardianMessageService, 'sendPauseMessageV2')
-    .mockImplementation(() => Promise.resolve());
-  const validateKeys = jest.spyOn(keyValidator, 'validateKeys');
+
   jest
     .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
     .mockImplementation(() => Promise.resolve());
   jest
     .spyOn(depositIntegrityCheckerService, 'checkFinalizedRoot')
     .mockImplementation(() => Promise.resolve());
-
-  const getFrontRunAttempts = jest.spyOn(
-    stakingModuleGuardService,
-    'getFrontRunAttempts',
-  );
 
   return {
     server,
@@ -136,12 +130,10 @@ export const setupTestingModule = async () => {
     keyValidator,
     securityService,
     stakingModuleGuardService,
-    sendDepositMessage,
-    sendPauseMessage,
-    validateKeys,
-    getFrontRunAttempts,
     levelDBService,
     signKeyLevelDBService,
+    signingKeyEventsCacheService,
+    repositoryService,
   };
 };
 

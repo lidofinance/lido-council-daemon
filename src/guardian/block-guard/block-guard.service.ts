@@ -68,7 +68,6 @@ export class BlockGuardService {
     const endTimer = this.blockRequestsHistogram.startTimer();
     try {
       const guardianAddress = this.securityService.getGuardianAddress();
-
       const [depositRoot, depositedEvents, guardianIndex, lidoWC] =
         await Promise.all([
           this.depositService.getDepositRoot({ blockHash }),

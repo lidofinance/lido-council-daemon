@@ -79,7 +79,6 @@ export class StakingRouterService {
           stakingModuleData,
           blockData,
         );
-
         stakingModuleData.frontRunKeys = frontRunKeys;
 
         this.logger.log('Front-run keys', {
