@@ -317,7 +317,7 @@ export class SecurityService {
         'Error while fetching the version; the locator may have returned an outdated version of the DSM contract',
       );
 
-      return 1;
+      return 2;
     }
   }
 

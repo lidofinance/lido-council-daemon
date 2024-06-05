@@ -181,6 +181,7 @@ export class GuardianService implements OnModuleInit {
         guardianIndex: blockData.guardianIndex,
         blockNumber: blockData.blockNumber,
         blockHash: blockData.blockHash,
+        securityVersion: blockData.securityVersion,
       });
 
       // TODO: add metrics for getHistoricalFrontRun same as for keysIntersections
@@ -195,25 +196,11 @@ export class GuardianService implements OnModuleInit {
           blockData,
         });
 
-      const version = await this.securityService.version({
-        blockHash: blockData.blockHash,
-      });
-
-      this.logger.log('DSM contract version:', { version });
-
-      const alreadyPausedDeposits =
-        await this.stakingModuleGuardService.alreadyPausedDeposits(
-          blockData,
-          version,
-        );
-
-      if (alreadyPausedDeposits) {
-        this.logger.warn('Deposits are already paused', {
-          blockNumber: blockData.blockNumber,
-        });
-      }
-
-      if (version === 3 && !alreadyPausedDeposits && theftHappened) {
+      if (
+        blockData.securityVersion === 3 &&
+        !blockData.alreadyPausedDeposits &&
+        theftHappened
+      ) {
         await this.stakingModuleGuardService.handlePauseV3(blockData);
       } else if (theftHappened) {
         await this.stakingModuleGuardService.handlePauseV2(
@@ -227,7 +214,6 @@ export class GuardianService implements OnModuleInit {
           await this.stakingModuleGuardService.handleUnvetting(
             stakingModuleData,
             blockData,
-            version,
           );
 
           this.guardianMetricsService.collectMetrics(
@@ -239,7 +225,7 @@ export class GuardianService implements OnModuleInit {
             !this.stakingModuleGuardService.canDeposit(
               stakingModuleData,
               theftHappened,
-              alreadyPausedDeposits,
+              blockData.alreadyPausedDeposits,
             )
           ) {
             this.logger.warn('Module is on soft pause', {

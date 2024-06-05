@@ -459,12 +459,11 @@ export class StakingModuleGuardService {
   public async handleUnvetting(
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
-    version: number,
   ) {
-    if (version !== 3) {
+    if (blockData.securityVersion !== 3) {
       this.logger.warn(
         'Council do unvetting only since 3 version of DSM contract',
-        version,
+        blockData.securityVersion,
       );
       return;
     }
