@@ -15,7 +15,6 @@ import {
 import { ConfigModule } from 'common/config';
 import { MockProviderModule } from 'provider';
 import { BlockData } from 'guardian/interfaces';
-
 describe('KeysDuplicationCheckerService', () => {
   let service: KeysDuplicationCheckerService;
   const mockSigningKeyEventsCacheService = {
@@ -64,10 +63,13 @@ describe('KeysDuplicationCheckerService', () => {
     it('duplicates across one operator', async () => {
       const result = await service.getDuplicatedKeys(keysMock, {} as BlockData);
 
-      const expected = [keyMock1Duplicate];
+      const expected = { duplicates: [keyMock1Duplicate], unresolved: [] };
 
-      expect(result.length).toEqual(1);
-      expect(result).toEqual(expect.arrayContaining(expected));
+      expect(result.duplicates.length).toEqual(1);
+      expect(result.duplicates).toEqual(
+        expect.arrayContaining(expected.duplicates),
+      );
+      expect(result.unresolved).toEqual([]);
     });
 
     it('original key is deposited', async () => {
@@ -83,11 +85,18 @@ describe('KeysDuplicationCheckerService', () => {
         {} as BlockData,
       );
 
-      const expected = [keyMock1, keyMock1Duplicate];
+      const expected = {
+        duplicates: [keyMock1, keyMock1Duplicate],
+        unresolved: [],
+      };
 
-      expect(result).toEqual(expect.arrayContaining(expected));
-      expect(result[0].used).toBeFalsy();
-      expect(result[1].used).toBeFalsy();
+      expect(result.duplicates).toEqual(
+        expect.arrayContaining(expected.duplicates),
+      );
+      expect(result.duplicates[0].used).toBeFalsy();
+      expect(result.duplicates[1].used).toBeFalsy();
+
+      expect(result.unresolved).toEqual([]);
     });
 
     it('original key is deposited and from another module', async () => {
@@ -104,11 +113,18 @@ describe('KeysDuplicationCheckerService', () => {
         {} as BlockData,
       );
 
-      const expected = [keyMock1, keyMock1Duplicate];
+      const expected = {
+        duplicates: [keyMock1, keyMock1Duplicate],
+        unresolved: [],
+      };
 
-      expect(result).toEqual(expect.arrayContaining(expected));
-      expect(result[0].used).toBeFalsy();
-      expect(result[1].used).toBeFalsy();
+      expect(result.duplicates).toEqual(
+        expect.arrayContaining(expected.duplicates),
+      );
+      expect(result.duplicates[0].used).toBeFalsy();
+      expect(result.duplicates[1].used).toBeFalsy();
+
+      expect(result.unresolved).toEqual([]);
     });
 
     describe('duplicate across two operators', () => {
@@ -141,16 +157,22 @@ describe('KeysDuplicationCheckerService', () => {
           {} as BlockData,
         );
 
-        const expected = [
-          keyMock1Duplicate,
-          {
-            ...keyMock1Duplicate,
-            used: false,
-            operatorIndex: keyMock1Duplicate.operatorIndex + 1,
-          },
-        ];
+        const expected = {
+          duplicates: [
+            keyMock1Duplicate,
+            {
+              ...keyMock1Duplicate,
+              used: false,
+              operatorIndex: keyMock1Duplicate.operatorIndex + 1,
+            },
+          ],
+          unresolved: [],
+        };
 
-        expect(result).toEqual(expected);
+        expect(result.duplicates).toEqual(
+          expect.arrayContaining(expected.duplicates),
+        );
+        expect(result.unresolved).toEqual([]);
       });
 
       it('keys were added in the same block', async () => {
@@ -182,19 +204,24 @@ describe('KeysDuplicationCheckerService', () => {
           {} as BlockData,
         );
 
-        const expected = [
-          keyMock1Duplicate,
-          {
-            ...keyMock1Duplicate,
-            used: false,
-            operatorIndex: keyMock1Duplicate.operatorIndex + 1,
-          },
-        ];
+        const expected = {
+          duplicates: [
+            keyMock1Duplicate,
+            {
+              ...keyMock1Duplicate,
+              used: false,
+              operatorIndex: keyMock1Duplicate.operatorIndex + 1,
+            },
+          ],
+          unresolved: [],
+        };
 
-        expect(result).toEqual(expected);
+        expect(result.duplicates).toEqual(
+          expect.arrayContaining(expected.duplicates),
+        );
       });
 
-      it('should throw error if no event for operator', async () => {
+      it('should return unresolved keys list if no event for operator', async () => {
         mockSigningKeyEventsCacheService.getUpdatedSigningKeyEvents.mockImplementationOnce(
           async () => {
             return {
@@ -206,19 +233,30 @@ describe('KeysDuplicationCheckerService', () => {
           },
         );
 
-        await expect(
-          service.getDuplicatedKeys(
-            [
-              ...keysMock,
-              {
-                ...keyMock1Duplicate,
-                used: false,
-                operatorIndex: keyMock1Duplicate.operatorIndex + 1,
-              },
-            ],
-            {} as BlockData,
-          ),
-        ).rejects.toThrow('Missing events for some operators');
+        const expected = [
+          keyMock1,
+          keyMock1Duplicate,
+          {
+            ...keyMock1Duplicate,
+            used: false,
+            operatorIndex: keyMock1Duplicate.operatorIndex + 1,
+          },
+        ];
+
+        const { duplicates, unresolved } = await service.getDuplicatedKeys(
+          [
+            ...keysMock,
+            {
+              ...keyMock1Duplicate,
+              used: false,
+              operatorIndex: keyMock1Duplicate.operatorIndex + 1,
+            },
+          ],
+          {} as BlockData,
+        );
+
+        expect(duplicates).toEqual([]);
+        expect(unresolved).toEqual(expect.arrayContaining(expected));
       });
     });
   });

@@ -33,6 +33,7 @@ import { LevelDBService } from 'contracts/deposit/leveldb';
 import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
 import { DepositIntegrityCheckerService } from 'contracts/deposit/integrity-checker';
 import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
+import { StakingRouterService } from 'staking-router';
 
 export const setupTestingModule = async () => {
   const server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
@@ -96,8 +97,9 @@ export const setupTestingModule = async () => {
     SigningKeyEventsCacheService,
   );
   const repositoryService = moduleRef.get(RepositoryService);
-
   const blsService = moduleRef.get(BlsService);
+  const stakingRouterService = moduleRef.get(StakingRouterService);
+
   await blsService.onModuleInit();
 
   await levelDBService.initialize();
@@ -134,6 +136,7 @@ export const setupTestingModule = async () => {
     signKeyLevelDBService,
     signingKeyEventsCacheService,
     repositoryService,
+    stakingRouterService,
   };
 };
 

@@ -107,6 +107,7 @@ describe('StakingModuleGuardService', () => {
           invalidKeys: [],
           duplicatedKeys: [],
           frontRunKeys: [],
+          unresolvedDuplicatedKeys: [],
         },
         blockData,
       );
@@ -133,6 +134,7 @@ describe('StakingModuleGuardService', () => {
           invalidKeys: [],
           duplicatedKeys: [],
           frontRunKeys: [],
+          unresolvedDuplicatedKeys: [],
         },
         blockData,
       );
@@ -157,6 +159,7 @@ describe('StakingModuleGuardService', () => {
           invalidKeys: [],
           duplicatedKeys: [],
           frontRunKeys: [],
+          unresolvedDuplicatedKeys: [],
         },
         blockData,
       );
@@ -198,6 +201,7 @@ describe('StakingModuleGuardService', () => {
           invalidKeys: [],
           duplicatedKeys: [],
           frontRunKeys: [],
+          unresolvedDuplicatedKeys: [],
         },
         blockData,
       );
@@ -210,6 +214,7 @@ describe('StakingModuleGuardService', () => {
           invalidKeys: [],
           duplicatedKeys: [],
           frontRunKeys: [],
+          unresolvedDuplicatedKeys: [],
         },
         blockData,
       );
@@ -241,6 +246,7 @@ describe('StakingModuleGuardService', () => {
           invalidKeys: [],
           duplicatedKeys: [],
           frontRunKeys: [],
+          unresolvedDuplicatedKeys: [],
         },
         blockData,
       );

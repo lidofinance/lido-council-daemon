@@ -63,11 +63,12 @@ export class StakingRouterService {
           duplicatedKeys: [],
           invalidKeys: [],
           frontRunKeys: [],
+          unresolvedDuplicatedKeys: [],
         };
       }),
     );
 
-    const duplicatedKeys =
+    const { duplicates, unresolved } =
       await this.keysDuplicationCheckerService.getDuplicatedKeys(
         lidoKeys,
         blockData,
@@ -104,7 +105,7 @@ export class StakingRouterService {
           this.filterModuleNotVettedUnusedKeys(
             stakingModuleData.stakingModuleAddress,
             stakingModuleData.vettedUnusedKeys,
-            duplicatedKeys,
+            duplicates,
           );
 
         this.logger.log('Duplicated keys', {
@@ -114,6 +115,22 @@ export class StakingRouterService {
         });
 
         stakingModuleData.duplicatedKeys = moduleDuplicatedVettedUnusedKeys;
+
+        const moduleUnresolvedDuplicatedVettedUnusedKeys =
+          this.filterModuleNotVettedUnusedKeys(
+            stakingModuleData.stakingModuleAddress,
+            stakingModuleData.vettedUnusedKeys,
+            unresolved,
+          );
+
+        this.logger.log('Unresolved duplicated keys', {
+          count: moduleUnresolvedDuplicatedVettedUnusedKeys.length,
+          stakingModuleId: stakingModuleData.stakingModuleId,
+          blockNumber: meta.elBlockSnapshot.blockNumber,
+        });
+
+        stakingModuleData.unresolvedDuplicatedKeys =
+          moduleUnresolvedDuplicatedVettedUnusedKeys;
       }),
     );
 
@@ -123,7 +140,7 @@ export class StakingRouterService {
   /**
    * filter from the list all keys that are not vetted as unused
    */
-  private filterModuleNotVettedUnusedKeys(
+  public filterModuleNotVettedUnusedKeys(
     stakingModuleAddress: string,
     vettedUnusedKeys: RegistryKey[],
     keys: RegistryKey[],

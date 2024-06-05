@@ -4,6 +4,7 @@ import { toHexString } from '@chainsafe/ssz';
 
 // Helpers
 import {
+  mockOperator1,
   mockedDvtOperators,
   mockedKeysApiFind,
   mockedKeysApiGetAllKeys,
@@ -53,6 +54,7 @@ import { SecurityService } from 'contracts/security';
 import { Server } from 'ganache';
 import { GuardianMessageService } from 'guardian/guardian-message';
 import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
+import { StakingRouterService } from 'staking-router';
 
 describe('ganache e2e tests', () => {
   let server: Server<'ethereum'>;
@@ -70,6 +72,7 @@ describe('ganache e2e tests', () => {
   let signingKeyEventsCacheService: SigningKeyEventsCacheService;
   let stakingModuleGuardService: StakingModuleGuardService;
   let guardianMessageService: GuardianMessageService;
+  let stakingRouterService: StakingRouterService;
 
   beforeEach(async () => {
     ({
@@ -85,6 +88,7 @@ describe('ganache e2e tests', () => {
       levelDBService,
       signKeyLevelDBService,
       signingKeyEventsCacheService,
+      stakingRouterService,
     } = await setupTestingModule());
 
     sendDepositMessage = jest
@@ -620,10 +624,91 @@ describe('ganache e2e tests', () => {
     TESTS_TIMEOUT,
   );
 
-  // TODO: test('adding not vetted duplicate will not set on soft pause module')
-  // that is a case that we had vetted unused keys and someone added unvetted unused key after
-  // we should define first key as original, second as duplicate, but as second key is not vetted we should filter it from final result
-  // and not set soft pause of this key
+  test('adding not vetted duplicate will not set on soft pause module', async () => {
+    //  set { totalSigningKeys: 2, stakingLimit: 1, usedSigningKeys: 0}
+    //  add two duplicated unused keys: index 0 and index 1.  key with index 0 is vetted, index 1 is not vetted
+    //  key with index 1 will be identified as duplicated, but as it is not vetted it will not set module on soft pause
+
+    const tempProvider = new ethers.providers.JsonRpcProvider(
+      `http://127.0.0.1:${GANACHE_PORT}`,
+    );
+    const currentBlock = await tempProvider.getBlock('latest');
+
+    await makeDeposit(pk, sk, providerService);
+
+    const operator = {
+      ...mockOperator1,
+      ...{ totalSigningKeys: 2, stakingLimit: 1, usedSigningKeys: 0 },
+    };
+
+    const mockKey = {
+      key: '0xa4d381739a4cc9554bf01c49e827a22ae99d429a79bd74ecfa86b72210c151644e511ce1c5fa4e5fb8d355dec35239e2',
+      depositSignature:
+        '0xac50577d80539bf0a9ac0ea98d7a98e4bb3c644c28d53c57204c297081cbef7ca47975a2fffc05b873b406e3f08b4b6902e57c61b0d98dc7eac49d677c82a5c4f695232158360c7595c4414f5f27c9a7ab1bbdbafa4f85c967f82a4f68cb6f5e',
+      operatorIndex: 0,
+      used: false,
+      index: 0,
+      moduleAddress: NOP_REGISTRY,
+    };
+
+    const mockDuplicate = {
+      ...mockKey,
+      index: 1,
+    };
+
+    const keys = [mockKey, mockDuplicate];
+
+    const meta = mockedMeta(currentBlock, currentBlock.hash);
+    const stakingModule = mockedModule(currentBlock, currentBlock.hash);
+
+    mockedKeysApiOperatorsMany(
+      keysApiService,
+      [{ operators: [operator], module: stakingModule }],
+      meta,
+    );
+
+    mockedKeysApiGetAllKeys(keysApiService, keys, meta);
+    mockedKeysApiFind(keysApiService, [], meta);
+
+    await depositService.setCachedEvents({
+      data: [],
+      headers: {
+        startBlock: currentBlock.number,
+        endBlock: currentBlock.number,
+      },
+    });
+
+    const handleCorrectKeys = jest.spyOn(
+      stakingModuleGuardService,
+      'handleCorrectKeys',
+    );
+
+    const filterModuleNotVettedUnusedKeys = jest.spyOn(
+      stakingRouterService,
+      'filterModuleNotVettedUnusedKeys',
+    );
+    await guardianService.handleNewBlock();
+
+    expect(sendDepositMessage).toBeCalledTimes(1);
+    expect(handleCorrectKeys).toBeCalledTimes(1);
+    expect(filterModuleNotVettedUnusedKeys).toBeCalledTimes(2);
+
+    expect(filterModuleNotVettedUnusedKeys).toHaveBeenCalledWith(
+      NOP_REGISTRY,
+      expect.arrayContaining([keys[0]]),
+      expect.arrayContaining([keys[1]]),
+    );
+    //unresolved duplicates
+    expect(filterModuleNotVettedUnusedKeys).toHaveBeenCalledWith(
+      NOP_REGISTRY,
+      expect.arrayContaining([keys[0]]),
+      expect.arrayContaining([]),
+    );
+    expect(handleCorrectKeys).toHaveBeenCalledWith(
+      expect.objectContaining({ duplicatedKeys: [] }),
+      expect.anything(),
+    );
+  });
 
   test(
     'duplicates will not block front-run recognition',

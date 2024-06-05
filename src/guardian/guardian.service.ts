@@ -163,8 +163,7 @@ export class GuardianService implements OnModuleInit {
       const { data: lidoKeys, meta: currMeta } =
         await this.keysApiService.getKeys();
 
-      // as we fetch at first operators to define vetted keys
-      // and now fetched keys , dat in Keys API could change since those moment and we
+      // check that there were no updates in Keys Api between two requests
       this.stakingRouterService.isEqualLastChangedBlockHash(
         meta.elBlockSnapshot.lastChangedBlockHash,
         currMeta.elBlockSnapshot.lastChangedBlockHash,

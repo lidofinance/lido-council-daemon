@@ -21,18 +21,17 @@ export class KeysDuplicationCheckerService {
    * 3. If there is no deposited key, check the SigningKeyAdded events for operators.
    * 4. Sort events by block number and logIndex. The earliest event is considered the original, and the others are marked as duplicates.
    *
-   * What if there is no event for the key? This might indicate that the node returned an incorrect answer, the module didn't implement SigningKeyAdded, or there is a mistake in the cache algorithm. Should we throw an error?
-   *
-   * TODO: If there is no event for the key, should it be considered added in block 0? (Should this be done only for the curated module?)
+   * If there is no event for the key it will return list of unresolved keys.
    */
   async getDuplicatedKeys(
     keys: RegistryKey[],
     blockData: BlockData,
-  ): Promise<RegistryKey[]> {
+  ): Promise<{ duplicates: RegistryKey[]; unresolved: RegistryKey[] }> {
     // List of all duplicates
     // First element of sub-arrays is a key, second - all it's occurrences
     const duplicatedKeys = this.findDuplicateKeys(keys);
     const duplicates: RegistryKey[] = [];
+    const unresolved: RegistryKey[] = [];
 
     for (const [key, occurrences] of duplicatedKeys) {
       const operators = this.extractOperators(occurrences);
@@ -51,17 +50,18 @@ export class KeysDuplicationCheckerService {
       }
 
       // Case: Duplicates across multiple operators
-
-      duplicates.push(
-        ...(await this.getDuplicatesAcrossFewOperators(
+      const { duplicateKeys, missingEvents } =
+        await this.handleDuplicatesAcrossOperators(
           key,
           occurrences,
           operators,
           blockData,
-        )),
-      );
+        );
+
+      duplicates.push(...duplicateKeys);
+      unresolved.push(...missingEvents);
     }
-    return duplicates;
+    return { duplicates, unresolved };
   }
 
   public findDuplicateKeys(keys: RegistryKey[]): [string, RegistryKey[]][] {
@@ -101,14 +101,26 @@ export class KeysDuplicationCheckerService {
     );
   }
 
-  private async getDuplicatesAcrossFewOperators(
+  private async handleDuplicatesAcrossOperators(
     key: string,
     occurrences: RegistryKey[],
     operators: Set<string>,
     blockData: BlockData,
   ) {
     const events = await this.fetchSigningKeyEvents(key, blockData);
-    this.checkOperatorsWithMissingEvents(operators, events, blockData); // Sanity check for operator events
+
+    const missingOperators = this.findMissingOperators(operators, events);
+
+    if (missingOperators.length) {
+      this.logger.error('Missing events for operators', {
+        missingOperators,
+        currentBlockNumber: blockData.blockNumber,
+        currentBlockHash: blockData.blockHash,
+      });
+      // Return the entire occurrence set as unresolved
+      return { duplicateKeys: [], missingEvents: occurrences };
+    }
+
     const originalEvent = this.findOriginalEvent(events);
     const originalKey = this.findOriginalKey(occurrences, originalEvent);
 
@@ -122,7 +134,11 @@ export class KeysDuplicationCheckerService {
       currentBlockNumber: blockData.blockNumber,
       currentBlockHash: blockData.blockHash,
     });
-    return occurrences.filter((k) => !this.isSameKey(k, originalKey));
+    const duplicateKeys = occurrences.filter(
+      (k) => !this.isSameKey(k, originalKey),
+    );
+
+    return { duplicateKeys, missingEvents: [] };
   }
 
   private async fetchSigningKeyEvents(
@@ -161,29 +177,14 @@ export class KeysDuplicationCheckerService {
     return this.findOriginalKeyWithinOperator(keyOwnerKeys);
   }
 
-  /**
-   * Sanity check to ensure all operators have corresponding events.
-   */
-  private checkOperatorsWithMissingEvents(
+  private findMissingOperators(
     operators: Set<string>,
     events: SigningKeyEvent[],
-    blockData: BlockData,
-  ) {
+  ): string[] {
     const eventOperators = new Set(
       events.map((event) => `${event.moduleAddress}-${event.operatorIndex}`),
     );
-    const missingOperators = [...operators].filter(
-      (op) => !eventOperators.has(op),
-    );
-
-    if (missingOperators.length) {
-      this.logger.error('Missing events for operators', {
-        missingOperators,
-        currentBlockNumber: blockData.blockNumber,
-        currentBlockHash: blockData.blockHash,
-      });
-      throw new Error('Missing events for some operators');
-    }
+    return [...operators].filter((op) => !eventOperators.has(op));
   }
 
   private isSameKey(key1: RegistryKey, key2: RegistryKey): boolean {

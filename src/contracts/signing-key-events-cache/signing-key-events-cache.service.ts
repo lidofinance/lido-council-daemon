@@ -300,6 +300,15 @@ export class SigningKeyEventsCacheService {
     );
 
     const mergedEvents = cachedEvents.data.concat(keyFreshEvents);
+
+    this.logger.debug?.('Merged signing key add events', {
+      events: mergedEvents.length,
+      startBlock: firstNotCachedBlock,
+      endBlock,
+      blockHash,
+      lastEventBlockHash,
+    });
+
     return {
       events: mergedEvents,
       stakingModulesAddresses: cachedEvents.headers.stakingModulesAddresses,
