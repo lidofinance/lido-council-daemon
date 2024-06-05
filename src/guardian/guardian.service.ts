@@ -128,6 +128,7 @@ export class GuardianService implements OnModuleInit {
     this.logger.log('New staking router state cycle start');
 
     try {
+      // Fetch the minimum required data to make an early exit
       const { data: operatorsByModules, meta } =
         await this.keysApiService.getOperatorListWithModule();
 
@@ -137,21 +138,12 @@ export class GuardianService implements OnModuleInit {
 
       await this.repositoryService.initCachedContracts({ blockHash });
 
-      if (
-        !this.blockGuardService.isNeedToProcessNewState({
-          blockHash,
-          blockNumber,
-        })
-      ) {
-        this.logger.debug?.(
-          `The block has not changed since the last cycle. Exit`,
-          {
-            blockHash,
-            blockNumber,
-          },
-        );
-        return;
-      }
+      const isNewBlock = this.blockGuardService.isNeedToProcessNewState({
+        blockHash,
+        blockNumber,
+      });
+
+      if (!isNewBlock) return;
 
       const stakingModulesCount = operatorsByModules.length;
 
@@ -164,7 +156,7 @@ export class GuardianService implements OnModuleInit {
         await this.keysApiService.getKeys();
 
       // check that there were no updates in Keys Api between two requests
-      this.stakingRouterService.isEqualLastChangedBlockHash(
+      this.keysApiService.verifyMetaDataConsistency(
         meta.elBlockSnapshot.lastChangedBlockHash,
         currMeta.elBlockSnapshot.lastChangedBlockHash,
       );

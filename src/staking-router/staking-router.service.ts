@@ -3,7 +3,6 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { StakingModuleData, BlockData } from 'guardian';
 import { getVettedUnusedKeys } from './vetted-keys';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
-import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
 import { Meta } from 'keys-api/interfaces/Meta';
 import { SROperatorListWithModule } from 'keys-api/interfaces/SROperatorListWithModule';
 import { SecurityService } from 'contracts/security';
@@ -156,19 +155,5 @@ export class StakingRouterService {
       });
 
     return vettedUnused;
-  }
-
-  public isEqualLastChangedBlockHash(
-    firstRequestHash: string,
-    secondRequestHash: string,
-  ) {
-    if (firstRequestHash !== secondRequestHash) {
-      const error =
-        'Since the last request, data in Kapi has been updated. This may result in inconsistencies between the data from two separate requests.';
-
-      this.logger.error(error, { firstRequestHash, secondRequestHash });
-
-      throw new InconsistentLastChangedBlockHash();
-    }
   }
 }

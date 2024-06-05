@@ -43,7 +43,18 @@ export class BlockGuardService {
       this.logger.error('Keys-api returns old state', newMeta);
       return false;
     }
-    return lastMeta.blockHash !== newMeta.blockHash;
+    const isSameBlock = lastMeta.blockHash !== newMeta.blockHash;
+
+    if (!isSameBlock) {
+      this.logger.debug?.(
+        `The block has not changed since the last cycle. Exit`,
+        {
+          newMeta,
+        },
+      );
+    }
+
+    return isSameBlock;
   }
 
   public setLastProcessedStateMeta(newMeta: {

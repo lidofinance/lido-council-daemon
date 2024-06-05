@@ -6,6 +6,7 @@ import { KeyListResponse, Status } from './interfaces';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Configuration } from 'common/config';
 import { GroupedByModuleOperatorListResponse } from './interfaces/GroupedByModuleOperatorListResponse';
+import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
 
 @Injectable()
 export class KeysApiService {
@@ -77,5 +78,24 @@ export class KeysApiService {
   public async getKeys() {
     const result = await this.fetch<KeyListResponse>(`/v1/keys`);
     return result;
+  }
+
+  /**
+   * Verifies the consistency of metadata by comparing hashes.
+   * @param firstRequestHash - Hash of the first request
+   * @param secondRequestHash - Hash of the second request
+   */
+  public verifyMetaDataConsistency(
+    firstRequestHash: string,
+    secondRequestHash: string,
+  ) {
+    if (firstRequestHash !== secondRequestHash) {
+      const error =
+        'Since the last request, data in Kapi has been updated. This may result in inconsistencies between the data from two separate requests.';
+
+      this.logger.error(error, { firstRequestHash, secondRequestHash });
+
+      throw new InconsistentLastChangedBlockHash();
+    }
   }
 }
