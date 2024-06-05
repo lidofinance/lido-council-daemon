@@ -27,6 +27,7 @@ import { ProviderService } from 'provider';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { MIN_KAPI_VERSION } from './guardian.constants';
 import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
+import { UnvettingService } from './unvetting/unvetting.service';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -51,6 +52,8 @@ export class GuardianService implements OnModuleInit {
     private providerService: ProviderService,
     private keysApiService: KeysApiService,
     private signingKeyEventsCacheService: SigningKeyEventsCacheService,
+
+    private unvettingService: UnvettingService,
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -203,7 +206,7 @@ export class GuardianService implements OnModuleInit {
 
       await Promise.all(
         stakingModulesData.map(async (stakingModuleData) => {
-          await this.stakingModuleGuardService.handleUnvetting(
+          await this.unvettingService.handleUnvetting(
             stakingModuleData,
             blockData,
           );

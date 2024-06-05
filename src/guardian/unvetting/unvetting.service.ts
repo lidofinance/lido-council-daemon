@@ -24,6 +24,14 @@ export class UnvettingService {
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
   ) {
+    if (blockData.securityVersion !== 3) {
+      this.logger.warn(
+        'Council do unvetting only since 3 version of DSM contract',
+        blockData.securityVersion,
+      );
+      return;
+    }
+
     const keys = [
       ...stakingModuleData.invalidKeys,
       ...stakingModuleData.duplicatedKeys,

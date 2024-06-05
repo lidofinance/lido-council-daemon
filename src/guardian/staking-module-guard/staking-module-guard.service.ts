@@ -456,21 +456,6 @@ export class StakingModuleGuardService {
     return invalidKeysList;
   }
 
-  public async handleUnvetting(
-    stakingModuleData: StakingModuleData,
-    blockData: BlockData,
-  ) {
-    if (blockData.securityVersion !== 3) {
-      this.logger.warn(
-        'Council do unvetting only since 3 version of DSM contract',
-        blockData.securityVersion,
-      );
-      return;
-    }
-
-    await this.unvettingService.handleUnvetting(stakingModuleData, blockData);
-  }
-
   /**
    * Compares the states of the contracts to decide if the message needs to be re-signed
    * @param firstState - contracts state
