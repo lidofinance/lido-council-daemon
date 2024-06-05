@@ -9,6 +9,13 @@ import { SecurityService } from 'contracts/security';
 import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 import { KeysDuplicationCheckerService } from 'guardian/duplicates';
 
+type State = {
+  operatorsByModules: SROperatorListWithModule[];
+  meta: Meta;
+  lidoKeys: RegistryKey[];
+  blockData: BlockData;
+};
+
 @Injectable()
 export class StakingRouterService {
   constructor(
@@ -26,13 +33,28 @@ export class StakingRouterService {
     meta,
     lidoKeys,
     blockData,
-  }: {
-    operatorsByModules: SROperatorListWithModule[];
-    meta: Meta;
-    lidoKeys: RegistryKey[];
-    blockData: BlockData;
-  }): Promise<StakingModuleData[]> {
-    const stakingModulesData: StakingModuleData[] = await Promise.all(
+  }: State): Promise<StakingModuleData[]> {
+    const stakingModulesData = await this.collectStakingModuleData({
+      operatorsByModules,
+      meta,
+      lidoKeys,
+      blockData,
+    });
+    await this.checkKeys(stakingModulesData, lidoKeys, blockData);
+
+    return stakingModulesData;
+  }
+
+  /**
+   * Collects basic data about the staking module, including activity status, vetted unused keys list, ID, address, and nonce.
+   */
+  private async collectStakingModuleData({
+    operatorsByModules,
+    meta,
+    lidoKeys,
+    blockData,
+  }: State): Promise<StakingModuleData[]> {
+    return await Promise.all(
       operatorsByModules.map(async ({ operators, module: stakingModule }) => {
         const unusedKeys = lidoKeys.filter(
           (key) =>
@@ -48,7 +70,7 @@ export class StakingRouterService {
         // check pause
         const isModuleDepositsPaused =
           await this.securityService.isModuleDepositsPaused(stakingModule.id, {
-            blockHash: meta.elBlockSnapshot.blockHash,
+            blockHash: blockData.blockHash,
           });
 
         return {
@@ -56,7 +78,8 @@ export class StakingRouterService {
           nonce: stakingModule.nonce,
           stakingModuleId: stakingModule.id,
           stakingModuleAddress: stakingModule.stakingModuleAddress,
-          blockHash: meta.elBlockSnapshot.blockHash,
+          blockHash: blockData.blockHash,
+          // TODO: lastChangedBlockHash the same for every module, add in blockData
           lastChangedBlockHash: meta.elBlockSnapshot.lastChangedBlockHash,
           vettedUnusedKeys: moduleVettedUnusedKeys,
           duplicatedKeys: [],
@@ -66,7 +89,16 @@ export class StakingRouterService {
         };
       }),
     );
+  }
 
+  /**
+   * Check for duplicated, invalid, and front-run attempts
+   */
+  private async checkKeys(
+    stakingModulesData: StakingModuleData[],
+    lidoKeys: RegistryKey[],
+    blockData: BlockData,
+  ): Promise<void> {
     const { duplicates, unresolved } =
       await this.keysDuplicationCheckerService.getDuplicatedKeys(
         lidoKeys,
@@ -75,65 +107,39 @@ export class StakingRouterService {
 
     await Promise.all(
       stakingModulesData.map(async (stakingModuleData) => {
-        const frontRunKeys = this.stakingModuleGuardService.getFrontRunAttempts(
-          stakingModuleData,
-          blockData,
-        );
-        stakingModuleData.frontRunKeys = frontRunKeys;
-
-        this.logger.log('Front-run keys', {
-          count: frontRunKeys.length,
-          stakingModuleId: stakingModuleData.stakingModuleId,
-          blockNumber: meta.elBlockSnapshot.blockNumber,
-        });
-
-        const invalidKeys = await this.stakingModuleGuardService.getInvalidKeys(
-          stakingModuleData,
-          blockData,
-        );
-
-        this.logger.log('Invalid signature keys', {
-          count: invalidKeys.length,
-          stakingModuleId: stakingModuleData.stakingModuleId,
-          blockNumber: meta.elBlockSnapshot.blockNumber,
-        });
-
-        stakingModuleData.invalidKeys = invalidKeys;
-
-        const moduleDuplicatedVettedUnusedKeys =
-          this.filterModuleNotVettedUnusedKeys(
-            stakingModuleData.stakingModuleAddress,
-            stakingModuleData.vettedUnusedKeys,
-            duplicates,
+        stakingModuleData.frontRunKeys =
+          this.stakingModuleGuardService.getFrontRunAttempts(
+            stakingModuleData,
+            blockData,
           );
-
-        this.logger.log('Duplicated keys', {
-          count: moduleDuplicatedVettedUnusedKeys.length,
-          stakingModuleId: stakingModuleData.stakingModuleId,
-          blockNumber: meta.elBlockSnapshot.blockNumber,
-        });
-
-        stakingModuleData.duplicatedKeys = moduleDuplicatedVettedUnusedKeys;
-
-        const moduleUnresolvedDuplicatedVettedUnusedKeys =
+        stakingModuleData.invalidKeys =
+          await this.stakingModuleGuardService.getInvalidKeys(
+            stakingModuleData,
+            blockData,
+          );
+        stakingModuleData.duplicatedKeys = this.filterModuleNotVettedUnusedKeys(
+          stakingModuleData.stakingModuleAddress,
+          stakingModuleData.vettedUnusedKeys,
+          duplicates,
+        );
+        stakingModuleData.unresolvedDuplicatedKeys =
           this.filterModuleNotVettedUnusedKeys(
             stakingModuleData.stakingModuleAddress,
             stakingModuleData.vettedUnusedKeys,
             unresolved,
           );
 
-        this.logger.log('Unresolved duplicated keys', {
-          count: moduleUnresolvedDuplicatedVettedUnusedKeys.length,
+        this.logger.log('Keys check state', {
           stakingModuleId: stakingModuleData.stakingModuleId,
-          blockNumber: meta.elBlockSnapshot.blockNumber,
+          frontRunAttempt: stakingModuleData.frontRunKeys.length,
+          invalid: stakingModuleData.invalidKeys.length,
+          duplicated: stakingModuleData.duplicatedKeys.length,
+          unresolvedDuplicated:
+            stakingModuleData.unresolvedDuplicatedKeys.length,
+          blockNumber: blockData.blockNumber,
         });
-
-        stakingModuleData.unresolvedDuplicatedKeys =
-          moduleUnresolvedDuplicatedVettedUnusedKeys;
       }),
     );
-
-    return stakingModulesData;
   }
 
   /**
