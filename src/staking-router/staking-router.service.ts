@@ -79,7 +79,6 @@ export class StakingRouterService {
           stakingModuleId: stakingModule.id,
           stakingModuleAddress: stakingModule.stakingModuleAddress,
           blockHash: blockData.blockHash,
-          // TODO: lastChangedBlockHash the same for every module, add in blockData
           lastChangedBlockHash: meta.elBlockSnapshot.lastChangedBlockHash,
           vettedUnusedKeys: moduleVettedUnusedKeys,
           duplicatedKeys: [],
