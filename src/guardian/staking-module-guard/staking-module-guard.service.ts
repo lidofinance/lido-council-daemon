@@ -12,7 +12,6 @@ import { GuardianMessageService } from '../guardian-message';
 import { KeysValidationService } from 'guardian/keys-validation/keys-validation.service';
 import { performance } from 'perf_hooks';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
-import { UnvettingService } from 'guardian/unvetting/unvetting.service';
 import { KeysApiService } from 'keys-api/keys-api.service';
 
 @Injectable()
@@ -26,7 +25,6 @@ export class StakingModuleGuardService {
     private guardianMetricsService: GuardianMetricsService,
     private guardianMessageService: GuardianMessageService,
     private keysValidationService: KeysValidationService,
-    private unvettingService: UnvettingService,
   ) {}
 
   private lastContractsStateByModuleId: Record<number, ContractsState | null> =
@@ -245,6 +243,7 @@ export class StakingModuleGuardService {
       ...stakingModuleData.invalidKeys,
       ...stakingModuleData.frontRunKeys,
       ...stakingModuleData.duplicatedKeys,
+      ...stakingModuleData.unresolvedDuplicatedKeys,
     ];
 
     // if neither of this conditions is true, deposits are allowed for module
