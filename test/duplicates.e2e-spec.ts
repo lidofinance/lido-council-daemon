@@ -306,7 +306,6 @@ describe('ganache e2e tests', () => {
 
       expect(sendDepositMessage).toBeCalledTimes(2);
 
-      // TODO: why prev example with toHaveBeenCalledWith didn't work
       expect(sendDepositMessage.mock.calls[0][0]).toEqual(
         expect.objectContaining({
           blockNumber: newBlock.number,
