@@ -46,12 +46,9 @@ export class BlockGuardService {
     const isSameBlock = lastMeta.blockHash !== newMeta.blockHash;
 
     if (!isSameBlock) {
-      this.logger.debug?.(
-        `The block has not changed since the last cycle. Exit`,
-        {
-          newMeta,
-        },
-      );
+      this.logger.log(`The block has not changed since the last cycle. Exit`, {
+        newMeta,
+      });
     }
 
     return isSameBlock;
