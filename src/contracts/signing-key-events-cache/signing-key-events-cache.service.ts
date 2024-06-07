@@ -126,17 +126,12 @@ export class SigningKeyEventsCacheService {
       headers: { stakingModulesAddresses: previousModules },
     } = await this.levelDBCacheService.getHeader();
 
-    if (!previousModules.length) {
-      return false;
-    }
-
     const currentModules = await this.getStakingModules();
-    const isDifferentLength = currentModules.length !== previousModules.length;
-    const hasNewModules = currentModules.some(
-      (module) => !previousModules.includes(module),
-    );
 
-    const wasUpdated = isDifferentLength || hasNewModules;
+    const wasUpdated = this.wasStakingModulesListUpdated(
+      previousModules,
+      currentModules,
+    );
 
     if (wasUpdated) {
       this.logger.warn(
@@ -149,6 +144,18 @@ export class SigningKeyEventsCacheService {
     }
 
     return wasUpdated;
+  }
+
+  public wasStakingModulesListUpdated(
+    previousModules: string[],
+    currentModules: string[],
+  ) {
+    const isDifferentLength = currentModules.length !== previousModules.length;
+    const hasNewModules = currentModules.some(
+      (module) => !previousModules.includes(module),
+    );
+
+    return isDifferentLength || hasNewModules;
   }
 
   public async getStakingModules(): Promise<string[]> {
