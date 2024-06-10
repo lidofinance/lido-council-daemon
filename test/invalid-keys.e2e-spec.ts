@@ -50,6 +50,7 @@ import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-e
 import { KeyValidatorInterface } from '@lido-nestjs/key-validation';
 import { makeDeposit } from './helpers/deposit';
 import { StakingModuleGuardService } from 'guardian/staking-module-guard';
+import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
 
 describe('ganache e2e tests', () => {
   let server: Server<'ethereum'>;
@@ -67,6 +68,7 @@ describe('ganache e2e tests', () => {
   let levelDBService: LevelDBService;
   let signKeyLevelDBService: SignKeyLevelDBService;
   let guardianMessageService: GuardianMessageService;
+  let signingKeyEventsCacheService: SigningKeyEventsCacheService;
 
   beforeEach(async () => {
     ({
@@ -82,6 +84,7 @@ describe('ganache e2e tests', () => {
       signKeyLevelDBService,
       guardianMessageService,
       keyValidator,
+      signingKeyEventsCacheService,
     } = await setupTestingModule());
 
     sendDepositMessage = jest
@@ -148,6 +151,21 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: block0.number,
           endBlock: block0.number,
+        },
+      });
+
+      jest
+        .spyOn(signingKeyEventsCacheService, 'getStakingModules')
+        .mockImplementation(() =>
+          Promise.resolve([NOP_REGISTRY, FAKE_SIMPLE_DVT]),
+        );
+
+      await signingKeyEventsCacheService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: block0.number,
+          endBlock: block0.number,
+          stakingModulesAddresses: [NOP_REGISTRY, FAKE_SIMPLE_DVT],
         },
       });
 
@@ -254,6 +272,21 @@ describe('ganache e2e tests', () => {
       headers: {
         startBlock: block0.number,
         endBlock: block0.number,
+      },
+    });
+
+    jest
+      .spyOn(signingKeyEventsCacheService, 'getStakingModules')
+      .mockImplementation(() =>
+        Promise.resolve([NOP_REGISTRY, FAKE_SIMPLE_DVT]),
+      );
+
+    await signingKeyEventsCacheService.setCachedEvents({
+      data: [],
+      headers: {
+        startBlock: block0.number,
+        endBlock: block0.number,
+        stakingModulesAddresses: [NOP_REGISTRY, FAKE_SIMPLE_DVT],
       },
     });
 
@@ -369,6 +402,21 @@ describe('ganache e2e tests', () => {
       headers: {
         startBlock: block0.number,
         endBlock: block0.number,
+      },
+    });
+
+    jest
+      .spyOn(signingKeyEventsCacheService, 'getStakingModules')
+      .mockImplementation(() =>
+        Promise.resolve([NOP_REGISTRY, FAKE_SIMPLE_DVT]),
+      );
+
+    await signingKeyEventsCacheService.setCachedEvents({
+      data: [],
+      headers: {
+        startBlock: block0.number,
+        endBlock: block0.number,
+        stakingModulesAddresses: [NOP_REGISTRY, FAKE_SIMPLE_DVT],
       },
     });
 

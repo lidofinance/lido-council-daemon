@@ -160,6 +160,21 @@ describe('ganache e2e tests', () => {
         },
       });
 
+      jest
+        .spyOn(signingKeyEventsCacheService, 'getStakingModules')
+        .mockImplementation(() =>
+          Promise.resolve([NOP_REGISTRY, FAKE_SIMPLE_DVT]),
+        );
+
+      await signingKeyEventsCacheService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          stakingModulesAddresses: [NOP_REGISTRY, FAKE_SIMPLE_DVT],
+        },
+      });
+
       // mocked curated module
       const stakingModule = mockedModule(currentBlock, currentBlock.hash);
       const stakingDvtModule = mockedModuleDvt(currentBlock, currentBlock.hash);
@@ -542,6 +557,21 @@ describe('ganache e2e tests', () => {
         },
       });
 
+      jest
+        .spyOn(signingKeyEventsCacheService, 'getStakingModules')
+        .mockImplementation(() =>
+          Promise.resolve([NOP_REGISTRY, FAKE_SIMPLE_DVT]),
+        );
+
+      await signingKeyEventsCacheService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          stakingModulesAddresses: [NOP_REGISTRY, FAKE_SIMPLE_DVT],
+        },
+      });
+
       // mocked curated module
       const stakingModule = mockedModule(currentBlock, currentBlock.hash);
       const meta = mockedMeta(currentBlock, currentBlock.hash);
@@ -677,6 +707,21 @@ describe('ganache e2e tests', () => {
       },
     });
 
+    jest
+      .spyOn(signingKeyEventsCacheService, 'getStakingModules')
+      .mockImplementation(() =>
+        Promise.resolve([NOP_REGISTRY, FAKE_SIMPLE_DVT]),
+      );
+
+    await signingKeyEventsCacheService.setCachedEvents({
+      data: [],
+      headers: {
+        startBlock: currentBlock.number,
+        endBlock: currentBlock.number,
+        stakingModulesAddresses: [NOP_REGISTRY, FAKE_SIMPLE_DVT],
+      },
+    });
+
     const handleCorrectKeys = jest.spyOn(
       stakingModuleGuardService,
       'handleCorrectKeys',
@@ -768,6 +813,21 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
+        },
+      });
+
+      jest
+        .spyOn(signingKeyEventsCacheService, 'getStakingModules')
+        .mockImplementation(() =>
+          Promise.resolve([NOP_REGISTRY, FAKE_SIMPLE_DVT]),
+        );
+
+      await signingKeyEventsCacheService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          stakingModulesAddresses: [NOP_REGISTRY, FAKE_SIMPLE_DVT],
         },
       });
 
