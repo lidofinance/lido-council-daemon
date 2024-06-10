@@ -30,37 +30,50 @@ export class KeysDuplicationCheckerService {
     // List of all duplicates
     // First element of sub-arrays is a key, second - all it's occurrences
     const duplicatedKeys = this.findDuplicateKeys(keys);
-    const duplicates: RegistryKey[] = [];
-    const unresolved: RegistryKey[] = [];
 
-    for (const [key, occurrences] of duplicatedKeys) {
+    // async function that identify duplicates across list of duplicates
+    const getDuplicatedAndUnresolvedKeys = async ([key, occurrences]) => {
       const operators = this.extractOperators(occurrences);
 
-      // Case: Duplicates across one operator
+      // Function for identify duplicates across one operator
+      const duplicatesWithinOperator = () =>
+        this.findDuplicatesWithinOperator(occurrences);
+
+      // Function for identify duplicates if list contains deposited key
+      const duplicatesForDepositedKeys = () =>
+        occurrences.filter((key) => !key.used);
+
+      // Function for identify duplicates across multiple operators
+      const duplicatesAcrossOperators = async () => {
+        const { duplicateKeys, missingEvents } =
+          await this.getDuplicatesAcrossOperators(
+            key,
+            occurrences,
+            operators,
+            blockData,
+          );
+        return { duplicates: duplicateKeys, unresolved: missingEvents };
+      };
+
+      // if list contains only 1 operator
       if (operators.size == 1) {
-        duplicates.push(...this.findDuplicatesWithinOperator(occurrences));
-
-        continue;
+        return { duplicates: duplicatesWithinOperator(), unresolved: [] };
+      } else if (occurrences.some((key) => key.used)) {
+        // if list contains deposited key
+        return { duplicates: duplicatesForDepositedKeys(), unresolved: [] };
+      } else {
+        // if list contain multiple operators and doesn't contain deposited keys
+        return await duplicatesAcrossOperators();
       }
+    };
 
-      // Case: Deposited keys
-      if (occurrences.some((key) => key.used)) {
-        duplicates.push(...occurrences.filter((key) => !key.used));
-        continue;
-      }
+    const result = await Promise.all(
+      duplicatedKeys.map(getDuplicatedAndUnresolvedKeys),
+    );
 
-      // Case: Duplicates across multiple operators
-      const { duplicateKeys, missingEvents } =
-        await this.handleDuplicatesAcrossOperators(
-          key,
-          occurrences,
-          operators,
-          blockData,
-        );
+    const duplicates = result.flatMap(({ duplicates }) => duplicates);
+    const unresolved = result.flatMap(({ unresolved }) => unresolved);
 
-      duplicates.push(...duplicateKeys);
-      unresolved.push(...missingEvents);
-    }
     return { duplicates, unresolved };
   }
 
@@ -101,7 +114,7 @@ export class KeysDuplicationCheckerService {
     );
   }
 
-  private async handleDuplicatesAcrossOperators(
+  private async getDuplicatesAcrossOperators(
     key: string,
     occurrences: RegistryKey[],
     operators: Set<string>,

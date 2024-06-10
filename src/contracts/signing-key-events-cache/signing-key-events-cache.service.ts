@@ -150,12 +150,14 @@ export class SigningKeyEventsCacheService {
     previousModules: string[],
     currentModules: string[],
   ) {
-    const isDifferentLength = currentModules.length !== previousModules.length;
-    const hasNewModules = currentModules.some(
+    const modulesWereDeleted = previousModules.some(
+      (sm) => !currentModules.includes(sm),
+    );
+    const modulesWereAdded = currentModules.some(
       (module) => !previousModules.includes(module),
     );
 
-    return isDifferentLength || hasNewModules;
+    return modulesWereDeleted || modulesWereAdded;
   }
 
   public async getStakingModules(): Promise<string[]> {
