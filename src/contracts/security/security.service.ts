@@ -313,7 +313,7 @@ export class SecurityService {
       });
       return version.toNumber();
     } catch (error) {
-      this.logger.error(
+      this.logger.warn(
         'Error while fetching the version; the locator may have returned an outdated version of the DSM contract',
       );
 
