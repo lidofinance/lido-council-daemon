@@ -24,7 +24,6 @@ export const DEPOSIT_CACHE_BATCH_SIZE = 100_000;
 
 export const DEPOSIT_CACHE_DEFAULT = Object.freeze({
   headers: {
-    version: '-1',
     startBlock: 0,
     endBlock: 0,
   },

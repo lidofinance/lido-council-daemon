@@ -3,7 +3,6 @@ import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 export interface StakingModuleData {
   blockHash: string;
   vettedUnusedKeys: RegistryKey[];
-  vettedKeys: RegistryKey[];
   nonce: number;
   stakingModuleId: number;
   stakingModuleAddress: string;
@@ -11,5 +10,6 @@ export interface StakingModuleData {
   duplicatedKeys: RegistryKey[];
   invalidKeys: RegistryKey[];
   frontRunKeys: RegistryKey[];
+  unresolvedDuplicatedKeys: RegistryKey[];
   isModuleDepositsPaused: boolean;
 }

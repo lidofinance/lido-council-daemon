@@ -113,6 +113,7 @@ describe('UnvettingService', () => {
         blockNumber: 1,
         guardianAddress: '0x1',
         guardianIndex: 1,
+        securityVersion: 3,
       } as any;
 
       const stakingModuleData = {
@@ -190,6 +191,7 @@ describe('UnvettingService', () => {
         blockNumber: 1,
         guardianAddress: '0x1',
         guardianIndex: 1,
+        securityVersion: 3,
       } as any;
 
       const stakingModuleData = {

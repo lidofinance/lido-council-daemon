@@ -26,6 +26,8 @@ import { StakingModuleData } from './interfaces';
 import { ProviderService } from 'provider';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { MIN_KAPI_VERSION } from './guardian.constants';
+import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
+import { UnvettingService } from './unvetting/unvetting.service';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -49,6 +51,9 @@ export class GuardianService implements OnModuleInit {
 
     private providerService: ProviderService,
     private keysApiService: KeysApiService,
+    private signingKeyEventsCacheService: SigningKeyEventsCacheService,
+
+    private unvettingService: UnvettingService,
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -62,6 +67,7 @@ export class GuardianService implements OnModuleInit {
         await Promise.all([
           this.depositService.initialize(block.number),
           this.securityService.initialize({ blockHash }),
+          this.signingKeyEventsCacheService.initialize(block.number),
         ]);
 
         const chainId = await this.providerService.getChainId();
@@ -90,6 +96,7 @@ export class GuardianService implements OnModuleInit {
         // The event cache is stored with an N block lag to avoid caching data from uncle blocks
         // so we don't worry about blockHash here
         await this.depositService.updateEventsCache();
+        await this.signingKeyEventsCacheService.updateEventsCache();
 
         this.subscribeToModulesUpdates();
       } catch (error) {
@@ -124,6 +131,7 @@ export class GuardianService implements OnModuleInit {
     this.logger.log('New staking router state cycle start');
 
     try {
+      // Fetch the minimum required data to make an early exit
       const { data: operatorsByModules, meta } =
         await this.keysApiService.getOperatorListWithModule();
 
@@ -133,21 +141,12 @@ export class GuardianService implements OnModuleInit {
 
       await this.repositoryService.initCachedContracts({ blockHash });
 
-      if (
-        !this.blockGuardService.isNeedToProcessNewState({
-          blockHash,
-          blockNumber,
-        })
-      ) {
-        this.logger.debug?.(
-          `The block has not changed since the last cycle. Exit`,
-          {
-            blockHash,
-            blockNumber,
-          },
-        );
-        return;
-      }
+      const isNewBlock = this.blockGuardService.isNeedToProcessNewState({
+        blockHash,
+        blockNumber,
+      });
+
+      if (!isNewBlock) return;
 
       const stakingModulesCount = operatorsByModules.length;
 
@@ -159,14 +158,14 @@ export class GuardianService implements OnModuleInit {
       const { data: lidoKeys, meta: currMeta } =
         await this.keysApiService.getKeys();
 
-      // as we fetch at first operators to define vetted keys
-      // and now fetched keys , dat in Keys API could change since those moment and we
-      this.stakingRouterService.isEqualLastChangedBlockHash(
+      // check that there were no updates in Keys Api between two requests
+      this.keysApiService.verifyMetaDataConsistency(
         meta.elBlockSnapshot.lastChangedBlockHash,
         currMeta.elBlockSnapshot.lastChangedBlockHash,
       );
 
       await this.depositService.handleNewBlock(blockNumber);
+      await this.signingKeyEventsCacheService.handleNewBlock(blockNumber);
 
       const blockData = await this.blockGuardService.getCurrentBlockData({
         blockHash,
@@ -177,6 +176,7 @@ export class GuardianService implements OnModuleInit {
         guardianIndex: blockData.guardianIndex,
         blockNumber: blockData.blockNumber,
         blockHash: blockData.blockHash,
+        securityVersion: blockData.securityVersion,
       });
 
       // TODO: add metrics for getHistoricalFrontRun same as for keysIntersections
@@ -191,25 +191,11 @@ export class GuardianService implements OnModuleInit {
           blockData,
         });
 
-      const version = await this.securityService.version({
-        blockHash: blockData.blockHash,
-      });
-
-      this.logger.log('DSM contract version:', { version });
-
-      const alreadyPausedDeposits =
-        await this.stakingModuleGuardService.alreadyPausedDeposits(
-          blockData,
-          version,
-        );
-
-      if (alreadyPausedDeposits) {
-        this.logger.warn('Deposits are already paused', {
-          blockNumber: blockData.blockNumber,
-        });
-      }
-
-      if (version === 3 && !alreadyPausedDeposits && theftHappened) {
+      if (
+        blockData.securityVersion === 3 &&
+        !blockData.alreadyPausedDeposits &&
+        theftHappened
+      ) {
         await this.stakingModuleGuardService.handlePauseV3(blockData);
       } else if (theftHappened) {
         await this.stakingModuleGuardService.handlePauseV2(
@@ -220,10 +206,9 @@ export class GuardianService implements OnModuleInit {
 
       await Promise.all(
         stakingModulesData.map(async (stakingModuleData) => {
-          await this.stakingModuleGuardService.handleUnvetting(
+          await this.unvettingService.handleUnvetting(
             stakingModuleData,
             blockData,
-            version,
           );
 
           this.guardianMetricsService.collectMetrics(
@@ -235,7 +220,7 @@ export class GuardianService implements OnModuleInit {
             !this.stakingModuleGuardService.canDeposit(
               stakingModuleData,
               theftHappened,
-              alreadyPausedDeposits,
+              blockData.alreadyPausedDeposits,
             )
           ) {
             this.logger.warn('Module is on soft pause', {

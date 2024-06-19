@@ -24,6 +24,14 @@ export class UnvettingService {
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
   ) {
+    if (blockData.securityVersion !== 3) {
+      this.logger.warn(
+        'Council do unvetting only since 3 version of DSM contract',
+        blockData.securityVersion,
+      );
+      return;
+    }
+
     const keys = [
       ...stakingModuleData.invalidKeys,
       ...stakingModuleData.duplicatedKeys,
@@ -70,8 +78,8 @@ export class UnvettingService {
           vettedKeysByOperator,
         );
 
-        await this.securityService
-          .unvetSigningKeys(
+        const results = await Promise.allSettled([
+          this.securityService.unvetSigningKeys(
             stakingModuleData.nonce,
             blockData.blockNumber,
             blockData.blockHash,
@@ -79,19 +87,24 @@ export class UnvettingService {
             operatorIds,
             vettedKeysByOperator,
             signature,
-          )
-          .catch((error) => this.logger.error(error));
+          ),
+          this.guardianMessageService.sendUnvetMessage({
+            nonce: stakingModuleData.nonce,
+            blockNumber: blockData.blockNumber,
+            blockHash: blockData.blockHash,
+            guardianAddress: blockData.guardianAddress,
+            guardianIndex: blockData.guardianIndex,
+            stakingModuleId: stakingModuleId,
+            operatorIds,
+            vettedKeysByOperator,
+            signature,
+          }),
+        ]);
 
-        await this.guardianMessageService.sendUnvetMessage({
-          nonce: stakingModuleData.nonce,
-          blockNumber: blockData.blockNumber,
-          blockHash: blockData.blockHash,
-          guardianAddress: blockData.guardianAddress,
-          guardianIndex: blockData.guardianIndex,
-          stakingModuleId: stakingModuleId,
-          operatorIds,
-          vettedKeysByOperator,
-          signature,
+        results.forEach((result) => {
+          if (result.status === 'rejected') {
+            this.logger.error(result.reason);
+          }
         });
       }),
     );

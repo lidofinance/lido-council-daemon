@@ -17,7 +17,7 @@ import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
 import { DepositModule, DepositService } from 'contracts/deposit';
 import { LidoModule, LidoService } from 'contracts/lido';
-import { RepositoryModule } from 'contracts/repository';
+import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { SecurityModule, SecurityService } from 'contracts/security';
 import { ethers } from 'ethers';
 import { SecurityAbi__factory } from 'generated';
@@ -30,7 +30,10 @@ import { WalletModule, WalletService } from 'wallet';
 import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 import { BlsService } from 'bls';
 import { LevelDBService } from 'contracts/deposit/leveldb';
+import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
 import { DepositIntegrityCheckerService } from 'contracts/deposit/integrity-checker';
+import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
+import { StakingRouterService } from 'staking-router';
 
 export const setupTestingModule = async () => {
   const server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
@@ -86,14 +89,21 @@ export const setupTestingModule = async () => {
   const securityService = moduleRef.get(SecurityService);
   const stakingModuleGuardService = moduleRef.get(StakingModuleGuardService);
   const levelDBService = moduleRef.get(LevelDBService);
+  const signKeyLevelDBService = moduleRef.get(SignKeyLevelDBService);
   const depositIntegrityCheckerService = moduleRef.get(
     DepositIntegrityCheckerService,
   );
-
+  const signingKeyEventsCacheService = moduleRef.get(
+    SigningKeyEventsCacheService,
+  );
+  const repositoryService = moduleRef.get(RepositoryService);
   const blsService = moduleRef.get(BlsService);
+  const stakingRouterService = moduleRef.get(StakingRouterService);
+
   await blsService.onModuleInit();
 
   await levelDBService.initialize();
+  await signKeyLevelDBService.initialize();
 
   jest
     .spyOn(lidoService, 'getWithdrawalCredentials')
@@ -101,24 +111,13 @@ export const setupTestingModule = async () => {
   jest
     .spyOn(guardianMessageService, 'pingMessageBroker')
     .mockImplementation(() => Promise.resolve());
-  const sendDepositMessage = jest
-    .spyOn(guardianMessageService, 'sendDepositMessage')
-    .mockImplementation(() => Promise.resolve());
-  const sendPauseMessage = jest
-    .spyOn(guardianMessageService, 'sendPauseMessageV2')
-    .mockImplementation(() => Promise.resolve());
-  const validateKeys = jest.spyOn(keyValidator, 'validateKeys');
+
   jest
     .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
     .mockImplementation(() => Promise.resolve());
   jest
     .spyOn(depositIntegrityCheckerService, 'checkFinalizedRoot')
     .mockImplementation(() => Promise.resolve());
-
-  const getFrontRunAttempts = jest.spyOn(
-    stakingModuleGuardService,
-    'getFrontRunAttempts',
-  );
 
   return {
     server,
@@ -133,16 +132,22 @@ export const setupTestingModule = async () => {
     keyValidator,
     securityService,
     stakingModuleGuardService,
-    sendDepositMessage,
-    sendPauseMessage,
-    validateKeys,
-    getFrontRunAttempts,
     levelDBService,
+    signKeyLevelDBService,
+    signingKeyEventsCacheService,
+    repositoryService,
+    stakingRouterService,
   };
 };
 
-export const closeServer = async (server, levelDBService) => {
+export const closeServer = async (
+  server,
+  levelDBService: LevelDBService,
+  signKeyLevelDBService: SignKeyLevelDBService,
+) => {
   await server.close();
   await levelDBService.deleteCache();
+  await signKeyLevelDBService.deleteCache();
   await levelDBService.close();
+  await signKeyLevelDBService.close();
 };

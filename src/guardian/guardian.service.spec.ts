@@ -22,6 +22,7 @@ import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { mockLocator } from 'contracts/repository/locator/locator.mock';
 import { mockRepository } from 'contracts/repository/repository.mock';
 import { KeysApiService } from 'keys-api/keys-api.service';
+import { UnvettingModule } from './unvetting/unvetting.module';
 
 jest.mock('../transport/stomp/stomp.client');
 
@@ -54,6 +55,7 @@ describe('GuardianService', () => {
         StakingModuleGuardModule,
         GuardianMessageModule,
         GuardianMetricsModule,
+        UnvettingModule,
       ],
     }).compile();
 

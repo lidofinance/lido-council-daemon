@@ -119,7 +119,6 @@ describe('DepositService', () => {
           headers: {
             startBlock: deploymentBlock,
             endBlock: deploymentBlock + 100,
-            version: '1',
           },
         };
 
@@ -139,7 +138,6 @@ describe('DepositService', () => {
           headers: {
             startBlock: 0,
             endBlock: 0,
-            version: '1',
           },
         };
 
@@ -309,7 +307,6 @@ describe('DepositService', () => {
         headers: {
           startBlock: 0,
           endBlock: 2,
-          version: '1',
         },
         data: cachedPubkeys.map((pubkey) => ({ pubkey } as any)),
       };
@@ -378,7 +375,6 @@ describe('DepositService', () => {
         headers: {
           startBlock: 0,
           endBlock: 2,
-          version: '1',
         },
         data: cachedPubkeys.map((pubkey) => ({ pubkey } as any)),
       };

@@ -43,7 +43,15 @@ export class BlockGuardService {
       this.logger.error('Keys-api returns old state', newMeta);
       return false;
     }
-    return lastMeta.blockHash !== newMeta.blockHash;
+    const isSameBlock = lastMeta.blockHash !== newMeta.blockHash;
+
+    if (!isSameBlock) {
+      this.logger.log(`The block has not changed since the last cycle. Exit`, {
+        newMeta,
+      });
+    }
+
+    return isSameBlock;
   }
 
   public setLastProcessedStateMeta(newMeta: {
@@ -68,14 +76,33 @@ export class BlockGuardService {
     const endTimer = this.blockRequestsHistogram.startTimer();
     try {
       const guardianAddress = this.securityService.getGuardianAddress();
+      const [
+        depositRoot,
+        depositedEvents,
+        guardianIndex,
+        lidoWC,
+        securityVersion,
+      ] = await Promise.all([
+        this.depositService.getDepositRoot({ blockHash }),
+        this.depositService.getAllDepositedEvents(blockNumber, blockHash),
+        this.securityService.getGuardianIndex({ blockHash }),
+        this.lidoService.getWithdrawalCredentials({ blockHash }),
+        this.securityService.version({
+          blockHash,
+        }),
+      ]);
 
-      const [depositRoot, depositedEvents, guardianIndex, lidoWC] =
-        await Promise.all([
-          this.depositService.getDepositRoot({ blockHash }),
-          this.depositService.getAllDepositedEvents(blockNumber, blockHash),
-          this.securityService.getGuardianIndex({ blockHash }),
-          this.lidoService.getWithdrawalCredentials({ blockHash }),
-        ]);
+      const alreadyPausedDeposits = await this.alreadyPausedDeposits(
+        blockHash,
+        securityVersion,
+      );
+
+      if (alreadyPausedDeposits) {
+        this.logger.warn('Deposits are already paused', {
+          blockNumber,
+          blockHash,
+        });
+      }
 
       return {
         blockNumber,
@@ -85,6 +112,8 @@ export class BlockGuardService {
         guardianAddress,
         guardianIndex,
         lidoWC,
+        securityVersion,
+        alreadyPausedDeposits,
       };
     } catch (error) {
       this.blockErrorsCounter.inc();
@@ -93,5 +122,22 @@ export class BlockGuardService {
     } finally {
       endTimer();
     }
+  }
+
+  private async alreadyPausedDeposits(
+    blockHash: string,
+    securityVersion: number,
+  ) {
+    if (securityVersion === 3) {
+      const alreadyPaused = await this.securityService.isDepositContractPaused({
+        blockHash,
+      });
+
+      return alreadyPaused;
+    }
+
+    // for earlier versions DSM contact didn't have this method
+    // we check pause for every method via staking router contract
+    return false;
   }
 }

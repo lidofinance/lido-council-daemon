@@ -46,6 +46,17 @@ import { DepositData } from './../src/bls/bls.containers';
 
 // App modules and services
 import { setupTestingModule, closeServer } from './helpers/test-setup';
+import { SecurityService } from 'contracts/security';
+import { DepositService } from 'contracts/deposit';
+import { GuardianService } from 'guardian';
+import { KeysApiService } from 'keys-api/keys-api.service';
+import { WalletService } from 'wallet';
+import { ProviderService } from 'provider';
+import { Server } from 'ganache';
+import { LevelDBService } from 'contracts/deposit/leveldb';
+import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
+import { GuardianMessageService } from 'guardian/guardian-message';
+import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -53,16 +64,19 @@ jest.mock('../src/transport/stomp/stomp.client.ts');
 jest.setTimeout(10_000);
 
 describe('ganache e2e tests', () => {
-  let server;
-  let providerService;
-  let walletService;
-  let keysApiService;
-  let guardianService;
-  let depositService;
-  let securityService;
-  let sendDepositMessage;
-  let sendPauseMessage;
-  let levelDBService;
+  let server: Server<'ethereum'>;
+  let providerService: ProviderService;
+  let walletService: WalletService;
+  let keysApiService: KeysApiService;
+  let guardianService: GuardianService;
+  let depositService: DepositService;
+  let securityService: SecurityService;
+  let sendDepositMessage: jest.SpyInstance;
+  let sendPauseMessage: jest.SpyInstance;
+  let levelDBService: LevelDBService;
+  let signKeyLevelDBService: SignKeyLevelDBService;
+  let guardianMessageService: GuardianMessageService;
+  let signingKeyEventsCacheService: SigningKeyEventsCacheService;
 
   beforeEach(async () => {
     ({
@@ -73,14 +87,22 @@ describe('ganache e2e tests', () => {
       guardianService,
       depositService,
       securityService,
-      sendDepositMessage,
-      sendPauseMessage,
       levelDBService,
+      signKeyLevelDBService,
+      guardianMessageService,
+      signingKeyEventsCacheService,
     } = await setupTestingModule());
+
+    sendDepositMessage = jest
+      .spyOn(guardianMessageService, 'sendDepositMessage')
+      .mockImplementation(() => Promise.resolve());
+    sendPauseMessage = jest
+      .spyOn(guardianMessageService, 'sendPauseMessageV2')
+      .mockImplementation(() => Promise.resolve());
   });
 
   afterEach(async () => {
-    await closeServer(server, levelDBService);
+    await closeServer(server, levelDBService, signKeyLevelDBService);
   });
 
   describe('node checks', () => {
@@ -179,7 +201,21 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
+        },
+      });
+
+      jest
+        .spyOn(signingKeyEventsCacheService, 'getStakingModules')
+        .mockImplementation(() =>
+          Promise.resolve([NOP_REGISTRY, FAKE_SIMPLE_DVT]),
+        );
+
+      await signingKeyEventsCacheService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          stakingModulesAddresses: [NOP_REGISTRY, FAKE_SIMPLE_DVT],
         },
       });
 
@@ -319,7 +355,21 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
+        },
+      });
+
+      jest
+        .spyOn(signingKeyEventsCacheService, 'getStakingModules')
+        .mockImplementation(() =>
+          Promise.resolve([NOP_REGISTRY, FAKE_SIMPLE_DVT]),
+        );
+
+      await signingKeyEventsCacheService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          stakingModulesAddresses: [NOP_REGISTRY, FAKE_SIMPLE_DVT],
         },
       });
 
@@ -448,9 +498,23 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
+      jest
+        .spyOn(signingKeyEventsCacheService, 'getStakingModules')
+        .mockImplementation(() =>
+          Promise.resolve([NOP_REGISTRY, FAKE_SIMPLE_DVT]),
+        );
+
+      await signingKeyEventsCacheService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          stakingModulesAddresses: [NOP_REGISTRY, FAKE_SIMPLE_DVT],
+        },
+      });
+
       // Check if the service is ok and ready to go
       await guardianService.handleNewBlock();
       const badDepositMessage = {
@@ -556,7 +620,21 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
+        },
+      });
+
+      jest
+        .spyOn(signingKeyEventsCacheService, 'getStakingModules')
+        .mockImplementation(() =>
+          Promise.resolve([NOP_REGISTRY, FAKE_SIMPLE_DVT]),
+        );
+
+      await signingKeyEventsCacheService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          stakingModulesAddresses: [NOP_REGISTRY, FAKE_SIMPLE_DVT],
         },
       });
 
@@ -669,7 +747,21 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
+        },
+      });
+
+      jest
+        .spyOn(signingKeyEventsCacheService, 'getStakingModules')
+        .mockImplementation(() =>
+          Promise.resolve([NOP_REGISTRY, FAKE_SIMPLE_DVT]),
+        );
+
+      await signingKeyEventsCacheService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          stakingModulesAddresses: [NOP_REGISTRY, FAKE_SIMPLE_DVT],
         },
       });
 
@@ -778,7 +870,6 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
         },
       });
 
@@ -901,7 +992,21 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          version: '1',
+        },
+      });
+
+      jest
+        .spyOn(signingKeyEventsCacheService, 'getStakingModules')
+        .mockImplementation(() =>
+          Promise.resolve([NOP_REGISTRY, FAKE_SIMPLE_DVT]),
+        );
+
+      await signingKeyEventsCacheService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          stakingModulesAddresses: [NOP_REGISTRY, FAKE_SIMPLE_DVT],
         },
       });
 

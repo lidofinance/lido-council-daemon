@@ -155,6 +155,10 @@ describe('RepositoryService', () => {
         .spyOn(repositoryService, 'getDepositAddress')
         .mockImplementation(async () => '0x' + '5'.repeat(40));
 
+      jest
+        .spyOn(repositoryService, 'getStakingModules')
+        .mockImplementation(async () => []);
+
       mockLocator(locatorService);
 
       await repositoryService.initCachedContracts('latest');
@@ -177,6 +181,10 @@ describe('RepositoryService', () => {
       jest
         .spyOn(repositoryService, 'getDepositAddress')
         .mockImplementation(async () => '0x' + '5'.repeat(40));
+
+      jest
+        .spyOn(repositoryService, 'getStakingModules')
+        .mockImplementation(async () => []);
 
       mockLocator(locatorService);
 

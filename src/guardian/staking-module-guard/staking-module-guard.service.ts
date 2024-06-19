@@ -12,7 +12,6 @@ import { GuardianMessageService } from '../guardian-message';
 import { KeysValidationService } from 'guardian/keys-validation/keys-validation.service';
 import { performance } from 'perf_hooks';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
-import { UnvettingService } from 'guardian/unvetting/unvetting.service';
 import { KeysApiService } from 'keys-api/keys-api.service';
 
 @Injectable()
@@ -26,7 +25,6 @@ export class StakingModuleGuardService {
     private guardianMetricsService: GuardianMetricsService,
     private guardianMessageService: GuardianMessageService,
     private keysValidationService: KeysValidationService,
-    private unvettingService: UnvettingService,
   ) {}
 
   private lastContractsStateByModuleId: Record<number, ContractsState | null> =
@@ -139,39 +137,6 @@ export class StakingModuleGuardService {
     return !!isLidoDepositedKeys;
   }
 
-  /**
-   * filter from the list all keys that are not vetted as unused
-   */
-  public filterNotVettedUnusedKeys(
-    stakingModuleData: StakingModuleData,
-    keys: RegistryKey[],
-  ) {
-    // maybe name them everywhere waitingDepositKeys
-    const vettedUnusedKeys = stakingModuleData.vettedUnusedKeys;
-
-    const vettedUnused = keys.filter((key) => {
-      const r = vettedUnusedKeys.some(
-        (k) =>
-          k.index == key.index &&
-          k.operatorIndex == key.operatorIndex &&
-          // extra check
-          k.key == key.key,
-      );
-
-      return r;
-    });
-
-    return vettedUnused;
-  }
-
-  getVettedKeys(stakingModulesData: StakingModuleData[]) {
-    return stakingModulesData
-      .map((stakingModule) => {
-        return stakingModule.vettedKeys;
-      })
-      .flat();
-  }
-
   public async alreadyPausedDeposits(blockData: BlockData, version: number) {
     if (version === 3) {
       const alreadyPaused = await this.securityService.isDepositContractPaused({
@@ -278,6 +243,7 @@ export class StakingModuleGuardService {
       ...stakingModuleData.invalidKeys,
       ...stakingModuleData.frontRunKeys,
       ...stakingModuleData.duplicatedKeys,
+      ...stakingModuleData.unresolvedDuplicatedKeys,
     ];
 
     // if neither of this conditions is true, deposits are allowed for module
@@ -487,22 +453,6 @@ export class StakingModuleGuardService {
     });
 
     return invalidKeysList;
-  }
-
-  public async handleUnvetting(
-    stakingModuleData: StakingModuleData,
-    blockData: BlockData,
-    version: number,
-  ) {
-    if (version !== 3) {
-      this.logger.warn(
-        'Council do unvetting only since 3 version of DSM contract',
-        version,
-      );
-      return;
-    }
-
-    await this.unvettingService.handleUnvetting(stakingModuleData, blockData);
   }
 
   /**
