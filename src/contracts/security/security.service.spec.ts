@@ -8,7 +8,6 @@ import { SecurityAbi__factory, StakingRouterAbi__factory } from 'generated';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { Interface } from '@ethersproject/abi';
-import { BigNumber } from '@ethersproject/bignumber';
 import { hexZeroPad } from '@ethersproject/bytes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
@@ -61,25 +60,6 @@ describe('SecurityService', () => {
     const repo = await mockRepository(repositoryService);
     mockGetAttestMessagePrefix = repo.mockGetAttestMessagePrefix;
     mockGetPauseMessagePrefix = repo.mockGetPauseMessagePrefix;
-  });
-
-  describe('getMaxDeposits', () => {
-    it('should return max deposits', async () => {
-      const expected = 10;
-
-      const mockProviderCall = jest
-        .spyOn(providerService.provider, 'call')
-        .mockImplementation(async () => {
-          const iface = new Interface(SecurityAbi__factory.abi);
-          const result = [BigNumber.from(expected).toHexString()];
-          return iface.encodeFunctionResult('getMaxDeposits', result);
-        });
-
-      const maxDeposits = await securityService.getMaxDeposits();
-      expect(typeof maxDeposits).toBe('number');
-      expect(maxDeposits).toBe(expected);
-      expect(mockProviderCall).toBeCalledTimes(1);
-    });
   });
 
   describe('getGuardians', () => {
@@ -174,13 +154,13 @@ describe('SecurityService', () => {
     });
   });
 
-  describe('signPauseData', () => {
+  describe('signPauseDataV2', () => {
     it('should add prefix', async () => {
       const blockNumber = 1;
 
-      const signPauseData = jest.spyOn(walletService, 'signPauseData');
+      const signPauseData = jest.spyOn(walletService, 'signPauseDataV2');
 
-      const signature = await securityService.signPauseData(
+      const signature = await securityService.signPauseDataV2(
         blockNumber,
         TEST_MODULE_ID,
       );
@@ -216,13 +196,15 @@ describe('SecurityService', () => {
           ]);
         });
 
-      const isPaused = await securityService.isDepositsPaused(TEST_MODULE_ID);
+      const isPaused = await securityService.isModuleDepositsPaused(
+        TEST_MODULE_ID,
+      );
       expect(isPaused).toBe(!expected);
       expect(mockProviderCalla).toBeCalledTimes(1);
     });
   });
 
-  describe('pauseDeposits', () => {
+  describe('pauseDepositsV2', () => {
     const hash = hexZeroPad('0x1', 32);
     const blockNumber = 10;
 
@@ -242,19 +224,19 @@ describe('SecurityService', () => {
         .mockImplementation(async () => ({ wait: mockWait, hash }));
 
       mockGetContractWithSigner = jest
-        .spyOn(securityService, 'getContractWithSigner')
+        .spyOn(securityService, 'getContractV2WithSigner')
         .mockImplementation(
-          async () => ({ pauseDeposits: mockPauseDeposits } as any),
+          () => ({ pauseDeposits: mockPauseDeposits } as any),
         );
 
-      signature = await securityService.signPauseData(
+      signature = await securityService.signPauseDataV2(
         blockNumber,
         TEST_MODULE_ID,
       );
     });
 
     it('should call contract method', async () => {
-      await securityService.pauseDeposits(
+      await securityService.pauseDepositsV2(
         blockNumber,
         TEST_MODULE_ID,
         signature,
@@ -269,10 +251,10 @@ describe('SecurityService', () => {
       expect(mockGetContractWithSigner).toBeCalledTimes(1);
     });
 
-    it('should exit if the previous call is not completed', async () => {
+    it('should exit if the previous call is not completed2', async () => {
       await Promise.all([
-        securityService.pauseDeposits(blockNumber, TEST_MODULE_ID, signature),
-        securityService.pauseDeposits(blockNumber, TEST_MODULE_ID, signature),
+        securityService.pauseDepositsV2(blockNumber, TEST_MODULE_ID, signature),
+        securityService.pauseDepositsV2(blockNumber, TEST_MODULE_ID, signature),
       ]);
 
       expect(mockPauseDeposits).toBeCalledTimes(1);

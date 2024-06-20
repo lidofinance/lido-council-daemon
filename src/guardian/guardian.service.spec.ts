@@ -12,7 +12,7 @@ import { SecurityModule } from 'contracts/security';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { LidoModule } from 'contracts/lido';
 import { MessagesModule } from 'messages';
-import { StakingRouterModule, StakingRouterService } from 'staking-router';
+import { StakingRouterModule } from 'staking-router';
 import { GuardianMetricsModule } from './guardian-metrics';
 import { GuardianMessageModule } from './guardian-message';
 import { StakingModuleGuardModule } from './staking-module-guard';
@@ -21,11 +21,13 @@ import { ScheduleModule } from 'common/schedule';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { mockLocator } from 'contracts/repository/locator/locator.mock';
 import { mockRepository } from 'contracts/repository/repository.mock';
+import { KeysApiService } from 'keys-api/keys-api.service';
+import { UnvettingModule } from './unvetting/unvetting.module';
 
 jest.mock('../transport/stomp/stomp.client');
 
 describe('GuardianService', () => {
-  let stakingRouterService: StakingRouterService;
+  let keysApiService: KeysApiService;
   let blockGuardService: BlockGuardService;
 
   let guardianService: GuardianService;
@@ -53,10 +55,11 @@ describe('GuardianService', () => {
         StakingModuleGuardModule,
         GuardianMessageModule,
         GuardianMetricsModule,
+        UnvettingModule,
       ],
     }).compile();
 
-    stakingRouterService = moduleRef.get(StakingRouterService);
+    keysApiService = moduleRef.get(KeysApiService);
     blockGuardService = moduleRef.get(BlockGuardService);
 
     repositoryService = moduleRef.get(RepositoryService);
@@ -77,7 +80,7 @@ describe('GuardianService', () => {
   it('should exit if the previous call is not completed', async () => {
     // OneAtTime test
     const getOperatorsAndModulesMock = jest
-      .spyOn(stakingRouterService, 'getOperatorsAndModules')
+      .spyOn(keysApiService, 'getOperatorListWithModule')
       .mockImplementation(async () => ({
         data: [],
         meta: {
@@ -89,6 +92,18 @@ describe('GuardianService', () => {
           },
         },
       }));
+
+    jest.spyOn(keysApiService, 'getKeys').mockImplementation(async () => ({
+      data: [],
+      meta: {
+        elBlockSnapshot: {
+          blockNumber: 0,
+          blockHash: 'string',
+          timestamp: 0,
+          lastChangedBlockHash: '',
+        },
+      },
+    }));
 
     const getBlockGuardServiceMock = jest
       .spyOn(blockGuardService, 'isNeedToProcessNewState')

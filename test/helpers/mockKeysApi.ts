@@ -59,19 +59,19 @@ export const mockedMeta = (
   lastChangedBlockHash,
 });
 
-export const mockedOperators: RegistryOperator[] = [
-  {
-    name: 'Dev team',
-    rewardAddress: '0x6D725DAe055287f913661ee0b79dE6B21F12A459',
-    stakingLimit: 12,
-    stoppedValidators: 0,
-    totalSigningKeys: 12,
-    usedSigningKeys: 9,
-    index: 0,
-    active: true,
-    moduleAddress: NOP_REGISTRY,
-  },
-];
+export const mockOperator1 = {
+  name: 'Dev team',
+  rewardAddress: '0x6D725DAe055287f913661ee0b79dE6B21F12A459',
+  stakingLimit: 12,
+  stoppedValidators: 0,
+  totalSigningKeys: 12,
+  usedSigningKeys: 0,
+  index: 0,
+  active: true,
+  moduleAddress: NOP_REGISTRY,
+};
+
+export const mockedOperators: RegistryOperator[] = [mockOperator1];
 
 export const mockedDvtOperators: RegistryOperator[] = [
   {
@@ -80,28 +80,12 @@ export const mockedDvtOperators: RegistryOperator[] = [
     stakingLimit: 12,
     stoppedValidators: 0,
     totalSigningKeys: 12,
-    usedSigningKeys: 10,
+    usedSigningKeys: 0,
     index: 0,
     active: true,
     moduleAddress: FAKE_SIMPLE_DVT,
   },
 ];
-
-export const mockedKeysApiOperators = (
-  keysApiService: KeysApiService,
-  mockedOperators: RegistryOperator[],
-  mockedModule: SRModule,
-  mockedMeta: ELBlockSnapshot,
-) => {
-  jest
-    .spyOn(keysApiService, 'getOperatorListWithModule')
-    .mockImplementation(async () => ({
-      data: [{ operators: mockedOperators, module: mockedModule }],
-      meta: {
-        elBlockSnapshot: mockedMeta,
-      },
-    }));
-};
 
 export const mockedKeysApiOperatorsMany = (
   keysApiService: KeysApiService,
@@ -118,12 +102,12 @@ export const mockedKeysApiOperatorsMany = (
     }));
 };
 
-export const mockedKeysApiUnusedKeys = (
+export const mockedKeysApiGetAllKeys = (
   keysApiService: KeysApiService,
   mockedKeys: RegistryKey[],
   mockedMeta: ELBlockSnapshot,
 ) => {
-  jest.spyOn(keysApiService, 'getUnusedKeys').mockImplementation(async () => ({
+  jest.spyOn(keysApiService, 'getKeys').mockImplementation(async () => ({
     data: mockedKeys,
     meta: {
       elBlockSnapshot: mockedMeta,
@@ -131,7 +115,7 @@ export const mockedKeysApiUnusedKeys = (
   }));
 };
 
-export const mockedKeysWithDuplicates = (
+export const mockedKeysApiFind = (
   keysApiService: KeysApiService,
   mockedKeys: RegistryKey[],
   mockedMeta: ELBlockSnapshot,

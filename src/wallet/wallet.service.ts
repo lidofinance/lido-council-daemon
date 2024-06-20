@@ -22,8 +22,11 @@ import {
 } from './wallet.constants';
 import {
   SignDepositDataParams,
+  SignModulePauseDataParams,
   SignPauseDataParams,
+  SignUnvetDataParams,
 } from './wallet.interfaces';
+import { utils } from 'ethers';
 
 @Injectable()
 export class WalletService implements OnModuleInit {
@@ -155,20 +158,95 @@ export class WalletService implements OnModuleInit {
    * @param signPauseDataParams - parameters for signing pause message
    * @param signPauseDataParams.prefix - unique prefix from the contract for this type of message
    * @param signPauseDataParams.blockNumber - block number that is signed
+   * @returns signature
+   */
+  public async signPauseDataV3({
+    prefix,
+    blockNumber,
+  }: SignPauseDataParams): Promise<Signature> {
+    const encodedData = defaultAbiCoder.encode(
+      ['bytes32', 'uint256'],
+      [prefix, blockNumber],
+    );
+
+    const messageHash = keccak256(encodedData);
+    return this.signMessage(messageHash);
+  }
+
+  /**
+   * Signs a message to pause deposits
+   * @param signPauseDataParams - parameters for signing pause message
+   * @param signPauseDataParams.prefix - unique prefix from the contract for this type of message
+   * @param signPauseDataParams.blockNumber - block number that is signed
    * @param signPauseDataParams.stakingModuleId - target staking module id
    * @returns signature
    */
-  public async signPauseData({
+  public async signPauseDataV2({
     prefix,
     blockNumber,
     stakingModuleId,
-  }: SignPauseDataParams): Promise<Signature> {
+  }: SignModulePauseDataParams): Promise<Signature> {
     const encodedData = defaultAbiCoder.encode(
       ['bytes32', 'uint256', 'uint256'],
       [prefix, blockNumber, stakingModuleId],
     );
 
     const messageHash = keccak256(encodedData);
+    return this.signMessage(messageHash);
+  }
+
+  /**
+   * Sign a message to unvet signing keys
+   * @param signUnvetDataParams - parameters for signing unvet message
+   * @param signUnvetDataParams.prefix - unique prefix from the contract for this type of message
+   * @param signUnvetDataParams.blockNumber - block number that is signed
+   * @param signUnvetDataParams.blockHash - current block hash
+   * @param signUnvetDataParams.nonce - current index of keys operations from the registry contract
+   * @param signUnvetDataParams.stakingModuleId - target staking module id
+   * @param signDepositDataParams.operatorIds - list of operators ids for unvetting
+   * @param signDepositDataParams.vettedKeysByOperator - list of new values for vetted validators amount for operator
+   * @returns
+   */
+  public async signUnvetData({
+    prefix,
+    blockNumber,
+    blockHash,
+    nonce,
+    stakingModuleId,
+    operatorIds,
+    vettedKeysByOperator,
+  }: SignUnvetDataParams): Promise<Signature> {
+    const encodedData = utils.solidityPack(
+      ['bytes32', 'uint256', 'bytes32', 'uint256', 'uint256', 'bytes', 'bytes'],
+      [
+        prefix,
+        blockNumber,
+        blockHash,
+        stakingModuleId,
+        nonce,
+        operatorIds,
+        vettedKeysByOperator,
+      ],
+    );
+
+    this.logger.debug?.('Sign data:', {
+      prefix,
+      blockNumber,
+      blockHash,
+      stakingModuleId,
+      nonce,
+      operatorIds,
+      vettedKeysByOperator,
+    });
+
+    const messageHash = keccak256(encodedData);
+
+    this.logger.debug?.('Message hash:', {
+      messageHash,
+      blockHash,
+      blockNumber,
+    });
+
     return this.signMessage(messageHash);
   }
 }

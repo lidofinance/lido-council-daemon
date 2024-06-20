@@ -8,4 +8,6 @@ export interface BlockData {
   guardianAddress: string;
   guardianIndex: number;
   lidoWC: string;
+  securityVersion: number;
+  alreadyPausedDeposits: boolean;
 }

@@ -13,7 +13,6 @@ import {
   PrometheusDepositedKeysProvider,
   PrometheusOperatorsKeysProvider,
   PrometheusKeysApiRequestsProvider,
-  PrometheusUsedKeysProvider,
   PrometheusVettedUnusedKeysProvider,
   PrometheusInvalidKeysProvider,
 } from './prometheus.provider';
@@ -42,7 +41,6 @@ const providers = [
   PrometheusOperatorsKeysProvider,
   PrometheusKeysApiRequestsProvider,
   PrometheusVettedUnusedKeysProvider,
-  PrometheusUsedKeysProvider,
   PrometheusInvalidKeysProvider,
 ];
 

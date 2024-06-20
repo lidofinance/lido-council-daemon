@@ -30,4 +30,5 @@ export interface Configuration {
   REGISTRY_KEYS_QUERY_CONCURRENCY: number;
   KEYS_API_PORT: number;
   KEYS_API_HOST: string;
+  LOCATOR_DEVNET_ADDRESS: string;
 }

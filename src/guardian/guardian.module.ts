@@ -11,6 +11,8 @@ import { StakingModuleGuardModule } from './staking-module-guard';
 import { GuardianMessageModule } from './guardian-message';
 import { GuardianMetricsModule } from './guardian-metrics';
 import { KeysApiModule } from 'keys-api/keys-api.module';
+import { SigningKeyEventsCacheModule } from 'contracts/signing-key-events-cache';
+import { UnvettingModule } from './unvetting/unvetting.module';
 
 @Module({
   imports: [
@@ -22,9 +24,11 @@ import { KeysApiModule } from 'keys-api/keys-api.module';
     ScheduleModule,
     BlockGuardModule,
     StakingModuleGuardModule,
+    UnvettingModule,
     GuardianMessageModule,
     GuardianMetricsModule,
     KeysApiModule,
+    SigningKeyEventsCacheModule,
   ],
   providers: [GuardianService],
   exports: [GuardianService],

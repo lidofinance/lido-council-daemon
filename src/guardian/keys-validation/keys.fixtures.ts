@@ -1,4 +1,7 @@
-export const validKeys = [
+import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
+
+// goerli keys
+export const validKeys: RegistryKey[] = [
   {
     key: '0xa9bfaa8207ee6c78644c079ffc91b6e5abcc5eede1b7a06abb8fb40e490a75ea269c178dd524b65185299d2bbd2eb7b2',
     depositSignature:
@@ -18,7 +21,7 @@ export const validKeys = [
     index: 52,
   },
 ];
-export const invalidKey = {
+export const invalidKey1: RegistryKey = {
   key: '0x84e85db03bee714dbecf01914460d9576b7f7226030bdbeae9ee923bf5f8e01eec4f7dfe54aa7eca6f4bccce59a0bf42',
   depositSignature:
     '0xb45b15f6e043d91eabbda838eae32f7dcb998578919bd813d8add67de9b14bc268a4fde41d08058a9dc2c40b881f47970c30fd3beee46517e4e5eebd4aba52060425e021302c987d365347d478681b2cabfd31208d0607f71f3766a53ca1ada0',
@@ -28,7 +31,7 @@ export const invalidKey = {
   index: 5,
 };
 
-export const invalidKey2 = {
+export const invalidKey2: RegistryKey = {
   key: '0x9100e67cfb22cb7f1c3924e91bc8f70111f0634fa87d3361f807585e7ab06f84a0f504b7390683ce01567e5de3ad7445',
   depositSignature:
     '0x8d4ed47875fab45e9cfec65bf67c956be0b00d4d4cde2b6b898b09d07eed10457b4e2a8f496077e4a145e523d5b18749035b87c2412360d4fbbc850051b307f704a758f4ef35ca4af6c5f8f4e4a95603dc688bb3773b5a22c6c21b5440c71e13',

@@ -1,11 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { LocatorAbi, LocatorAbi__factory } from 'generated';
 import { BlockTag, ProviderService } from 'provider';
-import { getLidoLocatorAddress } from './locator.constants';
+import { LIDO_LOCATOR_BY_NETWORK } from './locator.constants';
+import { Configuration } from 'common/config';
 
 @Injectable()
 export class LocatorService {
-  constructor(private providerService: ProviderService) {}
+  constructor(
+    private readonly providerService: ProviderService,
+    private readonly config: Configuration,
+  ) {}
   private cachedLidoLocatorContract: LocatorAbi | undefined;
   /**
    * Returns DSM contract address
@@ -51,6 +55,11 @@ export class LocatorService {
    */
   public async getLocatorAddress(): Promise<string> {
     const chainId = await this.providerService.getChainId();
-    return getLidoLocatorAddress(chainId);
+
+    const address =
+      this.config.LOCATOR_DEVNET_ADDRESS || LIDO_LOCATOR_BY_NETWORK[chainId];
+    if (!address) throw new Error(`Chain ${chainId} is not supported`);
+
+    return address;
   }
 }

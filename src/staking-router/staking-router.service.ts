@@ -1,112 +1,164 @@
 import { Injectable, LoggerService, Inject } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { Configuration } from 'common/config';
-import { KeysApiService } from 'keys-api/keys-api.service';
-import { StakingModuleData } from 'guardian';
+import { StakingModuleData, BlockData } from 'guardian';
 import { getVettedUnusedKeys } from './vetted-keys';
-import { RegistryOperator } from 'keys-api/interfaces/RegistryOperator';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
-import { SRModule } from 'keys-api/interfaces';
-import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
-import { GroupedByModuleOperatorListResponse } from 'keys-api/interfaces/GroupedByModuleOperatorListResponse';
+import { Meta } from 'keys-api/interfaces/Meta';
+import { SROperatorListWithModule } from 'keys-api/interfaces/SROperatorListWithModule';
+import { SecurityService } from 'contracts/security';
+import { StakingModuleGuardService } from 'guardian/staking-module-guard';
+import { KeysDuplicationCheckerService } from 'guardian/duplicates';
+
+type State = {
+  operatorsByModules: SROperatorListWithModule[];
+  meta: Meta;
+  lidoKeys: RegistryKey[];
+  blockData: BlockData;
+};
 
 @Injectable()
 export class StakingRouterService {
   constructor(
-    @Inject(WINSTON_MODULE_NEST_PROVIDER) protected logger: LoggerService,
-    protected readonly config: Configuration,
-    protected readonly keysApiService: KeysApiService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
+    private securityService: SecurityService,
+    private stakingModuleGuardService: StakingModuleGuardService,
+    private keysDuplicationCheckerService: KeysDuplicationCheckerService,
   ) {}
-
-  async getOperatorsAndModules() {
-    const { data: operatorsByModules, meta: operatorsMeta } =
-      await this.keysApiService.getOperatorListWithModule();
-
-    return { data: operatorsByModules, meta: operatorsMeta };
-  }
 
   /**
    * Return staking module data and block information
    */
-  public async getStakingModulesData(
-    data: GroupedByModuleOperatorListResponse,
-  ): Promise<StakingModuleData[]> {
-    const { data: operatorsByModules, meta: operatorsMeta } = data;
-
-    const { data: unusedKeys, meta: unusedKeysMeta } =
-      await this.keysApiService.getUnusedKeys();
-
-    const blockHash = operatorsMeta.elBlockSnapshot.blockHash;
-    const lastChangedBlockHash =
-      operatorsMeta.elBlockSnapshot.lastChangedBlockHash;
-
-    this.isEqualLastChangedBlockHash(
-      lastChangedBlockHash,
-      unusedKeysMeta.elBlockSnapshot.lastChangedBlockHash,
-    );
-
-    const stakingModulesData = operatorsByModules.map(
-      ({ operators, module: stakingModule }) =>
-        this.processModuleData({
-          operators,
-          stakingModule,
-          unusedKeys,
-          blockHash,
-          // Will set the lastChangedBlockHash for the module in KAPI, not the personal module's lastChangedBlockHash
-          lastChangedBlockHash,
-        }),
-    );
+  public async getStakingModulesData({
+    operatorsByModules,
+    meta,
+    lidoKeys,
+    blockData,
+  }: State): Promise<StakingModuleData[]> {
+    const stakingModulesData = await this.collectStakingModuleData({
+      operatorsByModules,
+      meta,
+      lidoKeys,
+      blockData,
+    });
+    await this.checkKeys(stakingModulesData, lidoKeys, blockData);
 
     return stakingModulesData;
   }
 
-  public isEqualLastChangedBlockHash(
-    firstRequestHash: string,
-    secondRequestHash: string,
+  /**
+   * Collects basic data about the staking module, including activity status, vetted unused keys list, ID, address, and nonce.
+   */
+  private async collectStakingModuleData({
+    operatorsByModules,
+    meta,
+    lidoKeys,
+    blockData,
+  }: State): Promise<StakingModuleData[]> {
+    return await Promise.all(
+      operatorsByModules.map(async ({ operators, module: stakingModule }) => {
+        const unusedKeys = lidoKeys.filter(
+          (key) =>
+            !key.used &&
+            key.moduleAddress === stakingModule.stakingModuleAddress,
+        );
+
+        const moduleVettedUnusedKeys = getVettedUnusedKeys(
+          operators,
+          unusedKeys,
+        );
+
+        // check pause
+        const isModuleDepositsPaused =
+          await this.securityService.isModuleDepositsPaused(stakingModule.id, {
+            blockHash: blockData.blockHash,
+          });
+
+        return {
+          isModuleDepositsPaused,
+          nonce: stakingModule.nonce,
+          stakingModuleId: stakingModule.id,
+          stakingModuleAddress: stakingModule.stakingModuleAddress,
+          blockHash: blockData.blockHash,
+          lastChangedBlockHash: meta.elBlockSnapshot.lastChangedBlockHash,
+          vettedUnusedKeys: moduleVettedUnusedKeys,
+          duplicatedKeys: [],
+          invalidKeys: [],
+          frontRunKeys: [],
+          unresolvedDuplicatedKeys: [],
+        };
+      }),
+    );
+  }
+
+  /**
+   * Check for duplicated, invalid, and front-run attempts
+   */
+  private async checkKeys(
+    stakingModulesData: StakingModuleData[],
+    lidoKeys: RegistryKey[],
+    blockData: BlockData,
+  ): Promise<void> {
+    const { duplicates, unresolved } =
+      await this.keysDuplicationCheckerService.getDuplicatedKeys(
+        lidoKeys,
+        blockData,
+      );
+
+    await Promise.all(
+      stakingModulesData.map(async (stakingModuleData) => {
+        stakingModuleData.frontRunKeys =
+          this.stakingModuleGuardService.getFrontRunAttempts(
+            stakingModuleData,
+            blockData,
+          );
+        stakingModuleData.invalidKeys =
+          await this.stakingModuleGuardService.getInvalidKeys(
+            stakingModuleData,
+            blockData,
+          );
+        stakingModuleData.duplicatedKeys = this.filterModuleNotVettedUnusedKeys(
+          stakingModuleData.stakingModuleAddress,
+          stakingModuleData.vettedUnusedKeys,
+          duplicates,
+        );
+        stakingModuleData.unresolvedDuplicatedKeys =
+          this.filterModuleNotVettedUnusedKeys(
+            stakingModuleData.stakingModuleAddress,
+            stakingModuleData.vettedUnusedKeys,
+            unresolved,
+          );
+
+        this.logger.log('Keys check state', {
+          stakingModuleId: stakingModuleData.stakingModuleId,
+          frontRunAttempt: stakingModuleData.frontRunKeys.length,
+          invalid: stakingModuleData.invalidKeys.length,
+          duplicated: stakingModuleData.duplicatedKeys.length,
+          unresolvedDuplicated:
+            stakingModuleData.unresolvedDuplicatedKeys.length,
+          blockNumber: blockData.blockNumber,
+        });
+      }),
+    );
+  }
+
+  /**
+   * filter from the list all keys that are not vetted as unused
+   */
+  public filterModuleNotVettedUnusedKeys(
+    stakingModuleAddress: string,
+    vettedUnusedKeys: RegistryKey[],
+    keys: RegistryKey[],
   ) {
-    if (firstRequestHash !== secondRequestHash) {
-      const error =
-        'Since the last request, data in Kapi has been updated. This may result in inconsistencies between the data from two separate requests.';
+    const vettedUnused = keys
+      .filter((key) => key.moduleAddress === stakingModuleAddress)
+      .filter((key) => {
+        const r = vettedUnusedKeys.some(
+          (k) => k.index == key.index && k.operatorIndex == key.operatorIndex,
+        );
 
-      this.logger.error(error, { firstRequestHash, secondRequestHash });
+        return r;
+      });
 
-      throw new InconsistentLastChangedBlockHash();
-    }
-  }
-
-  private processModuleData({
-    operators,
-    stakingModule,
-    unusedKeys,
-    blockHash,
-    lastChangedBlockHash,
-  }: {
-    operators: RegistryOperator[];
-    stakingModule: SRModule;
-    unusedKeys: RegistryKey[];
-    blockHash: string;
-    lastChangedBlockHash: string;
-  }): StakingModuleData {
-    const moduleUnusedKeys = unusedKeys.filter(
-      (key) => key.moduleAddress === stakingModule.stakingModuleAddress,
-    );
-
-    const moduleVettedUnusedKeys = getVettedUnusedKeys(
-      operators,
-      moduleUnusedKeys,
-    );
-
-    return {
-      unusedKeys: moduleUnusedKeys.map((srKey) => srKey.key),
-      nonce: stakingModule.nonce,
-      stakingModuleId: stakingModule.id,
-      blockHash,
-      lastChangedBlockHash,
-      vettedUnusedKeys: moduleVettedUnusedKeys,
-    };
-  }
-
-  public async getKeysByPubkeys(pubkeys: string[]) {
-    return await this.keysApiService.getKeysByPubkeys(pubkeys);
+    return vettedUnused;
   }
 }
