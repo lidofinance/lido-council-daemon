@@ -197,7 +197,9 @@ export class GuardianService implements OnModuleInit {
         theftHappened
       ) {
         await this.stakingModuleGuardService.handlePauseV3(blockData);
-      } else if (theftHappened) {
+      }
+
+      if (blockData.securityVersion !== 3 && theftHappened) {
         await this.stakingModuleGuardService.handlePauseV2(
           stakingModulesData,
           blockData,
