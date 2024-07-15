@@ -1,11 +1,36 @@
 import ethers from 'ethers';
 
 import { KeysApiService } from '../../src/keys-api/keys-api.service';
-import { FAKE_SIMPLE_DVT, NOP_REGISTRY } from './../constants';
+import { SIMPLE_DVT, NOP_REGISTRY } from './../constants';
 import { RegistryOperator } from 'keys-api/interfaces/RegistryOperator';
 import { SRModule } from 'keys-api/interfaces';
 import { ELBlockSnapshot } from 'keys-api/interfaces/ELBlockSnapshot';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
+
+export const setupMockModules = (
+  currentBlock: ethers.providers.Block,
+  keysApiService: KeysApiService,
+  mockedOperators: RegistryOperator[],
+  mockedDvtOperators: RegistryOperator[],
+  unusedKeys: RegistryKey[],
+) => {
+  const curatedModule = mockedModule(currentBlock, currentBlock.hash);
+  const sdvtModule = mockedModuleDvt(currentBlock, currentBlock.hash);
+  const meta = mockedMeta(currentBlock, currentBlock.hash);
+
+  mockedKeysApiOperatorsMany(
+    keysApiService,
+    [
+      { operators: mockedOperators, module: curatedModule },
+      { operators: mockedDvtOperators, module: sdvtModule },
+    ],
+    meta,
+  );
+
+  mockedKeysApiGetAllKeys(keysApiService, unusedKeys, meta);
+
+  return { curatedModule, sdvtModule, meta };
+};
 
 export const mockedModule = (
   block: ethers.providers.Block,
@@ -13,7 +38,7 @@ export const mockedModule = (
   nonce = 6046,
 ): SRModule => ({
   nonce,
-  type: 'grouped-onchain-v1',
+  type: 'curated-onchain-v1',
   id: 1,
   stakingModuleAddress: NOP_REGISTRY,
   moduleFee: 10,
@@ -34,9 +59,9 @@ export const mockedModuleDvt = (
   nonce = 6046,
 ): SRModule => ({
   nonce,
-  type: 'grouped-onchain-v1',
+  type: 'curated-onchain-v1',
   id: 2,
-  stakingModuleAddress: FAKE_SIMPLE_DVT,
+  stakingModuleAddress: SIMPLE_DVT,
   moduleFee: 10,
   treasuryFee: 10,
   targetShare: 10,
@@ -71,7 +96,22 @@ export const mockOperator1 = {
   moduleAddress: NOP_REGISTRY,
 };
 
-export const mockedOperators: RegistryOperator[] = [mockOperator1];
+export const mockOperator2 = {
+  name: 'Dev team',
+  rewardAddress: '0x6D725DAe055287f913661ee0b79dE6B21F12A459',
+  stakingLimit: 12,
+  stoppedValidators: 0,
+  totalSigningKeys: 12,
+  usedSigningKeys: 0,
+  index: 1,
+  active: true,
+  moduleAddress: NOP_REGISTRY,
+};
+
+export const mockedOperators: RegistryOperator[] = [
+  mockOperator1,
+  mockOperator2,
+];
 
 export const mockedDvtOperators: RegistryOperator[] = [
   {
@@ -83,7 +123,7 @@ export const mockedDvtOperators: RegistryOperator[] = [
     usedSigningKeys: 0,
     index: 0,
     active: true,
-    moduleAddress: FAKE_SIMPLE_DVT,
+    moduleAddress: SIMPLE_DVT,
   },
 ];
 

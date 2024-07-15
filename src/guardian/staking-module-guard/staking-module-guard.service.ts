@@ -289,22 +289,28 @@ export class StakingModuleGuardService {
     stakingModulesData: StakingModuleData[],
     blockData: BlockData,
   ) {
-    await Promise.all(
-      stakingModulesData.map(async (stakingModuleData) => {
-        if (stakingModuleData.isModuleDepositsPaused) {
-          this.logger.log('Deposits are already paused for module', {
-            blockHash: blockData.blockHash,
-            stakingModuleId: stakingModuleData.stakingModuleId,
-          });
-        } else {
-          this.logger.log('Pause deposits for module', {
-            blockHash: blockData.blockHash,
-            stakingModuleId: stakingModuleData.stakingModuleId,
-          });
+    // TODO: temporary solution
+    for (const stakingModuleData of stakingModulesData) {
+      if (stakingModuleData.isModuleDepositsPaused) {
+        this.logger.log('Deposits are already paused for module', {
+          blockHash: blockData.blockHash,
+          stakingModuleId: stakingModuleData.stakingModuleId,
+        });
+      } else {
+        this.logger.log('Pause deposits for module', {
+          blockHash: blockData.blockHash,
+          stakingModuleId: stakingModuleData.stakingModuleId,
+        });
+        try {
           await this.pauseModuleDeposits(stakingModuleData, blockData);
+        } catch {
+          this.logger.error('Problem to pause module', {
+            blockHash: blockData.blockHash,
+            stakingModuleId: stakingModuleData.stakingModuleId,
+          });
         }
-      }),
-    );
+      }
+    }
   }
 
   /**
@@ -347,7 +353,7 @@ export class StakingModuleGuardService {
     });
 
     // Call pause without waiting for completion
-    this.securityService
+    await this.securityService
       .pauseDepositsV2(blockNumber, stakingModuleId, signature)
       .catch((error) => this.logger.error(error));
 

@@ -1,31 +1,40 @@
 import { fromHexString } from '@chainsafe/ssz';
-import { DEPOSIT_CONTRACT, GOOD_WC, NO_PRIVKEY_MESSAGE } from '../constants';
+import { DEPOSIT_CONTRACT, LIDO_WC, NO_PRIVKEY_MESSAGE } from '../constants';
 import { computeRoot } from './computeDomain';
 import { DepositData } from 'bls/bls.containers';
-import { Wallet, ethers } from 'ethers';
+import { ethers } from 'ethers';
 import { ProviderService } from 'provider';
 import { DepositAbi__factory } from 'generated';
 import { SecretKey } from '@chainsafe/blst';
 
-export async function makeDeposit(
+export function signDeposit(
   pk: Uint8Array,
   sk: SecretKey,
-  providerService: ProviderService,
-  wc = GOOD_WC,
-): Promise<{ wallet: Wallet; deposit_sign: Uint8Array }> {
-  const goodDepositMessage = {
+  wc = LIDO_WC,
+  amountGwei = 32000000000,
+): { depositData: any; signature: Uint8Array } {
+  const depositMessage = {
     pubkey: pk,
     withdrawalCredentials: fromHexString(wc),
-    amount: 32000000000, // gwei!
+    amount: amountGwei,
   };
-  const goodSigningRoot = computeRoot(goodDepositMessage);
-  const goodSig = sk.sign(goodSigningRoot).toBytes();
+  const signingRoot = computeRoot(depositMessage);
+  const sign = sk.sign(signingRoot).toBytes();
 
-  const goodDepositData = {
-    ...goodDepositMessage,
-    signature: goodSig,
+  const depositData = {
+    ...depositMessage,
+    signature: sign,
   };
-  const goodDepositDataRoot = DepositData.hashTreeRoot(goodDepositData);
+
+  return { depositData: depositData, signature: sign };
+}
+
+export async function makeDeposit(
+  depositData: any,
+  providerService: ProviderService,
+  amount = 32,
+): Promise<{ wallet: ethers.Wallet; depositSign: Uint8Array }> {
+  const depositDataRoot = DepositData.hashTreeRoot(depositData);
 
   if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
   const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
@@ -33,13 +42,14 @@ export async function makeDeposit(
   // Make a deposit
   const signer = wallet.connect(providerService.provider);
   const depositContract = DepositAbi__factory.connect(DEPOSIT_CONTRACT, signer);
+
   await depositContract.deposit(
-    goodDepositData.pubkey,
-    goodDepositData.withdrawalCredentials,
-    goodDepositData.signature,
-    goodDepositDataRoot,
-    { value: ethers.constants.WeiPerEther.mul(32) },
+    depositData.pubkey,
+    depositData.withdrawalCredentials,
+    depositData.signature,
+    depositDataRoot,
+    { value: ethers.constants.WeiPerEther.mul(amount) },
   );
 
-  return { wallet: signer, deposit_sign: goodSig };
+  return { wallet: signer, depositSign: depositData.signature };
 }

@@ -25,10 +25,6 @@ export class UnvettingService {
     blockData: BlockData,
   ) {
     if (blockData.securityVersion !== 3) {
-      this.logger.warn(
-        'Council do unvetting only since 3 version of DSM contract',
-        blockData.securityVersion,
-      );
       return;
     }
 
@@ -39,6 +35,7 @@ export class UnvettingService {
     ];
 
     if (!keys.length) {
+      // TODO: change log to emphasis that we dont have keys for unvetting
       this.logger.log('Did not find keys for unvetting. Keys are correct.', {
         stakingModuleId: stakingModuleData.stakingModuleId,
       });
@@ -67,6 +64,7 @@ export class UnvettingService {
     blockData: BlockData,
     chunks: UnvetData[],
   ) {
+    // TODO: send only one chunk
     await Promise.all(
       chunks.map(async ({ operatorIds, vettedKeysByOperator }) => {
         const signature = await this.securityService.signUnvetData(
