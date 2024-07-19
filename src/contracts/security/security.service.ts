@@ -181,7 +181,7 @@ export class SecurityService {
   @OneAtTime()
   public async pauseDepositsV2(
     blockNumber: number,
-    @StakingModuleId stakingModuleId: number,
+    stakingModuleId: number,
     signature: Signature,
   ): Promise<ContractReceipt | void> {
     this.logger.warn('Try to pause deposits', { stakingModuleId, blockNumber });
@@ -240,6 +240,7 @@ export class SecurityService {
   /**
    * Send transaction to unvet signing keys
    */
+  @OneAtTime()
   public async unvetSigningKeys(
     nonce: number,
     blockNumber: number,

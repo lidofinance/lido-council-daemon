@@ -123,7 +123,6 @@ export class StakingModuleGuardService {
     // and pubkey maybe not used. and we are able to unvet it
     // but we will pause
     // so maybe we need to filter by used field
-
     const lidoDepositedKeys = await this.keysApiService.getKeysByPubkeys(
       frontRunnedDepositKeys,
     );
@@ -289,28 +288,28 @@ export class StakingModuleGuardService {
     stakingModulesData: StakingModuleData[],
     blockData: BlockData,
   ) {
-    // TODO: temporary solution
     for (const stakingModuleData of stakingModulesData) {
-      if (stakingModuleData.isModuleDepositsPaused) {
-        this.logger.log('Deposits are already paused for module', {
-          blockHash: blockData.blockHash,
-          stakingModuleId: stakingModuleData.stakingModuleId,
-        });
-      } else {
-        this.logger.log('Pause deposits for module', {
-          blockHash: blockData.blockHash,
-          stakingModuleId: stakingModuleData.stakingModuleId,
-        });
-        try {
-          await this.pauseModuleDeposits(stakingModuleData, blockData);
-        } catch {
-          this.logger.error('Problem to pause module', {
-            blockHash: blockData.blockHash,
-            stakingModuleId: stakingModuleData.stakingModuleId,
-          });
-        }
+      if (this.isModuleAlreadyPaused(stakingModuleData, blockData)) {
+        continue;
       }
+
+      await this.pauseModuleDeposits(stakingModuleData, blockData);
+      return; // Only process one transaction per handleNewBlock
     }
+  }
+
+  private isModuleAlreadyPaused(
+    stakingModuleData: StakingModuleData,
+    blockData: BlockData,
+  ): boolean {
+    if (stakingModuleData.isModuleDepositsPaused) {
+      this.logger.log('Deposits are already paused for module', {
+        blockHash: blockData.blockHash,
+        stakingModuleId: stakingModuleData.stakingModuleId,
+      });
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -321,6 +320,11 @@ export class StakingModuleGuardService {
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
   ): Promise<void> {
+    this.logger.warn('Pause deposits for module', {
+      blockHash: blockData.blockHash,
+      stakingModuleId: stakingModuleData.stakingModuleId,
+    });
+
     const {
       blockNumber,
       blockHash,
@@ -347,13 +351,8 @@ export class StakingModuleGuardService {
       stakingModuleId,
     };
 
-    this.logger.warn('Suspicious case detected, initialize the module pause', {
-      blockHash,
-      stakingModuleId,
-    });
-
     // Call pause without waiting for completion
-    await this.securityService
+    this.securityService
       .pauseDepositsV2(blockNumber, stakingModuleId, signature)
       .catch((error) => this.logger.error(error));
 

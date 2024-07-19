@@ -132,6 +132,7 @@ export class GuardianService implements OnModuleInit {
 
     try {
       // Fetch the minimum required data to make an early exit
+      // fetch data from Keys api
       const { data: operatorsByModules, meta } =
         await this.keysApiService.getOperatorListWithModule();
 
@@ -139,6 +140,7 @@ export class GuardianService implements OnModuleInit {
         elBlockSnapshot: { blockHash, blockNumber },
       } = meta;
 
+      // contracts init
       await this.repositoryService.initCachedContracts({ blockHash });
 
       const isNewBlock = this.blockGuardService.isNeedToProcessNewState({
@@ -183,6 +185,7 @@ export class GuardianService implements OnModuleInit {
       const theftHappened =
         await this.stakingModuleGuardService.getHistoricalFrontRun(blockData);
 
+      // collect some data and check keys
       const stakingModulesData: StakingModuleData[] =
         await this.stakingRouterService.getStakingModulesData({
           operatorsByModules,
@@ -197,6 +200,7 @@ export class GuardianService implements OnModuleInit {
         theftHappened
       ) {
         await this.stakingModuleGuardService.handlePauseV3(blockData);
+        return;
       }
 
       if (blockData.securityVersion !== 3 && theftHappened) {
@@ -204,15 +208,39 @@ export class GuardianService implements OnModuleInit {
           stakingModulesData,
           blockData,
         );
+        return;
+      }
+
+      if (blockData.securityVersion == 3) {
+        const firstInvalidModule = stakingModulesData.find(
+          (stakingModuleData) => {
+            const keys = [
+              ...stakingModuleData.invalidKeys,
+              ...stakingModuleData.duplicatedKeys,
+              ...stakingModuleData.frontRunKeys,
+            ];
+
+            return keys.length > 0;
+          },
+        );
+
+        if (firstInvalidModule) {
+          await this.unvettingService.handleUnvetting(
+            firstInvalidModule,
+            blockData,
+          );
+        } else {
+          this.logger.log(
+            'Keys of all modules are correct. No need in unvetting.',
+            {
+              blockHash: blockData.blockHash,
+            },
+          );
+        }
       }
 
       await Promise.all(
         stakingModulesData.map(async (stakingModuleData) => {
-          await this.unvettingService.handleUnvetting(
-            stakingModuleData,
-            blockData,
-          );
-
           this.guardianMetricsService.collectMetrics(
             stakingModuleData,
             blockData,
@@ -225,8 +253,9 @@ export class GuardianService implements OnModuleInit {
               blockData.alreadyPausedDeposits,
             )
           ) {
-            this.logger.warn('Module is on soft pause', {
+            this.logger.warn('Deposits are not available', {
               stakingModuleId: stakingModuleData.stakingModuleId,
+              blockHash: blockData.blockHash,
             });
             return;
           }

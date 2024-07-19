@@ -597,7 +597,7 @@ describe('ganache e2e tests', () => {
         2,
       );
 
-      expect(isOnPause2).toBe(true);
+      expect(isOnPause2).toBe(false);
     },
     TESTS_TIMEOUT,
   );
