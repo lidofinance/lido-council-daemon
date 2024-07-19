@@ -61,6 +61,7 @@ import { DepositIntegrityCheckerService } from 'contracts/deposit/integrity-chec
 import { BlsService } from 'bls';
 import { makeDeposit, signDeposit } from './helpers/deposit';
 import { mockKey, mockKey2 } from './helpers/keys-fixtures';
+import { ethers } from 'ethers';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -597,7 +598,43 @@ describe('ganache e2e tests', () => {
         2,
       );
 
-      expect(isOnPause2).toBe(false);
+      // Mine a new block
+      await providerService.provider.send('evm_mine', []);
+
+      // Your assertions after mining the block
+      const newBlock = await providerService.provider.getBlock('latest');
+      console.log('Current block number:', {
+        newBlock: newBlock.number,
+        currentBlock: currentBlock.number,
+      });
+
+      setupMockModules(
+        newBlock,
+        keysApiService,
+        [mockOperator1, mockOperator2],
+        mockedDvtOperators,
+        keys,
+      );
+
+      mockedKeysApiFind(
+        keysApiService,
+        keys,
+        mockedMeta(newBlock, newBlock.hash),
+      );
+
+      await guardianService.handleNewBlock();
+
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+      const isOnPause1NextIter =
+        await routerContract.getStakingModuleIsDepositsPaused(1);
+
+      expect(isOnPause1NextIter).toBe(true);
+
+      const isOnPause2NextIter =
+        await routerContract.getStakingModuleIsDepositsPaused(2);
+
+      expect(isOnPause2NextIter).toBe(true);
     },
     TESTS_TIMEOUT,
   );
