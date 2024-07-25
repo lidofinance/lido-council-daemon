@@ -1,6 +1,7 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { Level } from 'level';
 import { join } from 'path';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { DB_DIR, DB_DEFAULT_VALUE, DB_LAYER_DIR } from './leveldb.constants';
 import { ProviderService } from 'provider';
 import { SigningKeyEvent } from '../interfaces/event.interface';
@@ -13,6 +14,8 @@ export class LevelDBService {
     private providerService: ProviderService,
     @Inject(DB_DIR) private cacheDir: string,
     @Inject(DB_LAYER_DIR) private cacheLayerDir: string,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER)
+    private logger: LoggerService,
     @Inject(DB_DEFAULT_VALUE)
     private cacheDefaultValue: {
       data: SigningKeyEvent[];
@@ -131,12 +134,18 @@ export class LevelDBService {
       const headers: SigningKeyEventsCacheHeaders = JSON.parse(
         await this.db.get('headers'),
       );
-
+      this.logger.log('Signing keys headers', headers);
       return {
         headers,
       };
     } catch (error: any) {
-      if (error.code === 'LEVEL_NOT_FOUND') return this.cacheDefaultValue;
+      if (error.code === 'LEVEL_NOT_FOUND') {
+        this.logger.log(
+          'Signing keys headers not found, using default value',
+          this.cacheDefaultValue,
+        );
+        return this.cacheDefaultValue;
+      }
       throw error;
     }
   }
