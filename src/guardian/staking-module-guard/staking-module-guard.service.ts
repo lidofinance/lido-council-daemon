@@ -1,7 +1,10 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
-import { VerifiedDepositEvent } from 'contracts/deposit';
+import {
+  VerifiedDepositEvent,
+  VerifiedDepositEventGroup,
+} from 'contracts/deposit';
 import { SecurityService } from 'contracts/security';
 
 import { ContractsState, BlockData, StakingModuleData } from '../interfaces';
@@ -51,8 +54,10 @@ export class StakingModuleGuardService {
    * @param blockData
    * @returns
    */
-  public async getHistoricalFrontRun(blockData: BlockData) {
-    const { depositedEvents, lidoWC } = blockData;
+  public async getHistoricalFrontRun(
+    depositedEvents: VerifiedDepositEventGroup,
+    lidoWC: string,
+  ) {
     const potentialLidoDepositsEvents = depositedEvents.events.filter(
       ({ wc, valid }) => wc === lidoWC && valid,
     );
@@ -320,9 +325,11 @@ export class StakingModuleGuardService {
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
   ): Promise<void> {
+    const { nonce, stakingModuleId } = stakingModuleData;
+
     this.logger.warn('Pause deposits for module', {
       blockHash: blockData.blockHash,
-      stakingModuleId: stakingModuleData.stakingModuleId,
+      stakingModuleId,
     });
 
     const {
@@ -333,11 +340,9 @@ export class StakingModuleGuardService {
       depositRoot,
     } = blockData;
 
-    const { nonce, stakingModuleId } = stakingModuleData;
-
     const signature = await this.securityService.signPauseDataV2(
       blockNumber,
-      stakingModuleData.stakingModuleId,
+      stakingModuleId,
     );
 
     const pauseMessage = {

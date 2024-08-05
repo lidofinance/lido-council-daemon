@@ -44,7 +44,6 @@ export class UnvettingService {
     this.unvetSignKeysChunk(stakingModuleData, blockData, firstChunk);
   }
 
-  @OneAtTime()
   async unvetSignKeysChunk(
     stakingModuleData: StakingModuleData,
     blockData: BlockData,

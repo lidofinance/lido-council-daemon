@@ -13,6 +13,7 @@ import {
 } from 'common/prometheus';
 import { Counter, Histogram } from 'prom-client';
 import { LidoService } from 'contracts/lido';
+import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 
 @Injectable()
 export class BlockGuardService {
@@ -31,6 +32,8 @@ export class BlockGuardService {
     private depositService: DepositService,
     private securityService: SecurityService,
     private lidoService: LidoService,
+
+    private stakingModuleGuardService: StakingModuleGuardService,
   ) {}
 
   public isNeedToProcessNewState(newMeta: {
@@ -92,6 +95,13 @@ export class BlockGuardService {
         }),
       ]);
 
+      // TODO: add metrics for getHistoricalFrontRun same as for keysIntersections
+      const theftHappened =
+        await this.stakingModuleGuardService.getHistoricalFrontRun(
+          depositedEvents,
+          lidoWC,
+        );
+
       const alreadyPausedDeposits = await this.alreadyPausedDeposits(
         blockHash,
         securityVersion,
@@ -114,6 +124,7 @@ export class BlockGuardService {
         lidoWC,
         securityVersion,
         alreadyPausedDeposits,
+        theftHappened,
       };
     } catch (error) {
       this.blockErrorsCounter.inc();

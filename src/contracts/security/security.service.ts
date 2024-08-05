@@ -181,7 +181,7 @@ export class SecurityService {
   @OneAtTime()
   public async pauseDepositsV2(
     blockNumber: number,
-    stakingModuleId: number,
+    @StakingModuleId stakingModuleId: number,
     signature: Signature,
   ): Promise<ContractReceipt | void> {
     this.logger.warn('Try to pause deposits', { stakingModuleId, blockNumber });
@@ -245,7 +245,7 @@ export class SecurityService {
     nonce: number,
     blockNumber: number,
     blockHash: string,
-    stakingModuleId: number,
+    @StakingModuleId stakingModuleId: number,
     operatorIds: string,
     vettedKeysByOperator: string,
     signature: Signature,

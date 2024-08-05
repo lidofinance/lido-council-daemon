@@ -10,4 +10,5 @@ export interface BlockData {
   lidoWC: string;
   securityVersion: number;
   alreadyPausedDeposits: boolean;
+  theftHappened: boolean;
 }
