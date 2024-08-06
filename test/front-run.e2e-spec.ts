@@ -61,7 +61,6 @@ import { DepositIntegrityCheckerService } from 'contracts/deposit/integrity-chec
 import { BlsService } from 'bls';
 import { makeDeposit, signDeposit } from './helpers/deposit';
 import { mockKey, mockKey2 } from './helpers/keys-fixtures';
-import { ethers } from 'ethers';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -171,7 +170,7 @@ describe('ganache e2e tests', () => {
           key: toHexString(pk),
           depositSignature: toHexString(signature),
           operatorIndex: mockOperator1.index,
-          used: false, // TODO: true
+          used: false,
           index: 0,
           moduleAddress: NOP_REGISTRY,
         },
@@ -594,9 +593,7 @@ describe('ganache e2e tests', () => {
 
       expect(isOnPause).toBe(true);
 
-      const isOnPause2 = await routerContract.getStakingModuleIsDepositsPaused(
-        2,
-      );
+      await routerContract.getStakingModuleIsDepositsPaused(2);
 
       // Mine a new block
       await providerService.provider.send('evm_mine', []);
@@ -771,141 +768,6 @@ describe('ganache e2e tests', () => {
   //     const isOnPauseAfter =
   //       await routerContract.getStakingModuleIsDepositsPaused(1);
   //     expect(isOnPauseAfter).toBe(false);
-  //   },
-  //   TESTS_TIMEOUT,
-  // );
-
-  // TODO: do we need it?
-  // test(
-  //   'duplicates will not block front-run recognition',
-  //   async () => {
-  //     const tempProvider = new ethers.providers.JsonRpcProvider(
-  //       `http://127.0.0.1:${GANACHE_PORT}`,
-  //     );
-  //     const forkBlock = await tempProvider.getBlock(FORK_BLOCK);
-  //     const currentBlock = await tempProvider.getBlock('latest');
-
-  //     const { deposit_sign: goodSig } = await makeDeposit(
-  //       pk,
-  //       sk,
-  //       providerService,
-  //     );
-
-  //     const unusedKeys = [
-  //       {
-  //         key: toHexString(pk),
-  //         depositSignature: toHexString(goodSig),
-  //         operatorIndex: 0,
-  //         used: false,
-  //         index: 0,
-  //         moduleAddress: NOP_REGISTRY,
-  //       },
-  //     ];
-
-  //     const meta = mockedMeta(currentBlock, currentBlock.hash);
-  //     const stakingModule = mockedModule(currentBlock, currentBlock.hash);
-
-  //     mockedKeysApiOperatorsMany(
-  //       keysApiService,
-  //       [{ operators: mockedOperators, module: stakingModule }],
-  //       meta,
-  //     );
-
-  //     mockedKeysApiGetAllKeys(keysApiService, unusedKeys, meta);
-  //     mockedKeysApiFind(keysApiService, unusedKeys, meta);
-
-  //     // just to start checks set event in cache
-  //     await depositService.setCachedEvents({
-  //       data: [
-  //         {
-  //           valid: true,
-  //           pubkey: toHexString(pk),
-  //           amount: '32000000000',
-  //           wc: LIDO_WC,
-  //           signature: toHexString(goodSig),
-  //           tx: '0x123',
-  //           blockHash: forkBlock.hash,
-  //           blockNumber: forkBlock.number,
-  //           logIndex: 1,
-  //           depositCount: 1,
-  //           depositDataRoot: new Uint8Array(),
-  //           index: '',
-  //         },
-  //       ],
-  //       headers: {
-  //         startBlock: currentBlock.number,
-  //         endBlock: currentBlock.number,
-  //       },
-  //     });
-
-  //     jest
-  //       .spyOn(signingKeyEventsCacheService, 'getStakingModules')
-  //       .mockImplementation(() =>
-  //         Promise.resolve([NOP_REGISTRY, SIMPLE_DVT]),
-  //       );
-
-  //     await signingKeyEventsCacheService.setCachedEvents({
-  //       data: [],
-  //       headers: {
-  //         startBlock: currentBlock.number,
-  //         endBlock: currentBlock.number,
-  //         stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
-  //       },
-  //     });
-
-  //     // Check if the service is ok and ready to go
-  //     await guardianService.handleNewBlock();
-
-  //     expect(getFrontRunAttempts).toBeCalledTimes(1);
-  //     expect(sendDepositMessage).toBeCalledTimes(1);
-
-  //     await makeDeposit(pk, sk, providerService, BAD_WC);
-
-  //     // Mock Keys API again on new block
-  //     const newBlock = await providerService.provider.getBlock('latest');
-  //     const newMeta = mockedMeta(newBlock, newBlock.hash);
-  //     const updatedStakingModule = mockedModule(currentBlock, newBlock.hash);
-
-  //     mockedKeysApiOperatorsMany(
-  //       keysApiService,
-  //       [{ operators: mockedOperators, module: updatedStakingModule }],
-  //       newMeta,
-  //     );
-
-  //     const duplicate = {
-  //       key: toHexString(pk),
-  //       depositSignature: toHexString(goodSig),
-  //       operatorIndex: 0,
-  //       used: false,
-  //       index: 1,
-  //       moduleAddress: NOP_REGISTRY,
-  //     };
-
-  //     mockedKeysApiGetAllKeys(
-  //       keysApiService,
-  //       [...unusedKeys, duplicate],
-  //       newMeta,
-  //     );
-
-  //     sendDepositMessage.mockClear();
-  //     getFrontRunAttempts.mockClear();
-
-  //     // Run a cycle and wait for possible changes
-  //     await guardianService.handleNewBlock();
-
-  //     await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
-
-  //     const routerContract = StakingRouterAbi__factory.connect(
-  //       STAKING_ROUTER,
-  //       providerService.provider,
-  //     );
-  //     const isOnPause = await routerContract.getStakingModuleIsDepositsPaused(
-  //       1,
-  //     );
-  //     expect(isOnPause).toBe(false);
-
-  //     expect(getFrontRunAttempts).toBeCalledTimes(1);
-  //     expect(sendDepositMessage).toBeCalledTimes(0);
   //   },
   //   TESTS_TIMEOUT,
   // );

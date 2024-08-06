@@ -5,7 +5,6 @@ import { BlockData, StakingModuleData } from 'guardian/interfaces';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { packNodeOperatorIds, packVettedSigningKeysCounts } from './bytes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { OneAtTime } from 'common/decorators';
 
 type UnvetData = { operatorIds: string; vettedKeysByOperator: string };
 

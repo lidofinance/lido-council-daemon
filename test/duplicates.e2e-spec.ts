@@ -484,7 +484,7 @@ describe('ganache e2e tests', () => {
   test('adding not vetted duplicate will not set on soft pause module', async () => {
     const currentBlock = await providerService.provider.getBlock('latest');
     const { depositData } = signDeposit(pk, sk);
-    const { wallet } = await makeDeposit(depositData, providerService);
+    await makeDeposit(depositData, providerService);
 
     await depositService.setCachedEvents({
       data: [],
