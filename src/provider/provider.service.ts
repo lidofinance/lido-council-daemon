@@ -111,6 +111,8 @@ export class ProviderService {
 
         const events = first.events.concat(second.events);
 
+        // TODO: get rid of the generic type and set the type explicitly as { events, startBlock, endBlock }
+        // or correctly merge the first and second results, though that may not be possible
         return { events, startBlock, endBlock } as T;
       } else {
         this.logger.warn('Fetch error. Retry', error);

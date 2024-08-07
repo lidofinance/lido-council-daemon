@@ -137,5 +137,7 @@ describe('ProviderService', () => {
       await expect(results[1].value).resolves.toEqual(expectedFirst);
       await expect(results[2].value).resolves.toEqual(expectedSecond);
     });
+
+    // TODO: test that will check that catch block will return the same type as try block
   });
 });
