@@ -304,7 +304,6 @@ export class SigningKeyEventsCacheService {
     const lastEvent = freshEvents[freshEvents.length - 1];
     const lastEventBlockHash = lastEvent?.blockHash;
 
-    // TODO: check
     this.checkEventsBlockHash(freshEvents, blockNumber, blockHash);
 
     this.logger.debug?.('Fresh signing key add events are fetched', {
