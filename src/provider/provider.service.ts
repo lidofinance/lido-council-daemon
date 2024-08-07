@@ -82,9 +82,14 @@ export class ProviderService {
     startBlock: number,
     endBlock: number,
     fetcher: (startBlock: number, endBlock: number) => Promise<T>,
-  ): Promise<T> {
+  ): Promise<{ events: E[]; startBlock: number; endBlock: number }> {
     try {
-      return await fetcher(startBlock, endBlock);
+      const data = await fetcher(startBlock, endBlock);
+      return {
+        events: data.events,
+        startBlock: data.startBlock,
+        endBlock: data.endBlock,
+      };
     } catch (error: any) {
       const errorCode = error?.error?.code;
       const isLimitExceeded = ERRORS_LIMIT_EXCEEDED.includes(errorCode);
@@ -109,11 +114,9 @@ export class ProviderService {
           this.fetchEventsFallOver(center, endBlock, fetcher),
         ]);
 
-        const events = first.events.concat(second.events);
+        const events = first.events.concat(second.events) as E[];
 
-        // TODO: get rid of the generic type and set the type explicitly as { events, startBlock, endBlock }
-        // or correctly merge the first and second results, though that may not be possible
-        return { events, startBlock, endBlock } as T;
+        return { events, startBlock, endBlock };
       } else {
         this.logger.warn('Fetch error. Retry', error);
 

@@ -136,7 +136,6 @@ export class LevelDBService {
         headers,
       };
     } catch (error: any) {
-      // TODO: maybe we should not return header if db is empty
       if (error.code === 'LEVEL_NOT_FOUND') return this.cacheDefaultValue;
       throw error;
     }
