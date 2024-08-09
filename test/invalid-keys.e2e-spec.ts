@@ -239,6 +239,8 @@ describe('ganache e2e tests', () => {
 
       await guardianService.handleNewBlock();
 
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
       expect(validateKeys).toBeCalledTimes(2);
       // dont validate again
       expect(validateKeys).toHaveBeenNthCalledWith(1, []);

@@ -170,7 +170,6 @@ export class GuardianService implements OnModuleInit {
       );
 
       await this.depositService.handleNewBlock(blockNumber);
-      await this.signingKeyEventsCacheService.handleNewBlock(blockNumber);
 
       const { stakingModulesData, blockData } = await this.collectData(
         operatorsByModules,
@@ -178,11 +177,24 @@ export class GuardianService implements OnModuleInit {
         lidoKeys,
       );
 
-      await this.handlePause(stakingModulesData, blockData);
+      if (
+        blockData.securityVersion === 3 &&
+        !blockData.alreadyPausedDeposits &&
+        blockData.theftHappened
+      ) {
+        await this.stakingModuleGuardService.handlePauseV3(blockData);
+        return;
+      }
 
-      await this.handleUnvetting(stakingModulesData, blockData);
+      if (blockData.securityVersion !== 3 && blockData.theftHappened) {
+        await this.stakingModuleGuardService.handlePauseV2(
+          stakingModulesData,
+          blockData,
+        );
+        return;
+      }
 
-      await this.handleDeposit(stakingModulesData, blockData);
+      this.handleKeys(stakingModulesData, blockData, lidoKeys);
 
       await this.guardianMessageService.pingMessageBroker(
         stakingModulesData.map(({ stakingModuleId }) => stakingModuleId),
@@ -223,7 +235,7 @@ export class GuardianService implements OnModuleInit {
 
     // collect some data and check keys
     const stakingModulesData: StakingModuleData[] =
-      await this.stakingRouterService.getStakingModulesData({
+      await this.stakingRouterService.collectStakingModuleData({
         operatorsByModules,
         meta,
         lidoKeys,
@@ -233,26 +245,38 @@ export class GuardianService implements OnModuleInit {
     return { blockData, stakingModulesData };
   }
 
-  async handlePause(
+  /**
+   * This method check keys and if they are correct send deposit message in queue, another way send unvet transation
+   */
+  @OneAtTime()
+  async handleKeys(
     stakingModulesData: StakingModuleData[],
     blockData: BlockData,
+    lidoKeys: RegistryKey[],
   ) {
-    if (
-      blockData.securityVersion === 3 &&
-      !blockData.alreadyPausedDeposits &&
-      blockData.theftHappened
-    ) {
-      await this.stakingModuleGuardService.handlePauseV3(blockData);
-      return;
-    }
+    // check lido keys
+    await this.checkKeys(stakingModulesData, blockData, lidoKeys);
+    // unvet keys if need
+    await this.handleUnvetting(stakingModulesData, blockData);
+    await this.handleDeposit(stakingModulesData, blockData);
+  }
 
-    if (blockData.securityVersion !== 3 && blockData.theftHappened) {
-      await this.stakingModuleGuardService.handlePauseV2(
-        stakingModulesData,
-        blockData,
-      );
-      return;
-    }
+  async checkKeys(
+    stakingModulesData: StakingModuleData[],
+    blockData: BlockData,
+    lidoKeys: RegistryKey[],
+  ) {
+    // update cache if needs
+    await this.signingKeyEventsCacheService.handleNewBlock(
+      blockData.blockNumber,
+    );
+
+    // check keys on duplicates, attempts of front-run and check signatures
+    await this.stakingRouterService.checkKeys(
+      stakingModulesData,
+      lidoKeys,
+      blockData,
+    );
   }
 
   async handleUnvetting(
@@ -299,7 +323,7 @@ export class GuardianService implements OnModuleInit {
         );
 
         if (
-          !this.stakingModuleGuardService.canDeposit(
+          this.cannotDeposit(
             stakingModuleData,
             blockData.theftHappened,
             blockData.alreadyPausedDeposits,
@@ -317,6 +341,27 @@ export class GuardianService implements OnModuleInit {
           blockData,
         );
       }),
+    );
+  }
+
+  cannotDeposit(
+    stakingModuleData: StakingModuleData,
+    theftHappened: boolean,
+    alreadyPausedDeposits: boolean,
+  ): boolean {
+    const keysForUnvetting = [
+      ...stakingModuleData.invalidKeys,
+      ...stakingModuleData.frontRunKeys,
+      ...stakingModuleData.duplicatedKeys,
+    ];
+
+    // if neither of this conditions is true, deposits are allowed for module
+    return (
+      keysForUnvetting.length > 0 ||
+      stakingModuleData.unresolvedDuplicatedKeys.length > 0 ||
+      alreadyPausedDeposits ||
+      theftHappened ||
+      stakingModuleData.isModuleDepositsPaused
     );
   }
 }
