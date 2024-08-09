@@ -170,7 +170,12 @@ describe('DepositService', () => {
 
     describe('fetchEventsFallOver', () => {
       it('should fetch events', async () => {
-        const expected = {} as any;
+        const expected = {
+          endBlock: 0,
+          events: [],
+          startBlock: 10,
+        };
+
         const from = 0;
         const to = 10;
 
@@ -182,7 +187,7 @@ describe('DepositService', () => {
 
         expect(mockFetchEvents).toBeCalledTimes(1);
         expect(mockFetchEvents).toBeCalledWith(from, to);
-        expect(result).toBe(expected);
+        expect(result).toEqual(expected);
       });
 
       it('should fetch recursive if limit exceeded', async () => {

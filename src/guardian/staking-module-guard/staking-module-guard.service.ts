@@ -238,27 +238,6 @@ export class StakingModuleGuardService {
     );
   }
 
-  public canDeposit(
-    stakingModuleData: StakingModuleData,
-    theftHappened: boolean,
-    alreadyPausedDeposits: boolean,
-  ): boolean {
-    const keysForUnvetting = [
-      ...stakingModuleData.invalidKeys,
-      ...stakingModuleData.frontRunKeys,
-      ...stakingModuleData.duplicatedKeys,
-      ...stakingModuleData.unresolvedDuplicatedKeys,
-    ];
-
-    // if neither of this conditions is true, deposits are allowed for module
-    return !(
-      keysForUnvetting.length ||
-      alreadyPausedDeposits ||
-      theftHappened ||
-      stakingModuleData.isModuleDepositsPaused
-    );
-  }
-
   public async handlePauseV3(blockData: BlockData): Promise<void> {
     const { blockNumber, guardianAddress, guardianIndex } = blockData;
 

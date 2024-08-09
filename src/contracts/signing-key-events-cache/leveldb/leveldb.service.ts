@@ -186,6 +186,12 @@ export class LevelDBService {
     data: SigningKeyEvent[];
     headers: SigningKeyEventsCacheHeaders;
   }) {
+    if (!this.validateHeader(records.headers)) {
+      throw new Error(
+        'Invalid headers: Headers must contain exactly all SigningKeyEventsCacheHeaders keys.',
+      );
+    }
+
     const ops = records.data.map((event) => ({
       type: 'put' as const,
       key: this.generateSigningKeyEventStorageKey(event),
@@ -197,6 +203,28 @@ export class LevelDBService {
       value: JSON.stringify(records.headers),
     });
     await this.db.batch(ops);
+  }
+
+  private validateHeader(
+    headers: any,
+  ): headers is SigningKeyEventsCacheHeaders {
+    const requiredHeaders: (keyof SigningKeyEventsCacheHeaders)[] = [
+      'stakingModulesAddresses',
+      'startBlock',
+      'endBlock',
+    ];
+
+    const headersKeys = Object.keys(
+      headers,
+    ) as (keyof SigningKeyEventsCacheHeaders)[];
+    const hasNoExtraKey = headersKeys.every((key) =>
+      requiredHeaders.includes(key),
+    );
+    const hasAllRequiredKeys = requiredHeaders.every((key) =>
+      headersKeys.includes(key),
+    );
+
+    return hasNoExtraKey && hasAllRequiredKeys;
   }
 
   /**

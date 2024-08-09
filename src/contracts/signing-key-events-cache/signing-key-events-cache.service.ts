@@ -5,6 +5,7 @@ import { ProviderService } from 'provider';
 import {
   SigningKeyEvent,
   SigningKeyEventsGroup,
+  SigningKeyEventsGroupWithStakingModules,
 } from './interfaces/event.interface';
 import { LevelDBService } from './leveldb';
 import { SigningKeyEventsCache } from './interfaces/cache.interface';
@@ -37,12 +38,17 @@ export class SigningKeyEventsCacheService {
     }
   }
 
+  /**
+   * Initialize or update cache
+   * @param blockNumber
+   */
   public async initialize(blockNumber) {
     await this.levelDBCacheService.initialize();
 
     const cachedEvents = await this.getCachedEvents();
 
     // check age of cache
+    // maybe we need to validate cache type
     const isCacheValid = this.validateCacheBlock(cachedEvents, blockNumber);
 
     if (!isCacheValid) {
@@ -70,11 +76,17 @@ export class SigningKeyEventsCacheService {
       this.getCachedEvents(),
     ]);
 
+    // TODO: do we need to check cache validity ?
+
     const firstNotCachedBlock = initialCache.headers.endBlock + 1;
     const toBlock = latestBlock - SIGNING_KEYS_EVENTS_CACHE_LAG_BLOCKS;
 
     const totalEventsCount = initialCache.data.length;
     let newEventsCount = 0;
+
+    const stakingModulesContracts =
+      await this.repositoryService.getCachedStakingModulesContracts();
+    const stakingModulesAddresses = Object.keys(stakingModulesContracts);
 
     for (
       let block = firstNotCachedBlock;
@@ -93,7 +105,7 @@ export class SigningKeyEventsCacheService {
         headers: {
           ...initialCache.headers,
           // as we update staking modules addresses always before run of this method, we can update value on every iteration
-          stakingModulesAddresses: chunkEventGroup.stakingModulesAddresses,
+          stakingModulesAddresses: stakingModulesAddresses,
           endBlock: chunkEventGroup.endBlock,
         },
         data: chunkEventGroup.events,
@@ -200,8 +212,6 @@ export class SigningKeyEventsCacheService {
 
     const events: SigningKeyEvent[] = [];
 
-    const stakingModulesAddresses = Object.keys(stakingModulesContracts);
-
     await Promise.all(
       Object.entries(stakingModulesContracts).map(
         async ([address, { impl }]) => {
@@ -237,7 +247,7 @@ export class SigningKeyEventsCacheService {
       ),
     );
 
-    return { events, stakingModulesAddresses, startBlock, endBlock };
+    return { events, startBlock, endBlock };
   }
 
   /**
@@ -277,7 +287,7 @@ export class SigningKeyEventsCacheService {
     key: string,
     blockNumber: number,
     blockHash: string,
-  ): Promise<SigningKeyEventsGroup> {
+  ): Promise<SigningKeyEventsGroupWithStakingModules> {
     const endBlock = blockNumber;
     const cachedEvents = await this.getEventsForOperatorsKeys([key]);
 

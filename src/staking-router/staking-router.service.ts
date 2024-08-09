@@ -26,29 +26,9 @@ export class StakingRouterService {
   ) {}
 
   /**
-   * Return staking module data and block information
-   */
-  public async getStakingModulesData({
-    operatorsByModules,
-    meta,
-    lidoKeys,
-    blockData,
-  }: State): Promise<StakingModuleData[]> {
-    const stakingModulesData = await this.collectStakingModuleData({
-      operatorsByModules,
-      meta,
-      lidoKeys,
-      blockData,
-    });
-    await this.checkKeys(stakingModulesData, lidoKeys, blockData);
-
-    return stakingModulesData;
-  }
-
-  /**
    * Collects basic data about the staking module, including activity status, vetted unused keys list, ID, address, and nonce.
    */
-  private async collectStakingModuleData({
+  public async collectStakingModuleData({
     operatorsByModules,
     meta,
     lidoKeys,
@@ -93,7 +73,7 @@ export class StakingRouterService {
   /**
    * Check for duplicated, invalid, and front-run attempts
    */
-  private async checkKeys(
+  public async checkKeys(
     stakingModulesData: StakingModuleData[],
     lidoKeys: RegistryKey[],
     blockData: BlockData,
