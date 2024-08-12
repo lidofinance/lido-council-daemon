@@ -117,7 +117,6 @@ describe('ganache e2e tests', () => {
 
     // main service that check keys and make decision
     guardianService = moduleRef.get(GuardianService);
-    moduleRef.get(StakingModuleGuardService);
 
     // sign validation
     keyValidator = moduleRef.get(KeyValidatorInterface);

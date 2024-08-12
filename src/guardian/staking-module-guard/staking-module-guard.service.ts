@@ -280,6 +280,7 @@ export class StakingModuleGuardService {
       await this.pauseModuleDeposits(stakingModuleData, blockData);
       return; // Only process one transaction per handleNewBlock
     }
+    return;
   }
 
   private isModuleAlreadyPaused(

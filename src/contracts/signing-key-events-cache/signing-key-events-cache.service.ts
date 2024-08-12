@@ -26,6 +26,16 @@ export class SigningKeyEventsCacheService {
     private levelDBCacheService: LevelDBService,
   ) {}
 
+  /**
+   * Handles the logic for processing a new block.
+   *
+   * This method checks if the staking module list has been updated and, if so, deletes the cache and updates the events cache.
+   * If the staking module list has not been updated, it checks whether the block number is divisible by the
+   * `SIGNING_KEY_EVENTS_CACHE_UPDATE_BLOCK_RATE` and, if true, updates the events cache.
+   *
+   * @param {number} blockNumber - The block number of the newly processed block.
+   * @returns {Promise<void>}
+   */
   public async handleNewBlock(blockNumber): Promise<void> {
     const wasUpdated = await this.stakingModuleListWasUpdated();
     if (wasUpdated) {
@@ -40,7 +50,8 @@ export class SigningKeyEventsCacheService {
 
   /**
    * Initialize or update cache
-   * @param blockNumber
+   * @param {number} blockNumber - The block number to validate the cache against.
+   * @returns {Promise<void>}
    */
   public async initialize(blockNumber) {
     await this.levelDBCacheService.initialize();
@@ -48,7 +59,6 @@ export class SigningKeyEventsCacheService {
     const cachedEvents = await this.getCachedEvents();
 
     // check age of cache
-    // maybe we need to validate cache type
     const isCacheValid = this.validateCacheBlock(cachedEvents, blockNumber);
 
     if (!isCacheValid) {
@@ -67,6 +77,8 @@ export class SigningKeyEventsCacheService {
   /**
    * Updates the cache signing keys events
    * The last N blocks are not stored, in order to avoid storing reorganized blocks
+   *
+   * @returns {Promise<number>} The block number up to which the cache has been updated.
    */
   public async updateEventsCache(): Promise<number> {
     const fetchTimeStart = performance.now();
@@ -76,17 +88,13 @@ export class SigningKeyEventsCacheService {
       this.getCachedEvents(),
     ]);
 
-    // TODO: do we need to check cache validity ?
-
     const firstNotCachedBlock = initialCache.headers.endBlock + 1;
     const toBlock = latestBlock - SIGNING_KEYS_EVENTS_CACHE_LAG_BLOCKS;
 
     const totalEventsCount = initialCache.data.length;
     let newEventsCount = 0;
 
-    const stakingModulesContracts =
-      await this.repositoryService.getCachedStakingModulesContracts();
-    const stakingModulesAddresses = Object.keys(stakingModulesContracts);
+    const stakingModulesAddresses = await this.getStakingModules();
 
     for (
       let block = firstNotCachedBlock;
@@ -133,6 +141,14 @@ export class SigningKeyEventsCacheService {
     return toBlock;
   }
 
+  /**
+   * Checks if the list of staking modules has been updated.
+   *
+   * This method compares the current list of staking modules with the previously cached list.
+   * If the list has changed, it logs a warning and indicates that the cache needs to be cleared and updated.
+   *
+   * @returns {Promise<boolean>} Return `true` if the staking modules list was updated, `false` otherwise.
+   */
   public async stakingModuleListWasUpdated(): Promise<boolean> {
     const {
       headers: { stakingModulesAddresses: previousModules },
@@ -158,6 +174,16 @@ export class SigningKeyEventsCacheService {
     return wasUpdated;
   }
 
+  /**
+   * Compares the previous and current lists of staking modules to determine if any changes have occurred.
+   *
+   * This method checks if any staking modules were added or deleted by comparing the previous
+   * and current lists of staking modules.
+   *
+   * @param {string[]} previousModules - The list of staking modules from the previous cache.
+   * @param {string[]} currentModules - The current list of staking modules.
+   * @returns {boolean} `true` if the staking modules list was updated (modules were added or deleted), `false` otherwise.
+   */
   public wasStakingModulesListUpdated(
     previousModules: string[],
     currentModules: string[],
@@ -172,6 +198,13 @@ export class SigningKeyEventsCacheService {
     return modulesWereDeleted || modulesWereAdded;
   }
 
+  /**
+   * Retrieves the list of staking module addresses.
+   *
+   * This method fetches the cached staking modules contracts and returns the list of staking module addresses.
+   *
+   * @returns {Promise<string[]>} Array of staking module addresses.
+   */
   public async getStakingModules(): Promise<string[]> {
     const stakingModulesContracts =
       await this.repositoryService.getCachedStakingModulesContracts();
@@ -180,11 +213,12 @@ export class SigningKeyEventsCacheService {
   }
 
   /**
-   * Returns events in the block range
+   * Fetches signing key events within a specified block range, with fallback mechanisms.
    * If the request failed, it tries to repeat it or split it into two
-   * @param startBlock - start of the range
-   * @param endBlock - end of the range
-   * @returns SigningKeyEventsGroup
+   *
+   * @param {number} startBlock - The starting block number of the range.
+   * @param {number} endBlock - The ending block number of the range.
+   * @returns {Promise<SigningKeyEventsGroup>} Events fetched within the specified block range
    */
   public async fetchEventsFallOver(
     startBlock: number,
@@ -198,10 +232,11 @@ export class SigningKeyEventsCacheService {
   }
 
   /**
-   * Returns events in the block range
-   * @param startBlock - start of the range
-   * @param endBlock - end of the range
-   * @returns SigningKeyEventsGroup
+   * Fetches signing key events within a specified block range from staking module contracts.
+   *
+   * @param {number} startBlock - The starting block number of the range.
+   * @param {number} endBlock - The ending block number of the range.
+   * @returns {Promise<SigningKeyEventsGroup>} Events fetched within the specified block range.
    */
   public async fetchEvents(
     startBlock: number,
@@ -251,8 +286,14 @@ export class SigningKeyEventsCacheService {
   }
 
   /**
-   * Gets node operators data from cache
-   * @returns event group
+   * Retrieves signing key events data from the cache.
+   *
+   * This method fetches cached signing key events along with their associated headers.
+   * If the headers have default values (like 0 for the start and end block numbers),
+   * these values are updated to reflect the actual deployment block of the network.
+   *
+   * @returns {Promise<SigningKeyEventsCache>} A promise that resolves to a `SigningKeyEventsCache` object,
+   * containing the cached signing key events and their metadata.
    */
   public async getCachedEvents(): Promise<SigningKeyEventsCache> {
     const { headers, data } = await this.levelDBCacheService.getEventsCache();
@@ -271,7 +312,13 @@ export class SigningKeyEventsCacheService {
   }
 
   /**
-   * Got operators' keys list and find return all events for them
+   * Retrieves signing key events from the cache for the specified operators' keys.
+   *
+   * This method takes a list of operators' keys, ensures the list contains unique keys,
+   * and then fetches the corresponding events from the cache.
+   *
+   * @param {string[]} keys - An array of operators' keys for which to retrieve events.
+   * @returns {Promise<SigningKeyEventsCache>} Events associated with the specified keys.
    */
   public async getEventsForOperatorsKeys(
     keys: string[],
@@ -281,7 +328,15 @@ export class SigningKeyEventsCacheService {
   }
 
   /**
-   * Returns all signing keys events based on cache and fresh data for keys list
+   * Retrieves and returns all signing key events based on cached data and fresh data for a given key.
+   *
+   * This method combines cached signing key events with newly fetched events for a specific key,
+   * ensuring the cache is valid and updating the cache if necessary.
+   *
+   * @param {string} key - The specific signing key to retrieve events for.
+   * @param {number} blockNumber - The block number up to which the events should be retrieved.
+   * @param {string} blockHash - The block hash used to verify the integrity of the retrieved events.
+   * @returns {Promise<SigningKeyEventsGroupWithStakingModules>} merged signing key events and associated staking module addresses.
    */
   public async getUpdatedSigningKeyEvents(
     key: string,
@@ -337,7 +392,13 @@ export class SigningKeyEventsCacheService {
   }
 
   /**
-   * Saves signing keys events events to cache
+   * Saves signing key events to the cache.
+   *
+   * This method first deletes the existing cache and then saves the provided signing key events
+   * and their associated headers to the cache.
+   *
+   * @param {SigningKeyEventsCache} cachedEvents - An object containing the signing key events and headers to be saved to the cache.
+   * @returns {Promise<void>}
    */
   public async setCachedEvents(
     cachedEvents: SigningKeyEventsCache,
@@ -350,10 +411,14 @@ export class SigningKeyEventsCacheService {
   }
 
   /**
-   * Validates block number in the cache
-   * @param cachedEvents - cached events
-   * @param currentBlock - current block number
-   * @returns true if cached app version is the same
+   * Validates the block number in the cached events against the current block number.
+   *
+   * This method checks if the cached events are up to date by comparing the current block number
+   * with the end block number in the cache. It logs a message if the cache is valid and a warning if it is not.
+   *
+   * @param {SigningKeyEventsCache} cachedEvents - The cached events containing block headers to validate.
+   * @param {number} currentBlock - The current block number to compare against the cached block.
+   * @returns {boolean} `true` if the cache is valid (i.e., the current block number is greater than or equal to the cached end block), `false` otherwise.
    */
   public validateCacheBlock(
     cachedEvents: SigningKeyEventsCache,
@@ -382,8 +447,16 @@ export class SigningKeyEventsCacheService {
   }
 
   /**
-   * Checks events block hash
-   * An additional check to avoid events processing in an alternate chain
+   * Validates the block hash of signing key events.
+   *
+   * This method checks each event's block hash against the provided block hash, but only if the event's block number
+   * matches the given `blockNumber`. This ensures that the events are not from an alternate chain (e.g., due to a chain reorganization).
+   * If a block number match is found but the block hashes do not match, an error is thrown.
+   *
+   * @param {SigningKeyEvent[]} events - The list of signing key events to be checked.
+   * @param {number} blockNumber - The block number to match against the events' block numbers.
+   * @param {string} blockHash - The block hash to match against the events' block hashes.
+   * @throws {Error} If any event's block hash does not match the provided block hash for the specified block number.
    */
   public checkEventsBlockHash(
     events: SigningKeyEvent[],
@@ -400,8 +473,13 @@ export class SigningKeyEventsCacheService {
   }
 
   /**
-   * Returns a block number when the curated module contract was deployed
-   * @returns block number
+   * Retrieves the block number when the curated module contract was deployed for the current network.
+   *
+   * This method determines the deployment block number based on the current network's chain ID.
+   * If the chain ID is not supported, an error is thrown.
+   *
+   * @returns {Promise<number>} Block number where the curated module contract was deployed.
+   * @throws {Error} If the chain ID is not supported.
    */
   public async getDeploymentBlockByNetwork(): Promise<number> {
     const chainId = await this.providerService.getChainId();

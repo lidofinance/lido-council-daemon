@@ -40,7 +40,7 @@ export class UnvettingService {
     const maxOperatorsPerUnvetting = await this.getMaxOperatorsPerUnvetting();
     const firstChunk = this.getNewVettedAmount(keys, maxOperatorsPerUnvetting);
 
-    this.unvetSignKeysChunk(stakingModuleData, blockData, firstChunk);
+    await this.unvetSignKeysChunk(stakingModuleData, blockData, firstChunk);
   }
 
   async unvetSignKeysChunk(
@@ -61,18 +61,17 @@ export class UnvettingService {
       vettedKeysByOperator,
     );
 
-    // trans can take 1-5 and be reverted or completed
-    // reverted if someone sent it already; it can be stacked because of problem with provider
-    // maybe it is better to send message to deposit bot without waiting completion
-    this.securityService.unvetSigningKeys(
-      nonce,
-      blockNumber,
-      blockHash,
-      stakingModuleId,
-      operatorIds,
-      vettedKeysByOperator,
-      signature,
-    );
+    this.securityService
+      .unvetSigningKeys(
+        nonce,
+        blockNumber,
+        blockHash,
+        stakingModuleId,
+        operatorIds,
+        vettedKeysByOperator,
+        signature,
+      )
+      .catch(this.logger.error);
 
     await this.guardianMessageService.sendUnvetMessage({
       nonce,
