@@ -23,7 +23,6 @@ import {
   LIDO_WC,
   UNLOCKED_ACCOUNTS,
   FORK_BLOCK,
-  NO_PRIVKEY_MESSAGE,
   CSM,
 } from './constants';
 
@@ -63,7 +62,6 @@ describe('ganache e2e tests', () => {
   let guardianService: GuardianService;
   let depositService: DepositService;
   let keyValidator: KeyValidatorInterface;
-  let stakingModuleGuardService: StakingModuleGuardService;
   let levelDBService: LevelDBService;
   let signKeyLevelDBService: SignKeyLevelDBService;
   let guardianMessageService: GuardianMessageService;
@@ -119,7 +117,6 @@ describe('ganache e2e tests', () => {
 
     // main service that check keys and make decision
     guardianService = moduleRef.get(GuardianService);
-    stakingModuleGuardService = moduleRef.get(StakingModuleGuardService);
 
     // sign validation
     keyValidator = moduleRef.get(KeyValidatorInterface);
@@ -459,6 +456,4 @@ describe('ganache e2e tests', () => {
 
     expect(sendPauseMessage).toBeCalledTimes(0);
   });
-
-  // TODO: add test on change of wc
 });

@@ -31,45 +31,6 @@ export const setupTestingModule = async () => {
   }).compile();
 
   return moduleRef;
-
-  // const providerService = moduleRef.get(ProviderService);
-  // const walletService = moduleRef.get(WalletService);
-  // const keysApiService = moduleRef.get(KeysApiService);
-  // const guardianService = moduleRef.get(GuardianService);
-  // const lidoService = moduleRef.get(LidoService);
-  // const depositService = moduleRef.get(DepositService);
-  // const guardianMessageService = moduleRef.get(GuardianMessageService);
-  // const keyValidator = moduleRef.get(KeyValidatorInterface);
-  // const securityService = moduleRef.get(SecurityService);
-  // const stakingModuleGuardService = moduleRef.get(StakingModuleGuardService);
-  // const levelDBService = moduleRef.get(LevelDBService);
-  // const signKeyLevelDBService = moduleRef.get(SignKeyLevelDBService);
-  // const depositIntegrityCheckerService = moduleRef.get(
-  //   DepositIntegrityCheckerService,
-  // );
-  // const signingKeyEventsCacheService = moduleRef.get(
-  //   SigningKeyEventsCacheService,
-  // );
-  // const repositoryService = moduleRef.get(RepositoryService);
-  // const blsService = moduleRef.get(BlsService);
-  // const stakingRouterService = moduleRef.get(StakingRouterService);
-
-  // await blsService.onModuleInit();
-  // await levelDBService.initialize();
-  // await signKeyLevelDBService.initialize();
-
-  // jest
-  //   .spyOn(lidoService, 'getWithdrawalCredentials')
-  //   .mockImplementation(async () => LIDO_WC);
-  // jest
-  //   .spyOn(guardianMessageService, 'pingMessageBroker')
-  //   .mockImplementation(() => Promise.resolve());
-  // jest
-  //   .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
-  //   .mockImplementation(() => Promise.resolve());
-  // jest
-  //   .spyOn(depositIntegrityCheckerService, 'checkFinalizedRoot')
-  //   .mockImplementation(() => Promise.resolve());
 };
 
 export const initLevelDB = async (
