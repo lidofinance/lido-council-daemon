@@ -23,7 +23,8 @@ export class StakingRouterService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private securityService: SecurityService,
     private stakingModuleGuardService: StakingModuleGuardService,
-    private keysDuplicationCheckerService: KeysDuplicationCheckerService, // private guardianMetricsService: GuardianMetricsService,
+    private keysDuplicationCheckerService: KeysDuplicationCheckerService,
+    private guardianMetricsService: GuardianMetricsService,
   ) {}
 
   /**
@@ -116,18 +117,18 @@ export class StakingRouterService {
           allUnresolved,
         );
 
-        // this.guardianMetricsService.collectDuplicatedKeysMetrics(
-        //   stakingModuleData.stakingModuleId,
-        //   allUnresolved.length,
-        //   stakingModuleData.unresolvedDuplicatedKeys.length,
-        //   allDuplicatedKeys.length,
-        //   stakingModuleData.duplicatedKeys.length,
-        // );
+        this.guardianMetricsService.collectDuplicatedKeysMetrics(
+          stakingModuleData.stakingModuleId,
+          allUnresolved.length,
+          stakingModuleData.unresolvedDuplicatedKeys.length,
+          allDuplicatedKeys.length,
+          stakingModuleData.duplicatedKeys.length,
+        );
 
-        // this.guardianMetricsService.collectInvalidKeysMetrics(
-        //   stakingModuleData.stakingModuleId,
-        //   stakingModuleData.invalidKeys.length,
-        // );
+        this.guardianMetricsService.collectInvalidKeysMetrics(
+          stakingModuleData.stakingModuleId,
+          stakingModuleData.invalidKeys.length,
+        );
 
         this.logger.log('Keys check state', {
           stakingModuleId: stakingModuleData.stakingModuleId,
