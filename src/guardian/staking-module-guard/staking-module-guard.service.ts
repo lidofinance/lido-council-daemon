@@ -1,7 +1,10 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
-import { VerifiedDepositEvent } from 'contracts/deposit';
+import {
+  VerifiedDepositEvent,
+  VerifiedDepositEventGroup,
+} from 'contracts/deposit';
 import { SecurityService } from 'contracts/security';
 
 import { ContractsState, BlockData, StakingModuleData } from '../interfaces';
@@ -51,8 +54,10 @@ export class StakingModuleGuardService {
    * @param blockData
    * @returns
    */
-  public async getHistoricalFrontRun(blockData: BlockData) {
-    const { depositedEvents, lidoWC } = blockData;
+  public async getHistoricalFrontRun(
+    depositedEvents: VerifiedDepositEventGroup,
+    lidoWC: string,
+  ) {
     const potentialLidoDepositsEvents = depositedEvents.events.filter(
       ({ wc, valid }) => wc === lidoWC && valid,
     );
@@ -123,7 +128,6 @@ export class StakingModuleGuardService {
     // and pubkey maybe not used. and we are able to unvet it
     // but we will pause
     // so maybe we need to filter by used field
-
     const lidoDepositedKeys = await this.keysApiService.getKeysByPubkeys(
       frontRunnedDepositKeys,
     );
@@ -234,27 +238,6 @@ export class StakingModuleGuardService {
     );
   }
 
-  public canDeposit(
-    stakingModuleData: StakingModuleData,
-    theftHappened: boolean,
-    alreadyPausedDeposits: boolean,
-  ): boolean {
-    const keysForUnvetting = [
-      ...stakingModuleData.invalidKeys,
-      ...stakingModuleData.frontRunKeys,
-      ...stakingModuleData.duplicatedKeys,
-      ...stakingModuleData.unresolvedDuplicatedKeys,
-    ];
-
-    // if neither of this conditions is true, deposits are allowed for module
-    return !(
-      keysForUnvetting.length ||
-      alreadyPausedDeposits ||
-      theftHappened ||
-      stakingModuleData.isModuleDepositsPaused
-    );
-  }
-
   public async handlePauseV3(blockData: BlockData): Promise<void> {
     const { blockNumber, guardianAddress, guardianIndex } = blockData;
 
@@ -289,22 +272,29 @@ export class StakingModuleGuardService {
     stakingModulesData: StakingModuleData[],
     blockData: BlockData,
   ) {
-    await Promise.all(
-      stakingModulesData.map(async (stakingModuleData) => {
-        if (stakingModuleData.isModuleDepositsPaused) {
-          this.logger.log('Deposits are already paused for module', {
-            blockHash: blockData.blockHash,
-            stakingModuleId: stakingModuleData.stakingModuleId,
-          });
-        } else {
-          this.logger.log('Pause deposits for module', {
-            blockHash: blockData.blockHash,
-            stakingModuleId: stakingModuleData.stakingModuleId,
-          });
-          await this.pauseModuleDeposits(stakingModuleData, blockData);
-        }
-      }),
-    );
+    for (const stakingModuleData of stakingModulesData) {
+      if (this.isModuleAlreadyPaused(stakingModuleData, blockData)) {
+        continue;
+      }
+
+      await this.pauseModuleDeposits(stakingModuleData, blockData);
+      return; // Only process one transaction per handleNewBlock
+    }
+    return;
+  }
+
+  private isModuleAlreadyPaused(
+    stakingModuleData: StakingModuleData,
+    blockData: BlockData,
+  ): boolean {
+    if (stakingModuleData.isModuleDepositsPaused) {
+      this.logger.log('Deposits are already paused for module', {
+        blockHash: blockData.blockHash,
+        stakingModuleId: stakingModuleData.stakingModuleId,
+      });
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -315,6 +305,13 @@ export class StakingModuleGuardService {
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
   ): Promise<void> {
+    const { nonce, stakingModuleId } = stakingModuleData;
+
+    this.logger.warn('Pause deposits for module', {
+      blockHash: blockData.blockHash,
+      stakingModuleId,
+    });
+
     const {
       blockNumber,
       blockHash,
@@ -323,11 +320,9 @@ export class StakingModuleGuardService {
       depositRoot,
     } = blockData;
 
-    const { nonce, stakingModuleId } = stakingModuleData;
-
     const signature = await this.securityService.signPauseDataV2(
       blockNumber,
-      stakingModuleData.stakingModuleId,
+      stakingModuleId,
     );
 
     const pauseMessage = {
@@ -340,11 +335,6 @@ export class StakingModuleGuardService {
       signature,
       stakingModuleId,
     };
-
-    this.logger.warn('Suspicious case detected, initialize the module pause', {
-      blockHash,
-      stakingModuleId,
-    });
 
     // Call pause without waiting for completion
     this.securityService

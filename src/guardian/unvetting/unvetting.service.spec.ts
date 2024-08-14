@@ -62,43 +62,29 @@ describe('UnvettingService', () => {
     it('should correctly pack chunks when maxOperatorsPerUnvetting is 2 with 3 operators', () => {
       const result = service.getNewVettedAmount(mockKeys, 2);
 
-      const expected = [
-        {
-          operatorIds: '0x00000000000000010000000000000002',
-          vettedKeysByOperator:
-            '0x0000000000000000000000000000000000000000000000000000000000000002',
-        },
-        {
-          operatorIds: '0x0000000000000003',
-          vettedKeysByOperator: '0x00000000000000000000000000000000',
-        },
-      ];
-
+      const expected = {
+        operatorIds: '0x00000000000000010000000000000002',
+        vettedKeysByOperator:
+          '0x0000000000000000000000000000000000000000000000000000000000000002',
+      };
       expect(result).toEqual(expected);
     });
 
     it('should correctly pack chunks when maxOperatorsPerUnvetting is 2 with 4 operators', () => {
       const result = service.getNewVettedAmount(mockKeys2, 2);
 
-      const expected = [
-        {
-          operatorIds: '0x00000000000000010000000000000002',
-          vettedKeysByOperator:
-            '0x0000000000000000000000000000000000000000000000000000000000000002',
-        },
-        {
-          operatorIds: '0x00000000000000030000000000000004',
-          vettedKeysByOperator:
-            '0x0000000000000000000000000000000000000000000000000000000000000001',
-        },
-      ];
+      const expected = {
+        operatorIds: '0x00000000000000010000000000000002',
+        vettedKeysByOperator:
+          '0x0000000000000000000000000000000000000000000000000000000000000002',
+      };
 
       expect(result).toEqual(expected);
     });
   });
 
   describe('handleUnvetting', () => {
-    it('should send two transactions', async () => {
+    it('should send 1 transaction if 3 operators', async () => {
       const unvetSigningKeysMock = jest.spyOn(
         securityService,
         'unvetSigningKeys',
@@ -128,7 +114,7 @@ describe('UnvettingService', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      expect(unvetSigningKeysMock).toBeCalledTimes(2);
+      expect(unvetSigningKeysMock).toBeCalledTimes(1);
       expect(unvetSigningKeysMock).toBeCalledWith(
         1,
         1,
@@ -139,16 +125,7 @@ describe('UnvettingService', () => {
         'somesign',
       );
 
-      expect(unvetSigningKeysMock).toBeCalledWith(
-        1,
-        1,
-        '0x1',
-        1,
-        '0x0000000000000003',
-        '0x00000000000000000000000000000000',
-        'somesign',
-      );
-      expect(sendUnvetMessageMock).toBeCalledTimes(2);
+      expect(sendUnvetMessageMock).toBeCalledTimes(1);
 
       expect(sendUnvetMessageMock).toBeCalledWith({
         nonce: 1,
@@ -162,21 +139,9 @@ describe('UnvettingService', () => {
           '0x0000000000000000000000000000000000000000000000000000000000000002',
         signature: 'somesign',
       });
-
-      expect(sendUnvetMessageMock).toBeCalledWith({
-        nonce: 1,
-        blockNumber: 1,
-        blockHash: '0x1',
-        guardianAddress: '0x1',
-        guardianIndex: 1,
-        stakingModuleId: 1,
-        operatorIds: '0x0000000000000003',
-        vettedKeysByOperator: '0x00000000000000000000000000000000',
-        signature: 'somesign',
-      });
     });
 
-    it('should send three transactions', async () => {
+    it('should send 1 transaction if 4 operators', async () => {
       const unvetSigningKeysMock = jest.spyOn(
         securityService,
         'unvetSigningKeys',
@@ -206,7 +171,7 @@ describe('UnvettingService', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      expect(unvetSigningKeysMock).toBeCalledTimes(2);
+      expect(unvetSigningKeysMock).toBeCalledTimes(1);
       expect(unvetSigningKeysMock).toBeCalledWith(
         1,
         1,
@@ -217,16 +182,7 @@ describe('UnvettingService', () => {
         'somesign',
       );
 
-      expect(unvetSigningKeysMock).toBeCalledWith(
-        1,
-        1,
-        '0x1',
-        1,
-        '0x00000000000000030000000000000004',
-        '0x0000000000000000000000000000000000000000000000000000000000000001',
-        'somesign',
-      );
-      expect(sendUnvetMessageMock).toBeCalledTimes(2);
+      expect(sendUnvetMessageMock).toBeCalledTimes(1);
       expect(sendUnvetMessageMock).toBeCalledWith({
         nonce: 1,
         blockNumber: 1,
@@ -237,19 +193,6 @@ describe('UnvettingService', () => {
         operatorIds: '0x00000000000000010000000000000002',
         vettedKeysByOperator:
           '0x0000000000000000000000000000000000000000000000000000000000000002',
-        signature: 'somesign',
-      });
-
-      expect(sendUnvetMessageMock).toBeCalledWith({
-        nonce: 1,
-        blockNumber: 1,
-        blockHash: '0x1',
-        guardianAddress: '0x1',
-        guardianIndex: 1,
-        stakingModuleId: 1,
-        operatorIds: '0x00000000000000030000000000000004',
-        vettedKeysByOperator:
-          '0x0000000000000000000000000000000000000000000000000000000000000001',
         signature: 'somesign',
       });
     });

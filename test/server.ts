@@ -14,11 +14,13 @@ export const makeServer = (
       debug: false,
       quiet: true,
     },
-    chainId,
     fork: { url: rpcUrl, blockNumber: startBlock },
-    accounts: [{ secretKey, balance: BigInt(1e18) * BigInt(100) }],
+    chain: {
+      chainId,
+    },
     wallet: {
       unlockedAccounts,
+      accounts: [{ secretKey, balance: BigInt(1e18) * BigInt(100) }],
     },
   });
 };

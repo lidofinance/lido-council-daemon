@@ -9,7 +9,10 @@ export interface SigningKeyEvent {
 
 export interface SigningKeyEventsGroup {
   events: SigningKeyEvent[];
-  stakingModulesAddresses: string[];
   startBlock: number;
   endBlock: number;
+}
+export interface SigningKeyEventsGroupWithStakingModules
+  extends SigningKeyEventsGroup {
+  stakingModulesAddresses: string[];
 }

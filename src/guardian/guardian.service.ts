@@ -22,12 +22,15 @@ import { BlockGuardService } from './block-guard';
 import { StakingModuleGuardService } from './staking-module-guard';
 import { GuardianMessageService } from './guardian-message';
 import { GuardianMetricsService } from './guardian-metrics';
-import { StakingModuleData } from './interfaces';
+import { BlockData, StakingModuleData } from './interfaces';
 import { ProviderService } from 'provider';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { MIN_KAPI_VERSION } from './guardian.constants';
 import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
 import { UnvettingService } from './unvetting/unvetting.service';
+import { Meta } from 'keys-api/interfaces/Meta';
+import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
+import { SROperatorListWithModule } from 'keys-api/interfaces/SROperatorListWithModule';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -132,6 +135,7 @@ export class GuardianService implements OnModuleInit {
 
     try {
       // Fetch the minimum required data to make an early exit
+      // fetch data from Keys api
       const { data: operatorsByModules, meta } =
         await this.keysApiService.getOperatorListWithModule();
 
@@ -139,6 +143,7 @@ export class GuardianService implements OnModuleInit {
         elBlockSnapshot: { blockHash, blockNumber },
       } = meta;
 
+      // contracts init
       await this.repositoryService.initCachedContracts({ blockHash });
 
       const isNewBlock = this.blockGuardService.isNeedToProcessNewState({
@@ -165,78 +170,31 @@ export class GuardianService implements OnModuleInit {
       );
 
       await this.depositService.handleNewBlock(blockNumber);
-      await this.signingKeyEventsCacheService.handleNewBlock(blockNumber);
 
-      const blockData = await this.blockGuardService.getCurrentBlockData({
-        blockHash,
-        blockNumber,
-      });
-
-      this.logger.debug?.('Current block data loaded', {
-        guardianIndex: blockData.guardianIndex,
-        blockNumber: blockData.blockNumber,
-        blockHash: blockData.blockHash,
-        securityVersion: blockData.securityVersion,
-      });
-
-      // TODO: add metrics for getHistoricalFrontRun same as for keysIntersections
-      const theftHappened =
-        await this.stakingModuleGuardService.getHistoricalFrontRun(blockData);
-
-      const stakingModulesData: StakingModuleData[] =
-        await this.stakingRouterService.getStakingModulesData({
-          operatorsByModules,
-          meta,
-          lidoKeys,
-          blockData,
-        });
+      const { stakingModulesData, blockData } = await this.collectData(
+        operatorsByModules,
+        meta,
+        lidoKeys,
+      );
 
       if (
         blockData.securityVersion === 3 &&
         !blockData.alreadyPausedDeposits &&
-        theftHappened
+        blockData.theftHappened
       ) {
         await this.stakingModuleGuardService.handlePauseV3(blockData);
+        return;
       }
 
-      if (blockData.securityVersion !== 3 && theftHappened) {
+      if (blockData.securityVersion !== 3 && blockData.theftHappened) {
         await this.stakingModuleGuardService.handlePauseV2(
           stakingModulesData,
           blockData,
         );
+        return;
       }
 
-      await Promise.all(
-        stakingModulesData.map(async (stakingModuleData) => {
-          await this.unvettingService.handleUnvetting(
-            stakingModuleData,
-            blockData,
-          );
-
-          this.guardianMetricsService.collectMetrics(
-            stakingModuleData,
-            blockData,
-          );
-
-          if (
-            !this.stakingModuleGuardService.canDeposit(
-              stakingModuleData,
-              theftHappened,
-              blockData.alreadyPausedDeposits,
-            )
-          ) {
-            this.logger.warn('Module is on soft pause', {
-              stakingModuleId: stakingModuleData.stakingModuleId,
-            });
-            return;
-          }
-
-          await this.stakingModuleGuardService.handleCorrectKeys(
-            stakingModuleData,
-            blockData,
-          );
-        }),
-      );
+      this.handleKeys(stakingModulesData, blockData, lidoKeys);
 
       await this.guardianMessageService.pingMessageBroker(
         stakingModulesData.map(({ stakingModuleId }) => stakingModuleId),
@@ -253,5 +211,157 @@ export class GuardianService implements OnModuleInit {
     } finally {
       this.logger.log('New staking router state cycle end');
     }
+  }
+
+  async collectData(
+    operatorsByModules: SROperatorListWithModule[],
+    meta: Meta,
+    lidoKeys: RegistryKey[],
+  ) {
+    const {
+      elBlockSnapshot: { blockHash, blockNumber },
+    } = meta;
+    const blockData = await this.blockGuardService.getCurrentBlockData({
+      blockHash,
+      blockNumber,
+    });
+
+    this.logger.debug?.('Current block data loaded', {
+      guardianIndex: blockData.guardianIndex,
+      blockNumber: blockNumber,
+      blockHash: blockHash,
+      securityVersion: blockData.securityVersion,
+    });
+
+    // collect some data and check keys
+    const stakingModulesData: StakingModuleData[] =
+      await this.stakingRouterService.collectStakingModuleData({
+        operatorsByModules,
+        meta,
+        lidoKeys,
+        blockData,
+      });
+
+    return { blockData, stakingModulesData };
+  }
+
+  /**
+   * This method check keys and if they are correct send deposit message in queue, another way send unvet transation
+   */
+  @OneAtTime()
+  async handleKeys(
+    stakingModulesData: StakingModuleData[],
+    blockData: BlockData,
+    lidoKeys: RegistryKey[],
+  ) {
+    // check lido keys
+    await this.checkKeys(stakingModulesData, blockData, lidoKeys);
+    // unvet keys if need
+    await this.handleUnvetting(stakingModulesData, blockData);
+    await this.handleDeposit(stakingModulesData, blockData);
+  }
+
+  async checkKeys(
+    stakingModulesData: StakingModuleData[],
+    blockData: BlockData,
+    lidoKeys: RegistryKey[],
+  ) {
+    // update cache if needs
+    await this.signingKeyEventsCacheService.handleNewBlock(
+      blockData.blockNumber,
+    );
+
+    // check keys on duplicates, attempts of front-run and check signatures
+    await this.stakingRouterService.checkKeys(
+      stakingModulesData,
+      lidoKeys,
+      blockData,
+    );
+  }
+
+  async handleUnvetting(
+    stakingModulesData: StakingModuleData[],
+    blockData: BlockData,
+  ) {
+    if (blockData.securityVersion !== 3) {
+      return;
+    }
+
+    const firstInvalidModule = stakingModulesData.find((stakingModuleData) => {
+      const keys = [
+        ...stakingModuleData.invalidKeys,
+        ...stakingModuleData.duplicatedKeys,
+        ...stakingModuleData.frontRunKeys,
+      ];
+
+      return keys.length > 0;
+    });
+
+    if (!firstInvalidModule) {
+      this.logger.log(
+        'Keys of all modules are correct. No need in unvetting.',
+        {
+          blockHash: blockData.blockHash,
+        },
+      );
+
+      return;
+    }
+
+    await this.unvettingService.handleUnvetting(firstInvalidModule, blockData);
+  }
+
+  async handleDeposit(
+    stakingModulesData: StakingModuleData[],
+    blockData: BlockData,
+  ) {
+    await Promise.all(
+      stakingModulesData.map(async (stakingModuleData) => {
+        this.guardianMetricsService.collectMetrics(
+          stakingModuleData,
+          blockData,
+        );
+
+        if (
+          this.cannotDeposit(
+            stakingModuleData,
+            blockData.theftHappened,
+            blockData.alreadyPausedDeposits,
+          )
+        ) {
+          this.logger.warn('Deposits are not available', {
+            stakingModuleId: stakingModuleData.stakingModuleId,
+            blockHash: blockData.blockHash,
+          });
+          return;
+        }
+
+        await this.stakingModuleGuardService.handleCorrectKeys(
+          stakingModuleData,
+          blockData,
+        );
+      }),
+    );
+  }
+
+  cannotDeposit(
+    stakingModuleData: StakingModuleData,
+    theftHappened: boolean,
+    alreadyPausedDeposits: boolean,
+  ): boolean {
+    const keysForUnvetting = [
+      ...stakingModuleData.invalidKeys,
+      ...stakingModuleData.frontRunKeys,
+      ...stakingModuleData.duplicatedKeys,
+    ];
+
+    // if neither of this conditions is true, deposits are allowed for module
+    return (
+      keysForUnvetting.length > 0 ||
+      stakingModuleData.unresolvedDuplicatedKeys.length > 0 ||
+      alreadyPausedDeposits ||
+      theftHappened ||
+      stakingModuleData.isModuleDepositsPaused
+    );
   }
 }

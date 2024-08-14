@@ -21,10 +21,9 @@ import {
   SIMPLE_DVT,
   SANDBOX,
   LIDO_WC,
-  FORK_BLOCK_V2,
-  UNLOCKED_ACCOUNTS_V2,
-  SECURITY_MODULE_V2,
-  SECURITY_MODULE_OWNER_V2,
+  UNLOCKED_ACCOUNTS,
+  FORK_BLOCK,
+  CSM,
 } from './constants';
 
 // Mock rabbit straight away
@@ -37,6 +36,7 @@ import {
   closeServer,
   initLevelDB,
 } from './helpers/test-setup';
+import { SecurityService } from 'contracts/security';
 import { DepositService } from 'contracts/deposit';
 import { GuardianService } from 'guardian';
 import { KeysApiService } from 'keys-api/keys-api.service';
@@ -47,6 +47,7 @@ import { LevelDBService } from 'contracts/deposit/leveldb';
 import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
 import { KeyValidatorInterface } from '@lido-nestjs/key-validation';
 import { makeDeposit, signDeposit } from './helpers/deposit';
+import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
 import { addGuardians } from './helpers/dsm';
 import { BlsService } from 'bls';
@@ -61,25 +62,27 @@ describe('ganache e2e tests', () => {
   let guardianService: GuardianService;
   let depositService: DepositService;
   let keyValidator: KeyValidatorInterface;
-  let sendDepositMessage: jest.SpyInstance;
-  let sendPauseMessage: jest.SpyInstance;
-  let validateKeys: jest.SpyInstance;
   let levelDBService: LevelDBService;
   let signKeyLevelDBService: SignKeyLevelDBService;
   let guardianMessageService: GuardianMessageService;
   let signingKeyEventsCacheService: SigningKeyEventsCacheService;
   let depositIntegrityCheckerService: DepositIntegrityCheckerService;
+  let securityService: SecurityService;
+
+  // mocks
+  let sendDepositMessage: jest.SpyInstance;
+  let sendPauseMessage: jest.SpyInstance;
+  let validateKeys: jest.SpyInstance;
+  let sendUnvetMessage: jest.SpyInstance;
+  let unvetSigningKeys: jest.SpyInstance;
 
   const setupServer = async () => {
-    server = makeServer(FORK_BLOCK_V2, CHAIN_ID, UNLOCKED_ACCOUNTS_V2);
+    server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
     await server.listen(GANACHE_PORT);
   };
 
   const setupGuardians = async () => {
-    await addGuardians({
-      securityModule: SECURITY_MODULE_V2,
-      securityModuleOwner: SECURITY_MODULE_OWNER_V2,
-    });
+    await addGuardians();
   };
 
   const setupTestingServices = async (moduleRef) => {
@@ -102,6 +105,9 @@ describe('ganache e2e tests', () => {
     signingKeyEventsCacheService = moduleRef.get(SigningKeyEventsCacheService);
 
     providerService = moduleRef.get(ProviderService);
+
+    // dsm methods and council sign services
+    securityService = moduleRef.get(SecurityService);
 
     // keys api servies
     keysApiService = moduleRef.get(KeysApiService);
@@ -127,6 +133,9 @@ describe('ganache e2e tests', () => {
     sendPauseMessage = jest
       .spyOn(guardianMessageService, 'sendPauseMessageV2')
       .mockImplementation(() => Promise.resolve());
+    sendUnvetMessage = jest
+      .spyOn(guardianMessageService, 'sendUnvetMessage')
+      .mockImplementation(() => Promise.resolve());
 
     // deposit cache mocks
     jest
@@ -138,6 +147,13 @@ describe('ganache e2e tests', () => {
 
     // sign validation
     validateKeys = jest.spyOn(keyValidator, 'validateKeys');
+
+    // mock unvetting method of contract
+    // as we dont use real keys api and work with fixtures of operators and keys
+    // we cant make real unvetting
+    unvetSigningKeys = jest
+      .spyOn(securityService, 'unvetSigningKeys')
+      .mockImplementation(() => Promise.resolve());
   };
 
   beforeEach(async () => {
@@ -170,12 +186,9 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, SANDBOX, CSM],
         },
       });
-
-      const { depositData: depositData } = signDeposit(pk, sk, LIDO_WC);
-      const { wallet } = await makeDeposit(depositData, providerService);
 
       const keyWithWrongSign = {
         key: toHexString(pk),
@@ -188,13 +201,16 @@ describe('ganache e2e tests', () => {
         moduleAddress: NOP_REGISTRY,
       };
 
-      const { sdvtModule } = setupMockModules(
+      const { curatedModule, sdvtModule } = setupMockModules(
         currentBlock,
         keysApiService,
         [mockOperator1, mockOperator2],
         mockedDvtOperators,
         [keyWithWrongSign],
       );
+      const { depositData: depositData } = signDeposit(pk, sk, LIDO_WC);
+      const { wallet } = await makeDeposit(depositData, providerService);
+
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
@@ -211,6 +227,18 @@ describe('ganache e2e tests', () => {
         ]),
       );
       expect(validateKeys).toHaveBeenNthCalledWith(2, []);
+      expect(sendUnvetMessage).toBeCalledTimes(1);
+      expect(sendUnvetMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blockNumber: currentBlock.number,
+          guardianAddress: wallet.address,
+          guardianIndex: 7,
+          stakingModuleId: curatedModule.id,
+          operatorIds: '0x0000000000000000',
+          vettedKeysByOperator: '0x00000000000000000000000000000000',
+        }),
+      );
+      expect(unvetSigningKeys).toBeCalledTimes(1);
 
       expect(sendDepositMessage).toBeCalledTimes(1);
       expect(sendDepositMessage).toBeCalledWith(
@@ -236,15 +264,29 @@ describe('ganache e2e tests', () => {
 
       validateKeys.mockClear();
       sendDepositMessage.mockClear();
+      sendUnvetMessage.mockClear();
+      unvetSigningKeys.mockClear();
 
       await guardianService.handleNewBlock();
-
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       expect(validateKeys).toBeCalledTimes(2);
-      // dont validate again
+      // don't validate again
       expect(validateKeys).toHaveBeenNthCalledWith(1, []);
       expect(validateKeys).toHaveBeenNthCalledWith(2, []);
+      expect(sendUnvetMessage).toBeCalledTimes(1);
+      expect(sendUnvetMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blockNumber: newBlock.number,
+          guardianAddress: wallet.address,
+          guardianIndex: 7,
+          stakingModuleId: curatedModule.id,
+          operatorIds: '0x0000000000000000',
+          vettedKeysByOperator: '0x00000000000000000000000000000000',
+        }),
+      );
+      expect(unvetSigningKeys).toBeCalledTimes(1);
+
       expect(sendDepositMessage).toBeCalledTimes(1);
       expect(sendDepositMessage).toBeCalledWith(
         expect.objectContaining({
@@ -275,7 +317,7 @@ describe('ganache e2e tests', () => {
       headers: {
         startBlock: currentBlock.number,
         endBlock: currentBlock.number,
-        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, SANDBOX],
+        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, SANDBOX, CSM],
       },
     });
 
@@ -335,6 +377,18 @@ describe('ganache e2e tests', () => {
         }),
       ]),
     );
+    expect(sendUnvetMessage).toBeCalledTimes(1);
+    expect(sendUnvetMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        blockNumber: currentBlock.number,
+        guardianAddress: wallet.address,
+        guardianIndex: 7,
+        stakingModuleId: curatedModule.id,
+        operatorIds: '0x0000000000000000',
+        vettedKeysByOperator: '0x00000000000000000000000000000000',
+      }),
+    );
+    expect(unvetSigningKeys).toBeCalledTimes(1);
     expect(sendDepositMessage).toBeCalledTimes(1);
     expect(sendDepositMessage).toBeCalledWith(
       expect.objectContaining({
@@ -363,6 +417,8 @@ describe('ganache e2e tests', () => {
 
     validateKeys.mockClear();
     sendDepositMessage.mockClear();
+    sendUnvetMessage.mockClear();
+    unvetSigningKeys.mockClear();
 
     await guardianService.handleNewBlock();
     await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));

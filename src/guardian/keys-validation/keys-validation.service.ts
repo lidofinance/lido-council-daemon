@@ -73,6 +73,7 @@ export class KeysValidationService {
     depositDataList: DepositData[],
   ): Promise<[Key & DepositData, boolean][]> {
     const cachedDepositData = this.getCachedDepositData(depositDataList);
+    // TODO: don't filter here, it is enough filter in getInvalidKeys method
     const cachedInvalidData: [DepositData, false][] = cachedDepositData.filter(
       (item): item is [DepositData, false] => item[1] === false,
     );
