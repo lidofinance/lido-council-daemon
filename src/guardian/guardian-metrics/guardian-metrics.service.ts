@@ -8,7 +8,7 @@ import {
   METRIC_OPERATORS_KEYS_TOTAL,
   METRIC_INTERSECTIONS_TOTAL,
   METRIC_INVALID_KEYS_TOTAL,
-  METRIC_DUPLICATED_VETTED_UNUSED_KEYS_TOTAL,
+  METRIC_DUPLICATED_KEYS_TOTAL,
 } from 'common/prometheus';
 import { Gauge } from 'prom-client';
 
@@ -27,8 +27,8 @@ export class GuardianMetricsService {
     @InjectMetric(METRIC_INTERSECTIONS_TOTAL)
     private intersectionsCounter: Gauge<string>,
 
-    @InjectMetric(METRIC_DUPLICATED_VETTED_UNUSED_KEYS_TOTAL)
-    private duplicatedVettedUnusedKeysCounter: Gauge<string>,
+    @InjectMetric(METRIC_DUPLICATED_KEYS_TOTAL)
+    private duplicatedKeysCounter: Gauge<string>,
 
     @InjectMetric(METRIC_INVALID_KEYS_TOTAL)
     private invalidKeysCounter: Gauge<string>,
@@ -129,13 +129,29 @@ export class GuardianMetricsService {
   /**
    * increment duplicated vetted unused keys event counter
    */
-  public collectDuplicatedVettedUnusedKeysMetrics(
+  public collectDuplicatedKeysMetrics(
     stakingModuleId: number,
-    duplicatedVettedUnusedKeysCount: number,
+    allUnresolved: number,
+    unresolved: number,
+    allVettedUnused: number,
+    vettedUnused: number,
   ) {
-    this.duplicatedVettedUnusedKeysCounter.set(
-      { stakingModuleId },
-      duplicatedVettedUnusedKeysCount,
+    this.duplicatedKeysCounter.set(
+      { stakingModuleId, type: 'all_unresolved' },
+      allUnresolved,
+    );
+    this.duplicatedKeysCounter.set(
+      { stakingModuleId, type: 'vetted_unused_unresolved' },
+      unresolved,
+    );
+    // resolved - SigningKeyAdded event exists
+    this.duplicatedKeysCounter.set(
+      { stakingModuleId, type: 'all_vetted_unused' },
+      allVettedUnused,
+    );
+    this.duplicatedKeysCounter.set(
+      { stakingModuleId, type: 'vetted_unused' },
+      vettedUnused,
     );
   }
 

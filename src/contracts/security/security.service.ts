@@ -2,7 +2,10 @@ import { Signature } from '@ethersproject/bytes';
 import { ContractReceipt } from '@ethersproject/contracts';
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
-import { METRIC_PAUSE_ATTEMPTS } from 'common/prometheus';
+import {
+  METRIC_PAUSE_ATTEMPTS,
+  METRIC_UNVET_ATTEMPTS,
+} from 'common/prometheus';
 import { OneAtTime, StakingModuleId } from 'common/decorators';
 import { SecurityAbi, SecurityPauseV2Abi__factory } from 'generated';
 import { RepositoryService } from 'contracts/repository';
@@ -15,6 +18,7 @@ import { WalletService } from 'wallet';
 export class SecurityService {
   constructor(
     @InjectMetric(METRIC_PAUSE_ATTEMPTS) private pauseAttempts: Counter<string>,
+    @InjectMetric(METRIC_UNVET_ATTEMPTS) private unvetAttempts: Counter<string>,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
     private repositoryService: RepositoryService,
@@ -151,9 +155,11 @@ export class SecurityService {
     });
     this.logger.warn('Waiting for block confirmation', { blockNumber });
 
-    await tx.wait();
+    const receipt = await tx.wait();
 
     this.logger.warn('Block confirmation received', { blockNumber });
+
+    return receipt;
   }
 
   /**
@@ -205,16 +211,27 @@ export class SecurityService {
       stakingModuleId,
     });
 
-    await tx.wait();
+    const receipt = await tx.wait();
 
     this.logger.warn('Block confirmation received', {
       blockNumber,
       stakingModuleId,
     });
+
+    return receipt;
   }
 
   /**
-   * Signs a message to unvet keys
+   * Signs a message to unvet keys for a staking module.
+   *
+   * @param nonce - The nonce for the staking module.
+   * @param blockNumber - The block number at which the message is signed.
+   * @param blockHash - The hash of the block corresponding to the block number.
+   * @param stakingModuleId - The ID of the target staking module.
+   * @param operatorIds - A string containing the IDs of the operators whose keys are being unvetted.
+   * @param vettedKeysByOperator - A string representing the new staking limit amount per operator.
+   *
+   * @returns A signature object containing the signed data.
    */
   public async signUnvetData(
     nonce: number,
@@ -238,7 +255,17 @@ export class SecurityService {
   }
 
   /**
-   * Send transaction to unvet signing keys
+   * Sends a transaction to unvet signing keys for a staking module.
+   *
+   * @param nonce - The nonce for the staking module.
+   * @param blockNumber - The block number at which the message is signed.
+   * @param blockHash - The hash of the block corresponding to the block number.
+   * @param stakingModuleId - The ID of the target staking module.
+   * @param operatorIds - A string containing the IDs of the operators whose keys are being unvetted.
+   * @param vettedKeysByOperator - A string representing the new staking limit amount per operator.
+   * @param signature - The signature of the message, containing `r` and `_vs`.
+   *
+   * @returns The transaction receipt or `void` if the transaction fails.
    */
   @OneAtTime()
   public async unvetSigningKeys(
@@ -254,6 +281,7 @@ export class SecurityService {
       stakingModuleId,
       blockNumber,
     });
+    this.unvetAttempts.inc();
 
     const contract = this.getContractWithSigner();
 
@@ -281,12 +309,14 @@ export class SecurityService {
       stakingModuleId,
     });
 
-    await tx.wait();
+    const receipt = await tx.wait();
 
     this.logger.warn('Block confirmation received', {
       blockNumber,
       stakingModuleId,
     });
+
+    return receipt;
   }
 
   /**

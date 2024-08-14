@@ -8,6 +8,7 @@ import { SROperatorListWithModule } from 'keys-api/interfaces/SROperatorListWith
 import { SecurityService } from 'contracts/security';
 import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 import { KeysDuplicationCheckerService } from 'guardian/duplicates';
+import { GuardianMetricsService } from 'guardian/guardian-metrics';
 
 type State = {
   operatorsByModules: SROperatorListWithModule[];
@@ -22,7 +23,7 @@ export class StakingRouterService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private securityService: SecurityService,
     private stakingModuleGuardService: StakingModuleGuardService,
-    private keysDuplicationCheckerService: KeysDuplicationCheckerService,
+    private keysDuplicationCheckerService: KeysDuplicationCheckerService, // private guardianMetricsService: GuardianMetricsService,
   ) {}
 
   /**
@@ -96,17 +97,37 @@ export class StakingRouterService {
             stakingModuleData,
             blockData,
           );
-        stakingModuleData.duplicatedKeys = this.filterModuleNotVettedUnusedKeys(
+        const allDuplicatedKeys = this.getModuleKeys(
           stakingModuleData.stakingModuleAddress,
-          stakingModuleData.vettedUnusedKeys,
           duplicates,
         );
-        stakingModuleData.unresolvedDuplicatedKeys =
-          this.filterModuleNotVettedUnusedKeys(
-            stakingModuleData.stakingModuleAddress,
-            stakingModuleData.vettedUnusedKeys,
-            unresolved,
-          );
+        stakingModuleData.duplicatedKeys = this.getVettedUnusedKeys(
+          stakingModuleData.vettedUnusedKeys,
+          allDuplicatedKeys,
+        );
+
+        const allUnresolved = this.getModuleKeys(
+          stakingModuleData.stakingModuleAddress,
+          unresolved,
+        );
+
+        stakingModuleData.unresolvedDuplicatedKeys = this.getVettedUnusedKeys(
+          stakingModuleData.vettedUnusedKeys,
+          allUnresolved,
+        );
+
+        // this.guardianMetricsService.collectDuplicatedKeysMetrics(
+        //   stakingModuleData.stakingModuleId,
+        //   allUnresolved.length,
+        //   stakingModuleData.unresolvedDuplicatedKeys.length,
+        //   allDuplicatedKeys.length,
+        //   stakingModuleData.duplicatedKeys.length,
+        // );
+
+        // this.guardianMetricsService.collectInvalidKeysMetrics(
+        //   stakingModuleData.stakingModuleId,
+        //   stakingModuleData.invalidKeys.length,
+        // );
 
         this.logger.log('Keys check state', {
           stakingModuleId: stakingModuleData.stakingModuleId,
@@ -121,23 +142,24 @@ export class StakingRouterService {
     );
   }
 
+  private getModuleKeys(stakingModuleAddress: string, keys: RegistryKey[]) {
+    return keys.filter((key) => key.moduleAddress === stakingModuleAddress);
+  }
+
   /**
    * filter from the list all keys that are not vetted as unused
    */
-  public filterModuleNotVettedUnusedKeys(
-    stakingModuleAddress: string,
+  public getVettedUnusedKeys(
     vettedUnusedKeys: RegistryKey[],
     keys: RegistryKey[],
   ) {
-    const vettedUnused = keys
-      .filter((key) => key.moduleAddress === stakingModuleAddress)
-      .filter((key) => {
-        const r = vettedUnusedKeys.some(
-          (k) => k.index == key.index && k.operatorIndex == key.operatorIndex,
-        );
+    const vettedUnused = keys.filter((key) => {
+      const r = vettedUnusedKeys.some(
+        (k) => k.index == key.index && k.operatorIndex == key.operatorIndex,
+      );
 
-        return r;
-      });
+      return r;
+    });
 
     return vettedUnused;
   }

@@ -4,6 +4,7 @@ import { StakingRouterService } from './staking-router.service';
 import { SecurityModule } from 'contracts/security';
 import { StakingModuleGuardModule } from 'guardian/staking-module-guard';
 import { KeysDuplicationCheckerModule } from 'guardian/duplicates';
+// import { GuardianMetricsModule } from 'guardian/guardian-metrics';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { KeysDuplicationCheckerModule } from 'guardian/duplicates';
     SecurityModule,
     StakingModuleGuardModule,
     KeysDuplicationCheckerModule,
+    // GuardianMetricsModule,
   ],
   providers: [StakingRouterService],
   exports: [StakingRouterService],
