@@ -13,6 +13,7 @@ import {
   DepositEvent,
   VerifiedDepositEventsCache,
   VerifiedDepositEventGroup,
+  VerifiedDepositedEventGroup,
 } from './interfaces';
 import { RepositoryService } from 'contracts/repository';
 import { BlockTag } from 'provider';
@@ -21,6 +22,7 @@ import { DepositIntegrityCheckerService } from './integrity-checker';
 import { parseLittleEndian64 } from './deposit.utils';
 import { DepositTree } from './deposit-tree';
 import { LevelDBService } from './leveldb';
+import { DepositCacheIntegrityError } from './integrity-checker/constants';
 
 @Injectable()
 export class DepositService {
@@ -40,7 +42,7 @@ export class DepositService {
     // The event cache is stored with an N block lag to avoid caching data from uncle blocks
     // so we don't worry about blockHash here
     const toBlockNumber = await this.updateEventsCache();
-    await this.depositIntegrityCheckerService.checkFinalizedRoot(toBlockNumber);
+    await this.checkDepositCacheIntegrity(toBlockNumber);
   }
 
   public async initialize(blockNumber: number) {
@@ -56,7 +58,22 @@ export class DepositService {
     // it is necessary to load fresh events before integrity check
     // because we can only compare roots of the last 128 blocks.
     const toBlockNumber = await this.updateEventsCache();
-    await this.depositIntegrityCheckerService.checkFinalizedRoot(toBlockNumber);
+    await this.checkDepositCacheIntegrity(toBlockNumber);
+  }
+
+  public async checkDepositCacheIntegrity(toBlockNumber: number) {
+    try {
+      await this.depositIntegrityCheckerService.checkFinalizedRoot(
+        toBlockNumber,
+      );
+    } catch (error) {
+      if (error instanceof DepositCacheIntegrityError) {
+        return this.logger.error(
+          `Deposit event cache integrity error on block number: ${toBlockNumber}`,
+        );
+      }
+      throw error;
+    }
   }
 
   /**
@@ -303,7 +320,7 @@ export class DepositService {
   public async getAllDepositedEvents(
     blockNumber: number,
     blockHash: string,
-  ): Promise<VerifiedDepositEventGroup> {
+  ): Promise<VerifiedDepositedEventGroup> {
     const endBlock = blockNumber;
     const cachedEvents = await this.getCachedEvents();
 
@@ -331,15 +348,17 @@ export class DepositService {
 
     const mergedEvents = cachedEvents.data.concat(freshEvents);
 
-    await this.depositIntegrityCheckerService.checkLatestRoot(
-      blockNumber,
-      freshEvents,
-    );
-
     return {
       events: mergedEvents,
       startBlock: cachedEvents.headers.startBlock,
       endBlock,
+      // declare a separate method where we store the latest events in the closure
+      checkRoot: async () => {
+        await this.depositIntegrityCheckerService.checkLatestRoot(
+          blockNumber,
+          freshEvents,
+        );
+      },
     };
   }
 

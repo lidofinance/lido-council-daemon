@@ -25,3 +25,7 @@ export interface DepositEventGroup {
 export interface VerifiedDepositEventGroup extends DepositEventGroup {
   events: VerifiedDepositEvent[];
 }
+
+export interface VerifiedDepositedEventGroup extends VerifiedDepositEventGroup {
+  checkRoot(): Promise<void>;
+}

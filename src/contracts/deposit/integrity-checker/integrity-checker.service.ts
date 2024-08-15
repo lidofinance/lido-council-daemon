@@ -7,7 +7,10 @@ import {
   VerifiedDepositEvent,
   VerifiedDepositEventsCache,
 } from '../interfaces';
-import { DEPOSIT_TREE_STEP_SYNC } from './constants';
+import {
+  DepositCacheIntegrityError,
+  DEPOSIT_TREE_STEP_SYNC,
+} from './constants';
 
 @Injectable()
 export class DepositIntegrityCheckerService {
@@ -98,7 +101,7 @@ export class DepositIntegrityCheckerService {
       { localRoot, remoteRoot },
     );
 
-    throw new Error(
+    throw new DepositCacheIntegrityError(
       'Deposit root is different from deposit root from the network',
     );
   }
