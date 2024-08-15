@@ -756,9 +756,9 @@ describe('Deposits in case of duplicates', () => {
       'handleCorrectKeys',
     );
 
-    const filterModuleNotVettedUnusedKeys = jest.spyOn(
+    const getVettedUnusedKeys = jest.spyOn(
       stakingRouterService,
-      'filterModuleNotVettedUnusedKeys',
+      'getVettedUnusedKeys',
     );
     await guardianService.handleNewBlock();
     await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
@@ -780,30 +780,20 @@ describe('Deposits in case of duplicates', () => {
         stakingModuleId: sdvtModule.id,
       }),
     );
-    expect(filterModuleNotVettedUnusedKeys).toBeCalledTimes(4);
-    expect(filterModuleNotVettedUnusedKeys).toHaveBeenCalledWith(
-      NOP_REGISTRY,
+    expect(getVettedUnusedKeys).toBeCalledTimes(4);
+    expect(getVettedUnusedKeys).toHaveBeenCalledWith(
       expect.arrayContaining([keys[0]]),
       expect.arrayContaining([keys[1]]),
     );
 
     //unresolved duplicates
-    expect(filterModuleNotVettedUnusedKeys).toHaveBeenCalledWith(
-      NOP_REGISTRY,
+    expect(getVettedUnusedKeys).toHaveBeenCalledWith(
       expect.arrayContaining([keys[0]]),
       [],
     );
-    expect(filterModuleNotVettedUnusedKeys).toHaveBeenCalledWith(
-      SIMPLE_DVT,
-      [],
-      [],
-    );
+    expect(getVettedUnusedKeys).toHaveBeenCalledWith([], []);
     //unresolved duplicates
-    expect(filterModuleNotVettedUnusedKeys).toHaveBeenCalledWith(
-      SIMPLE_DVT,
-      [],
-      [],
-    );
+    expect(getVettedUnusedKeys).toHaveBeenCalledWith([], []);
 
     expect(handleCorrectKeys).toBeCalledTimes(2);
     expect(handleCorrectKeys).toHaveBeenCalledWith(
