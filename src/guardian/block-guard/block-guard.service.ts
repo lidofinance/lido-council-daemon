@@ -14,6 +14,7 @@ import {
 import { Counter, Histogram } from 'prom-client';
 import { LidoService } from 'contracts/lido';
 import { StakingModuleGuardService } from 'guardian/staking-module-guard';
+import { WalletService } from 'wallet';
 
 @Injectable()
 export class BlockGuardService {
@@ -28,6 +29,8 @@ export class BlockGuardService {
 
     @InjectMetric(METRIC_BLOCK_DATA_REQUEST_ERRORS)
     private blockErrorsCounter: Counter<string>,
+
+    private walletService: WalletService,
 
     private depositService: DepositService,
     private securityService: SecurityService,
@@ -95,7 +98,6 @@ export class BlockGuardService {
         }),
       ]);
 
-      // TODO: add metrics for getHistoricalFrontRun same as for keysIntersections
       const theftHappened =
         await this.stakingModuleGuardService.getHistoricalFrontRun(
           depositedEvents,
@@ -114,6 +116,9 @@ export class BlockGuardService {
         });
       }
 
+      const walletBalanceCritical =
+        await this.walletService.isBalanceCritical();
+
       return {
         blockNumber,
         blockHash,
@@ -125,6 +130,7 @@ export class BlockGuardService {
         securityVersion,
         alreadyPausedDeposits,
         theftHappened,
+        walletBalanceCritical,
       };
     } catch (error) {
       this.blockErrorsCounter.inc();

@@ -4,6 +4,7 @@ import { SecurityModule } from 'contracts/security';
 import { BlockGuardService } from './block-guard.service';
 import { LidoModule } from 'contracts/lido';
 import { StakingModuleGuardModule } from 'guardian/staking-module-guard';
+import { WalletModule } from 'wallet';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { StakingModuleGuardModule } from 'guardian/staking-module-guard';
     DepositModule,
     SecurityModule,
     StakingModuleGuardModule,
+    WalletModule,
   ],
   providers: [BlockGuardService],
   exports: [BlockGuardService],

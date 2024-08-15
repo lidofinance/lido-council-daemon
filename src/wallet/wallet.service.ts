@@ -3,6 +3,7 @@ import { Signature } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
 import { formatEther } from '@ethersproject/units';
 import { Wallet } from '@ethersproject/wallet';
+import { BigNumber } from '@ethersproject/bignumber';
 import {
   Inject,
   Injectable,
@@ -27,6 +28,7 @@ import {
   SignUnvetDataParams,
 } from './wallet.interfaces';
 import { utils } from 'ethers';
+import { WALLET_CRITICAL_BALANCE } from 'wallet';
 
 @Injectable()
 export class WalletService implements OnModuleInit {
@@ -42,7 +44,7 @@ export class WalletService implements OnModuleInit {
     register.setDefaultLabels({ guardianAddress });
 
     try {
-      await this.updateBalance();
+      await this.monitorGuardianBalance();
       this.subscribeToEthereumUpdates();
     } catch (error) {
       this.logger.error(error);
@@ -56,29 +58,71 @@ export class WalletService implements OnModuleInit {
     const provider = this.providerService.provider;
     provider.on('block', async (blockNumber) => {
       if (blockNumber % WALLET_BALANCE_UPDATE_BLOCK_RATE !== 0) return;
-      this.updateBalance().catch((error) => this.logger.error(error));
+      await this.monitorGuardianBalance().catch((error) =>
+        this.logger.error(error),
+      );
     });
 
     this.logger.log('WalletService subscribed to Ethereum events');
   }
 
   /**
-   * Updates the guardian account balance
+   * Monitors the guardian account balance to ensure it is sufficient for transactions.
+   * Updates the account balance metric.
    */
   @OneAtTime()
-  public async updateBalance() {
-    const provider = this.providerService.provider;
-    const balanceWei = await provider.getBalance(this.address);
-    const formatted = `${formatEther(balanceWei)} ETH`;
-    const isSufficient = balanceWei.gte(WALLET_MIN_BALANCE);
+  public async monitorGuardianBalance() {
+    const balanceWei = await this.getAccountBalance();
+    const balanceETH = formatEther(balanceWei);
+    this.accountBalance.set(Number(balanceETH));
+    this.isBalanceSufficient(balanceWei);
+  }
 
-    this.accountBalance.set(Number(formatEther(balanceWei)));
+  /**
+   * Retrieves the account balance in Wei.
+   * @returns The account balance in Wei.
+   */
+  public async getAccountBalance(): Promise<BigNumber> {
+    const provider = this.providerService.provider;
+    return await provider.getBalance(this.address);
+  }
+
+  /**
+   * Checks if the balance is at or below the critical threshold,
+   * indicating that the balance is critical and may require intervention.
+   *
+   * @returns True if the balance is at or below the critical value, otherwise false.
+   */
+  public async isBalanceCritical(): Promise<boolean> {
+    const balanceWei = await this.getAccountBalance();
+    const balanceETH = formatEther(balanceWei);
+    const formatted = `${balanceETH} ETH`;
+    const isCritical = balanceWei.lte(WALLET_CRITICAL_BALANCE);
+
+    if (isCritical) {
+      this.logger.log('Account balance is critical', { balance: formatted });
+    }
+
+    return isCritical;
+  }
+
+  /**
+   * Checks if the balance is sufficient to perform at least 10 unvetting operations.
+   * @param balanceWei The current balance in Wei.
+   * @returns True if the balance is sufficient, otherwise false.
+   */
+  public isBalanceSufficient(balanceWei): boolean {
+    const balanceETH = formatEther(balanceWei);
+    const formatted = `${balanceETH} ETH`;
+    const isSufficient = balanceWei.gte(WALLET_MIN_BALANCE);
 
     if (isSufficient) {
       this.logger.log('Account balance is sufficient', { balance: formatted });
     } else {
       this.logger.warn('Account balance is too low', { balance: formatted });
     }
+
+    return isSufficient;
   }
 
   /**

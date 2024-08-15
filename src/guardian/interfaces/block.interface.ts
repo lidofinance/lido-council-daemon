@@ -11,4 +11,5 @@ export interface BlockData {
   securityVersion: number;
   alreadyPausedDeposits: boolean;
   theftHappened: boolean;
+  walletBalanceCritical: boolean;
 }
