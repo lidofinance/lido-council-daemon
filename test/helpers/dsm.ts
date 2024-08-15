@@ -54,22 +54,8 @@ export async function setGuardianBalance(eth: string) {
   // Convert the ETH amount to wei
   const amountInWei = ethers.utils.parseEther(eth);
 
-  console.log('wanе to set this ', amountInWei);
-
-  // Send the specified amount of ETH to the guardian (wallet address)
-  // const tx = await wallet.sendTransaction({
-  //   to: wallet.address,
-  //   value: amountInWei,
-  // });
-
   await provider.send('evm_setAccountBalance', [
     wallet.address,
     ethers.utils.hexlify(amountInWei),
   ]);
-
-  console.log(`Sent ${eth} ETH to guardian: ${wallet.address}`);
-  // console.log(`Transaction hash: ${tx.hash}`);
-
-  // // Wait for the transaction to be mined
-  // await tx.wait();
 }
