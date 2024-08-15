@@ -1,8 +1,6 @@
-import { BigNumber } from '@ethersproject/bignumber';
 import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { plainToClass } from 'class-transformer';
-import { ethers } from 'ethers';
 import { ConfigLoaderService } from './config-loader.service';
 import { InMemoryConfiguration } from './in-memory-configuration';
 
@@ -16,13 +14,6 @@ const DEFAULTS = {
   RABBITMQ_URL: 'some-rabbit-url',
   RABBITMQ_LOGIN: 'some-rabbit-login',
 };
-
-class ExpectedBadRequestExceptionNotThrown extends Error {
-  constructor() {
-    super('Expected BadRequestException was not thrown');
-    this.name = 'ExpectedBadRequestExceptionNotThrown';
-  }
-}
 
 describe('ConfigLoaderService base spec', () => {
   let configLoaderService: ConfigLoaderService;
