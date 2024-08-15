@@ -18,7 +18,6 @@ import { Gauge, register } from 'prom-client';
 import { ProviderService } from 'provider';
 import {
   WALLET_BALANCE_UPDATE_BLOCK_RATE,
-  WALLET_MIN_BALANCE,
   WALLET_PRIVATE_KEY,
 } from './wallet.constants';
 import {
@@ -28,7 +27,7 @@ import {
   SignUnvetDataParams,
 } from './wallet.interfaces';
 import { utils } from 'ethers';
-import { WALLET_CRITICAL_BALANCE } from 'wallet';
+import { Configuration } from 'common/config';
 
 @Injectable()
 export class WalletService implements OnModuleInit {
@@ -37,6 +36,7 @@ export class WalletService implements OnModuleInit {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     @Inject(WALLET_PRIVATE_KEY) private privateKey: string,
     private providerService: ProviderService,
+    protected readonly config: Configuration,
   ) {}
 
   async onModuleInit() {
@@ -97,7 +97,7 @@ export class WalletService implements OnModuleInit {
     const balanceWei = await this.getAccountBalance();
     const balanceETH = formatEther(balanceWei);
     const formatted = `${balanceETH} ETH`;
-    const isCritical = balanceWei.lte(WALLET_CRITICAL_BALANCE);
+    const isCritical = balanceWei.lte(this.config.WALLET_CRITICAL_BALANCE);
 
     if (isCritical) {
       this.logger.log('Account balance is critical', { balance: formatted });
@@ -114,7 +114,7 @@ export class WalletService implements OnModuleInit {
   public isBalanceSufficient(balanceWei): boolean {
     const balanceETH = formatEther(balanceWei);
     const formatted = `${balanceETH} ETH`;
-    const isSufficient = balanceWei.gte(WALLET_MIN_BALANCE);
+    const isSufficient = balanceWei.gte(this.config.WALLET_MIN_BALANCE);
 
     if (isSufficient) {
       this.logger.log('Account balance is sufficient', { balance: formatted });
