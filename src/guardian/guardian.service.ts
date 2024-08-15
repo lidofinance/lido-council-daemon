@@ -194,17 +194,14 @@ export class GuardianService implements OnModuleInit {
         return;
       }
 
-      this.handleKeys(stakingModulesData, blockData, lidoKeys);
+      this.handleKeys(stakingModulesData, blockData, lidoKeys).catch(
+        this.logger.error,
+      );
 
       await this.guardianMessageService.pingMessageBroker(
         stakingModulesData.map(({ stakingModuleId }) => stakingModuleId),
         blockData,
       );
-
-      this.blockGuardService.setLastProcessedStateMeta({
-        blockHash,
-        blockNumber,
-      });
     } catch (error) {
       this.logger.error('Staking router state update error');
       this.logger.error(error);
@@ -259,6 +256,11 @@ export class GuardianService implements OnModuleInit {
     // unvet keys if need
     await this.handleUnvetting(stakingModulesData, blockData);
     await this.handleDeposit(stakingModulesData, blockData);
+
+    this.blockGuardService.setLastProcessedStateMeta({
+      blockHash: blockData.blockHash,
+      blockNumber: blockData.blockNumber,
+    });
   }
 
   async checkKeys(
