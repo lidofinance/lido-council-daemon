@@ -12,6 +12,8 @@ import { Injectable } from '@nestjs/common';
 import { Configuration, PubsubService } from './configuration';
 import { SASLMechanism } from '../../transport';
 import { implementationOf } from '../di/decorators/implementationOf';
+import { ethers } from 'ethers';
+import { BadConfigException } from './exceptions';
 
 const RABBITMQ = 'rabbitmq';
 const KAFKA = 'kafka';
@@ -138,4 +140,36 @@ export class InMemoryConfiguration implements Configuration {
   @IsOptional()
   @IsString()
   LOCATOR_DEVNET_ADDRESS = '';
+
+  @IsOptional()
+  @Transform(
+    ({ value }) => {
+      try {
+        const weiValue = ethers.utils.parseEther(value || '0.5');
+        return weiValue;
+      } catch (error) {
+        throw new BadConfigException(
+          `Invalid WALLET_MIN_BALANCE value: ${value}. Please ensure it's a valid Ether amount that can be converted to Wei.`,
+        );
+      }
+    },
+    { toClassOnly: true },
+  )
+  WALLET_MIN_BALANCE: ethers.BigNumber = ethers.utils.parseEther('0.5');
+
+  @IsOptional()
+  @Transform(
+    ({ value }) => {
+      try {
+        const weiValue = ethers.utils.parseEther(value || '0.2');
+        return weiValue;
+      } catch (error) {
+        throw new BadConfigException(
+          `Invalid WALLET_CRITICAL_BALANCE value: ${value}. Please ensure it's a valid Ether amount that can be converted to Wei.`,
+        );
+      }
+    },
+    { toClassOnly: true },
+  )
+  WALLET_CRITICAL_BALANCE: ethers.BigNumber = ethers.utils.parseEther('0.2');
 }

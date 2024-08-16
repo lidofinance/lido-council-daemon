@@ -205,8 +205,6 @@ export class GuardianService implements OnModuleInit {
     } catch (error) {
       this.logger.error('Staking router state update error');
       this.logger.error(error);
-    } finally {
-      this.logger.log('New staking router state cycle end');
     }
   }
 
@@ -257,10 +255,13 @@ export class GuardianService implements OnModuleInit {
     await this.handleUnvetting(stakingModulesData, blockData);
     await this.handleDeposit(stakingModulesData, blockData);
 
+    const { blockHash, blockNumber } = blockData;
     this.blockGuardService.setLastProcessedStateMeta({
-      blockHash: blockData.blockHash,
-      blockNumber: blockData.blockNumber,
+      blockHash,
+      blockNumber,
     });
+
+    this.logger.log('New staking router state cycle end');
   }
 
   async checkKeys(
@@ -289,15 +290,7 @@ export class GuardianService implements OnModuleInit {
       return;
     }
 
-    const firstInvalidModule = stakingModulesData.find((stakingModuleData) => {
-      const keys = [
-        ...stakingModuleData.invalidKeys,
-        ...stakingModuleData.duplicatedKeys,
-        ...stakingModuleData.frontRunKeys,
-      ];
-
-      return keys.length > 0;
-    });
+    const firstInvalidModule = this.findFirstInvalidModule(stakingModulesData);
 
     if (!firstInvalidModule) {
       this.logger.log(
@@ -306,11 +299,27 @@ export class GuardianService implements OnModuleInit {
           blockHash: blockData.blockHash,
         },
       );
-
       return;
     }
 
     await this.unvettingService.handleUnvetting(firstInvalidModule, blockData);
+  }
+
+  private findFirstInvalidModule(
+    stakingModulesData: StakingModuleData[],
+  ): StakingModuleData | undefined {
+    return stakingModulesData.find((moduleData) =>
+      this.hasInvalidKeys(moduleData),
+    );
+  }
+
+  private hasInvalidKeys(moduleData: StakingModuleData): boolean {
+    const keys = [
+      ...moduleData.invalidKeys,
+      ...moduleData.duplicatedKeys,
+      ...moduleData.frontRunKeys,
+    ];
+    return keys.length > 0;
   }
 
   async handleDeposit(

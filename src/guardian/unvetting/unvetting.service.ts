@@ -19,7 +19,7 @@ export class UnvettingService {
   /**
    * Unvet invalid, duplicated, front-runned keys. Sending transaction in Security contract, sending messages in broker
    */
-  async handleUnvetting(
+  public async handleUnvetting(
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
   ) {
@@ -43,7 +43,7 @@ export class UnvettingService {
     await this.unvetSignKeysChunk(stakingModuleData, blockData, firstChunk);
   }
 
-  async unvetSignKeysChunk(
+  public async unvetSignKeysChunk(
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
     chunk: UnvetData,
@@ -61,17 +61,41 @@ export class UnvettingService {
       vettedKeysByOperator,
     );
 
-    this.securityService
-      .unvetSigningKeys(
-        nonce,
-        blockNumber,
-        blockHash,
-        stakingModuleId,
-        operatorIds,
-        vettedKeysByOperator,
-        signature,
-      )
-      .catch(this.logger.error);
+    if (!blockData.walletBalanceCritical) {
+      this.logger.log(
+        'Wallet balance is sufficient, sending unvet transaction.',
+        {
+          blockHash,
+          stakingModuleId,
+        },
+      );
+
+      this.securityService
+        .unvetSigningKeys(
+          nonce,
+          blockNumber,
+          blockHash,
+          stakingModuleId,
+          operatorIds,
+          vettedKeysByOperator,
+          signature,
+        )
+        .catch((error) =>
+          this.logger.error('Failed to send unvet transaction', {
+            error,
+            blockHash,
+            stakingModuleId,
+          }),
+        );
+    } else {
+      this.logger.warn(
+        'Wallet balance is critical. Skipping unvet transaction.',
+        {
+          blockHash,
+          stakingModuleId,
+        },
+      );
+    }
 
     await this.guardianMessageService.sendUnvetMessage({
       nonce,
@@ -86,11 +110,11 @@ export class UnvettingService {
     });
   }
 
-  async getMaxOperatorsPerUnvetting() {
+  private async getMaxOperatorsPerUnvetting() {
     return await this.securityService.getMaxOperatorsPerUnvetting();
   }
 
-  getNewVettedAmount(
+  private getNewVettedAmount(
     keysForUnvetting: RegistryKey[],
     maxOperatorsPerUnvetting: number,
   ): UnvetData {
@@ -107,7 +131,9 @@ export class UnvettingService {
    * @param keysForUnvetting - Array of RegistryKey objects
    * @returns Map of operator indices to their total vetted amount
    */
-  findNewVettedAmount(keysForUnvetting: RegistryKey[]): Map<number, number> {
+  private findNewVettedAmount(
+    keysForUnvetting: RegistryKey[],
+  ): Map<number, number> {
     return keysForUnvetting.reduce((acc, key) => {
       const vettedAmount = acc.get(key.operatorIndex);
       if (vettedAmount === undefined || key.index < vettedAmount) {
@@ -124,7 +150,7 @@ export class UnvettingService {
    * @param maxOperatorsPerUnvetting - Maximum number of operators per unvetting chunk
    * @returns Object containing packed operatorIds and vettedAmount
    */
-  getFirstChunk(
+  private getFirstChunk(
     operatorNewVettedAmount: Map<number, number>,
     maxOperatorsPerUnvetting: number,
   ): UnvetData {
