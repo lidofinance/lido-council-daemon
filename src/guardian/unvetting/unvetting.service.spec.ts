@@ -60,7 +60,7 @@ describe('UnvettingService', () => {
 
   describe('getNewVettedAmount', () => {
     it('should correctly pack chunks when maxOperatorsPerUnvetting is 2 with 3 operators', () => {
-      const result = service['getNewVettedAmount'](mockKeys, 2);
+      const result = service['calculateNewStakingLimit'](mockKeys, 2);
 
       const expected = {
         operatorIds: '0x00000000000000010000000000000002',
@@ -71,7 +71,7 @@ describe('UnvettingService', () => {
     });
 
     it('should correctly pack chunks when maxOperatorsPerUnvetting is 2 with 4 operators', () => {
-      const result = service['getNewVettedAmount'](mockKeys2, 2);
+      const result = service['calculateNewStakingLimit'](mockKeys2, 2);
 
       const expected = {
         operatorIds: '0x00000000000000010000000000000002',
