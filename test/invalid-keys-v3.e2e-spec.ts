@@ -47,7 +47,6 @@ import { LevelDBService } from 'contracts/deposit/leveldb';
 import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
 import { KeyValidatorInterface } from '@lido-nestjs/key-validation';
 import { makeDeposit, signDeposit } from './helpers/deposit';
-import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
 import { addGuardians } from './helpers/dsm';
 import { BlsService } from 'bls';

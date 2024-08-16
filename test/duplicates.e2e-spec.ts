@@ -527,25 +527,23 @@ describe('ganache e2e tests', () => {
       'handleCorrectKeys',
     );
 
-    const filterModuleNotVettedUnusedKeys = jest.spyOn(
+    const getVettedUnusedKeys = jest.spyOn(
       stakingRouterService,
-      'filterModuleNotVettedUnusedKeys',
+      'getVettedUnusedKeys',
     );
     await guardianService.handleNewBlock();
     await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
     expect(sendDepositMessage).toBeCalledTimes(2);
     expect(handleCorrectKeys).toBeCalledTimes(2);
-    expect(filterModuleNotVettedUnusedKeys).toBeCalledTimes(4);
+    expect(getVettedUnusedKeys).toBeCalledTimes(4);
 
-    expect(filterModuleNotVettedUnusedKeys).toHaveBeenCalledWith(
-      NOP_REGISTRY,
+    expect(getVettedUnusedKeys).toHaveBeenCalledWith(
       expect.arrayContaining([keys[0]]),
       expect.arrayContaining([keys[1]]),
     );
     //unresolved duplicates
-    expect(filterModuleNotVettedUnusedKeys).toHaveBeenCalledWith(
-      NOP_REGISTRY,
+    expect(getVettedUnusedKeys).toHaveBeenCalledWith(
       expect.arrayContaining([keys[0]]),
       expect.arrayContaining([]),
     );

@@ -17,8 +17,9 @@ import {
   METRIC_DEPOSITED_KEYS_TOTAL,
   METRIC_OPERATORS_KEYS_TOTAL,
   METRIC_KEYS_API_REQUEST_DURATION,
-  METRIC_DUPLICATED_VETTED_UNUSED_KEYS_TOTAL,
+  METRIC_DUPLICATED_KEYS_TOTAL,
   METRIC_INVALID_KEYS_TOTAL,
+  METRIC_UNVET_ATTEMPTS,
 } from './prometheus.constants';
 
 export const PrometheusTransportMessageCounterProvider = makeCounterProvider({
@@ -30,6 +31,11 @@ export const PrometheusTransportMessageCounterProvider = makeCounterProvider({
 export const PrometheusPauseDepositsCounterProvider = makeCounterProvider({
   name: METRIC_PAUSE_ATTEMPTS,
   help: 'Attempts to pause deposits',
+});
+
+export const PrometheusUnvetKeysCounterProvider = makeCounterProvider({
+  name: METRIC_UNVET_ATTEMPTS,
+  help: 'Attempts to unvet keys',
 });
 
 export const PrometheusRPCRequestsHistogramProvider = makeHistogramProvider({
@@ -96,10 +102,10 @@ export const PrometheusKeysApiRequestsProvider = makeHistogramProvider({
   labelNames: ['result', 'status'] as const,
 });
 
-export const PrometheusVettedUnusedKeysProvider = makeGaugeProvider({
-  name: METRIC_DUPLICATED_VETTED_UNUSED_KEYS_TOTAL,
-  help: 'Number of duplicated vetted unused keys events',
-  labelNames: ['stakingModuleId'] as const,
+export const PrometheusDuplicatedKeysProvider = makeGaugeProvider({
+  name: METRIC_DUPLICATED_KEYS_TOTAL,
+  help: 'Number of duplicated keys',
+  labelNames: ['type', 'stakingModuleId'] as const,
 });
 
 export const PrometheusInvalidKeysProvider = makeGaugeProvider({
