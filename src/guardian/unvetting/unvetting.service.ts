@@ -17,33 +17,59 @@ export class UnvettingService {
   ) {}
 
   /**
-   * Unvet invalid, duplicated, front-runned keys. Sending transaction in Security contract, sending messages in broker
+   * Handles unvetting of invalid, duplicated, and front-ran keys.
+   *
+   * 1. Collects keys flagged for unvetting from `stakingModuleData`.
+   * 2. Logs and exits if no keys require unvetting.
+   * 3. Retrieves the maximum operators per unvetting from `SecurityService`.
+   * 4. Prepares and processes the first chunk to avoid transaction races.
+   * 5. Sends a transaction to the Security contract and forwards messages to the guardian broker.
+   *
+   * @param stakingModuleData - Staking module data, including keys for unvetting.
+   * @param blockData - Collected data from the current block.
+   * @returns void
    */
   public async handleUnvetting(
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
   ) {
-    const keys = [
-      ...stakingModuleData.invalidKeys,
-      ...stakingModuleData.duplicatedKeys,
-      ...stakingModuleData.frontRunKeys,
-    ];
+    const invalidKeys = this.collectInvalidKeys(stakingModuleData);
 
-    if (!keys.length) {
-      this.logger.debug?.('Keys are correct. No need for unvetting', {
-        blockHash: blockData.blockHash,
-        stakingModuleId: stakingModuleData.stakingModuleId,
-      });
+    if (!invalidKeys.length) {
+      this.logNoUnvettingNeeded(blockData, stakingModuleData);
       return;
     }
 
     const maxOperatorsPerUnvetting = await this.getMaxOperatorsPerUnvetting();
-    const firstChunk = this.getNewVettedAmount(keys, maxOperatorsPerUnvetting);
+    const firstChunk = this.calculateNewStakingLimit(
+      invalidKeys,
+      maxOperatorsPerUnvetting,
+    );
 
-    await this.unvetSignKeysChunk(stakingModuleData, blockData, firstChunk);
+    await this.processUnvetting(stakingModuleData, blockData, firstChunk);
   }
 
-  public async unvetSignKeysChunk(
+  private collectInvalidKeys(
+    stakingModuleData: StakingModuleData,
+  ): RegistryKey[] {
+    return [
+      ...stakingModuleData.invalidKeys,
+      ...stakingModuleData.duplicatedKeys,
+      ...stakingModuleData.frontRunKeys,
+    ];
+  }
+
+  private logNoUnvettingNeeded(
+    blockData: BlockData,
+    stakingModuleData: StakingModuleData,
+  ): void {
+    this.logger.debug?.('Keys are correct. No need for unvetting', {
+      blockHash: blockData.blockHash,
+      stakingModuleId: stakingModuleData.stakingModuleId,
+    });
+  }
+
+  public async processUnvetting(
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
     chunk: UnvetData,
@@ -62,13 +88,7 @@ export class UnvettingService {
     );
 
     if (!blockData.walletBalanceCritical) {
-      this.logger.log(
-        'Wallet balance is sufficient, sending unvet transaction.',
-        {
-          blockHash,
-          stakingModuleId,
-        },
-      );
+      this.logSufficientBalance(blockData, stakingModuleData);
 
       this.securityService
         .unvetSigningKeys(
@@ -88,13 +108,7 @@ export class UnvettingService {
           }),
         );
     } else {
-      this.logger.warn(
-        'Wallet balance is critical. Skipping unvet transaction.',
-        {
-          blockHash,
-          stakingModuleId,
-        },
-      );
+      this.logCriticalBalance(blockData, stakingModuleData);
     }
 
     await this.guardianMessageService.sendUnvetMessage({
@@ -110,11 +124,37 @@ export class UnvettingService {
     });
   }
 
+  private logSufficientBalance(
+    blockData: BlockData,
+    stakingModuleData: StakingModuleData,
+  ): void {
+    this.logger.log(
+      'Wallet balance is sufficient, sending unvet transaction.',
+      {
+        blockHash: blockData.blockHash,
+        stakingModuleId: stakingModuleData.stakingModuleId,
+      },
+    );
+  }
+
+  private logCriticalBalance(
+    blockData: BlockData,
+    stakingModuleData: StakingModuleData,
+  ): void {
+    this.logger.warn(
+      'Wallet balance is critical. Skipping unvet transaction.',
+      {
+        blockHash: blockData.blockHash,
+        stakingModuleId: stakingModuleData.stakingModuleId,
+      },
+    );
+  }
+
   private async getMaxOperatorsPerUnvetting() {
     return await this.securityService.getMaxOperatorsPerUnvetting();
   }
 
-  private getNewVettedAmount(
+  private calculateNewStakingLimit(
     keysForUnvetting: RegistryKey[],
     maxOperatorsPerUnvetting: number,
   ): UnvetData {
@@ -154,18 +194,17 @@ export class UnvettingService {
     operatorNewVettedAmount: Map<number, number>,
     maxOperatorsPerUnvetting: number,
   ): UnvetData {
-    const operatorVettedPairs = Array.from(operatorNewVettedAmount.entries());
-
-    const totalChunks = Math.ceil(
-      operatorVettedPairs.length / maxOperatorsPerUnvetting,
+    const chunk = Array.from(operatorNewVettedAmount.entries()).slice(
+      0,
+      maxOperatorsPerUnvetting,
     );
-
-    const chunk = operatorVettedPairs.slice(0, maxOperatorsPerUnvetting);
 
     this.logger.log('Get first chunk for unvetting', {
       count: chunk.length,
       maxOperatorsPerUnvetting,
-      totalChunks,
+      totalChunks: Math.ceil(
+        operatorNewVettedAmount.size / maxOperatorsPerUnvetting,
+      ),
     });
 
     return {
