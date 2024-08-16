@@ -194,7 +194,9 @@ export class GuardianService implements OnModuleInit {
         return;
       }
 
-      this.handleKeys(stakingModulesData, blockData, lidoKeys);
+      this.handleKeys(stakingModulesData, blockData, lidoKeys).catch(
+        this.logger.error,
+      );
 
       await this.guardianMessageService.pingMessageBroker(
         stakingModulesData.map(({ stakingModuleId }) => stakingModuleId),
