@@ -1,7 +1,7 @@
-import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { plainToClass } from 'class-transformer';
 import { ConfigLoaderService } from './config-loader.service';
+import { BadConfigException } from './exceptions';
 import { InMemoryConfiguration } from './in-memory-configuration';
 
 const FAKE_FS = {
@@ -192,9 +192,9 @@ describe('ConfigLoaderService base spec', () => {
           WALLET_CRITICAL_BALANCE,
         });
 
-        throw new Error('Expected BadRequestException was not thrown');
+        throw new Error('Expected BadConfigException was not thrown');
       } catch (error) {
-        if (error instanceof BadRequestException) {
+        if (error instanceof BadConfigException) {
           expect(error.message).toBe(
             `Invalid WALLET_CRITICAL_BALANCE value: ${WALLET_CRITICAL_BALANCE}. Please ensure it's a valid Ether amount that can be converted to Wei.`,
           );
@@ -225,9 +225,9 @@ describe('ConfigLoaderService base spec', () => {
           WALLET_MIN_BALANCE,
         });
 
-        throw new Error('Expected BadRequestException was not thrown');
+        throw new Error('Expected BadConfigException was not thrown');
       } catch (error) {
-        if (error instanceof BadRequestException) {
+        if (error instanceof BadConfigException) {
           expect(error.message).toBe(
             `Invalid WALLET_MIN_BALANCE value: ${WALLET_MIN_BALANCE}. Please ensure it's a valid Ether amount that can be converted to Wei.`,
           );
