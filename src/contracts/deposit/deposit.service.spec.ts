@@ -424,6 +424,7 @@ describe('DepositService', () => {
           events: cachedEvents.data,
           startBlock: cachedEvents.headers.startBlock,
           endBlock: currentBlock,
+          checkRoot: expect.any(Function),
         });
 
         expect(mockFetchEventsFallOver).toBeCalledTimes(1);
@@ -482,6 +483,7 @@ describe('DepositService', () => {
                 (pubkey) => ({ pubkey, depositDataRoot } as any),
               ),
             ),
+          checkRoot: expect.any(Function),
         });
 
         expect(mockFetchEventsFallOver).toBeCalledTimes(1);

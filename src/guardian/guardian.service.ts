@@ -324,6 +324,10 @@ export class GuardianService implements OnModuleInit {
           blockData,
         );
 
+        // Check the integrity of the cache, we can only make a deposit
+        // if the integrity of the deposit event data is intact
+        await blockData.depositedEvents.checkRoot();
+
         if (
           this.cannotDeposit(
             stakingModuleData,
