@@ -9,7 +9,7 @@ export const SIGNING_KEYS_CACHE_DEFAULT = Object.freeze({
   data: [],
 });
 
-export const CURATED_MODULE_DEPLOYMENT_BLOCK_NETWORK: {
+export const EARLIEST_MODULE_DEPLOYMENT_BLOCK_NETWORK: {
   [key in CHAINS]?: number;
 } = {
   [CHAINS.Mainnet]: 11473216,

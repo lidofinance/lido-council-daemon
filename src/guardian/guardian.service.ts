@@ -16,7 +16,7 @@ import {
   GUARDIAN_DEPOSIT_JOB_NAME,
 } from './guardian.constants';
 import { OneAtTime } from 'common/decorators';
-import { StakingRouterService } from 'staking-router';
+import { StakingModuleDataCollectorService } from 'staking-module-data-collector';
 
 import { BlockGuardService } from './block-guard';
 import { StakingModuleGuardService } from './staking-module-guard';
@@ -31,6 +31,7 @@ import { UnvettingService } from './unvetting/unvetting.service';
 import { Meta } from 'keys-api/interfaces/Meta';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { SROperatorListWithModule } from 'keys-api/interfaces/SROperatorListWithModule';
+import { StakingRouterService } from 'contracts/staking-router';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -45,7 +46,7 @@ export class GuardianService implements OnModuleInit {
 
     private depositService: DepositService,
     private securityService: SecurityService,
-    private stakingRouterService: StakingRouterService,
+    private stakingModuleDataCollectorService: StakingModuleDataCollectorService,
 
     private blockGuardService: BlockGuardService,
     private stakingModuleGuardService: StakingModuleGuardService,
@@ -57,7 +58,26 @@ export class GuardianService implements OnModuleInit {
     private signingKeyEventsCacheService: SigningKeyEventsCacheService,
 
     private unvettingService: UnvettingService,
+
+    private stakingRouterService: StakingRouterService,
   ) {}
+
+  /**
+   * Retrieves the list of staking module addresses.
+   *
+   * This method fetches the cached staking modules contracts and returns the list of staking module addresses.
+   *
+   * @returns {Promise<string[]>} Array of staking module addresses.
+   */
+  public async getStakingModules(blockNumber: number): Promise<string[]> {
+    const stakingModules = await this.stakingRouterService.getStakingModules(
+      blockNumber,
+    );
+
+    return stakingModules.map(
+      (stakingModule) => stakingModule.stakingModuleAddress,
+    );
+  }
 
   public async onModuleInit(): Promise<void> {
     // Does not wait for completion, to avoid blocking the app initialization
@@ -67,10 +87,17 @@ export class GuardianService implements OnModuleInit {
         const block = await this.repositoryService.initOrWaitCachedContracts();
         const blockHash = block.hash;
 
+        const stakingRouterModuleAddresses = await this.getStakingModules(
+          block.number,
+        );
+
         await Promise.all([
           this.depositService.initialize(block.number),
           this.securityService.initialize({ blockHash }),
-          this.signingKeyEventsCacheService.initialize(block.number),
+          this.signingKeyEventsCacheService.initialize(
+            block.number,
+            stakingRouterModuleAddresses,
+          ),
         ]);
 
         const chainId = await this.providerService.getChainId();
@@ -99,7 +126,9 @@ export class GuardianService implements OnModuleInit {
         // The event cache is stored with an N block lag to avoid caching data from uncle blocks
         // so we don't worry about blockHash here
         await this.depositService.updateEventsCache();
-        await this.signingKeyEventsCacheService.updateEventsCache();
+        await this.signingKeyEventsCacheService.updateEventsCache(
+          stakingRouterModuleAddresses,
+        );
 
         this.subscribeToModulesUpdates();
       } catch (error) {
@@ -230,7 +259,7 @@ export class GuardianService implements OnModuleInit {
 
     // collect some data and check keys
     const stakingModulesData: StakingModuleData[] =
-      await this.stakingRouterService.collectStakingModuleData({
+      await this.stakingModuleDataCollectorService.collectStakingModuleData({
         operatorsByModules,
         meta,
         lidoKeys,
@@ -269,13 +298,17 @@ export class GuardianService implements OnModuleInit {
     blockData: BlockData,
     lidoKeys: RegistryKey[],
   ) {
+    const stakingRouterModuleAddresses = stakingModulesData.map(
+      (stakingModule) => stakingModule.stakingModuleAddress,
+    );
     // update cache if needs
     await this.signingKeyEventsCacheService.handleNewBlock(
       blockData.blockNumber,
+      stakingRouterModuleAddresses,
     );
 
     // check keys on duplicates, attempts of front-run and check signatures
-    await this.stakingRouterService.checkKeys(
+    await this.stakingModuleDataCollectorService.checkKeys(
       stakingModulesData,
       lidoKeys,
       blockData,

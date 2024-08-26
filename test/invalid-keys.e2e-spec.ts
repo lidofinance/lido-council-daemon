@@ -170,7 +170,7 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX],
         },
       });
 
@@ -275,7 +275,7 @@ describe('ganache e2e tests', () => {
       headers: {
         startBlock: currentBlock.number,
         endBlock: currentBlock.number,
-        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, SANDBOX],
+        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX],
       },
     });
 

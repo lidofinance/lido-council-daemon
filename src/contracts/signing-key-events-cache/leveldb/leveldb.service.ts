@@ -170,7 +170,7 @@ export class LevelDBService {
    * @returns {string} The serialized JSON string of the signing key event.
    * @public
    */
-  public serializeEventDate(signingKeyEvent: SigningKeyEvent) {
+  public serializeEventData(signingKeyEvent: SigningKeyEvent) {
     return JSON.stringify(signingKeyEvent);
   }
 
@@ -195,7 +195,7 @@ export class LevelDBService {
     const ops = records.data.map((event) => ({
       type: 'put' as const,
       key: this.generateSigningKeyEventStorageKey(event),
-      value: this.serializeEventDate(event),
+      value: this.serializeEventData(event),
     }));
     ops.push({
       type: 'put',

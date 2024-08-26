@@ -18,7 +18,7 @@ type State = {
 };
 
 @Injectable()
-export class StakingRouterService {
+export class StakingModuleDataCollectorService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private securityService: SecurityService,

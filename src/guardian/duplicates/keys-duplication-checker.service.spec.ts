@@ -15,6 +15,8 @@ import {
 import { ConfigModule } from 'common/config';
 import { MockProviderModule } from 'provider';
 import { BlockData } from 'guardian/interfaces';
+import { StakingRouterModule } from 'contracts/staking-router';
+import { RepositoryModule } from 'contracts/repository';
 describe('KeysDuplicationCheckerService', () => {
   let service: KeysDuplicationCheckerService;
   const mockSigningKeyEventsCacheService = {
@@ -24,6 +26,8 @@ describe('KeysDuplicationCheckerService', () => {
   beforeEach(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
       imports: [
+        StakingRouterModule,
+        RepositoryModule,
         ConfigModule.forRoot(),
         MockProviderModule.forRoot(),
         LoggerModule,

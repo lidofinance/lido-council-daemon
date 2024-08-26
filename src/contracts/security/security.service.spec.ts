@@ -32,7 +32,7 @@ describe('SecurityService', () => {
   let walletService: WalletService;
   let loggerService: LoggerService;
   let mockGetAttestMessagePrefix: jest.SpyInstance<Promise<string>, []>;
-  let mockGetPauseMessagePrefix: jest.SpyInstance<Promise<string>, []>;
+  // let mockGetPauseMessagePrefix: jest.SpyInstance<Promise<string>, []>;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -58,8 +58,8 @@ describe('SecurityService', () => {
     mockLocator(moduleRef.get(LocatorService));
 
     const repo = await mockRepository(repositoryService);
-    mockGetAttestMessagePrefix = repo.mockGetAttestMessagePrefix;
-    mockGetPauseMessagePrefix = repo.mockGetPauseMessagePrefix;
+    // mockGetAttestMessagePrefix = repo.mockGetAttestMessagePrefix;
+    // mockGetPauseMessagePrefix = repo.mockGetPauseMessagePrefix;
   });
 
   describe('getGuardians', () => {
@@ -130,11 +130,15 @@ describe('SecurityService', () => {
         TEST_MODULE_ID,
       ] as const;
 
+      const mockGetAttestMessagePrefix = jest
+        .spyOn(securityService, 'getAttestMessagePrefix')
+        .mockImplementation(async () => hexZeroPad('0x1', 32));
+
       const signDepositData = jest.spyOn(walletService, 'signDepositData');
 
       const signature = await securityService.signDepositData(...args);
-      // 1 — repository, 2 — signDepositData
-      expect(mockGetAttestMessagePrefix).toBeCalledTimes(2);
+
+      expect(mockGetAttestMessagePrefix).toBeCalledTimes(1);
       expect(signDepositData).toBeCalledWith({
         prefix,
         depositRoot,
@@ -158,14 +162,17 @@ describe('SecurityService', () => {
     it('should add prefix', async () => {
       const blockNumber = 1;
 
+      const mockGetPauseMessagePrefix = jest
+        .spyOn(securityService, 'getPauseMessagePrefix')
+        .mockImplementation(async () => hexZeroPad('0x2', 32));
+
       const signPauseData = jest.spyOn(walletService, 'signPauseDataV2');
 
       const signature = await securityService.signPauseDataV2(
         blockNumber,
         TEST_MODULE_ID,
       );
-      // 1 — repository, 2 — signDepositData
-      expect(mockGetPauseMessagePrefix).toBeCalledTimes(2);
+      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
       expect(signPauseData).toBeCalledWith({
         blockNumber: 1,
         prefix:
@@ -217,7 +224,10 @@ describe('SecurityService', () => {
     beforeEach(async () => {
       mockWait = jest.fn().mockImplementation(async () => undefined);
       const repo = await mockRepository(repositoryService);
-      mockGetPauseMessagePrefix = repo.mockGetPauseMessagePrefix;
+      // mockGetPauseMessagePrefix = repo.mockGetPauseMessagePrefix;
+      mockGetPauseMessagePrefix = jest
+        .spyOn(securityService, 'getPauseMessagePrefix')
+        .mockImplementation(async () => hexZeroPad('0x2', 32));
 
       mockPauseDeposits = jest
         .fn()
@@ -247,11 +257,11 @@ describe('SecurityService', () => {
       // mockGetPauseMessagePrefix calls 3 times because
       // we have more than one call under the hood
       // 1 - repository, 2 — signPauseData, 3 — pauseDeposits
-      expect(mockGetPauseMessagePrefix).toBeCalledTimes(3);
+      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
       expect(mockGetContractWithSigner).toBeCalledTimes(1);
     });
 
-    it('should exit if the previous call is not completed2', async () => {
+    it('should exit if the previous call is not completed', async () => {
       await Promise.all([
         securityService.pauseDepositsV2(blockNumber, TEST_MODULE_ID, signature),
         securityService.pauseDepositsV2(blockNumber, TEST_MODULE_ID, signature),
@@ -259,10 +269,7 @@ describe('SecurityService', () => {
 
       expect(mockPauseDeposits).toBeCalledTimes(1);
       expect(mockWait).toBeCalledTimes(1);
-      // mockGetPauseMessagePrefix calls 3 times because
-      // we have more than one call under the hood
-      // 1 - repository, 2 — signPauseData, 3 — pauseDeposits
-      expect(mockGetPauseMessagePrefix).toBeCalledTimes(3);
+      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
       expect(mockGetContractWithSigner).toBeCalledTimes(1);
     });
   });

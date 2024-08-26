@@ -1,10 +1,8 @@
+import { Block } from '@ethersproject/abstract-provider';
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { LidoAbi, LidoAbi__factory, LocatorAbi } from 'generated';
 import { SecurityAbi, SecurityAbi__factory } from 'generated';
 import { DepositAbi, DepositAbi__factory } from 'generated';
-import { CsmAbi, CsmAbi__factory } from 'generated';
-import { SigningKeyAbi, SigningKeyAbi__factory } from 'generated';
-import { IStakingModuleAbi__factory } from 'generated';
 import { StakingRouterAbi, StakingRouterAbi__factory } from 'generated';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { BlockTag, ProviderService } from 'provider';
@@ -16,12 +14,7 @@ import {
   INIT_CONTRACTS_TIMEOUT,
   LIDO_ABI,
   STAKING_ROUTER_ABI,
-  COMMUNITY_ONCHAIN_DEVNET0_V1_TYPE,
-  COMMUNITY_ONCHAIN_V1_TYPE,
-  CURATED_ONCHAIN_V1_TYPE,
 } from './repository.constants';
-import { ethers } from 'ethers';
-import { StakingModule } from './interfaces/staking-module';
 
 @Injectable()
 export class RepositoryService {
@@ -38,7 +31,6 @@ export class RepositoryService {
   // if the contracts are updated we will change these addresses too
   private cachedDSMPrefixes: Record<string, string> = {};
   private permanentContractsCache: Record<string, DepositAbi> = {};
-  private stakingModulesCache: Record<string, StakingModule> = {};
 
   /**
    * Init cache for each contract
@@ -48,14 +40,13 @@ export class RepositoryService {
     // order is important: deposit contract depends on dsm
     await this.initCachedDSMContract(blockTag);
     await this.initCachedDepositContract(blockTag);
-    await this.initCachedStakingRouterAbiContract(blockTag);
-    await this.initCachedStakingModulesContracts(blockTag);
+    await this.initCachedStakingRouterContract(blockTag);
   }
 
   /**
    * Init cache for each contract or wait if it makes some error
    */
-  public async initOrWaitCachedContracts() {
+  public async initOrWaitCachedContracts(): Promise<Block> {
     const block = await this.providerService.getBlock();
     try {
       await this.initCachedContracts({ blockHash: block.hash });
@@ -96,13 +87,6 @@ export class RepositoryService {
   }
 
   /**
-   * Get Node Operator Registry contract impl
-   */
-  public getCachedStakingModulesContracts(): Record<string, StakingModule> {
-    return this.stakingModulesCache;
-  }
-
-  /**
    * Get cached contract impl
    */
   private getFromCache(abiKey: string) {
@@ -131,23 +115,6 @@ export class RepositoryService {
     }
 
     this.tempContractsCache[contractKey] = impl;
-  }
-
-  public setStakingModuleCache(address: string, impl: SigningKeyAbi | CsmAbi) {
-    if (!this.stakingModulesCache[address]) {
-      this.logger.log('Staking module contract initial address', { address });
-    }
-
-    if (
-      this.stakingModulesCache[address] &&
-      this.stakingModulesCache[address].impl.address !== address
-    ) {
-      this.logger.log('Staking module contract address was changed', {
-        address,
-      });
-    }
-
-    this.stakingModulesCache[address] = { impl };
   }
 
   private setPermanentContractCache(
@@ -188,12 +155,6 @@ export class RepositoryService {
 
     // prune dsm prefixes
     this.cachedDSMPrefixes = {};
-
-    // re-init dsm prefixes
-    await Promise.all([
-      this.getAttestMessagePrefix(),
-      this.getPauseMessagePrefix(),
-    ]);
   }
 
   /**
@@ -202,6 +163,8 @@ export class RepositoryService {
   private async initCachedDepositContract(blockTag: BlockTag): Promise<void> {
     if (this.permanentContractsCache[DEPOSIT_ABI]) return;
     const depositAddress = await this.getDepositAddress(blockTag);
+
+    console.log('depositAddress', depositAddress);
     const provider = this.providerService.provider;
 
     this.setPermanentContractCache(
@@ -214,7 +177,7 @@ export class RepositoryService {
   /**
    * Init cache for SR contract
    */
-  private async initCachedStakingRouterAbiContract(
+  private async initCachedStakingRouterContract(
     blockTag: BlockTag,
   ): Promise<void> {
     const stakingRouterAddress =
@@ -226,104 +189,6 @@ export class RepositoryService {
       STAKING_ROUTER_ABI,
       StakingRouterAbi__factory.connect(stakingRouterAddress, provider),
     );
-  }
-
-  private async initCachedStakingModulesContracts(
-    blockTag: BlockTag,
-  ): Promise<void> {
-    const stakingModules = await this.getStakingModules(blockTag);
-    await Promise.all(
-      stakingModules.map(async (stakingModule) => {
-        const type = await this.getStakingModuleType(
-          stakingModule.stakingModuleAddress,
-          blockTag,
-        );
-
-        const provider = this.providerService.provider;
-
-        if (type === CURATED_ONCHAIN_V1_TYPE) {
-          this.setStakingModuleCache(
-            stakingModule.stakingModuleAddress,
-            SigningKeyAbi__factory.connect(
-              stakingModule.stakingModuleAddress,
-              provider,
-            ),
-          );
-          return;
-        }
-
-        if (
-          type === COMMUNITY_ONCHAIN_V1_TYPE ||
-          type === COMMUNITY_ONCHAIN_DEVNET0_V1_TYPE
-        ) {
-          this.setStakingModuleCache(
-            stakingModule.stakingModuleAddress,
-            CsmAbi__factory.connect(
-              stakingModule.stakingModuleAddress,
-              provider,
-            ),
-          );
-          return;
-        }
-
-        this.logger.error(new Error(`Staking Module type ${type} is unknown`));
-        process.exit(1);
-      }),
-    );
-  }
-
-  public async getStakingModules(blockTag: BlockTag) {
-    const stakingRouter = await this.getCachedStakingRouterContract();
-    const stakingModules = await stakingRouter.getStakingModules({
-      blockTag: blockTag as any,
-    });
-
-    return stakingModules;
-  }
-
-  public async getStakingModuleType(
-    contractAddress: string,
-    blockTag: BlockTag,
-  ): Promise<string> {
-    const contract = IStakingModuleAbi__factory.connect(
-      contractAddress,
-      this.providerService.provider,
-    );
-
-    const type = await contract.getType({ blockTag } as any);
-    return ethers.utils.parseBytes32String(type);
-  }
-
-  /**
-   * Returns a prefix from the contract with which the deposit message should be signed
-   */
-  public async getAttestMessagePrefix(): Promise<string> {
-    if (this.cachedDSMPrefixes.attest) return this.cachedDSMPrefixes.attest;
-    const contract = await this.getCachedDSMContract();
-    this.cachedDSMPrefixes.attest = await contract.ATTEST_MESSAGE_PREFIX();
-    return this.cachedDSMPrefixes.attest;
-  }
-
-  /**
-   * Returns a prefix from the contract with which the pause message should be signed
-   */
-  public async getPauseMessagePrefix(): Promise<string> {
-    if (this.cachedDSMPrefixes.pause) return this.cachedDSMPrefixes.pause;
-    const contract = await this.getCachedDSMContract();
-    this.cachedDSMPrefixes.pause = await contract.PAUSE_MESSAGE_PREFIX();
-
-    return this.cachedDSMPrefixes.pause;
-  }
-
-  /**
-   * Returns a prefix from the contract with which the pause message should be signed
-   */
-  public async getUnvetMessagePrefix(): Promise<string> {
-    if (this.cachedDSMPrefixes.unvet) return this.cachedDSMPrefixes.unvet;
-    const contract = await this.getCachedDSMContract();
-    this.cachedDSMPrefixes.unvet = await contract.UNVET_MESSAGE_PREFIX();
-
-    return this.cachedDSMPrefixes.unvet;
   }
 
   /**

@@ -136,7 +136,7 @@ describe('Guardian balance monitoring test', () => {
       headers: {
         startBlock: blockNumber,
         endBlock: blockNumber,
-        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, SANDBOX, CSM],
+        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX, CSM],
       },
     });
   };
