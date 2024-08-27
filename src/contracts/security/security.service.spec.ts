@@ -31,6 +31,7 @@ describe('SecurityService', () => {
   let repositoryService: RepositoryService;
   let walletService: WalletService;
   let loggerService: LoggerService;
+
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
@@ -244,6 +245,64 @@ describe('SecurityService', () => {
       expect(mockWait).toBeCalledTimes(1);
       expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
       expect(mockGetContractWithSigner).toBeCalledTimes(1);
+    });
+  });
+
+  describe('messages prefixes', () => {
+    const blockNumber = 10;
+
+    beforeEach(async () => {
+      jest
+        .spyOn(repositoryService, 'getDepositAddress')
+        .mockImplementation(async () => '0x' + '5'.repeat(40));
+    });
+
+    it('getAttestMessagePrefix', async () => {
+      const expected = '0x' + '1'.repeat(64);
+
+      const mockProviderCall = jest
+        .spyOn(providerService.provider, 'call')
+        .mockImplementation(async () => {
+          const iface = new Interface(SecurityAbi__factory.abi);
+          const result = [expected];
+          return iface.encodeFunctionResult('ATTEST_MESSAGE_PREFIX', result);
+        });
+
+      const prefix = await securityService.getAttestMessagePrefix(blockNumber);
+      expect(prefix).toBe(expected);
+      expect(mockProviderCall).toBeCalledTimes(1);
+    });
+
+    it('getPauseMessagePrefix', async () => {
+      const expected = '0x' + '1'.repeat(64);
+
+      const mockProviderCall = jest
+        .spyOn(providerService.provider, 'call')
+        .mockImplementation(async () => {
+          const iface = new Interface(SecurityAbi__factory.abi);
+          const result = [expected];
+          return iface.encodeFunctionResult('PAUSE_MESSAGE_PREFIX', result);
+        });
+
+      const prefix = await securityService.getPauseMessagePrefix(blockNumber);
+      expect(prefix).toBe(expected);
+      expect(mockProviderCall).toBeCalledTimes(1);
+    });
+
+    it('getUnvetMessagePrefix', async () => {
+      const expected = '0x' + '1'.repeat(64);
+
+      const mockProviderCall = jest
+        .spyOn(providerService.provider, 'call')
+        .mockImplementation(async () => {
+          const iface = new Interface(SecurityAbi__factory.abi);
+          const result = [expected];
+          return iface.encodeFunctionResult('UNVET_MESSAGE_PREFIX', result);
+        });
+
+      const prefix = await securityService.getUnvetMessagePrefix(blockNumber);
+      expect(prefix).toBe(expected);
+      expect(mockProviderCall).toBeCalledTimes(1);
     });
   });
 });
