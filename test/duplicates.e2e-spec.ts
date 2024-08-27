@@ -170,7 +170,7 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -310,7 +310,7 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number - 2,
           endBlock: currentBlock.number - 1,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], // SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -422,7 +422,7 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number - 2,
           endBlock: currentBlock.number - 1,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -520,7 +520,7 @@ describe('ganache e2e tests', () => {
       headers: {
         startBlock: currentBlock.number - 2,
         endBlock: currentBlock.number - 1,
-        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX],
+        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
       },
     });
 

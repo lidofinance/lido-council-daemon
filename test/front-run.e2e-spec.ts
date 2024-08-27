@@ -32,7 +32,6 @@ import {
   UNLOCKED_ACCOUNTS_V2,
   FORK_BLOCK_V2,
   SECURITY_MODULE_OWNER_V2,
-  SANDBOX,
 } from './constants';
 
 // Contract Factories
@@ -188,13 +187,13 @@ describe('ganache e2e tests', () => {
         },
       });
 
-      // dont set events for keys as we check this cahce only in case of duplicated keys
+      // dont set events for keys as we check this cache only in case of duplicated keys
       await signingKeyEventsCacheService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -250,7 +249,7 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -327,7 +326,7 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -388,7 +387,7 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -510,7 +509,7 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 

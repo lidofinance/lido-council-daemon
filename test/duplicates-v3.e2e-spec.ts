@@ -19,8 +19,6 @@ import {
   NOP_REGISTRY,
   SIMPLE_DVT,
   UNLOCKED_ACCOUNTS,
-  CSM,
-  SANDBOX,
 } from './constants';
 
 // Contract Factories
@@ -215,7 +213,7 @@ describe('Deposits in case of duplicates', () => {
         headers: {
           startBlock: currentBlock.number - 2,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], // CSM, SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -350,7 +348,7 @@ describe('Deposits in case of duplicates', () => {
         headers: {
           startBlock: currentBlock.number - 2,
           endBlock: currentBlock.number - 1,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //CSM, SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -488,7 +486,7 @@ describe('Deposits in case of duplicates', () => {
         headers: {
           startBlock: currentBlock.number - 2,
           endBlock: currentBlock.number - 1,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //, CSM, SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -619,7 +617,7 @@ describe('Deposits in case of duplicates', () => {
         headers: {
           startBlock: currentBlock.number - 2,
           endBlock: currentBlock.number - 1,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], // , CSM, SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -741,7 +739,7 @@ describe('Deposits in case of duplicates', () => {
       headers: {
         startBlock: currentBlock.number - 2,
         endBlock: currentBlock.number - 1,
-        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //CSM, SANDBOX],
+        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
       },
     });
 
@@ -840,7 +838,7 @@ describe('Deposits in case of duplicates', () => {
         headers: {
           startBlock: currentBlock.number - 2,
           endBlock: currentBlock.number - 1,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //CSM, SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
