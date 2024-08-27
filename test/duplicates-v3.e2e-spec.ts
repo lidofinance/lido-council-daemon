@@ -19,8 +19,6 @@ import {
   NOP_REGISTRY,
   SIMPLE_DVT,
   UNLOCKED_ACCOUNTS,
-  CSM,
-  SANDBOX,
 } from './constants';
 
 // Contract Factories
@@ -116,7 +114,7 @@ describe('Deposits in case of duplicates', () => {
     // we cant make real unvetting
     unvetSigningKeys = jest
       .spyOn(securityService, 'unvetSigningKeys')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(null as any));
   };
 
   const setupTestingServices = async (moduleRef) => {

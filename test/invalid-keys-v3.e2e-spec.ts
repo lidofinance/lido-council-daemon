@@ -19,11 +19,9 @@ import {
   pk,
   NOP_REGISTRY,
   SIMPLE_DVT,
-  SANDBOX,
   LIDO_WC,
   UNLOCKED_ACCOUNTS,
   FORK_BLOCK,
-  CSM,
 } from './constants';
 
 // Mock rabbit straight away
@@ -152,7 +150,7 @@ describe('ganache e2e tests', () => {
     // we cant make real unvetting
     unvetSigningKeys = jest
       .spyOn(securityService, 'unvetSigningKeys')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(null as any));
   };
 
   beforeEach(async () => {
@@ -185,7 +183,7 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX, CSM],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -316,7 +314,7 @@ describe('ganache e2e tests', () => {
       headers: {
         startBlock: currentBlock.number,
         endBlock: currentBlock.number,
-        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX, CSM],
+        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
       },
     });
 

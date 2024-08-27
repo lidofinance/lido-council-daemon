@@ -10,7 +10,6 @@ import { GuardianModule } from 'guardian';
 import { DepositModule } from 'contracts/deposit';
 import { SecurityModule } from 'contracts/security';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
-import { LidoModule } from 'contracts/lido';
 import { MessagesModule } from 'messages';
 import { StakingModuleDataCollectorModule } from 'staking-module-data-collector';
 import { GuardianMetricsModule } from './guardian-metrics';
@@ -47,7 +46,6 @@ describe('GuardianService', () => {
         RepositoryModule,
         DepositModule,
         SecurityModule,
-        LidoModule,
         MessagesModule,
         StakingModuleDataCollectorModule,
         ScheduleModule,

@@ -19,7 +19,6 @@ import {
   pk,
   NOP_REGISTRY,
   SIMPLE_DVT,
-  SANDBOX,
   LIDO_WC,
   FORK_BLOCK_V2,
   UNLOCKED_ACCOUNTS_V2,
@@ -170,7 +169,7 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -275,7 +274,7 @@ describe('ganache e2e tests', () => {
       headers: {
         startBlock: currentBlock.number,
         endBlock: currentBlock.number,
-        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX],
+        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
       },
     });
 

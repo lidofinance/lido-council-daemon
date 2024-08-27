@@ -7,7 +7,11 @@ import {
   METRIC_UNVET_ATTEMPTS,
 } from 'common/prometheus';
 import { OneAtTime, StakingModuleId } from 'common/decorators';
-import { SecurityAbi, SecurityPauseV2Abi__factory } from 'generated';
+import { SecurityAbi } from 'generated';
+import {
+  SecurityDeprecatedPauseAbi,
+  SecurityDeprecatedPauseAbi__factory,
+} from 'generated';
 import { RepositoryService } from 'contracts/repository';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Counter } from 'prom-client';
@@ -49,10 +53,13 @@ export class SecurityService {
     return contractWithSigner;
   }
 
-  public getContractV2WithSigner() {
+  /**
+   * Returns an instance of the deprecated v2 security contract with only the `pause` method.
+   */
+  public getContractWithSignerDeprecated(): SecurityDeprecatedPauseAbi {
     const contract = this.repositoryService.getCachedDSMContract();
 
-    const oldContract = SecurityPauseV2Abi__factory.connect(
+    const oldContract = SecurityDeprecatedPauseAbi__factory.connect(
       contract.address,
       this.providerService.provider,
     );
@@ -135,29 +142,32 @@ export class SecurityService {
    */
   @OneAtTime()
   public async pauseDepositsV3(
-    blockNumber: number,
+    pauseBlockNumber: number,
     signature: Signature,
-  ): Promise<ContractReceipt | void> {
-    this.logger.warn('Try to pause deposits', { blockNumber });
+  ): Promise<ContractReceipt> {
+    this.logger.warn('Try to pause deposits', { pauseBlockNumber });
     this.pauseAttempts.inc();
 
     const contract = this.getContractWithSigner();
 
     const { r, _vs: vs } = signature;
-    const tx = await contract.pauseDeposits(blockNumber, {
+    const tx = await contract.pauseDeposits(pauseBlockNumber, {
       r,
       vs,
     });
 
     this.logger.warn('Pause transaction sent', {
       txHash: tx.hash,
-      blockNumber,
+      pauseBlockNumber,
     });
-    this.logger.warn('Waiting for block confirmation', { blockNumber });
+    this.logger.warn('Waiting for block confirmation', { pauseBlockNumber });
 
     const receipt = await tx.wait();
 
-    this.logger.warn('Block confirmation received', { blockNumber });
+    this.logger.warn('Block confirmation received for the pause tx', {
+      pauseBlockNumber,
+      txHash: tx.hash,
+    });
 
     return receipt;
   }
@@ -189,11 +199,11 @@ export class SecurityService {
     blockNumber: number,
     @StakingModuleId stakingModuleId: number,
     signature: Signature,
-  ): Promise<ContractReceipt | void> {
+  ): Promise<ContractReceipt> {
     this.logger.warn('Try to pause deposits', { stakingModuleId, blockNumber });
     this.pauseAttempts.inc();
 
-    const contract = this.getContractV2WithSigner();
+    const contract = this.getContractWithSignerDeprecated();
 
     const { r, _vs: vs } = signature;
     const tx = await contract.pauseDeposits(blockNumber, stakingModuleId, {
@@ -276,7 +286,7 @@ export class SecurityService {
     operatorIds: string,
     vettedKeysByOperator: string,
     signature: Signature,
-  ): Promise<ContractReceipt | void> {
+  ): Promise<ContractReceipt> {
     this.logger.warn('Try to unvet keys for staking module', {
       stakingModuleId,
       blockNumber,
@@ -355,30 +365,10 @@ export class SecurityService {
   /**
    * Check if deposits paused
    */
-  public async isDepositContractPaused(blockTag?: BlockTag) {
+  public async isDepositsPaused(blockTag?: BlockTag) {
     const contract = await this.repositoryService.getCachedDSMContract();
 
     return contract.isDepositsPaused({ blockTag: blockTag as any });
-  }
-
-  /**
-   * Returns the current state of deposits for module
-   */
-  public async isModuleDepositsPaused(
-    stakingModuleId: number,
-    blockTag?: BlockTag,
-  ): Promise<boolean> {
-    const stakingRouterContract =
-      await this.repositoryService.getCachedStakingRouterContract();
-
-    const isActive = await stakingRouterContract.getStakingModuleIsActive(
-      stakingModuleId,
-      {
-        blockTag: blockTag as any,
-      },
-    );
-
-    return !isActive;
   }
 
   /**

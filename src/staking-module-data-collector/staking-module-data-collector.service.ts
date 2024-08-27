@@ -9,6 +9,7 @@ import { SecurityService } from 'contracts/security';
 import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 import { KeysDuplicationCheckerService } from 'guardian/duplicates';
 import { GuardianMetricsService } from 'guardian/guardian-metrics';
+import { StakingRouterService } from 'contracts/staking-router';
 
 type State = {
   operatorsByModules: SROperatorListWithModule[];
@@ -25,6 +26,7 @@ export class StakingModuleDataCollectorService {
     private stakingModuleGuardService: StakingModuleGuardService,
     private keysDuplicationCheckerService: KeysDuplicationCheckerService,
     private guardianMetricsService: GuardianMetricsService,
+    private stakingRouterService: StakingRouterService,
   ) {}
 
   /**
@@ -51,9 +53,12 @@ export class StakingModuleDataCollectorService {
 
         // check pause
         const isModuleDepositsPaused =
-          await this.securityService.isModuleDepositsPaused(stakingModule.id, {
-            blockHash: blockData.blockHash,
-          });
+          await this.stakingRouterService.isModuleDepositsPaused(
+            stakingModule.id,
+            {
+              blockHash: blockData.blockHash,
+            },
+          );
 
         return {
           isModuleDepositsPaused,

@@ -12,9 +12,9 @@ import {
   METRIC_BLOCK_DATA_REQUEST_ERRORS,
 } from 'common/prometheus';
 import { Counter, Histogram } from 'prom-client';
-import { LidoService } from 'contracts/lido';
 import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 import { WalletService } from 'wallet';
+import { StakingRouterService } from 'contracts/staking-router';
 
 @Injectable()
 export class BlockGuardService {
@@ -34,7 +34,7 @@ export class BlockGuardService {
 
     private depositService: DepositService,
     private securityService: SecurityService,
-    private lidoService: LidoService,
+    private stakingRouterService: StakingRouterService,
 
     private stakingModuleGuardService: StakingModuleGuardService,
   ) {}
@@ -92,7 +92,7 @@ export class BlockGuardService {
         this.depositService.getDepositRoot({ blockHash }),
         this.depositService.getAllDepositedEvents(blockNumber, blockHash),
         this.securityService.getGuardianIndex({ blockHash }),
-        this.lidoService.getWithdrawalCredentials({ blockHash }),
+        this.stakingRouterService.getWithdrawalCredentials({ blockHash }),
         this.securityService.version({
           blockHash,
         }),
@@ -146,7 +146,7 @@ export class BlockGuardService {
     securityVersion: number,
   ) {
     if (securityVersion === 3) {
-      const alreadyPaused = await this.securityService.isDepositContractPaused({
+      const alreadyPaused = await this.securityService.isDepositsPaused({
         blockHash,
       });
 

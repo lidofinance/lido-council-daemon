@@ -27,9 +27,6 @@ export class RepositoryService {
     string,
     LidoAbi | LocatorAbi | SecurityAbi | StakingRouterAbi
   > = {};
-  // store prefixes on the current state of the contracts.
-  // if the contracts are updated we will change these addresses too
-  private cachedDSMPrefixes: Record<string, string> = {};
   private permanentContractsCache: Record<string, DepositAbi> = {};
 
   /**
@@ -152,9 +149,6 @@ export class RepositoryService {
       DSM_ABI,
       SecurityAbi__factory.connect(address, provider),
     );
-
-    // prune dsm prefixes
-    this.cachedDSMPrefixes = {};
   }
 
   /**
@@ -163,8 +157,6 @@ export class RepositoryService {
   private async initCachedDepositContract(blockTag: BlockTag): Promise<void> {
     if (this.permanentContractsCache[DEPOSIT_ABI]) return;
     const depositAddress = await this.getDepositAddress(blockTag);
-
-    console.log('depositAddress', depositAddress);
     const provider = this.providerService.provider;
 
     this.setPermanentContractCache(

@@ -190,27 +190,6 @@ describe('SecurityService', () => {
     });
   });
 
-  describe('isDepositsPaused', () => {
-    it('should call contract method', async () => {
-      const expected = true;
-
-      const mockProviderCalla = jest
-        .spyOn(providerService.provider, 'call')
-        .mockImplementation(async () => {
-          const iface = new Interface(StakingRouterAbi__factory.abi);
-          return iface.encodeFunctionResult('getStakingModuleIsActive', [
-            expected,
-          ]);
-        });
-
-      const isPaused = await securityService.isModuleDepositsPaused(
-        TEST_MODULE_ID,
-      );
-      expect(isPaused).toBe(!expected);
-      expect(mockProviderCalla).toBeCalledTimes(1);
-    });
-  });
-
   describe('pauseDepositsV2', () => {
     const hash = hexZeroPad('0x1', 32);
     const blockNumber = 10;
@@ -234,7 +213,7 @@ describe('SecurityService', () => {
         .mockImplementation(async () => ({ wait: mockWait, hash }));
 
       mockGetContractWithSigner = jest
-        .spyOn(securityService, 'getContractV2WithSigner')
+        .spyOn(securityService, 'getContractWithSignerDeprecated')
         .mockImplementation(
           () => ({ pauseDeposits: mockPauseDeposits } as any),
         );
