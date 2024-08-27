@@ -4,7 +4,7 @@ import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { MockProviderModule, ProviderService } from 'provider';
 import { WalletService } from 'wallet';
-import { SecurityAbi__factory, StakingRouterAbi__factory } from 'generated';
+import { SecurityAbi__factory } from 'generated';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { Interface } from '@ethersproject/abi';
