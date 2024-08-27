@@ -31,9 +31,6 @@ describe('SecurityService', () => {
   let repositoryService: RepositoryService;
   let walletService: WalletService;
   let loggerService: LoggerService;
-  let mockGetAttestMessagePrefix: jest.SpyInstance<Promise<string>, []>;
-  // let mockGetPauseMessagePrefix: jest.SpyInstance<Promise<string>, []>;
-
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
@@ -57,9 +54,7 @@ describe('SecurityService', () => {
 
     mockLocator(moduleRef.get(LocatorService));
 
-    const repo = await mockRepository(repositoryService);
-    // mockGetAttestMessagePrefix = repo.mockGetAttestMessagePrefix;
-    // mockGetPauseMessagePrefix = repo.mockGetPauseMessagePrefix;
+    await mockRepository(repositoryService);
   });
 
   describe('getGuardians', () => {
@@ -202,8 +197,7 @@ describe('SecurityService', () => {
 
     beforeEach(async () => {
       mockWait = jest.fn().mockImplementation(async () => undefined);
-      const repo = await mockRepository(repositoryService);
-      // mockGetPauseMessagePrefix = repo.mockGetPauseMessagePrefix;
+      await mockRepository(repositoryService);
       mockGetPauseMessagePrefix = jest
         .spyOn(securityService, 'getPauseMessagePrefix')
         .mockImplementation(async () => hexZeroPad('0x2', 32));

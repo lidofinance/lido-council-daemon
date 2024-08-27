@@ -28,9 +28,7 @@ import {
   pk,
   NOP_REGISTRY,
   SIMPLE_DVT,
-  SANDBOX,
   UNLOCKED_ACCOUNTS,
-  CSM,
   SECURITY_MODULE,
 } from './constants';
 
@@ -186,7 +184,7 @@ describe('ganache e2e tests', () => {
           key: toHexString(pk),
           depositSignature: toHexString(signature),
           operatorIndex: mockOperator1.index,
-          used: false, // TODO: true
+          used: false,
           index: 1,
           moduleAddress: NOP_REGISTRY,
         },
@@ -210,7 +208,7 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX, CSM],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -278,7 +276,7 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX, CSM],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -298,7 +296,7 @@ describe('ganache e2e tests', () => {
           key: toHexString(pk),
           depositSignature: toHexString(goodSign),
           operatorIndex: mockOperator1.index,
-          used: false, // TODO: true
+          used: false,
           index: 0,
           moduleAddress: NOP_REGISTRY,
         },
@@ -354,7 +352,7 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX, CSM],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -415,7 +413,7 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX, CSM],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -527,7 +525,7 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT], //SANDBOX, CSM],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
