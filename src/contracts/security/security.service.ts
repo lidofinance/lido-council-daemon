@@ -6,7 +6,7 @@ import {
   METRIC_PAUSE_ATTEMPTS,
   METRIC_UNVET_ATTEMPTS,
 } from 'common/prometheus';
-import { OneAtTime, StakingModuleId } from 'common/decorators';
+import { OneAtTime, OneAtTimeCallId } from 'common/decorators';
 import { SecurityAbi } from 'generated';
 import {
   SecurityDeprecatedPauseAbi,
@@ -197,7 +197,7 @@ export class SecurityService {
   @OneAtTime()
   public async pauseDepositsV2(
     blockNumber: number,
-    @StakingModuleId stakingModuleId: number,
+    @OneAtTimeCallId stakingModuleId: number,
     signature: Signature,
   ): Promise<ContractReceipt> {
     this.logger.warn('Try to pause deposits', { stakingModuleId, blockNumber });
@@ -282,7 +282,7 @@ export class SecurityService {
     nonce: number,
     blockNumber: number,
     blockHash: string,
-    @StakingModuleId stakingModuleId: number,
+    @OneAtTimeCallId stakingModuleId: number,
     operatorIds: string,
     vettedKeysByOperator: string,
     signature: Signature,
