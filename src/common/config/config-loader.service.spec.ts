@@ -1,7 +1,8 @@
+import { BigNumber } from '@ethersproject/bignumber';
 import { Test } from '@nestjs/testing';
 import { plainToClass } from 'class-transformer';
+import { validateOrReject, ValidationError } from 'class-validator';
 import { ConfigLoaderService } from './config-loader.service';
-import { BadConfigException } from './exceptions';
 import { InMemoryConfiguration } from './in-memory-configuration';
 
 const FAKE_FS = {
@@ -171,82 +172,171 @@ describe('ConfigLoaderService base spec', () => {
   });
 
   describe('balance', () => {
-    let configLoaderService: ConfigLoaderService;
     const DEFAULTS_WITH_RABBIT = {
       ...DEFAULTS,
       RABBITMQ_PASSCODE: 'some-rabbit-passcode',
     };
 
-    beforeEach(async () => {
-      const moduleRef = await Test.createTestingModule({
-        imports: [ConfigLoaderService],
-      }).compile();
-
-      configLoaderService = moduleRef.get(ConfigLoaderService);
-    });
-
     test('should throw an error for an excessively small WALLET_CRITICAL_BALANCE', async () => {
       const WALLET_CRITICAL_BALANCE = '0.0000000000000000001';
-      try {
-        plainToClass(InMemoryConfiguration, {
-          WALLET_CRITICAL_BALANCE,
-        });
+      const plainConfig = plainToClass(InMemoryConfiguration, {
+        WALLET_CRITICAL_BALANCE,
+        ...DEFAULTS_WITH_RABBIT,
+      });
 
-        throw new Error('Expected BadConfigException was not thrown');
-      } catch (error) {
-        if (error instanceof BadConfigException) {
-          expect(error.message).toBe(
-            `Invalid WALLET_CRITICAL_BALANCE value: ${WALLET_CRITICAL_BALANCE}. Please ensure it's a valid Ether amount that can be converted to Wei.`,
-          );
-        } else {
-          throw new Error(`Unexpected error type`);
-        }
-      }
+      expect(plainConfig).toHaveProperty('WALLET_CRITICAL_BALANCE');
+      expect(plainConfig.WALLET_CRITICAL_BALANCE).toBeNaN();
+
+      await validateOrReject(plainConfig, {
+        validationError: { target: false, value: false },
+      }).catch((errors) => {
+        expect(errors).toBeInstanceOf(Array);
+        expect(errors.length).toBe(1);
+        expect(errors[0]).toBeInstanceOf(ValidationError);
+        expect(errors[0].property).toBe('WALLET_CRITICAL_BALANCE');
+        expect(errors[0].constraints).toHaveProperty(
+          'isInstance',
+          'WALLET_CRITICAL_BALANCE must be an instance of BigNumber',
+        );
+      });
+    });
+
+    test('should throw an error for an empty WALLET_CRITICAL_BALANCE', async () => {
+      const WALLET_CRITICAL_BALANCE = '';
+      const plainConfig = plainToClass(InMemoryConfiguration, {
+        WALLET_CRITICAL_BALANCE,
+        ...DEFAULTS_WITH_RABBIT,
+      });
+
+      expect(plainConfig).toHaveProperty('WALLET_CRITICAL_BALANCE');
+      expect(plainConfig.WALLET_CRITICAL_BALANCE).toBeNaN();
+
+      await validateOrReject(plainConfig, {
+        validationError: { target: false, value: false },
+      }).catch((errors) => {
+        expect(errors).toBeInstanceOf(Array);
+        expect(errors.length).toBe(1);
+        expect(errors[0]).toBeInstanceOf(ValidationError);
+        expect(errors[0].property).toBe('WALLET_CRITICAL_BALANCE');
+        expect(errors[0].constraints).toHaveProperty(
+          'isInstance',
+          'WALLET_CRITICAL_BALANCE must be an instance of BigNumber',
+        );
+      });
     });
 
     test('should handle normal WALLET_CRITICAL_BALANCE values correctly', async () => {
-      const prepConfig = plainToClass(InMemoryConfiguration, {
+      const plainConfig = plainToClass(InMemoryConfiguration, {
         WALLET_CRITICAL_BALANCE: '0.2',
         ...DEFAULTS_WITH_RABBIT,
       });
 
-      const config = await configLoaderService.loadSecrets(prepConfig);
+      await validateOrReject(plainConfig, {
+        validationError: { target: false, value: false },
+      }).then(() => {
+        expect(plainConfig).toHaveProperty('WALLET_CRITICAL_BALANCE');
+        expect(plainConfig.WALLET_CRITICAL_BALANCE).toBeInstanceOf(BigNumber);
+        expect(plainConfig.WALLET_CRITICAL_BALANCE.toString()).toBe(
+          '200000000000000000',
+        );
+      });
+    });
 
-      expect(config).toHaveProperty('WALLET_CRITICAL_BALANCE');
-      expect(config.WALLET_CRITICAL_BALANCE.toString()).toBe(
-        '200000000000000000',
-      ); // Equivalent of 0.2 ETH in Wei
+    test('should use default WALLET_CRITICAL_BALANCE value', async () => {
+      const plainConfig = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+      });
+
+      await validateOrReject(plainConfig, {
+        validationError: { target: false, value: false },
+      }).then(() => {
+        expect(plainConfig).toHaveProperty('WALLET_CRITICAL_BALANCE');
+        expect(plainConfig.WALLET_CRITICAL_BALANCE).toBeInstanceOf(BigNumber);
+        expect(plainConfig.WALLET_CRITICAL_BALANCE.toString()).toBe(
+          '200000000000000000',
+        );
+      });
     });
 
     test('should throw an error for an excessively small WALLET_MIN_BALANCE', async () => {
       const WALLET_MIN_BALANCE = '0.0000000000000000001';
-      try {
-        plainToClass(InMemoryConfiguration, {
-          WALLET_MIN_BALANCE,
-        });
+      const plainConfig = plainToClass(InMemoryConfiguration, {
+        WALLET_MIN_BALANCE,
+        ...DEFAULTS_WITH_RABBIT,
+      });
 
-        throw new Error('Expected BadConfigException was not thrown');
-      } catch (error) {
-        if (error instanceof BadConfigException) {
-          expect(error.message).toBe(
-            `Invalid WALLET_MIN_BALANCE value: ${WALLET_MIN_BALANCE}. Please ensure it's a valid Ether amount that can be converted to Wei.`,
-          );
-        } else {
-          throw new Error(`Unexpected error type`);
-        }
-      }
+      expect(plainConfig).toHaveProperty('WALLET_MIN_BALANCE');
+      expect(plainConfig.WALLET_MIN_BALANCE).toBeNaN();
+
+      await validateOrReject(plainConfig, {
+        validationError: { target: false, value: false },
+      }).catch((errors) => {
+        expect(errors).toBeInstanceOf(Array);
+        expect(errors.length).toBe(1);
+        expect(errors[0]).toBeInstanceOf(ValidationError);
+        expect(errors[0].property).toBe('WALLET_MIN_BALANCE');
+        expect(errors[0].constraints).toHaveProperty(
+          'isInstance',
+          'WALLET_MIN_BALANCE must be an instance of BigNumber',
+        );
+      });
+    });
+
+    test('should throw an error for an empty WALLET_MIN_BALANCE', async () => {
+      const WALLET_MIN_BALANCE = '';
+      const plainConfig = plainToClass(InMemoryConfiguration, {
+        WALLET_MIN_BALANCE,
+        ...DEFAULTS_WITH_RABBIT,
+      });
+
+      expect(plainConfig).toHaveProperty('WALLET_MIN_BALANCE');
+      expect(plainConfig.WALLET_MIN_BALANCE).toBeNaN();
+
+      await validateOrReject(plainConfig, {
+        validationError: { target: false, value: false },
+      }).catch((errors) => {
+        expect(errors).toBeInstanceOf(Array);
+        expect(errors.length).toBe(1);
+        expect(errors[0]).toBeInstanceOf(ValidationError);
+        expect(errors[0].property).toBe('WALLET_MIN_BALANCE');
+        expect(errors[0].constraints).toHaveProperty(
+          'isInstance',
+          'WALLET_MIN_BALANCE must be an instance of BigNumber',
+        );
+      });
     });
 
     test('should handle normal WALLET_MIN_BALANCE values correctly', async () => {
-      const prepConfig = plainToClass(InMemoryConfiguration, {
+      const plainConfig = plainToClass(InMemoryConfiguration, {
         WALLET_MIN_BALANCE: '0.2',
         ...DEFAULTS_WITH_RABBIT,
       });
 
-      const config = await configLoaderService.loadSecrets(prepConfig);
+      await validateOrReject(plainConfig, {
+        validationError: { target: false, value: false },
+      }).then(() => {
+        expect(plainConfig).toHaveProperty('WALLET_MIN_BALANCE');
+        expect(plainConfig.WALLET_MIN_BALANCE).toBeInstanceOf(BigNumber);
+        expect(plainConfig.WALLET_MIN_BALANCE.toString()).toBe(
+          '200000000000000000',
+        );
+      });
+    });
 
-      expect(config).toHaveProperty('WALLET_MIN_BALANCE');
-      expect(config.WALLET_MIN_BALANCE.toString()).toBe('200000000000000000'); // Equivalent of 0.2 ETH in Wei
+    test('should use default WALLET_MIN_BALANCE value', async () => {
+      const plainConfig = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+      });
+
+      await validateOrReject(plainConfig, {
+        validationError: { target: false, value: false },
+      }).then(() => {
+        expect(plainConfig).toHaveProperty('WALLET_MIN_BALANCE');
+        expect(plainConfig.WALLET_MIN_BALANCE).toBeInstanceOf(BigNumber);
+        expect(plainConfig.WALLET_MIN_BALANCE.toString()).toBe(
+          '500000000000000000',
+        );
+      });
     });
   });
 });
