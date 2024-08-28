@@ -16,6 +16,7 @@ import {
   validKeys,
 } from './keys.fixtures';
 import { GENESIS_FORK_VERSION_BY_CHAIN_ID } from 'bls/bls.constants';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 describe('KeysValidationService', () => {
   let keysValidationService: KeysValidationService;
@@ -40,6 +41,10 @@ describe('KeysValidationService', () => {
     keysValidator = moduleRef.get(KeyValidatorInterface);
 
     validateKeysFun = jest.spyOn(keysValidator, 'validateKeys');
+
+    const loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
+    jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
+    jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
   });
 
   it('should find and return invalid keys from the provided list', async () => {

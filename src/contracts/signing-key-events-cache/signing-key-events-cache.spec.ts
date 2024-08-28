@@ -10,6 +10,7 @@ import { mockLocator } from 'contracts/repository/locator/locator.mock';
 import { cacheMock, newEvent } from './leveldb/leveldb.fixtures';
 import { SigningKeyEventsCacheModule } from './signing-key-events-cache.module';
 import { SigningKeyEventsCacheService } from './signing-key-events-cache.service';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 describe('SigningKeyEventsCacheService', () => {
   const defaultCacheValue = {
@@ -44,6 +45,10 @@ describe('SigningKeyEventsCacheService', () => {
     locatorService = moduleRef.get(LocatorService);
     signingkeyEventsCacheService = moduleRef.get(SigningKeyEventsCacheService);
     providerService = moduleRef.get(ProviderService);
+
+    const loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
+    jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
+    jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
 
     mockLocator(locatorService);
     await mockRepository(repositoryService);
