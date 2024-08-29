@@ -458,10 +458,12 @@ export class StakingModuleGuardService {
     if (!firstState || !secondState) return false;
     if (firstState.depositRoot !== secondState.depositRoot) return false;
 
-    // If the nonce is unchanged, the state might still have changed.
-    // Therefore, we need to compare the 'lastChangedBlockHash' instead
-    // It's important to note that it's not possible for the nonce to be different
-    // while having the same 'lastChangedBlockHash'.
+    // If the nonce is unchanged, the state might still have changed due to a reorganization.
+    // Therefore, we need to compare the 'lastChangedBlockHash' instead.
+    // It's important to note that the nonce cannot be different while having the same 'lastChangedBlockHash'.
+    // Additionally, it's important to note that 'lastChangedBlockHash' will change not only during key update-related events,
+    // but also when a node operator is added, when node operator data is changed, during a reorganization, and so on.
+    // TODO: We may need to reconsider this approach for the Data Bus.
     if (firstState.lastChangedBlockHash !== secondState.lastChangedBlockHash)
       return false;
 
