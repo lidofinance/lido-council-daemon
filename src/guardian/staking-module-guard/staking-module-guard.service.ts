@@ -33,7 +33,15 @@ export class StakingModuleGuardService {
   private lastContractsStateByModuleId: Record<number, ContractsState | null> =
     {};
 
-  isFirstEventEarlier(
+  /**
+   * Determines if the first event occurred earlier than the second event.
+   * Compares block numbers first; if they are equal, compares log indexes.
+   *
+   * @param firstEvent - The first event to compare.
+   * @param secondEvent - The second event to compare.
+   * @returns True if the first event is earlier, false otherwise.
+   */
+  private isFirstEventEarlier(
     firstEvent: VerifiedDepositEvent,
     secondEvent: VerifiedDepositEvent,
   ) {
@@ -49,63 +57,127 @@ export class StakingModuleGuardService {
 
     return isFirstEventEarlier;
   }
+
   /**
-   * Method is not taking into account WC rotation since historical deposits were checked manually
-   * @param blockData
-   * @returns
+   * Filters and retrieves deposit events that have Lido's withdrawal credentials
+   * and are marked as valid.
+   *
+   * @param depositedEvents - A group of deposit events.
+   * @param lidoWC - The withdrawal credential associated with Lido.
+   * @returns An array of deposit events that match the Lido withdrawal credential and are valid.
    */
-  public async getHistoricalFrontRun(
+  private getDepositsWithLidoWC(
     depositedEvents: VerifiedDepositEventGroup,
     lidoWC: string,
-  ) {
-    const potentialLidoDepositsEvents = depositedEvents.events.filter(
+  ): VerifiedDepositEvent[] {
+    // Filter events for those with Lido withdrawal credentials and valid status
+    const depositsMatchingLidoWC = depositedEvents.events.filter(
       ({ wc, valid }) => wc === lidoWC && valid,
     );
 
-    this.logger.log('potential lido deposits events count', {
-      count: potentialLidoDepositsEvents.length,
+    this.logger.log('Deposits matching Lido WC count', {
+      count: depositsMatchingLidoWC.length,
     });
 
-    const potentialLidoDepositsKeysMap: Record<string, VerifiedDepositEvent> =
+    return depositsMatchingLidoWC;
+  }
+
+  /**
+   * Creates a map of the earliest deposit events for each public key.
+   * If multiple deposits are found for the same public key, only the earliest one is stored.
+   *
+   * @param depositsMatchingLidoWC - Array of deposit events that match the Lido withdrawal credential
+   * @returns A record map with public keys as keys and the earliest deposit events as values.
+   */
+  private getEarliestDepositsMap(
+    depositsMatchingLidoWC: VerifiedDepositEvent[],
+  ): Record<string, VerifiedDepositEvent> {
+    const earliestLidoWCDepositsByPubkey: Record<string, VerifiedDepositEvent> =
       {};
 
-    potentialLidoDepositsEvents.forEach((event) => {
-      if (potentialLidoDepositsKeysMap[event.pubkey]) {
-        const existed = potentialLidoDepositsKeysMap[event.pubkey];
-        const isExisted = this.isFirstEventEarlier(existed, event);
-        // this should not happen, since Lido deposits once per key.
-        // but someone can still make such a deposit.
-        if (isExisted) return;
+    depositsMatchingLidoWC.forEach((event) => {
+      const existingDeposit = earliestLidoWCDepositsByPubkey[event.pubkey];
+
+      if (existingDeposit) {
+        const isExistingEarlier = this.isFirstEventEarlier(
+          existingDeposit,
+          event,
+        );
+        // This should not happen, since only one deposit per key is expected.
+        // However, someone could still make such a deposit.
+        if (isExistingEarlier) return;
       }
-      potentialLidoDepositsKeysMap[event.pubkey] = event;
+      earliestLidoWCDepositsByPubkey[event.pubkey] = event;
     });
 
-    // suspicious events with non lido wc
-    const duplicatedDepositEvents: VerifiedDepositEvent[] = [];
+    return earliestLidoWCDepositsByPubkey;
+  }
 
-    depositedEvents.events.forEach((event) => {
-      if (potentialLidoDepositsKeysMap[event.pubkey] && event.wc !== lidoWC) {
-        duplicatedDepositEvents.push(event);
+  /**
+   * Identifies duplicated deposit events that have non-Lido withdrawal credentials.
+   * These are deposits made on the same public key but with different withdrawal credentials.
+   *
+   * @param depositEventGroup - A group of deposit events.
+   * @param lidoWithdrawalCredential - The withdrawal credential associated with Lido.
+   * @param earliestDepositsByPubkey - A map of the earliest deposit events with Lido wc by public key.
+   * @returns An array of duplicated deposit events with non-Lido withdrawal credentials.
+   */
+  private getNonLidoDuplicatedDeposits(
+    depositedEventsGroup: VerifiedDepositEventGroup,
+    lidoWC: string,
+    earliestLidoWCDepositsByPubkey: Record<string, VerifiedDepositEvent>,
+  ): VerifiedDepositEvent[] {
+    const nonLidoDuplicatedDeposits: VerifiedDepositEvent[] = [];
+
+    const { events: depositedEvents } = depositedEventsGroup;
+
+    depositedEvents.forEach((event) => {
+      if (earliestLidoWCDepositsByPubkey[event.pubkey] && event.wc !== lidoWC) {
+        nonLidoDuplicatedDeposits.push(event);
       }
     });
 
-    this.logger.log('duplicated deposit events', {
-      count: duplicatedDepositEvents.length,
+    this.logger.log('Non-Lido duplicated deposit events count', {
+      count: nonLidoDuplicatedDeposits.length,
     });
 
-    const validDuplicatedDepositEvents = duplicatedDepositEvents.filter(
+    return nonLidoDuplicatedDeposits;
+  }
+
+  /**
+   * Filters and returns valid duplicated deposit events from a given list.
+   * @param nonLidoDuplicatedDeposits - An array of duplicated deposit events with non-Lido withdrawal credentials
+   * @returns  An array of valid duplicated deposit events.
+   */
+  private getValidNonLidoDuplicatedDeposits(
+    nonLidoDuplicatedDeposits: VerifiedDepositEvent[],
+  ): VerifiedDepositEvent[] {
+    const validNonLidoDuplicatedDeposits = nonLidoDuplicatedDeposits.filter(
       (event) => event.valid,
     );
 
-    this.logger.log('valid duplicated deposit events', {
-      count: validDuplicatedDepositEvents.length,
+    this.logger.log('Valid non-lido duplicated deposit events count', {
+      count: validNonLidoDuplicatedDeposits.length,
     });
 
-    const frontRunnedDepositEvents = validDuplicatedDepositEvents.filter(
+    return validNonLidoDuplicatedDeposits;
+  }
+
+  /**
+   * Identifies and returns the public keys associated with deposit events that front-ran the deposits with lido withdrawal credentials.
+   * @param validNonLidoDuplicatedDeposits - An array of duplicated deposit events with non-Lido withdrawal credentials.
+   * @param earliestLidoWCDepositsByPubkey -  A map of the earliest deposit events with Lido withdrawal credentials by public key.
+   * @returns An array of public keys for events that front-ran deposits with lido withdrawal credentials.
+   */
+  private getFrontRun(
+    validNonLidoDuplicatedDeposits: VerifiedDepositEvent[],
+    earliestLidoWCDepositsByPubkey: Record<string, VerifiedDepositEvent>,
+  ): string[] {
+    const frontRunnedDepositEvents = validNonLidoDuplicatedDeposits.filter(
       (suspectedEvent) => {
         // get event from lido map
         const sameKeyLidoDeposit =
-          potentialLidoDepositsKeysMap[suspectedEvent.pubkey];
+          earliestLidoWCDepositsByPubkey[suspectedEvent.pubkey];
 
         // TODO: do we need to leave here this check
         if (!sameKeyLidoDeposit) throw new Error('expected event not found');
@@ -114,7 +186,7 @@ export class StakingModuleGuardService {
       },
     );
 
-    this.logger.log('front runned deposit events', {
+    this.logger.log('Front-ran deposit events', {
       events: frontRunnedDepositEvents,
     });
 
@@ -122,30 +194,73 @@ export class StakingModuleGuardService {
       ({ pubkey }) => pubkey,
     );
 
-    if (!frontRunnedDepositKeys.length) {
+    return frontRunnedDepositKeys;
+  }
+
+  /**
+   * Retrieves the keys associated with front-runned deposits that were previously deposited by Lido.
+   *
+   * @param frontRunnedDepositKeys - An array of public keys for events that front-ran deposits with lido withdrawal credentials.
+   * @returns An array of registry keys that were previously deposited by Lido.
+   */
+  private async getKeysDepositedByLido(
+    frontRunnedDepositKeys: string[],
+  ): Promise<RegistryKey[]> {
+    const { data: lidoDepositedKeys } =
+      await this.keysApiService.getKeysByPubkeys(frontRunnedDepositKeys);
+
+    return lidoDepositedKeys.filter((key) => key.used);
+  }
+
+  /**
+   * Checks if Lido deposits have been front-ran in the past based on historical deposit data.
+   * This method does not account for WC rotation as historical deposits were manually checked.
+   *
+   * @param depositedEvents - A group of historical deposit events.
+   * @param lidoWC - The withdrawal credential associated with Lido.
+   * @returns True if front-running was detected at any point in the past; false if no front-running occurred.
+   */
+  public async getHistoricalFrontRun(
+    depositedEvents: VerifiedDepositEventGroup,
+    lidoWC: string,
+  ) {
+    const lidoWCDeposits = this.getDepositsWithLidoWC(depositedEvents, lidoWC);
+
+    const earliestDepositsMap = this.getEarliestDepositsMap(lidoWCDeposits);
+
+    const nonLidoDuplicatedDeposits = this.getNonLidoDuplicatedDeposits(
+      depositedEvents,
+      lidoWC,
+      earliestDepositsMap,
+    );
+
+    const validNonLidoDeposits = this.getValidNonLidoDuplicatedDeposits(
+      nonLidoDuplicatedDeposits,
+    );
+
+    const frontRunnedDepositKeys = this.getFrontRun(
+      validNonLidoDeposits,
+      earliestDepositsMap,
+    );
+
+    if (frontRunnedDepositKeys.length === 0) {
       return false;
     }
 
-    // If someone adds a key and then, in the same block,
-    // makes a deposit on an unused Lido key with a non-Lido withdrawal credential (WC),
-    // and then makes a deposit on this key with a Lido WC, we will trigger a pause.
-    // To handle this, we can filter only for used keys in lidoDepositedKeys.
-    // If any are found, we should trigger a pause. If no used key is found, we will unvet this key later.
-    const lidoDepositedKeys = await this.keysApiService.getKeysByPubkeys(
+    // front run happened only if these keys exist in lido contracts
+    const frontRunnedLidoDeposits = await this.getKeysDepositedByLido(
       frontRunnedDepositKeys,
     );
 
-    const usedLidoDepositedKeys = lidoDepositedKeys.data.filter(
-      (key) => key.used,
-    );
+    const hasFrontRunning = frontRunnedLidoDeposits.length > 0;
 
-    const isUsedLidoDepositedKeys = usedLidoDepositedKeys.length;
-
-    if (isUsedLidoDepositedKeys) {
-      this.logger.warn('historical front-run found');
+    if (hasFrontRunning) {
+      this.logger.warn('Found historical front-run', {
+        frontRunnedLidoDeposits,
+      });
     }
 
-    return !!isUsedLidoDepositedKeys;
+    return hasFrontRunning;
   }
 
   public async alreadyPausedDeposits(blockData: BlockData, version: number) {
