@@ -80,6 +80,7 @@ export class StakingModuleGuardService {
       potentialLidoDepositsKeysMap[event.pubkey] = event;
     });
 
+    // suspicious events with non lido wc
     const duplicatedDepositEvents: VerifiedDepositEvent[] = [];
 
     depositedEvents.events.forEach((event) => {
@@ -106,6 +107,7 @@ export class StakingModuleGuardService {
         const sameKeyLidoDeposit =
           potentialLidoDepositsKeysMap[suspectedEvent.pubkey];
 
+        // TODO: do we need to leave here this check
         if (!sameKeyLidoDeposit) throw new Error('expected event not found');
 
         return this.isFirstEventEarlier(suspectedEvent, sameKeyLidoDeposit);
@@ -124,21 +126,26 @@ export class StakingModuleGuardService {
       return false;
     }
 
-    // TODO: deposit could be made by someone else
-    // and pubkey maybe not used. and we are able to unvet it
-    // but we will pause
-    // so maybe we need to filter by used field
+    // If someone adds a key and then, in the same block,
+    // makes a deposit on an unused Lido key with a non-Lido withdrawal credential (WC),
+    // and then makes a deposit on this key with a Lido WC, we will trigger a pause.
+    // To handle this, we can filter only for used keys in lidoDepositedKeys.
+    // If any are found, we should trigger a pause. If no used key is found, we will unvet this key later.
     const lidoDepositedKeys = await this.keysApiService.getKeysByPubkeys(
       frontRunnedDepositKeys,
     );
 
-    const isLidoDepositedKeys = lidoDepositedKeys.data.length;
+    const usedLidoDepositedKeys = lidoDepositedKeys.data.filter(
+      (key) => key.used,
+    );
 
-    if (isLidoDepositedKeys) {
+    const isUsedLidoDepositedKeys = usedLidoDepositedKeys.length;
+
+    if (isUsedLidoDepositedKeys) {
       this.logger.warn('historical front-run found');
     }
 
-    return !!isLidoDepositedKeys;
+    return !!isUsedLidoDepositedKeys;
   }
 
   public async alreadyPausedDeposits(blockData: BlockData, version: number) {
@@ -362,13 +369,11 @@ export class StakingModuleGuardService {
 
     const { nonce, stakingModuleId, lastChangedBlockHash } = stakingModuleData;
 
-    // if we are here we didn't find invalid keys
     const currentContractState = {
       nonce,
       depositRoot,
       blockNumber,
       lastChangedBlockHash,
-      // if we are here we didn't find invalid keys
     };
 
     const lastContractsState =

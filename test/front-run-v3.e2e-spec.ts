@@ -30,6 +30,7 @@ import {
   SIMPLE_DVT,
   UNLOCKED_ACCOUNTS,
   SECURITY_MODULE,
+  NO_PRIVKEY_MESSAGE,
 } from './constants';
 
 // Contract Factories
@@ -59,6 +60,7 @@ import { DepositIntegrityCheckerService } from 'contracts/deposit/integrity-chec
 import { BlsService } from 'bls';
 import { makeDeposit, signDeposit } from './helpers/deposit';
 import { mockKey, mockKey2 } from './helpers/keys-fixtures';
+import { ethers } from 'ethers';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -608,6 +610,136 @@ describe('ganache e2e tests', () => {
       const isOnPause = await securityContract.isDepositsPaused();
 
       expect(isOnPause).toBe(true);
+    },
+    TESTS_TIMEOUT,
+  );
+
+  test(
+    'pause will not happen because of front-run attempt (key unused)',
+    async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
+
+      await depositService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+        },
+      });
+
+      await signingKeyEventsCacheService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
+        },
+      });
+
+      const { signature: lidoSign } = signDeposit(pk, sk);
+      const { signature: theftDepositSign } = signDeposit(pk, sk, BAD_WC);
+
+      if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
+      const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
+
+      const keys = [
+        {
+          key: toHexString(pk),
+          depositSignature: toHexString(lidoSign),
+          operatorIndex: 0,
+          used: false,
+          index: 0,
+          moduleAddress: NOP_REGISTRY,
+        },
+      ];
+
+      const { curatedModule, sdvtModule } = setupMockModules(
+        currentBlock,
+        keysApiService,
+        [mockOperator1, mockOperator2],
+        mockedDvtOperators,
+        keys,
+      );
+
+      mockedKeysApiFind(
+        keysApiService,
+        keys,
+        mockedMeta(currentBlock, currentBlock.hash),
+      );
+
+      await depositService.setCachedEvents({
+        data: [
+          {
+            valid: true,
+            pubkey: toHexString(pk),
+            amount: '32000000000',
+            wc: BAD_WC,
+            signature: toHexString(theftDepositSign),
+            tx: '0x122',
+            blockHash: '0x123456',
+            blockNumber: currentBlock.number - 1,
+            logIndex: 1,
+            depositCount: 1,
+            depositDataRoot: new Uint8Array(),
+            index: '',
+          },
+          {
+            valid: true,
+            pubkey: toHexString(pk),
+            amount: '32000000000',
+            wc: LIDO_WC,
+            signature: toHexString(lidoSign),
+            tx: '0x123',
+            blockHash: currentBlock.hash,
+            blockNumber: currentBlock.number,
+            logIndex: 1,
+            depositCount: 2,
+            depositDataRoot: new Uint8Array(),
+            index: '',
+          },
+        ],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+        },
+      });
+
+      await guardianService.handleNewBlock();
+
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+      expect(sendPauseMessage).toBeCalledTimes(0);
+
+      const securityContract = SecurityAbi__factory.connect(
+        SECURITY_MODULE,
+        providerService.provider,
+      );
+
+      const isOnPause = await securityContract.isDepositsPaused();
+
+      expect(isOnPause).toBe(false);
+
+      expect(sendUnvetMessage).toBeCalledTimes(1);
+      expect(sendUnvetMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blockNumber: currentBlock.number,
+          guardianAddress: wallet.address,
+          guardianIndex: 7,
+          stakingModuleId: curatedModule.id,
+          operatorIds: '0x0000000000000000',
+          vettedKeysByOperator: '0x00000000000000000000000000000000',
+        }),
+      );
+      expect(unvetSigningKeys).toBeCalledTimes(1);
+      expect(sendDepositMessage).toBeCalledTimes(1);
+      expect(sendDepositMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blockNumber: currentBlock.number,
+          guardianAddress: wallet.address,
+          guardianIndex: 7,
+          stakingModuleId: sdvtModule.id,
+        }),
+      );
     },
     TESTS_TIMEOUT,
   );
