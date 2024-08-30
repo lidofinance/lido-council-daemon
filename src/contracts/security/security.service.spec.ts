@@ -114,12 +114,12 @@ describe('SecurityService', () => {
     it('should add prefix', async () => {
       const prefix = hexZeroPad('0x1', 32);
       const depositRoot = hexZeroPad('0x2', 32);
-      const keysOpIndex = 1;
+      const nonce = 1;
       const blockNumber = 1;
       const blockHash = hexZeroPad('0x3', 32);
       const args = [
         depositRoot,
-        keysOpIndex,
+        nonce,
         blockNumber,
         blockHash,
         TEST_MODULE_ID,
@@ -137,7 +137,7 @@ describe('SecurityService', () => {
       expect(signDepositData).toBeCalledWith({
         prefix,
         depositRoot,
-        keysOpIndex,
+        nonce,
         blockNumber,
         blockHash,
         stakingModuleId: TEST_MODULE_ID,
@@ -156,6 +156,7 @@ describe('SecurityService', () => {
   describe('signPauseDataV2', () => {
     it('should add prefix', async () => {
       const blockNumber = 1;
+      const blockHash = '0x';
 
       const mockGetPauseMessagePrefix = jest
         .spyOn(securityService, 'getPauseMessagePrefix')
@@ -165,6 +166,7 @@ describe('SecurityService', () => {
 
       const signature = await securityService.signPauseDataV2(
         blockNumber,
+        blockHash,
         TEST_MODULE_ID,
       );
       expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
@@ -209,6 +211,7 @@ describe('SecurityService', () => {
   describe('pauseDepositsV2', () => {
     const hash = hexZeroPad('0x1', 32);
     const blockNumber = 10;
+    const blockHash = '0x';
 
     let mockWait;
     let mockPauseDeposits;
@@ -235,6 +238,7 @@ describe('SecurityService', () => {
 
       signature = await securityService.signPauseDataV2(
         blockNumber,
+        blockHash,
         TEST_MODULE_ID,
       );
     });

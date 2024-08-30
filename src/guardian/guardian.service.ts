@@ -62,23 +62,6 @@ export class GuardianService implements OnModuleInit {
     private stakingRouterService: StakingRouterService,
   ) {}
 
-  /**
-   * Retrieves the list of staking module addresses.
-   *
-   * This method fetches the cached staking modules contracts and returns the list of staking module addresses.
-   *
-   * @returns {Promise<string[]>} Array of staking module addresses.
-   */
-  public async getStakingModules(blockNumber: number): Promise<string[]> {
-    const stakingModules = await this.stakingRouterService.getStakingModules(
-      blockNumber,
-    );
-
-    return stakingModules.map(
-      (stakingModule) => stakingModule.stakingModuleAddress,
-    );
-  }
-
   public async onModuleInit(): Promise<void> {
     // Does not wait for completion, to avoid blocking the app initialization
     (async () => {
@@ -87,9 +70,8 @@ export class GuardianService implements OnModuleInit {
         const block = await this.repositoryService.initOrWaitCachedContracts();
         const blockHash = block.hash;
 
-        const stakingRouterModuleAddresses = await this.getStakingModules(
-          block.number,
-        );
+        const stakingRouterModuleAddresses =
+          await this.stakingRouterService.getStakingModulesAddresses(blockHash);
 
         await Promise.all([
           this.depositService.initialize(block.number),

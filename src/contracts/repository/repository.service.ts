@@ -163,8 +163,6 @@ export class RepositoryService {
   private async initCachedDepositContract(blockTag: BlockTag): Promise<void> {
     if (this.permanentContractsCache[DEPOSIT_ABI]) return;
     const depositAddress = await this.getDepositAddress(blockTag);
-
-    console.log('depositAddress', depositAddress);
     const provider = this.providerService.provider;
 
     this.setPermanentContractCache(

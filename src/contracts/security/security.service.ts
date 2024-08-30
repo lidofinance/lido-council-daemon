@@ -96,20 +96,27 @@ export class SecurityService {
 
   /**
    * Signs a message to deposit buffered ethers with the prefix from the contract
+   *
+   * @param depositRoot: Root of deposit contract
+   * @param nonce - Current index of keys operations from the registry contract
+   * @param blockNumber - The block number, included as part of the message for signing.
+   * @param blockHash - The block hash, included as part of the message for signing and is used to fetch the pause prefix
+   * @param stakingModuleId - The staking module ID, included as part of the message for signing.
+   * @returns Signature for deposit.
    */
   public async signDepositData(
     depositRoot: string,
-    keysOpIndex: number,
+    nonce: number,
     blockNumber: number,
     blockHash: string,
     stakingModuleId: number,
   ): Promise<Signature> {
-    const prefix = await this.getAttestMessagePrefix(blockNumber);
+    const prefix = await this.getAttestMessagePrefix(blockHash);
 
     return await this.walletService.signDepositData({
       prefix,
       depositRoot,
-      keysOpIndex,
+      nonce,
       blockNumber,
       blockHash,
       stakingModuleId,
@@ -117,10 +124,17 @@ export class SecurityService {
   }
 
   /**
-   * Signs a message to pause deposits with the prefix from the contract
+   * Signs a message to pause deposits, including the pause prefix from the contract.
+   *
+   * @param blockNumber - The block number, included as part of the message for signing.
+   * @param blockHash - The block hash, used to fetch the pause prefix.
+   * @returns Signature for pausing deposits.
    */
-  public async signPauseDataV3(blockNumber: number): Promise<Signature> {
-    const prefix = await this.getPauseMessagePrefix(blockNumber);
+  public async signPauseDataV3(
+    blockNumber: number,
+    blockHash: string,
+  ): Promise<Signature> {
+    const prefix = await this.getPauseMessagePrefix(blockHash);
 
     return await this.walletService.signPauseDataV3({
       prefix,
@@ -163,13 +177,19 @@ export class SecurityService {
   }
 
   /**
-   * Signs a message to pause deposits with the prefix from the contract
+   * Signs a message to pause deposits, including the pause prefix from the contract.
+   *
+   * @param blockNumber - The block number, included as part of the message for signing.
+   * @param blockHash - The block hash, used to fetch the pause prefix.
+   * @param stakingModuleId - The staking module ID, included as part of the message for signing.
+   * @returns Signature for pausing deposits.
    */
   public async signPauseDataV2(
     blockNumber: number,
+    blockHash: string,
     stakingModuleId: number,
   ): Promise<Signature> {
-    const prefix = await this.getPauseMessagePrefix(blockNumber);
+    const prefix = await this.getPauseMessagePrefix(blockHash);
 
     return await this.walletService.signPauseDataV2({
       prefix,
@@ -226,7 +246,7 @@ export class SecurityService {
    *
    * @param nonce - The nonce for the staking module.
    * @param blockNumber - The block number at which the message is signed.
-   * @param blockHash - The hash of the block corresponding to the block number.
+   * @param blockHash - The hash of the block corresponding to the block number, used to fetch the pause prefix.
    * @param stakingModuleId - The ID of the target staking module.
    * @param operatorIds - A string containing the IDs of the operators whose keys are being unvetted.
    * @param vettedKeysByOperator - A string representing the new staking limit amount per operator.
@@ -241,7 +261,7 @@ export class SecurityService {
     operatorIds: string,
     vettedKeysByOperator: string,
   ): Promise<Signature> {
-    const prefix = await this.getUnvetMessagePrefix(blockNumber);
+    const prefix = await this.getUnvetMessagePrefix(blockHash);
 
     return await this.walletService.signUnvetData({
       prefix,
@@ -384,24 +404,30 @@ export class SecurityService {
   /**
    * Returns a prefix from the contract with which the deposit message should be signed
    */
-  public async getAttestMessagePrefix(blockNumber: number): Promise<string> {
+  public async getAttestMessagePrefix(blockHash: string): Promise<string> {
     const contract = await this.repositoryService.getCachedDSMContract();
-    return await contract.ATTEST_MESSAGE_PREFIX({ blockTag: blockNumber });
+    return await contract.ATTEST_MESSAGE_PREFIX({
+      blockTag: { blockHash } as any,
+    });
   }
 
   /**
    * Returns a prefix from the contract with which the pause message should be signed
    */
-  public async getPauseMessagePrefix(blockNumber: number): Promise<string> {
+  public async getPauseMessagePrefix(blockHash: string): Promise<string> {
     const contract = await this.repositoryService.getCachedDSMContract();
-    return await contract.PAUSE_MESSAGE_PREFIX({ blockTag: blockNumber });
+    return await contract.PAUSE_MESSAGE_PREFIX({
+      blockTag: { blockHash } as any,
+    });
   }
 
   /**
    * Returns a prefix from the contract with which the pause message should be signed
    */
-  public async getUnvetMessagePrefix(blockNumber: number): Promise<string> {
+  public async getUnvetMessagePrefix(blockHash: string): Promise<string> {
     const contract = await this.repositoryService.getCachedDSMContract();
-    return await contract.UNVET_MESSAGE_PREFIX({ blockTag: blockNumber });
+    return await contract.UNVET_MESSAGE_PREFIX({
+      blockTag: { blockHash } as any,
+    });
   }
 }
