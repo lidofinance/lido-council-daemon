@@ -615,7 +615,7 @@ describe('ganache e2e tests', () => {
   );
 
   test(
-    'pause will not happen because of front-run attempt (key unused)',
+    'should not trigger pause for front-run attempt with non-Lido WC and Lido WC deposits when key is unused',
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
 
