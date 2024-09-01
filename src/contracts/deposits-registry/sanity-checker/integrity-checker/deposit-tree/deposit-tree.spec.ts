@@ -1,9 +1,4 @@
-import {
-  digest2Bytes32,
-  fromHexString,
-  toHexString,
-  toLittleEndian64,
-} from '../../../crypto';
+import { digest2Bytes32, fromHexString, toHexString } from '../../../crypto';
 import { DepositTree } from './deposit-tree';
 import {
   depositDataRootsFixture20k,
@@ -33,12 +28,67 @@ describe('DepositTree', () => {
   });
 
   test('should handle detailed node data correctly', () => {
-    console.log(toLittleEndian64(1));
+    const originalTree = new DepositTree();
     const nodeData = {
-      wc: '0x123456789abcdef0', // Ensure hex strings are of even length
+      wc: '0x123456789abcdef0',
       pubkey: '0xabcdef1234567890',
       signature: '0x987654321fedcba0',
-      amount: '0x0100000000000000', // Example amount
+      amount: '0x0100000000000000',
+    };
+    originalTree.insertNode(DepositTree.formDepositNode(nodeData));
+    expect(originalTree.nodeCount).toBe(1);
+
+    const oldDepositRoot = originalTree.getRoot();
+    const cloned = originalTree.clone();
+
+    cloned.insertNode(
+      DepositTree.formDepositNode({ ...nodeData, wc: '0x123456789abcdef1' }),
+    );
+
+    expect(cloned.getRoot()).not.toEqual(oldDepositRoot);
+    expect(cloned.getRoot()).not.toEqual(originalTree.getRoot());
+    expect(originalTree.getRoot()).toEqual(oldDepositRoot);
+
+    const freshTree = new DepositTree();
+
+    freshTree.insertNode(DepositTree.formDepositNode(nodeData));
+    freshTree.insertNode(
+      DepositTree.formDepositNode({ ...nodeData, wc: '0x123456789abcdef1' }),
+    );
+
+    expect(cloned.getRoot()).toEqual(freshTree.getRoot());
+  });
+
+  test('branches from cloned tree do not linked with original tree', () => {
+    const originalTree = new DepositTree();
+    const nodeData = {
+      wc: '0x123456789abcdef0',
+      pubkey: '0xabcdef1234567890',
+      signature: '0x987654321fedcba0',
+      amount: '0x0100000000000000',
+    };
+
+    originalTree.insertNode(
+      DepositTree.formDepositNode({ ...nodeData, wc: '0x123456789abcdef1' }),
+    );
+    originalTree.insertNode(
+      DepositTree.formDepositNode({ ...nodeData, wc: '0x123456789abcdef1' }),
+    );
+
+    originalTree.branch[0][0] = 1;
+    const clone = originalTree.clone();
+    originalTree.branch[0][1] = 1;
+
+    expect(clone.branch[0][1]).toBe(142);
+    expect(originalTree.branch[0][1]).toBe(1);
+  });
+
+  test('clone works correctly', () => {
+    const nodeData = {
+      wc: '0x123456789abcdef0',
+      pubkey: '0xabcdef1234567890',
+      signature: '0x987654321fedcba0',
+      amount: '0x0100000000000000',
     };
     depositTree.insertNode(DepositTree.formDepositNode(nodeData));
     expect(depositTree.nodeCount).toBe(1);

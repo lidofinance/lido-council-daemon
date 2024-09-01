@@ -112,7 +112,7 @@ export class DepositTree {
    */
   public clone() {
     const tree = new DepositTree();
-    tree.branch = [...this.branch];
+    tree.branch = this.branch.map((array) => Uint8Array.from(array));
     tree.nodeCount = this.nodeCount;
     return tree;
   }

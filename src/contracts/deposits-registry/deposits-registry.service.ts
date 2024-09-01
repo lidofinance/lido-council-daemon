@@ -189,10 +189,7 @@ export class DepositService {
     const endBlock = blockNumber;
     const cachedEvents = await this.getCachedEvents();
     //!!!!
-    // если мы измкеним поведение таким образом
-    // то у нас появится инвариант когда мы сами кораптим кэш
-    // 1,2,3,4
-    //
+   // TODO: To make changes. We will now give validation status, verification status to the reorganisation.
     const isCacheValid = this.validateCacheBlock(cachedEvents, blockNumber);
     if (!isCacheValid) process.exit(1);
 
