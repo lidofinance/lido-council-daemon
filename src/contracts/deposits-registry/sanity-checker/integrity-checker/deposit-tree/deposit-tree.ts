@@ -72,16 +72,6 @@ export class DepositTree {
   }
 
   /**
-   * Inserts a new deposit into the tree using detailed node data.
-   * @param {NodeData} nodeData - The detailed data of the deposit to be inserted.
-   */
-  public insert(nodeData: NodeData) {
-    const node = DepositTree.formDepositNode(nodeData);
-    this.nodeCount++;
-    this.formBranch(node, this.nodeCount);
-  }
-
-  /**
    * Inserts a new node into the tree using already computed node hash.
    * @param {Uint8Array} node - The node's hash to be inserted.
    */

@@ -1,4 +1,79 @@
-export const fixture_10k = {
+export const dataTransformFixtures = [
+  {
+    valid: true,
+    pubkey:
+      '0x933ad9491b62059dd065b560d256d8957a8c402cc6e8d8ee7290ae11e8f7329267a8811c397529dac52ae1342ba58c95',
+    wc: '0x00f50428677c60f997aadeab24aabf7fceaef491c96a52b463ae91f95611cf71',
+    amount: '0x00ca9a3b00000000',
+    signature:
+      '0xa29d01cc8c6296a8150e515b5995390ef841dc18948aa3e79be6d7c1851b4cbb5d6ff49fa70b9c782399506a22a85193151b9b691245cebafd2063012443c1324b6c36debaedefb7b2d71b0503ffdc00150aaffd42e63358238ec888901738b8',
+    tx: '0x7085c586686d666e8bb6e9477a0f0b09565b2060a11f1c4209d3a52295033832',
+    blockNumber: 11185311,
+    blockHash:
+      '0x1ecb9dd23676c9201af1e8026e7d83a1f979b8abd381064fba0b593fcff7b235',
+    logIndex: 131,
+    index: '0x0000000000000000',
+    depositCount: 0,
+    depositDataRoot:
+      '0xaa4a8d0b7d9077248630f1a4701ae9764e42271d7f22b7838778411857fd349e',
+  },
+  {
+    valid: true,
+    pubkey:
+      '0xa1d1ad0714035353258038e964ae9675dc0252ee22cea896825c01458e1807bfad2f9969338798548d9858a571f7425c',
+    wc: '0x0092c20062cee70389f1cb4fa566a2be5e2319ff43965db26dbaa3ce90b9df99',
+    amount: '0x00ca9a3b00000000',
+    signature:
+      '0x985f365b3459176da437560337cc074d153663f65e3c6bab28197e34cd7f926fa940176ba43484fb5297f679bc869f5d10ee62f64a119d756182005fbb28046c0541f627b430cabfeb3599ebaa1b8efd08de562ec03a8d78c2f9e1b6f01d8aba',
+    tx: '0xa90ed27521c07e66d52db6ee47d729d118229925303706b35e4d36d8e830ba7a',
+    blockNumber: 11191448,
+    blockHash:
+      '0xa51cbe797cac4ef0297862576e64444a90d3bec332949c352f253405aa129f1e',
+    logIndex: 126,
+    index: '0x0100000000000000',
+    depositCount: 1,
+    depositDataRoot:
+      '0x76fffc948646005fce32e27555238dfe801c9e7eea28ff40dbe2afe8f83cf0c6',
+  },
+  {
+    valid: true,
+    pubkey:
+      '0xb2ff4716ed345b05dd1dfc6a5a9fa70856d8c75dcc9e881dd2f766d5f891326f0d10e96f3a444ce6c912b69c22c6754d',
+    wc: '0x00d66cf353931500a54cbd0bc59cbaac6690cb0932f42dc8afeddc88feeaad6f',
+    amount: '0x00ca9a3b00000000',
+    signature:
+      '0xb868229df29f2b48409c5aac70594c9882be4a7b1e60ba1a9c985f87f4a9cad18bbf74a78734cd9b4911b57a23dc9d4118b70da8e2ae1faaab91c04076d66ead359a0be26845410d18a42910bdf0b9ae4b4bfcc90f8bb528f1a92c91a1ad6547',
+    tx: '0x14f1d17ef6051109bf4b9e5dd9b494f12580a508a8d412af6d5e857f8d6a0f0b',
+    blockNumber: 11191495,
+    blockHash:
+      '0x37c7097adfd4e30c93b8840d32c215e189d95200a9ef1e3445b926efb48ae99f',
+    logIndex: 76,
+    index: '0x0200000000000000',
+    depositCount: 2,
+    depositDataRoot:
+      '0x3e74b357fbf0bf36bed50de7ee3a3caaa11006e7ea5ce644d16de8d666b2c7a9',
+  },
+  {
+    valid: true,
+    pubkey:
+      '0x8e323fd501233cd4d1b9d63d74076a38de50f2f584b001a5ac2412e4e46adb26d2fb2a6041e7e8c57cd4df0916729219',
+    wc: '0x00d6b91fbbce0146739afb0f541d6c21e8c41e92b97874828f402597bf530ce4',
+    amount: '0x00ca9a3b00000000',
+    signature:
+      '0xb9a4bccc6fc91192b603dd7ee1c99eabee415bdde9d96146c71b2ce4ce9e292ded93fa150850242c327e6ce2f50cb75b134afe5bb7ecca9c328e6f2dc1da931389a2d15d435eaed1222991d22aeecc026b2390afa5f941d2ed5277b3d3fbc350',
+    tx: '0x6e1e30cb4b6e0029fc4762cf74b264ce66a9d078a0f732583a71544fdadddf72',
+    blockNumber: 11191501,
+    blockHash:
+      '0xa6d7b9926b794b8de798720f058badbf436ef52907b19ebd090172b75d24ed20',
+    logIndex: 328,
+    index: '0x0300000000000000',
+    depositCount: 3,
+    depositDataRoot:
+      '0x790284c0a36abd53ec0ce9284f4ad4af72c891a38456e73e15685bb99dfc09e9',
+  },
+];
+
+export const depositDataRootsFixture10k = {
   events: [
     '0xaa4a8d0b7d9077248630f1a4701ae9764e42271d7f22b7838778411857fd349e',
     '0x76fffc948646005fce32e27555238dfe801c9e7eea28ff40dbe2afe8f83cf0c6',
@@ -195,7 +270,8 @@ export const fixture_10k = {
   ],
   root: '0x3ab1589b2853143f682dad19e443648489d318c8619e79f59a44d14a846fbb1a',
 };
-export const fixture_20k = {
+
+export const depositDataRootsFixture20k = {
   events: [
     '0x01ba5818c17223777b13dd194f5e64ca92927af901d0fd1599e93c4554f17b00',
     '0x48367a14c733b6b4907a2c60fd9b254bb6d7e4d00d0792544309f097d3b76a44',

@@ -1,10 +1,15 @@
 import {
   digest2Bytes32,
   fromHexString,
+  toHexString,
   toLittleEndian64,
 } from '../../../crypto';
 import { DepositTree } from './deposit-tree';
-import { fixture_10k, fixture_20k } from './deposit-tree.fixture';
+import {
+  depositDataRootsFixture20k,
+  depositDataRootsFixture10k,
+  dataTransformFixtures,
+} from './deposit-tree.fixture';
 
 describe('DepositTree', () => {
   let depositTree: DepositTree;
@@ -35,7 +40,7 @@ describe('DepositTree', () => {
       signature: '0x987654321fedcba0',
       amount: '0x0100000000000000', // Example amount
     };
-    depositTree.insert(nodeData);
+    depositTree.insertNode(DepositTree.formDepositNode(nodeData));
     expect(depositTree.nodeCount).toBe(1);
   });
 
@@ -72,28 +77,51 @@ describe('DepositTree', () => {
       signature: '123',
       amount: 'not a number',
     };
-    expect(() => depositTree.insert(invalidNodeData)).toThrowError();
+    expect(() => DepositTree.formDepositNode(invalidNodeData)).toThrowError();
   });
 
-  test.todo('actual validation using data and hash from blockchain');
+  test.each(dataTransformFixtures)(
+    'actual validation using data and hash from blockchain',
+    (event) => {
+      const depositDataRoot = DepositTree.formDepositNode({
+        wc: event.wc,
+        pubkey: event.pubkey,
+        signature: event.signature,
+        amount: event.amount,
+      });
+
+      expect(toHexString(depositDataRoot)).toEqual(event.depositDataRoot);
+    },
+  );
 
   test('hashes should matches with fixtures (first 10k blocks from holesky)', () => {
-    fixture_10k.events.map((ev) => depositTree.insertNode(fromHexString(ev)));
+    depositDataRootsFixture10k.events.map((ev) =>
+      depositTree.insertNode(fromHexString(ev)),
+    );
 
-    expect(depositTree.nodeCount).toEqual(fixture_10k.events.length);
-    expect(depositTree.getRoot()).toEqual(fixture_10k.root);
+    expect(depositTree.nodeCount).toEqual(
+      depositDataRootsFixture10k.events.length,
+    );
+    expect(depositTree.getRoot()).toEqual(depositDataRootsFixture10k.root);
   });
 
   test('hashes should matches with fixtures (second 10k blocks from holesky)', () => {
-    fixture_10k.events.map((ev) => depositTree.insertNode(fromHexString(ev)));
-
-    expect(depositTree.nodeCount).toEqual(fixture_10k.events.length);
-    expect(depositTree.getRoot()).toEqual(fixture_10k.root);
-
-    fixture_20k.events.map((ev) => depositTree.insertNode(fromHexString(ev)));
-    expect(depositTree.nodeCount).toEqual(
-      fixture_10k.events.length + fixture_20k.events.length,
+    depositDataRootsFixture10k.events.map((ev) =>
+      depositTree.insertNode(fromHexString(ev)),
     );
-    expect(depositTree.getRoot()).toEqual(fixture_20k.root);
+
+    expect(depositTree.nodeCount).toEqual(
+      depositDataRootsFixture10k.events.length,
+    );
+    expect(depositTree.getRoot()).toEqual(depositDataRootsFixture10k.root);
+
+    depositDataRootsFixture20k.events.map((ev) =>
+      depositTree.insertNode(fromHexString(ev)),
+    );
+    expect(depositTree.nodeCount).toEqual(
+      depositDataRootsFixture10k.events.length +
+        depositDataRootsFixture20k.events.length,
+    );
+    expect(depositTree.getRoot()).toEqual(depositDataRootsFixture20k.root);
   });
 });
