@@ -4,7 +4,7 @@ import { RepositoryService } from 'contracts/repository';
 import { DepositEventEvent } from 'generated/DepositAbi';
 
 import { ProviderService } from 'provider';
-import { parseLittleEndian64 } from '../deposit.utils';
+import { parseLittleEndian64 } from '../crypto';
 import { DepositEvent, VerifiedDepositEventGroup } from '../interfaces';
 import { DepositTree } from '../sanity-checker/integrity-checker/deposit-tree';
 

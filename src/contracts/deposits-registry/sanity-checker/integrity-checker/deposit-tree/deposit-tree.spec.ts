@@ -1,8 +1,10 @@
-import { toLittleEndian64 } from '../../../deposit.utils';
+import {
+  digest2Bytes32,
+  fromHexString,
+  toLittleEndian64,
+} from '../../../crypto';
 import { DepositTree } from './deposit-tree';
-import { digest2Bytes32 } from '@chainsafe/as-sha256';
 import { fixture_10k, fixture_20k } from './deposit-tree.fixture';
-import { fromHexString } from '@chainsafe/ssz';
 
 describe('DepositTree', () => {
   let depositTree: DepositTree;
@@ -31,7 +33,7 @@ describe('DepositTree', () => {
       wc: '0x123456789abcdef0', // Ensure hex strings are of even length
       pubkey: '0xabcdef1234567890',
       signature: '0x987654321fedcba0',
-      amount: '0x01000000000000', // Example amount
+      amount: '0x0100000000000000', // Example amount
     };
     depositTree.insert(nodeData);
     expect(depositTree.nodeCount).toBe(1);
@@ -72,6 +74,8 @@ describe('DepositTree', () => {
     };
     expect(() => depositTree.insert(invalidNodeData)).toThrowError();
   });
+
+  test.todo('actual validation using data and hash from blockchain');
 
   test('hashes should matches with fixtures (first 10k blocks from holesky)', () => {
     fixture_10k.events.map((ev) => depositTree.insertNode(fromHexString(ev)));

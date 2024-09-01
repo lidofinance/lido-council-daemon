@@ -1,3 +1,3 @@
-export * from './leveldb.constants';
-export * from './leveldb.module';
-export * from './leveldb.service';
+export * from './store.constants';
+export * from './store.module';
+export * from './store.service';
