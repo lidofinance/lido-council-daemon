@@ -17,7 +17,7 @@ import { WalletService } from 'wallet';
 import { StakingRouterService } from 'contracts/staking-router';
 
 @Injectable()
-export class BlockGuardService {
+export class BlockDataCollectorService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER)
     private logger: LoggerService,
