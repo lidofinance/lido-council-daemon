@@ -4,10 +4,9 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { ProviderService } from 'provider';
 import {
   DEPOSIT_EVENTS_STEP,
-  getDeploymentBlockByNetwork,
   DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE,
   DEPOSIT_EVENTS_CACHE_LAG_BLOCKS,
-} from './deposit.constants';
+} from './deposit-registry.constants';
 import {
   VerifiedDepositEventsCache,
   VerifiedDepositedEventGroup,
@@ -48,21 +47,12 @@ export class DepositService {
   }
 
   /**
-   * Returns a block number when the deposited contract was deployed
-   * @returns block number
-   */
-  public async getDeploymentBlockByNetwork(): Promise<number> {
-    const chainId = await this.providerService.getChainId();
-    return getDeploymentBlockByNetwork(chainId);
-  }
-
-  /**
    * Gets node operators data from cache
    * @returns event group
    */
   public async getCachedEvents(): Promise<VerifiedDepositEventsCache> {
     const { headers, ...rest } = await this.store.getEventsCache();
-    const deploymentBlock = await this.getDeploymentBlockByNetwork();
+    const deploymentBlock = await this.fetcher.getDeploymentBlockByNetwork();
 
     return {
       headers: {
@@ -72,21 +62,6 @@ export class DepositService {
       },
       ...rest,
     };
-  }
-
-  /**
-   * Saves deposited events to cache
-   */
-  public async setCachedEvents(
-    cachedEvents: VerifiedDepositEventsCache,
-  ): Promise<void> {
-    await this.store.deleteCache();
-    await this.store.insertEventsCacheBatch({
-      ...cachedEvents,
-      headers: {
-        ...cachedEvents.headers,
-      },
-    });
   }
 
   /**

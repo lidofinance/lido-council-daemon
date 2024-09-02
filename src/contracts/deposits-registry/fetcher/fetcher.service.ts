@@ -5,6 +5,7 @@ import { DepositEventEvent } from 'generated/DepositAbi';
 
 import { ProviderService } from 'provider';
 import { parseLittleEndian64 } from '../crypto';
+import { DEPLOYMENT_BLOCK_NETWORK } from '../deposit-registry.constants';
 import { DepositEvent, VerifiedDepositEventGroup } from '../interfaces';
 import { DepositTree } from '../sanity-checker/integrity-checker/deposit-tree';
 
@@ -107,5 +108,17 @@ export class DepositsRegistryFetcherService {
   public verifyDeposit(depositEvent: DepositEvent): boolean {
     const { pubkey, wc, amount, signature } = depositEvent;
     return this.blsService.verify({ pubkey, wc, amount, signature });
+  }
+
+  /**
+   * Returns a block number when the deposited contract was deployed
+   * @returns block number
+   */
+  public async getDeploymentBlockByNetwork(): Promise<number> {
+    const chainId = await this.providerService.getChainId();
+    const address = DEPLOYMENT_BLOCK_NETWORK[chainId];
+    if (address == null) throw new Error(`Chain ${chainId} is not supported`);
+
+    return address;
   }
 }

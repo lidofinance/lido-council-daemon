@@ -10,6 +10,7 @@ import {
 import { ProviderService } from 'provider';
 import {
   VerifiedDepositEvent,
+  VerifiedDepositEventsCache,
   VerifiedDepositEventsCacheHeaders,
 } from '../interfaces';
 
@@ -186,5 +187,20 @@ export class DepositsRegistryStoreService {
    */
   public async close(): Promise<void> {
     await this.db.close();
+  }
+
+  /**
+   * Saves deposited events to cache
+   */
+  public async setCachedEvents(
+    cachedEvents: VerifiedDepositEventsCache,
+  ): Promise<void> {
+    await this.deleteCache();
+    await this.insertEventsCacheBatch({
+      ...cachedEvents,
+      headers: {
+        ...cachedEvents.headers,
+      },
+    });
   }
 }
