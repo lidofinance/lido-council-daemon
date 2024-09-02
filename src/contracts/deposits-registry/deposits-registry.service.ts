@@ -18,7 +18,7 @@ import { DepositsRegistryFetcherService } from './fetcher/fetcher.service';
 import { DepositRegistrySanityCheckerService } from './sanity-checker/sanity-checker.service';
 
 @Injectable()
-export class DepositService {
+export class DepositRegistryService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
