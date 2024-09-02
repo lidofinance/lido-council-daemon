@@ -131,9 +131,7 @@ export class DepositRegistryService {
     const fetchTime = Math.ceil(fetchTimeEnd - fetchTimeStart) / 1000;
     // TODO: replace timer with metric
 
-    const isRootValid = await this.sanityChecker.verifyUpdatedEvents(
-      currentBlockNumber,
-    );
+    const isRootValid = await this.sanityChecker.verifyUpdatedEvents(toBlock);
 
     if (!isRootValid) {
       this.logger.error('Integrity check failed on block', {
@@ -183,8 +181,8 @@ export class DepositRegistryService {
     const lastEventBlockHash = lastEvent?.blockHash;
 
     const isValid = await this.sanityChecker.verifyFreshEvents(
-      blockNumber,
-      blockHash,
+      lastEvent.blockNumber,
+      lastEvent.blockHash,
       freshEvents,
     );
 
