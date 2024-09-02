@@ -4,11 +4,13 @@ import { DepositsRegistryStoreModule } from './store';
 import { DepositRegistryService } from './deposits-registry.service';
 import { DEPOSIT_CACHE_DEFAULT } from './deposit-registry.constants';
 import { DepositsRegistryFetcherModule } from './fetcher';
+import { DepositRegistrySanityCheckerModule } from './sanity-checker';
 
 @Module({
   imports: [
     SecurityModule,
     DepositsRegistryFetcherModule,
+    DepositRegistrySanityCheckerModule,
     DepositsRegistryStoreModule.register(DEPOSIT_CACHE_DEFAULT),
   ],
   providers: [DepositRegistryService],
