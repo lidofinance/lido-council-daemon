@@ -75,7 +75,7 @@ export class DepositTree {
    * Inserts a new node into the tree using already computed node hash.
    * @param {Uint8Array} node - The node's hash to be inserted.
    */
-  public insertNode(node: Uint8Array) {
+  public insert(node: Uint8Array) {
     this.nodeCount++;
     this.formBranch(node, this.nodeCount);
   }

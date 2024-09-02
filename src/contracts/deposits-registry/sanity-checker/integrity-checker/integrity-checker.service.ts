@@ -111,7 +111,7 @@ export class DepositIntegrityCheckerService {
     eventsCache: VerifiedDepositEvent[],
   ) {
     for (const [index, event] of eventsCache.entries()) {
-      tree.insertNode(event.depositDataRoot);
+      tree.insert(event.depositDataRoot);
 
       if (index % DEPOSIT_TREE_STEP_SYNC === 0) {
         await new Promise((res) => setTimeout(res, 1));

@@ -23,7 +23,7 @@ describe('DepositTree', () => {
   test('should correctly insert a node and update the tree', () => {
     const initialNodeCount = depositTree.nodeCount;
     const node = new Uint8Array(32).fill(1); // Example node hash
-    depositTree.insertNode(node);
+    depositTree.insert(node);
     expect(depositTree.nodeCount).toBe(initialNodeCount + 1);
   });
 
@@ -35,13 +35,13 @@ describe('DepositTree', () => {
       signature: '0x987654321fedcba0',
       amount: '0x0100000000000000',
     };
-    originalTree.insertNode(DepositTree.formDepositNode(nodeData));
+    originalTree.insert(DepositTree.formDepositNode(nodeData));
     expect(originalTree.nodeCount).toBe(1);
 
     const oldDepositRoot = originalTree.getRoot();
     const cloned = originalTree.clone();
 
-    cloned.insertNode(
+    cloned.insert(
       DepositTree.formDepositNode({ ...nodeData, wc: '0x123456789abcdef1' }),
     );
 
@@ -51,8 +51,8 @@ describe('DepositTree', () => {
 
     const freshTree = new DepositTree();
 
-    freshTree.insertNode(DepositTree.formDepositNode(nodeData));
-    freshTree.insertNode(
+    freshTree.insert(DepositTree.formDepositNode(nodeData));
+    freshTree.insert(
       DepositTree.formDepositNode({ ...nodeData, wc: '0x123456789abcdef1' }),
     );
 
@@ -68,10 +68,10 @@ describe('DepositTree', () => {
       amount: '0x0100000000000000',
     };
 
-    originalTree.insertNode(
+    originalTree.insert(
       DepositTree.formDepositNode({ ...nodeData, wc: '0x123456789abcdef1' }),
     );
-    originalTree.insertNode(
+    originalTree.insert(
       DepositTree.formDepositNode({ ...nodeData, wc: '0x123456789abcdef1' }),
     );
 
@@ -90,12 +90,12 @@ describe('DepositTree', () => {
       signature: '0x987654321fedcba0',
       amount: '0x0100000000000000',
     };
-    depositTree.insertNode(DepositTree.formDepositNode(nodeData));
+    depositTree.insert(DepositTree.formDepositNode(nodeData));
     expect(depositTree.nodeCount).toBe(1);
   });
 
   test('should clone the tree correctly', () => {
-    depositTree.insertNode(new Uint8Array(32).fill(1));
+    depositTree.insert(new Uint8Array(32).fill(1));
     const clonedTree = depositTree.clone();
     expect(clonedTree.nodeCount).toEqual(depositTree.nodeCount);
     expect(clonedTree.branch).toEqual(depositTree.branch);
@@ -104,12 +104,12 @@ describe('DepositTree', () => {
 
   test('branch updates correctly after multiple insertions', () => {
     const node1 = new Uint8Array(32).fill(1); // First example node
-    depositTree.insertNode(node1); // First insertion
+    depositTree.insert(node1); // First insertion
 
     expect(depositTree.branch[0]).toEqual(node1);
 
     const node2 = new Uint8Array(32).fill(2); // Second example node
-    depositTree.insertNode(node2); // Second insertion
+    depositTree.insert(node2); // Second insertion
 
     // Now, we need to check the second level of the branch
     // This should use the same hashing function as used in your actual code
@@ -146,7 +146,7 @@ describe('DepositTree', () => {
 
   test('hashes should matches with fixtures (first 10k blocks from holesky)', () => {
     depositDataRootsFixture10k.events.map((ev) =>
-      depositTree.insertNode(fromHexString(ev)),
+      depositTree.insert(fromHexString(ev)),
     );
 
     expect(depositTree.nodeCount).toEqual(
@@ -157,7 +157,7 @@ describe('DepositTree', () => {
 
   test('hashes should matches with fixtures (second 10k blocks from holesky)', () => {
     depositDataRootsFixture10k.events.map((ev) =>
-      depositTree.insertNode(fromHexString(ev)),
+      depositTree.insert(fromHexString(ev)),
     );
 
     expect(depositTree.nodeCount).toEqual(
@@ -166,7 +166,7 @@ describe('DepositTree', () => {
     expect(depositTree.getRoot()).toEqual(depositDataRootsFixture10k.root);
 
     depositDataRootsFixture20k.events.map((ev) =>
-      depositTree.insertNode(fromHexString(ev)),
+      depositTree.insert(fromHexString(ev)),
     );
     expect(depositTree.nodeCount).toEqual(
       depositDataRootsFixture10k.events.length +

@@ -20,23 +20,6 @@ export class BlockchainCheckerService {
   ): boolean {
     const isCacheValid = currentBlock >= cachedEvents.headers.endBlock;
 
-    const blocks = {
-      cachedStartBlock: cachedEvents.headers.startBlock,
-      cachedEndBlock: cachedEvents.headers.endBlock,
-      currentBlock,
-    };
-
-    if (isCacheValid) {
-      this.logger.log('Deposit events cache has valid age', blocks);
-    }
-
-    if (!isCacheValid) {
-      this.logger.warn(
-        'Deposit events cache is newer than the current block',
-        blocks,
-      );
-    }
-
     return isCacheValid;
   }
 
@@ -44,17 +27,16 @@ export class BlockchainCheckerService {
    * Checks events block hash
    * An additional check to avoid events processing in an alternate chain
    */
-  public checkEventsBlockHash(
+  public findReorganizedEvent(
     events: DepositEvent[],
     blockNumber: number,
     blockHash: string,
-  ): void {
-    events.forEach((event) => {
-      if (event.blockNumber === blockNumber && event.blockHash !== blockHash) {
-        throw new Error(
-          'Blockhash of the received events does not match the current blockhash',
-        );
-      }
-    });
+  ): DepositEvent | null {
+    return (
+      events.find(
+        (event) =>
+          event.blockNumber === blockNumber && event.blockHash !== blockHash,
+      ) || null
+    );
   }
 }
