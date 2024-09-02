@@ -6,7 +6,7 @@ import {
   DEPOSIT_EVENTS_STEP,
   DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE,
   DEPOSIT_EVENTS_CACHE_LAG_BLOCKS,
-} from './deposit-registry.constants';
+} from './deposits-registry.constants';
 import {
   VerifiedDepositEventsCache,
   VerifiedDepositedEventGroup,

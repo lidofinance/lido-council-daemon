@@ -5,7 +5,7 @@ import { DepositEventEvent } from 'generated/DepositAbi';
 
 import { ProviderService } from 'provider';
 import { parseLittleEndian64 } from '../crypto';
-import { DEPLOYMENT_BLOCK_NETWORK } from '../deposit-registry.constants';
+import { DEPLOYMENT_BLOCK_NETWORK } from '../deposits-registry.constants';
 import { DepositEvent, VerifiedDepositEventGroup } from '../interfaces';
 import { DepositTree } from '../sanity-checker/integrity-checker/deposit-tree';
 
