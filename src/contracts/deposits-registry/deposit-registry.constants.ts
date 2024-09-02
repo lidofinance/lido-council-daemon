@@ -11,3 +11,11 @@ export const DEPLOYMENT_BLOCK_NETWORK: {
 export const DEPOSIT_EVENTS_CACHE_LAG_BLOCKS = 100;
 export const DEPOSIT_EVENTS_STEP = 10_000;
 export const DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE = 10;
+
+export const DEPOSIT_CACHE_DEFAULT = Object.freeze({
+  headers: {
+    startBlock: 0,
+    endBlock: 0,
+  },
+  data: [],
+});
