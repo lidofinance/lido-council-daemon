@@ -58,7 +58,6 @@ describe('GuardianService', () => {
     }).compile();
 
     keysApiService = moduleRef.get(KeysApiService);
-    blockGuardService = moduleRef.get(BlockGuardService);
 
     repositoryService = moduleRef.get(RepositoryService);
     locatorService = moduleRef.get(LocatorService);
@@ -104,7 +103,7 @@ describe('GuardianService', () => {
     }));
 
     const getBlockGuardServiceMock = jest
-      .spyOn(blockGuardService, 'isNeedToProcessNewState')
+      .spyOn(guardianService, 'isNeedToProcessNewState')
       .mockImplementation(() => false);
 
     // run concurrently and check that second attempt
