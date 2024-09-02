@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { DepositModule } from 'contracts/deposit';
+import { DepositsRegistryModule } from 'contracts/deposits-registry';
 import { SecurityModule } from 'contracts/security';
 import { BlockGuardService } from './block-guard.service';
 import { LidoModule } from 'contracts/lido';
@@ -9,7 +9,7 @@ import { WalletModule } from 'wallet';
 @Module({
   imports: [
     LidoModule,
-    DepositModule,
+    DepositsRegistryModule,
     SecurityModule,
     StakingModuleGuardModule,
     WalletModule,

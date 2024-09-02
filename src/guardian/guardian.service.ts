@@ -8,7 +8,7 @@ import { compare } from 'compare-versions';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
-import { DepositService } from 'contracts/deposit';
+import { DepositRegistryService } from 'contracts/deposits-registry';
 import { SecurityService } from 'contracts/security';
 import { RepositoryService } from 'contracts/repository';
 import {
@@ -43,7 +43,7 @@ export class GuardianService implements OnModuleInit {
 
     private schedulerRegistry: SchedulerRegistry,
 
-    private depositService: DepositService,
+    private depositService: DepositRegistryService,
     private securityService: SecurityService,
     private stakingRouterService: StakingRouterService,
 
@@ -68,7 +68,7 @@ export class GuardianService implements OnModuleInit {
         const blockHash = block.hash;
 
         await Promise.all([
-          this.depositService.initialize(block.number),
+          this.depositService.initialize(),
           this.securityService.initialize({ blockHash }),
           this.signingKeyEventsCacheService.initialize(block.number),
         ]);
@@ -333,20 +333,18 @@ export class GuardianService implements OnModuleInit {
           blockData,
         );
 
-        // Check the integrity of the cache, we can only make a deposit
-        // if the integrity of the deposit event data is intact
-        await blockData.depositedEvents.checkRoot();
-
         if (
           this.cannotDeposit(
             stakingModuleData,
             blockData.theftHappened,
             blockData.alreadyPausedDeposits,
+            blockData.depositedEvents.isValid,
           )
         ) {
           this.logger.warn('Deposits are not available', {
             stakingModuleId: stakingModuleData.stakingModuleId,
             blockHash: blockData.blockHash,
+            isDepositsCacheValid: blockData.depositedEvents.isValid,
           });
           return;
         }
@@ -363,6 +361,7 @@ export class GuardianService implements OnModuleInit {
     stakingModuleData: StakingModuleData,
     theftHappened: boolean,
     alreadyPausedDeposits: boolean,
+    isDepositsCacheValid: boolean,
   ): boolean {
     const keysForUnvetting = [
       ...stakingModuleData.invalidKeys,
@@ -376,7 +375,8 @@ export class GuardianService implements OnModuleInit {
       stakingModuleData.unresolvedDuplicatedKeys.length > 0 ||
       alreadyPausedDeposits ||
       theftHappened ||
-      stakingModuleData.isModuleDepositsPaused
+      stakingModuleData.isModuleDepositsPaused ||
+      !isDepositsCacheValid
     );
   }
 }

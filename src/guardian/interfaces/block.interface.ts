@@ -1,4 +1,4 @@
-import { VerifiedDepositedEventGroup } from 'contracts/deposit';
+import { VerifiedDepositedEventGroup } from 'contracts/deposits-registry';
 
 export interface BlockData {
   blockNumber: number;

@@ -16,4 +16,4 @@ import { DepositRegistrySanityCheckerModule } from './sanity-checker';
   providers: [DepositRegistryService],
   exports: [DepositRegistryService],
 })
-export class DepositModule {}
+export class DepositsRegistryModule {}
