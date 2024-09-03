@@ -181,8 +181,7 @@ export class DepositRegistryService {
     const lastEventBlockHash = lastEvent?.blockHash;
 
     const isValid = await this.sanityChecker.verifyFreshEvents(
-      lastEvent.blockNumber,
-      lastEvent.blockHash,
+      blockHash,
       freshEvents,
     );
 

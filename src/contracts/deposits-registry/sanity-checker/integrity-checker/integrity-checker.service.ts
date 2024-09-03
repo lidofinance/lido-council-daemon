@@ -72,8 +72,8 @@ export class DepositIntegrityCheckerService {
    * @param {number} blockNumber - Block number to check the deposit root against.
    * @returns {Promise<void>} A promise that resolves if the roots match, otherwise throws an error.
    */
-  public async checkFinalizedRoot(blockNumber: number): Promise<boolean> {
-    return this.checkRoot(blockNumber, this.finalizedTree);
+  public async checkFinalizedRoot(tag: string | number): Promise<boolean> {
+    return this.checkRoot(tag, this.finalizedTree);
   }
 
   /**
@@ -82,13 +82,13 @@ export class DepositIntegrityCheckerService {
    * @param {DepositTree} tree - Deposit tree to use for comparison.
    * @returns {Promise<void>} A promise that resolves if the roots match, otherwise logs an error and throws.
    */
-  private async checkRoot(blockNumber: number, tree: DepositTree) {
+  private async checkRoot(tag: string | number, tree: DepositTree) {
     const localRoot = tree.getRoot();
-    const remoteRoot = await this.getDepositRoot(blockNumber);
+    const remoteRoot = await this.getDepositRoot(tag);
 
     if (localRoot === remoteRoot) {
       this.logger.log('Integrity check successfully completed', {
-        blockNumber,
+        tag,
       });
       return true;
     }

@@ -100,22 +100,42 @@ export class DepositRegistrySanityCheckerService {
     });
   }
 
+  /**
+   * Verifies the integrity of the latest deposit events. If the last event is absent,
+   * it checks the validity of the last finalized root using the current block hash.
+   * Otherwise, it checks for reorganizations and matches the deposit root of the events.
+   *
+   * @param {string} currentBlockHash - The hash of the current block being processed.
+   * @param {VerifiedDepositEvent[]} freshEvents - Array of freshly verified deposit events.
+   * @returns {Promise<boolean>} - Returns true if the deposit root matches and no reorganization is found, otherwise false.
+   */
   public async verifyFreshEvents(
-    blockNumber: number,
-    blockHash: string,
-    events: VerifiedDepositEvent[],
+    currentBlockHash: string,
+    freshEvents: VerifiedDepositEvent[],
   ) {
+    const lastEvent = freshEvents[freshEvents.length - 1];
+
+    // If there is no last event, validate the finalized root for the current block hash.
+    if (!lastEvent) {
+      return this.depositsIntegrityChecker.checkFinalizedRoot(currentBlockHash);
+    }
+
+    const { blockHash, blockNumber } = lastEvent;
+
+    // Check for a reorganization in the blockchain that might affect the deposit events.
     const isReorgFound = this.findReorganization(
       blockNumber,
       blockHash,
-      events,
+      freshEvents,
     );
 
+    // If a reorganization is found, return false as the events might not be in the correct state.
     if (isReorgFound) return false;
 
+    // Check if the deposit root of the events matches the expected values.
     const isDepositRootMatches = await this.checkFreshEventsChunk(
       blockNumber,
-      events,
+      freshEvents,
     );
 
     return isDepositRootMatches;
