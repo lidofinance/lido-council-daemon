@@ -105,8 +105,8 @@ export class DepositRegistryService {
       );
 
       await this.sanityChecker.verifyEventsChunk(
-        currentBlockNumber,
-        currentBlockHash,
+        chunkStartBlock,
+        chunkToBlock,
         chunkEventGroup.events,
       );
 

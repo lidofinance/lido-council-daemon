@@ -85,27 +85,19 @@ export class DepositRegistrySanityCheckerService {
   }
 
   public async verifyEventsChunk(
-    blockNumber: number,
-    blockHash: string,
+    chunkStartBlock: number,
+    chunkToBlock: number,
     events: VerifiedDepositEvent[],
   ) {
-    const isReorgFound = this.findReorganization(
-      blockNumber,
-      blockHash,
-      events,
-    );
-
-    if (isReorgFound) return false;
+    if (!events.length) return;
 
     const tree = await this.indexEventsChunk(events);
 
     this.logger.log('Deposit events chunk was verified', {
-      blockNumber,
-      blockHash,
+      chunkStartBlock,
+      chunkToBlock,
       depositRoot: tree.getRoot(),
     });
-
-    return true;
   }
 
   public async verifyFreshEvents(
