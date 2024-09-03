@@ -37,10 +37,9 @@ import {
   initLevelDB,
 } from './helpers/test-setup';
 import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
-import { LevelDBService } from 'contracts/deposit/leveldb';
+import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
 import { makeDeposit, signDeposit } from './helpers/deposit';
 import { ProviderService } from 'provider';
-import { DepositService } from 'contracts/deposit';
 import { GuardianService } from 'guardian';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { SecurityService } from 'contracts/security';
@@ -52,7 +51,7 @@ import { makeServer } from './server';
 import { addGuardians } from './helpers/dsm';
 import { BlsService } from 'bls';
 import { mockKey, mockKey2, mockKeyEvent } from './helpers/keys-fixtures';
-import { DepositIntegrityCheckerService } from 'contracts/deposit/integrity-checker';
+import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
 import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 
 describe('Deposits in case of duplicates', () => {
@@ -60,10 +59,9 @@ describe('Deposits in case of duplicates', () => {
   let providerService: ProviderService;
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;
-  let depositService: DepositService;
   let securityService: SecurityService;
 
-  let levelDBService: LevelDBService;
+  let levelDBService: DepositsRegistryStoreService;
   let depositIntegrityCheckerService: DepositIntegrityCheckerService;
 
   let signKeyLevelDBService: SignKeyLevelDBService;
@@ -106,10 +104,10 @@ describe('Deposits in case of duplicates', () => {
     // deposit cache mocks
     jest
       .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(true));
     jest
       .spyOn(depositIntegrityCheckerService, 'checkFinalizedRoot')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(true));
 
     // mock unvetting method of contract
     // as we dont use real keys api and work with fixtures of operators and keys
@@ -121,7 +119,7 @@ describe('Deposits in case of duplicates', () => {
 
   const setupTestingServices = async (moduleRef) => {
     // leveldb service
-    levelDBService = moduleRef.get(LevelDBService);
+    levelDBService = moduleRef.get(DepositsRegistryStoreService);
     signKeyLevelDBService = moduleRef.get(SignKeyLevelDBService);
 
     await initLevelDB(levelDBService, signKeyLevelDBService);
@@ -130,7 +128,6 @@ describe('Deposits in case of duplicates', () => {
     depositIntegrityCheckerService = moduleRef.get(
       DepositIntegrityCheckerService,
     );
-    depositService = moduleRef.get(DepositService);
 
     const blsService = moduleRef.get(BlsService);
     await blsService.onModuleInit();
@@ -177,7 +174,7 @@ describe('Deposits in case of duplicates', () => {
       const { wallet } = await makeDeposit(depositData, providerService);
 
       // Set deposit cache
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -310,7 +307,7 @@ describe('Deposits in case of duplicates', () => {
       const { depositData } = signDeposit(pk, sk);
       const { wallet } = await makeDeposit(depositData, providerService);
 
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -448,7 +445,7 @@ describe('Deposits in case of duplicates', () => {
       const { depositData } = signDeposit(pk, sk);
       const { wallet } = await makeDeposit(depositData, providerService);
 
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -587,7 +584,7 @@ describe('Deposits in case of duplicates', () => {
       const { depositData } = signDeposit(pk, sk);
       const { wallet } = await makeDeposit(depositData, providerService);
 
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -708,7 +705,7 @@ describe('Deposits in case of duplicates', () => {
     const { depositData } = signDeposit(pk, sk);
     const { wallet } = await makeDeposit(depositData, providerService);
 
-    await depositService.setCachedEvents({
+    await levelDBService.setCachedEvents({
       data: [],
       headers: {
         startBlock: currentBlock.number,
@@ -743,7 +740,7 @@ describe('Deposits in case of duplicates', () => {
       },
     });
 
-    await depositService.setCachedEvents({
+    await levelDBService.setCachedEvents({
       data: [],
       headers: {
         startBlock: currentBlock.number,
@@ -809,7 +806,7 @@ describe('Deposits in case of duplicates', () => {
       const { depositData } = signDeposit(pk, sk);
       const { wallet } = await makeDeposit(depositData, providerService);
 
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,

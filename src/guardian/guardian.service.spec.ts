@@ -7,7 +7,7 @@ import { LoggerService } from '@nestjs/common';
 import { ConfigModule } from 'common/config';
 import { PrometheusModule } from 'common/prometheus';
 import { GuardianModule } from 'guardian';
-import { DepositModule } from 'contracts/deposit';
+import { DepositsRegistryModule } from 'contracts/deposits-registry';
 import { SecurityModule } from 'contracts/security';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { LidoModule } from 'contracts/lido';
@@ -45,7 +45,7 @@ describe('GuardianService', () => {
         PrometheusModule,
         GuardianModule,
         RepositoryModule,
-        DepositModule,
+        DepositsRegistryModule,
         SecurityModule,
         LidoModule,
         MessagesModule,
