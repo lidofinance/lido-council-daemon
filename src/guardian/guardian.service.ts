@@ -98,7 +98,7 @@ export class GuardianService implements OnModuleInit {
 
         // The event cache is stored with an N block lag to avoid caching data from uncle blocks
         // so we don't worry about blockHash here
-        await this.depositService.updateEventsCache();
+        // TODO: rewrite signingKeyEventsCacheService
         await this.signingKeyEventsCacheService.updateEventsCache();
 
         this.subscribeToModulesUpdates();
@@ -169,7 +169,7 @@ export class GuardianService implements OnModuleInit {
         currMeta.elBlockSnapshot.lastChangedBlockHash,
       );
 
-      await this.depositService.handleNewBlock(blockNumber);
+      await this.depositService.handleNewBlock();
 
       const { stakingModulesData, blockData } = await this.collectData(
         operatorsByModules,

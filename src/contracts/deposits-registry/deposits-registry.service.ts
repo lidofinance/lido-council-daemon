@@ -4,7 +4,6 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { ProviderService } from 'provider';
 import {
   DEPOSIT_EVENTS_STEP,
-  DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE,
   DEPOSIT_EVENTS_CACHE_LAG_BLOCKS,
 } from './deposits-registry.constants';
 import {
@@ -29,11 +28,7 @@ export class DepositRegistryService {
     private store: DepositsRegistryStoreService,
   ) {}
 
-  public async handleNewBlock(blockNumber: number): Promise<void> {
-    if (blockNumber % DEPOSIT_EVENTS_CACHE_UPDATE_BLOCK_RATE !== 0) return;
-
-    // The event cache is stored with an N block lag to avoid caching data from uncle blocks
-    // so we don't worry about blockHash here
+  public async handleNewBlock(): Promise<void> {
     await this.updateEventsCache();
   }
 
@@ -41,8 +36,7 @@ export class DepositRegistryService {
     await this.store.initialize();
     const cachedEvents = await this.store.getEventsCache();
     await this.sanityChecker.initialize(cachedEvents);
-    // it is necessary to load fresh events before integrity check
-    // because we can only compare roots of the last 128 blocks.
+
     await this.updateEventsCache();
   }
 
@@ -72,7 +66,7 @@ export class DepositRegistryService {
     const fetchTimeStart = performance.now();
 
     const [currentBlock, initialCache] = await Promise.all([
-      this.providerService.getBlock(),
+      this.providerService.getBlock('finalized'),
       this.getCachedEvents(),
     ]);
 
