@@ -2,10 +2,7 @@ import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { performance } from 'perf_hooks';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { ProviderService } from 'provider';
-import {
-  DEPOSIT_EVENTS_STEP,
-  DEPOSIT_EVENTS_CACHE_LAG_BLOCKS,
-} from './deposits-registry.constants';
+import { DEPOSIT_EVENTS_STEP } from './deposits-registry.constants';
 import {
   VerifiedDepositEventsCache,
   VerifiedDepositedEventGroup,
@@ -65,14 +62,14 @@ export class DepositRegistryService {
   public async updateEventsCache(): Promise<void> {
     const fetchTimeStart = performance.now();
 
-    const [currentBlock, initialCache] = await Promise.all([
+    const [finalizedBlock, initialCache] = await Promise.all([
       this.providerService.getBlock('finalized'),
       this.getCachedEvents(),
     ]);
 
-    const { number: currentBlockNumber, hash: currentBlockHash } = currentBlock;
+    const { number: finalizedBlockNumber, hash: finalizedBlockHash } =
+      finalizedBlock;
     const firstNotCachedBlock = initialCache.headers.endBlock + 1;
-    const toBlock = currentBlockNumber - DEPOSIT_EVENTS_CACHE_LAG_BLOCKS;
 
     const totalEventsCount = initialCache.data.length;
     let newEventsCount = 0;
@@ -80,18 +77,21 @@ export class DepositRegistryService {
     // verify blockchain
     const isCacheValid = this.sanityChecker.verifyCacheBlock(
       initialCache,
-      currentBlockNumber,
+      finalizedBlockNumber,
     );
 
     if (!isCacheValid) return;
 
     for (
       let block = firstNotCachedBlock;
-      block <= toBlock;
+      block <= finalizedBlockNumber;
       block += DEPOSIT_EVENTS_STEP
     ) {
       const chunkStartBlock = block;
-      const chunkToBlock = Math.min(toBlock, block + DEPOSIT_EVENTS_STEP - 1);
+      const chunkToBlock = Math.min(
+        finalizedBlockNumber,
+        block + DEPOSIT_EVENTS_STEP - 1,
+      );
 
       const chunkEventGroup = await this.fetcher.fetchEventsFallOver(
         chunkStartBlock,
@@ -104,6 +104,10 @@ export class DepositRegistryService {
         chunkEventGroup.events,
       );
 
+      // Even if the cache is not valid we can't help but write it down
+      // because the delay in updating the cache will eventually cause
+      // the getAllDepositedEvents method to take a very long time to process, as changes
+      // will be accumulated and not processed.
       await this.store.insertEventsCacheBatch({
         headers: {
           ...initialCache.headers,
@@ -115,7 +119,7 @@ export class DepositRegistryService {
       newEventsCount += chunkEventGroup.events.length;
 
       this.logger.log('Historical events are fetched', {
-        toBlock,
+        finalizedBlockNumber,
         startBlock: chunkStartBlock,
         endBlock: chunkToBlock,
       });
@@ -125,12 +129,14 @@ export class DepositRegistryService {
     const fetchTime = Math.ceil(fetchTimeEnd - fetchTimeStart) / 1000;
     // TODO: replace timer with metric
 
-    const isRootValid = await this.sanityChecker.verifyUpdatedEvents(toBlock);
+    const isRootValid = await this.sanityChecker.verifyUpdatedEvents(
+      finalizedBlockNumber,
+    );
 
     if (!isRootValid) {
       this.logger.error('Integrity check failed on block', {
-        currentBlock,
-        currentBlockHash,
+        finalizedBlock,
+        finalizedBlockHash,
       });
     }
 
