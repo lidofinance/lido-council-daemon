@@ -197,15 +197,20 @@ describe('ganache e2e tests', () => {
         moduleAddress: NOP_REGISTRY,
       };
 
+      const { depositData: depositData } = signDeposit(pk, sk, LIDO_WC);
+      const { wallet } = await makeDeposit(depositData, providerService);
+
+      const blockAfterDeposit = await providerService.provider.getBlock(
+        'latest',
+      );
+
       const { curatedModule, sdvtModule } = setupMockModules(
-        currentBlock,
+        blockAfterDeposit,
         keysApiService,
         [mockOperator1, mockOperator2],
         mockedDvtOperators,
         [keyWithWrongSign],
       );
-      const { depositData: depositData } = signDeposit(pk, sk, LIDO_WC);
-      const { wallet } = await makeDeposit(depositData, providerService);
 
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
@@ -226,7 +231,7 @@ describe('ganache e2e tests', () => {
       expect(sendUnvetMessage).toBeCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
-          blockNumber: currentBlock.number,
+          blockNumber: blockAfterDeposit.number,
           guardianAddress: wallet.address,
           guardianIndex: 7,
           stakingModuleId: curatedModule.id,
@@ -239,13 +244,15 @@ describe('ganache e2e tests', () => {
       expect(sendDepositMessage).toBeCalledTimes(1);
       expect(sendDepositMessage).toBeCalledWith(
         expect.objectContaining({
-          blockNumber: currentBlock.number,
+          blockNumber: blockAfterDeposit.number,
           guardianAddress: wallet.address,
           guardianIndex: 7,
           stakingModuleId: sdvtModule.id,
         }),
       );
       expect(sendPauseMessage).toBeCalledTimes(0);
+
+      await providerService.provider.send('evm_mine', []);
 
       // if depositData was not changed it will not validate again
 

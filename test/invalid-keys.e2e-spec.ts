@@ -185,8 +185,12 @@ describe('ganache e2e tests', () => {
         moduleAddress: NOP_REGISTRY,
       };
 
+      const blockAfterDeposit = await providerService.provider.getBlock(
+        'latest',
+      );
+
       const { sdvtModule } = setupMockModules(
-        currentBlock,
+        blockAfterDeposit,
         keysApiService,
         [mockOperator1, mockOperator2],
         mockedDvtOperators,
@@ -212,7 +216,7 @@ describe('ganache e2e tests', () => {
       expect(sendDepositMessage).toBeCalledTimes(1);
       expect(sendDepositMessage).toBeCalledWith(
         expect.objectContaining({
-          blockNumber: currentBlock.number,
+          blockNumber: blockAfterDeposit.number,
           guardianAddress: wallet.address,
           guardianIndex: 7,
           stakingModuleId: sdvtModule.id,
@@ -221,8 +225,10 @@ describe('ganache e2e tests', () => {
       expect(sendPauseMessage).toBeCalledTimes(0);
 
       // if depositData was not changed it will not validate again
+      await providerService.provider.send('evm_mine', []);
 
       const newBlock = await providerService.provider.getBlock('latest');
+
       setupMockModules(
         newBlock,
         keysApiService,

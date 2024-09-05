@@ -148,9 +148,9 @@ describe('ganache e2e tests', () => {
   test(
     'skip deposit if find duplicated key',
     async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
       const { depositData } = signDeposit(pk, sk);
       const { wallet } = await makeDeposit(depositData, providerService);
+      const currentBlock = await providerService.provider.getBlock('latest');
 
       await levelDBService.setCachedEvents({
         data: [],
@@ -202,6 +202,7 @@ describe('ganache e2e tests', () => {
       expect(isOnPause).toBe(false);
 
       await guardianService.handleNewBlock();
+
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       // just skip on this iteration deposit for Curated staking module
@@ -215,6 +216,8 @@ describe('ganache e2e tests', () => {
         }),
       );
       expect(sendPauseMessage).toBeCalledTimes(0);
+
+      await providerService.provider.send('evm_mine', []);
 
       // after deleting duplicates in staking module,
       // council will resume deposits to module
@@ -264,9 +267,9 @@ describe('ganache e2e tests', () => {
   test(
     'skip deposit if find duplicated key in another staking module',
     async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
       const { depositData } = signDeposit(pk, sk);
       const { wallet } = await makeDeposit(depositData, providerService);
+      const currentBlock = await providerService.provider.getBlock('latest');
 
       await levelDBService.setCachedEvents({
         data: [],
@@ -333,6 +336,7 @@ describe('ganache e2e tests', () => {
       );
       expect(sendPauseMessage).toBeCalledTimes(0);
 
+      await providerService.provider.send('evm_mine', []);
       // after deleting duplicates in staking module,
       // council will resume deposits to module
       const unusedKeysWithoutDuplicates = [
@@ -382,9 +386,9 @@ describe('ganache e2e tests', () => {
   test(
     'added unused keys for that deposit was already made',
     async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
       const { depositData } = signDeposit(pk, sk);
       const { wallet } = await makeDeposit(depositData, providerService);
+      const currentBlock = await providerService.provider.getBlock('latest');
 
       await levelDBService.setCachedEvents({
         data: [],
@@ -437,6 +441,7 @@ describe('ganache e2e tests', () => {
       expect(sendDepositMessage).toBeCalledTimes(1);
       expect(sendPauseMessage).toBeCalledTimes(0);
 
+      await providerService.provider.send('evm_mine', []);
       // after deleting duplicates in staking module,
       // council will resume deposits to module
 
@@ -479,9 +484,9 @@ describe('ganache e2e tests', () => {
   );
 
   test('adding not vetted duplicate will not set on soft pause module', async () => {
-    const currentBlock = await providerService.provider.getBlock('latest');
     const { depositData } = signDeposit(pk, sk);
     await makeDeposit(depositData, providerService);
+    const currentBlock = await providerService.provider.getBlock('latest');
 
     await levelDBService.setCachedEvents({
       data: [],
