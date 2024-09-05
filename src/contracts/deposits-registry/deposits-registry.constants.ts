@@ -17,3 +17,7 @@ export const DEPOSIT_CACHE_DEFAULT = Object.freeze({
   },
   data: [],
 });
+
+export const DEPOSIT_REGISTRY_FINALIZED_TAG = Symbol.for(
+  'DEPOSIT_REGISTRY_FINALIZED_TAG',
+);

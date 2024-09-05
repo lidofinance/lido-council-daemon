@@ -16,7 +16,7 @@ import { UnvettingModule } from './unvetting/unvetting.module';
 
 @Module({
   imports: [
-    DepositsRegistryModule,
+    DepositsRegistryModule.register(),
     SecurityModule,
     LidoModule,
     MessagesModule,

@@ -25,7 +25,7 @@ export const setupTestingModule = async () => {
       WalletModule,
       KeysApiModule,
       LidoModule,
-      DepositsRegistryModule,
+      DepositsRegistryModule.register('latest'),
       SecurityModule,
     ],
   }).compile();

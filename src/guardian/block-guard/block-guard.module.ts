@@ -9,7 +9,7 @@ import { WalletModule } from 'wallet';
 @Module({
   imports: [
     LidoModule,
-    DepositsRegistryModule,
+    DepositsRegistryModule.register(),
     SecurityModule,
     StakingModuleGuardModule,
     WalletModule,

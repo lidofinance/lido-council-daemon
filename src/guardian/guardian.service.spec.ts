@@ -45,7 +45,7 @@ describe('GuardianService', () => {
         PrometheusModule,
         GuardianModule,
         RepositoryModule,
-        DepositsRegistryModule,
+        DepositsRegistryModule.register('latest'),
         SecurityModule,
         LidoModule,
         MessagesModule,

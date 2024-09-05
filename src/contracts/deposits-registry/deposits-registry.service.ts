@@ -2,7 +2,10 @@ import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { performance } from 'perf_hooks';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { ProviderService } from 'provider';
-import { DEPOSIT_EVENTS_STEP } from './deposits-registry.constants';
+import {
+  DEPOSIT_EVENTS_STEP,
+  DEPOSIT_REGISTRY_FINALIZED_TAG,
+} from './deposits-registry.constants';
 import {
   VerifiedDepositEventsCache,
   VerifiedDepositedEventGroup,
@@ -23,6 +26,8 @@ export class DepositRegistryService {
     private sanityChecker: DepositRegistrySanityCheckerService,
     private fetcher: DepositsRegistryFetcherService,
     private store: DepositsRegistryStoreService,
+
+    @Inject(DEPOSIT_REGISTRY_FINALIZED_TAG) private finalizedTag: string,
   ) {}
 
   public async handleNewBlock(): Promise<void> {
@@ -63,7 +68,7 @@ export class DepositRegistryService {
     const fetchTimeStart = performance.now();
 
     const [finalizedBlock, initialCache] = await Promise.all([
-      this.providerService.getBlock('finalized'),
+      this.providerService.getBlock(this.finalizedTag),
       this.getCachedEvents(),
     ]);
 
