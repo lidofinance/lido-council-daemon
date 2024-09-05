@@ -303,8 +303,10 @@ describe('ganache e2e tests', () => {
         mockKey2,
       ];
 
+      const newBlock = await providerService.provider.getBlock('latest');
+
       setupMockModules(
-        currentBlock,
+        newBlock,
         keysApiService,
         [mockOperator1, mockOperator2],
         mockedDvtOperators,
@@ -377,8 +379,10 @@ describe('ganache e2e tests', () => {
         },
       ];
 
+      const newBlock = await providerService.provider.getBlock('latest');
+
       setupMockModules(
-        currentBlock,
+        newBlock,
         keysApiService,
         [mockOperator1, mockOperator2],
         mockedDvtOperators,
@@ -436,8 +440,10 @@ describe('ganache e2e tests', () => {
         },
       ];
 
+      const newBlock = await providerService.provider.getBlock('latest');
+
       setupMockModules(
-        currentBlock,
+        newBlock,
         keysApiService,
         [mockOperator1, mockOperator2],
         mockedDvtOperators,
@@ -451,7 +457,7 @@ describe('ganache e2e tests', () => {
       expect(sendDepositMessage).toBeCalledTimes(2);
       expect(sendDepositMessage).toHaveBeenCalledWith(
         expect.objectContaining({
-          blockNumber: currentBlock.number,
+          blockNumber: newBlock.number,
           guardianAddress: wallet.address,
           guardianIndex: 7,
           stakingModuleId: 1,
@@ -459,7 +465,7 @@ describe('ganache e2e tests', () => {
       );
       expect(sendDepositMessage).toHaveBeenCalledWith(
         expect.objectContaining({
-          blockNumber: currentBlock.number,
+          blockNumber: newBlock.number,
           guardianAddress: wallet.address,
           guardianIndex: 7,
           stakingModuleId: 2,

@@ -167,11 +167,11 @@ describe('Deposits in case of duplicates', () => {
   test(
     'skip deposits for module if find duplicated key across operator',
     async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
-
-      // TODO: mine new block instead
+      // TODO: mine new block instead (? @Anna)
       const { depositData } = signDeposit(pk, sk);
       const { wallet } = await makeDeposit(depositData, providerService);
+
+      const currentBlock = await providerService.provider.getBlock('latest');
 
       // Set deposit cache
       await levelDBService.setCachedEvents({
@@ -252,6 +252,9 @@ describe('Deposits in case of duplicates', () => {
       );
       expect(unvetSigningKeys).toBeCalledTimes(1);
 
+      // Mine a new block
+      await providerService.provider.send('evm_mine', []);
+
       // after deleting duplicates in staking module,
       // council will resume deposits to module
       const unusedKeysWithoutDuplicates = [
@@ -303,9 +306,9 @@ describe('Deposits in case of duplicates', () => {
   test(
     'skip deposits for module if find duplicated key across operators of two modules',
     async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
       const { depositData } = signDeposit(pk, sk);
       const { wallet } = await makeDeposit(depositData, providerService);
+      const currentBlock = await providerService.provider.getBlock('latest');
 
       await levelDBService.setCachedEvents({
         data: [],
@@ -390,6 +393,9 @@ describe('Deposits in case of duplicates', () => {
       expect(sendDepositMessage).toBeCalledTimes(1);
       expect(sendPauseMessage).toBeCalledTimes(0);
 
+      // Mine a new block
+      await providerService.provider.send('evm_mine', []);
+
       // after deleting duplicates in staking module,
       // council will resume deposits to module
       const unusedKeysWithoutDuplicates = [
@@ -441,9 +447,9 @@ describe('Deposits in case of duplicates', () => {
   test(
     'skip deposits for module if find duplicated key across operators of one modules',
     async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
       const { depositData } = signDeposit(pk, sk);
       const { wallet } = await makeDeposit(depositData, providerService);
+      const currentBlock = await providerService.provider.getBlock('latest');
 
       await levelDBService.setCachedEvents({
         data: [],
@@ -528,6 +534,9 @@ describe('Deposits in case of duplicates', () => {
       expect(sendDepositMessage).toBeCalledTimes(1);
       expect(sendPauseMessage).toBeCalledTimes(0);
 
+      // Mine a new block
+      await providerService.provider.send('evm_mine', []);
+
       // after deleting duplicates in staking module,
       // council will resume deposits to module
 
@@ -580,9 +589,9 @@ describe('Deposits in case of duplicates', () => {
   test(
     'added unused keys for that deposit was already made',
     async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
       const { depositData } = signDeposit(pk, sk);
       const { wallet } = await makeDeposit(depositData, providerService);
+      const currentBlock = await providerService.provider.getBlock('latest');
 
       await levelDBService.setCachedEvents({
         data: [],
@@ -657,6 +666,9 @@ describe('Deposits in case of duplicates', () => {
       );
       expect(unvetSigningKeys).toBeCalledTimes(1);
 
+      // Mine a new block
+      await providerService.provider.send('evm_mine', []);
+
       // after deleting duplicates in staking module,
       // council will resume deposits to module
       const newBlock = await providerService.provider.getBlock('latest');
@@ -701,9 +713,10 @@ describe('Deposits in case of duplicates', () => {
   );
 
   test('adding not vetted duplicate will not set on soft pause module', async () => {
-    const currentBlock = await providerService.provider.getBlock('latest');
     const { depositData } = signDeposit(pk, sk);
     const { wallet } = await makeDeposit(depositData, providerService);
+
+    const currentBlock = await providerService.provider.getBlock('latest');
 
     await levelDBService.setCachedEvents({
       data: [],
