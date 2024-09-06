@@ -339,13 +339,9 @@ export class GuardianService implements OnModuleInit {
             blockData.theftHappened,
             blockData.alreadyPausedDeposits,
             blockData.depositedEvents.isValid,
+            stakingModuleData.stakingModuleId,
           )
         ) {
-          this.logger.warn('Deposits are not available', {
-            stakingModuleId: stakingModuleData.stakingModuleId,
-            blockHash: blockData.blockHash,
-            isDepositsCacheValid: blockData.depositedEvents.isValid,
-          });
           return;
         }
 
@@ -362,6 +358,7 @@ export class GuardianService implements OnModuleInit {
     theftHappened: boolean,
     alreadyPausedDeposits: boolean,
     isDepositsCacheValid: boolean,
+    stakingModuleId: number,
   ): boolean {
     const keysForUnvetting = [
       ...stakingModuleData.invalidKeys,
@@ -370,13 +367,26 @@ export class GuardianService implements OnModuleInit {
     ];
 
     // if neither of this conditions is true, deposits are allowed for module
-    return (
+    const isCannot =
       keysForUnvetting.length > 0 ||
       stakingModuleData.unresolvedDuplicatedKeys.length > 0 ||
       alreadyPausedDeposits ||
       theftHappened ||
       stakingModuleData.isModuleDepositsPaused ||
-      !isDepositsCacheValid
-    );
+      !isDepositsCacheValid;
+
+    if (isCannot) {
+      this.logger.warn('Deposits are not available', {
+        keysForUnvetting: keysForUnvetting.length,
+        duplicates: stakingModuleData.unresolvedDuplicatedKeys.length,
+        alreadyPausedDeposits,
+        theftHappened,
+        isModuleDepositsPaused: stakingModuleData.isModuleDepositsPaused,
+        isDepositsCacheValid,
+        stakingModuleId,
+      });
+    }
+
+    return isCannot;
   }
 }
