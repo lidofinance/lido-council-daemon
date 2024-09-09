@@ -9,6 +9,7 @@ import {
 import {
   VerifiedDepositEventsCache,
   VerifiedDepositedEventGroup,
+  VerifiedDepositEvent,
 } from './interfaces';
 import { RepositoryService } from 'contracts/repository';
 import { BlockTag } from 'provider';
@@ -87,6 +88,8 @@ export class DepositRegistryService {
 
     if (!isCacheValid) return;
 
+    let lastIndexedEvent: VerifiedDepositEvent | undefined = undefined;
+
     for (
       let block = firstNotCachedBlock;
       block <= finalizedBlockNumber;
@@ -123,6 +126,11 @@ export class DepositRegistryService {
 
       newEventsCount += chunkEventGroup.events.length;
 
+      const lastEventFromGroup =
+        chunkEventGroup.events[chunkEventGroup.events.length - 1];
+
+      if (lastEventFromGroup) lastIndexedEvent = lastEventFromGroup;
+
       this.logger.log('Historical events are fetched', {
         finalizedBlockNumber,
         startBlock: chunkStartBlock,
@@ -132,11 +140,17 @@ export class DepositRegistryService {
 
     const fetchTimeEnd = performance.now();
     const fetchTime = Math.ceil(fetchTimeEnd - fetchTimeStart) / 1000;
-    // TODO: replace timer with metric
 
     const isRootValid = await this.sanityChecker.verifyUpdatedEvents(
-      finalizedBlockNumber,
+      finalizedBlockHash,
     );
+
+    // Store the last event from the list of updated events separately
+    // Unfortunately, we cannot validate each event individually upon insertion
+    // because this would require an archival node
+    if (isRootValid && lastIndexedEvent) {
+      await this.store.insertLastValidEvent(lastIndexedEvent);
+    }
 
     if (!isRootValid) {
       this.logger.error('Integrity check failed on block', {
@@ -191,9 +205,15 @@ export class DepositRegistryService {
     );
 
     if (!isValid) {
+      const { lastValidEvent } = cachedEvents;
       this.logger.warn('Integrity check failed on block', {
-        blockNumber,
-        blockHash,
+        currentBlockNumber: blockNumber,
+        currentBlockHash: blockHash,
+        lastValidBlockNumber: lastValidEvent?.blockNumber,
+        lastValidBlockHash: lastValidEvent?.blockHash,
+        lastValidEventIndex: lastValidEvent?.index,
+        lastValidEventDepositDataRoot: lastValidEvent?.depositDataRoot,
+        lastValidEventDepositCount: lastValidEvent?.depositCount,
       });
     }
 
@@ -214,6 +234,7 @@ export class DepositRegistryService {
       isValid,
     };
   }
+
   /**
    * Returns a deposit root
    */

@@ -69,6 +69,7 @@ export class DepositsRegistryStoreService {
   public async getEventsCache(): Promise<{
     data: VerifiedDepositEvent[];
     headers: VerifiedDepositEventsCacheHeaders;
+    lastValidEvent?: VerifiedDepositEvent;
   }> {
     try {
       const stream = this.db.iterator({ gte: 'deposit:', lte: 'deposit:\xFF' });
@@ -81,6 +82,16 @@ export class DepositsRegistryStoreService {
       const headers: VerifiedDepositEventsCacheHeaders = JSON.parse(
         await this.db.get('headers'),
       );
+
+      const lastValidEvent = await this.db.get('last-valid-event');
+
+      if (lastValidEvent) {
+        return {
+          data,
+          headers,
+          lastValidEvent: this.parseDepositEvent(lastValidEvent),
+        };
+      }
 
       return { data, headers };
     } catch (error: any) {
@@ -167,6 +178,17 @@ export class DepositsRegistryStoreService {
       value: JSON.stringify(records.headers),
     });
     await this.db.batch(ops);
+  }
+
+  /**
+   * Inserts a batch of deposit events and a header into the database.
+   *
+   * @param {VerifiedDepositEvent} event - Last valid and verified event.
+   * @returns {Promise<void>} A promise that resolves when all operations have been successfully committed to the database.
+   * @public
+   */
+  public async insertLastValidEvent(event: VerifiedDepositEvent) {
+    await this.db.put('last-valid-event', this.serializeDepositEvent(event));
   }
 
   /**

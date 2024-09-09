@@ -11,7 +11,7 @@ import { DEPOSIT_TREE_STEP_SYNC } from './constants';
 
 @Injectable()
 export class DepositIntegrityCheckerService {
-  finalizedTree = new DepositTree();
+  private finalizedTree = new DepositTree();
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private repositoryService: RepositoryService,

@@ -141,7 +141,7 @@ export class DepositRegistrySanityCheckerService {
     return isDepositRootMatches;
   }
 
-  public async verifyUpdatedEvents(blockNumber: number) {
-    return this.depositsIntegrityChecker.checkFinalizedRoot(blockNumber);
+  public async verifyUpdatedEvents(tag: string | number) {
+    return this.depositsIntegrityChecker.checkFinalizedRoot(tag);
   }
 }
