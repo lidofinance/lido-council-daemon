@@ -100,11 +100,9 @@ export class KeysDuplicationCheckerService {
   }
 
   private getOperators(keys: RegistryKey[]): string[] {
-    return [
-      ...new Set(
-        keys.map((key) => `${key.moduleAddress}-${key.operatorIndex}`),
-      ),
-    ];
+    return Array.from(
+      new Set(keys.map((key) => `${key.moduleAddress}-${key.operatorIndex}`)),
+    );
   }
 
   private handleSingleOperatorDuplicates(

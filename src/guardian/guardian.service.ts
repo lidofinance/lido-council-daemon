@@ -352,11 +352,10 @@ export class GuardianService implements OnModuleInit {
   }
 
   private hasInvalidKeys(moduleData: StakingModuleData): boolean {
-    const keys = [
-      ...moduleData.invalidKeys,
-      ...moduleData.duplicatedKeys,
-      ...moduleData.frontRunKeys,
-    ];
+    const keys = moduleData.invalidKeys.concat(
+      moduleData.duplicatedKeys,
+      moduleData.frontRunKeys,
+    );
     return keys.length > 0;
   }
 
@@ -402,11 +401,10 @@ export class GuardianService implements OnModuleInit {
     theftHappened: boolean,
     alreadyPausedDeposits: boolean,
   ): boolean {
-    const keysForUnvetting = [
-      ...stakingModuleData.invalidKeys,
-      ...stakingModuleData.frontRunKeys,
-      ...stakingModuleData.duplicatedKeys,
-    ];
+    const keysForUnvetting = stakingModuleData.invalidKeys.concat(
+      stakingModuleData.frontRunKeys,
+      stakingModuleData.duplicatedKeys,
+    );
 
     // if neither of this conditions is true, deposits are allowed for module
     return (

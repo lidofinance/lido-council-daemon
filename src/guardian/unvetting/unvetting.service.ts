@@ -52,11 +52,10 @@ export class UnvettingService {
   private collectInvalidKeys(
     stakingModuleData: StakingModuleData,
   ): RegistryKey[] {
-    return [
-      ...stakingModuleData.invalidKeys,
-      ...stakingModuleData.duplicatedKeys,
-      ...stakingModuleData.frontRunKeys,
-    ];
+    return stakingModuleData.invalidKeys.concat(
+      stakingModuleData.duplicatedKeys,
+      stakingModuleData.frontRunKeys,
+    );
   }
 
   private logNoUnvettingNeeded(
