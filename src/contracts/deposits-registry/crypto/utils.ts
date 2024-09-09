@@ -10,3 +10,7 @@ export const parseLittleEndian64 = (str: string) => {
 export const toLittleEndian64 = (value: number): string => {
   return toHexString(UintNum64.serialize(value));
 };
+
+export const toLittleEndian64BigInt = (value: bigint): string => {
+  return toHexString(UintNum64.serialize(Number(value)));
+};

@@ -3,7 +3,7 @@ import {
   digest2Bytes32,
   fromHexString,
   parseLittleEndian64,
-  toLittleEndian64,
+  toLittleEndian64BigInt,
 } from '../../../crypto';
 import { ethers } from 'ethers';
 import { NodeData } from '../../../interfaces';
@@ -17,7 +17,7 @@ export class DepositTree {
   static ZERO_HASH = fromHexString(ZERO_HASH_HEX);
   zeroHashes: Uint8Array[] = new Array(DepositTree.DEPOSIT_CONTRACT_TREE_DEPTH);
   branch: Uint8Array[] = [];
-  nodeCount = 0;
+  nodeCount = 0n;
 
   constructor() {
     this.formZeroHashes();
@@ -48,7 +48,7 @@ export class DepositTree {
    */
   private formBranch(
     node: Uint8Array,
-    depositCount: number,
+    depositCount: bigint,
   ): Uint8Array[] | undefined {
     let size = depositCount;
     for (
@@ -56,18 +56,14 @@ export class DepositTree {
       height < DepositTree.DEPOSIT_CONTRACT_TREE_DEPTH;
       height++
     ) {
-      if ((size & 1) == 1) {
+      if (size % 2n === 1n) {
         this.branch[height] = node;
         return this.branch;
       }
 
       node = digest2Bytes32(this.branch[height], node);
 
-      // Using size /= 2 is not a mistake. In JavaScript, when performing bitwise operations
-      // like & 1, floating-point numbers are implicitly converted to integers, discarding the fractional part.
-      // This ensures the algorithm works correctly and matches the logic of a Solidity smart contract.
-      // Solidity does not have floating-point numbers, and all division is performed as integer division, rounding down the result.
-      size /= 2;
+      size /= 2n;
     }
   }
 
@@ -92,16 +88,16 @@ export class DepositTree {
       height < DepositTree.DEPOSIT_CONTRACT_TREE_DEPTH;
       height++
     ) {
-      if ((size & 1) == 1) {
+      if (size % 2n === 1n) {
         node = digest2Bytes32(this.branch[height], node);
       } else {
         node = digest2Bytes32(node, this.zeroHashes[height]);
       }
-      size /= 2;
+      size /= 2n;
     }
     const finalRoot = ethers.utils.soliditySha256(
       ['bytes', 'bytes', 'bytes'],
-      [node, toLittleEndian64(this.nodeCount), ZERO_HASH_ROOT_HEX],
+      [node, toLittleEndian64BigInt(this.nodeCount), ZERO_HASH_ROOT_HEX],
     );
     return finalRoot;
   }

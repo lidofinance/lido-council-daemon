@@ -24,7 +24,7 @@ describe('DepositTree', () => {
     const initialNodeCount = depositTree.nodeCount;
     const node = new Uint8Array(32).fill(1); // Example node hash
     depositTree.insert(node);
-    expect(depositTree.nodeCount).toBe(initialNodeCount + 1);
+    expect(depositTree.nodeCount).toBe(initialNodeCount + 1n);
   });
 
   test('should handle detailed node data correctly', () => {
@@ -36,7 +36,7 @@ describe('DepositTree', () => {
       amount: '0x0100000000000000',
     };
     originalTree.insert(DepositTree.formDepositNode(nodeData));
-    expect(originalTree.nodeCount).toBe(1);
+    expect(Number(originalTree.nodeCount)).toBe(1);
 
     const oldDepositRoot = originalTree.getRoot();
     const cloned = originalTree.clone();
@@ -91,7 +91,7 @@ describe('DepositTree', () => {
       amount: '0x0100000000000000',
     };
     depositTree.insert(DepositTree.formDepositNode(nodeData));
-    expect(depositTree.nodeCount).toBe(1);
+    expect(Number(depositTree.nodeCount)).toBe(1);
   });
 
   test('should clone the tree correctly', () => {
@@ -149,7 +149,7 @@ describe('DepositTree', () => {
       depositTree.insert(fromHexString(ev)),
     );
 
-    expect(depositTree.nodeCount).toEqual(
+    expect(Number(depositTree.nodeCount)).toEqual(
       depositDataRootsFixture10k.events.length,
     );
     expect(depositTree.getRoot()).toEqual(depositDataRootsFixture10k.root);
@@ -160,7 +160,7 @@ describe('DepositTree', () => {
       depositTree.insert(fromHexString(ev)),
     );
 
-    expect(depositTree.nodeCount).toEqual(
+    expect(Number(depositTree.nodeCount)).toEqual(
       depositDataRootsFixture10k.events.length,
     );
     expect(depositTree.getRoot()).toEqual(depositDataRootsFixture10k.root);
@@ -168,7 +168,7 @@ describe('DepositTree', () => {
     depositDataRootsFixture20k.events.map((ev) =>
       depositTree.insert(fromHexString(ev)),
     );
-    expect(depositTree.nodeCount).toEqual(
+    expect(Number(depositTree.nodeCount)).toEqual(
       depositDataRootsFixture10k.events.length +
         depositDataRootsFixture20k.events.length,
     );
