@@ -7,6 +7,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Configuration } from 'common/config';
 import { GroupedByModuleOperatorListResponse } from './interfaces/GroupedByModuleOperatorListResponse';
 import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
+import { SRModuleListResponse } from './interfaces/SRModuleListResponse';
 
 @Injectable()
 export class KeysApiService {
@@ -77,6 +78,11 @@ export class KeysApiService {
    */
   public async getKeys() {
     const result = await this.fetch<KeyListResponse>(`/v1/keys`);
+    return result;
+  }
+
+  public async getModules() {
+    const result = await this.fetch<SRModuleListResponse>(`/v1/modules`);
     return result;
   }
 

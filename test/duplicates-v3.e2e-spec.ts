@@ -1,11 +1,3 @@
-import {
-  mockOperator1,
-  mockOperator2,
-  mockedDvtOperators,
-  mockedOperators,
-  setupMockModules,
-} from './helpers';
-
 // Constants
 import {
   TESTS_TIMEOUT,
@@ -36,7 +28,7 @@ import {
 } from './helpers/test-setup';
 import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
 import { LevelDBService } from 'contracts/deposit/leveldb';
-import { makeDeposit, signDeposit } from './helpers/deposit';
+import { getWalletAddress } from './helpers/deposit';
 import { ProviderService } from 'provider';
 import { DepositService } from 'contracts/deposit';
 import { GuardianService } from 'guardian';
@@ -45,13 +37,18 @@ import { SecurityService } from 'contracts/security';
 import { Server } from 'ganache';
 import { GuardianMessageService } from 'guardian/guardian-message';
 import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
-import { StakingModuleDataCollectorService } from 'staking-module-data-collector';
 import { makeServer } from './server';
 import { addGuardians } from './helpers/dsm';
 import { BlsService } from 'bls';
 import { mockKey, mockKey2, mockKeyEvent } from './helpers/keys-fixtures';
 import { DepositIntegrityCheckerService } from 'contracts/deposit/integrity-checker';
-import { StakingModuleGuardService } from 'guardian/staking-module-guard';
+import {
+  keysApiMockGetAllKeys,
+  keysApiMockGetModules,
+  mockedModuleCurated,
+  mockedModuleDvt,
+  mockMeta,
+} from './helpers';
 
 describe('Deposits in case of duplicates', () => {
   let server: Server<'ethereum'>;
@@ -67,10 +64,7 @@ describe('Deposits in case of duplicates', () => {
   let signKeyLevelDBService: SignKeyLevelDBService;
   let signingKeyEventsCacheService: SigningKeyEventsCacheService;
 
-  let stakingModuleGuardService: StakingModuleGuardService;
   let guardianMessageService: GuardianMessageService;
-  let stakingModuleDataCollectorService: StakingModuleDataCollectorService;
-
   // methods mocks
   let sendDepositMessage: jest.SpyInstance;
   let sendUnvetMessage: jest.SpyInstance;
@@ -149,10 +143,6 @@ describe('Deposits in case of duplicates', () => {
 
     // main service that check keys and make decision
     guardianService = moduleRef.get(GuardianService);
-    stakingModuleGuardService = moduleRef.get(StakingModuleGuardService);
-    stakingModuleDataCollectorService = moduleRef.get(
-      StakingModuleDataCollectorService,
-    );
   };
 
   beforeEach(async () => {
@@ -171,10 +161,7 @@ describe('Deposits in case of duplicates', () => {
     'skip deposits for module if find duplicated key across operator',
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
-
-      // TODO: mine new block instead
-      const { depositData } = signDeposit(pk, sk);
-      const { wallet } = await makeDeposit(depositData, providerService);
+      // await providerService.provider.send('evm_mine', []);
 
       // Set deposit cache
       await depositService.setCachedEvents({
@@ -185,27 +172,33 @@ describe('Deposits in case of duplicates', () => {
         },
       });
 
-      // Keys api mock
-      const unusedKeys = [
-        mockKey,
-        { ...mockKey, index: 1 },
-        {
-          ...mockKey,
-          index: 2,
-        },
+      const earliestKey = {
+        ...mockKey,
+        operatorIndex: 0,
+        moduleAddress: NOP_REGISTRY,
+        index: 0,
+      };
+      const duplicates = [
+        earliestKey,
+        { ...mockKey, operatorIndex: 0, moduleAddress: NOP_REGISTRY, index: 1 },
+        { ...mockKey, operatorIndex: 0, moduleAddress: NOP_REGISTRY, index: 2 },
+      ];
+      // Mock Keys API
+      const vettedUnusedKeys = [
+        ...duplicates,
         {
           ...mockKey2,
           moduleAddress: SIMPLE_DVT,
         },
       ];
 
-      const { curatedModule, sdvtModule } = setupMockModules(
-        currentBlock,
-        keysApiService,
-        mockedOperators,
-        mockedDvtOperators,
-        unusedKeys,
-      );
+      // setup elBlockSnapshot
+      const meta = mockMeta(currentBlock, currentBlock.hash);
+      // setup /v1/modules
+      const stakingModules = [mockedModuleCurated, mockedModuleDvt];
+      keysApiMockGetModules(keysApiService, stakingModules, meta);
+      // setup /v1/keys
+      keysApiMockGetAllKeys(keysApiService, vettedUnusedKeys, meta);
 
       // mock events cache to check
       await signingKeyEventsCacheService.setCachedEvents({
@@ -230,25 +223,25 @@ describe('Deposits in case of duplicates', () => {
 
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
+      const walletAddress = getWalletAddress();
       // just skip on this iteration deposit for Curated staking module
       expect(sendDepositMessage).toBeCalledTimes(1);
       expect(sendDepositMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
-          guardianAddress: wallet.address,
+          guardianAddress: walletAddress,
           guardianIndex: 7,
-          stakingModuleId: sdvtModule.id,
+          stakingModuleId: 2,
         }),
       );
-      // check that duplicates problem didnt trigger pause
       expect(sendPauseMessage).toBeCalledTimes(0);
       expect(sendUnvetMessage).toBeCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
-          guardianAddress: wallet.address,
+          guardianAddress: walletAddress,
           guardianIndex: 7,
-          stakingModuleId: curatedModule.id,
+          stakingModuleId: 1,
           operatorIds: '0x0000000000000000',
           vettedKeysByOperator: '0x00000000000000000000000000000001',
         }),
@@ -258,22 +251,25 @@ describe('Deposits in case of duplicates', () => {
       // after deleting duplicates in staking module,
       // council will resume deposits to module
       const unusedKeysWithoutDuplicates = [
-        mockKey,
+        earliestKey,
         {
           ...mockKey2,
           moduleAddress: SIMPLE_DVT,
         },
       ];
 
+      await providerService.provider.send('evm_mine', []);
       const newBlock = await providerService.provider.getBlock('latest');
       expect(newBlock.number).toBeGreaterThan(currentBlock.number);
 
-      setupMockModules(
-        newBlock,
+      const newMeta = mockMeta(newBlock, newBlock.hash);
+      // setup /v1/modules
+      keysApiMockGetModules(keysApiService, stakingModules, newMeta);
+      // setup /v1/keys
+      keysApiMockGetAllKeys(
         keysApiService,
-        mockedOperators,
-        mockedDvtOperators,
         unusedKeysWithoutDuplicates,
+        newMeta,
       );
 
       sendDepositMessage.mockClear();
@@ -285,7 +281,7 @@ describe('Deposits in case of duplicates', () => {
       expect(sendDepositMessage.mock.calls[0][0]).toEqual(
         expect.objectContaining({
           blockNumber: newBlock.number,
-          guardianAddress: wallet.address,
+          guardianAddress: walletAddress,
           guardianIndex: 7,
           stakingModuleId: 1,
         }),
@@ -293,7 +289,7 @@ describe('Deposits in case of duplicates', () => {
       expect(sendDepositMessage.mock.calls[1][0]).toEqual(
         expect.objectContaining({
           blockNumber: newBlock.number,
-          guardianAddress: wallet.address,
+          guardianAddress: walletAddress,
           guardianIndex: 7,
           stakingModuleId: 2,
         }),
@@ -307,8 +303,7 @@ describe('Deposits in case of duplicates', () => {
     'skip deposits for module if find duplicated key across operators of two modules',
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
-      const { depositData } = signDeposit(pk, sk);
-      const { wallet } = await makeDeposit(depositData, providerService);
+      const walletAddress = getWalletAddress();
 
       await depositService.setCachedEvents({
         data: [],
@@ -318,21 +313,21 @@ describe('Deposits in case of duplicates', () => {
         },
       });
 
-      const unusedKeys = [
-        mockKey,
+      const duplicates = [
+        { ...mockKey, moduleAddress: NOP_REGISTRY },
         {
           ...mockKey,
           moduleAddress: SIMPLE_DVT,
         },
       ];
 
-      const { sdvtModule, curatedModule } = setupMockModules(
-        currentBlock,
-        keysApiService,
-        mockedOperators,
-        mockedDvtOperators,
-        unusedKeys,
-      );
+      // setup elBlockSnapshot
+      const meta = mockMeta(currentBlock, currentBlock.hash);
+      // setup /v1/modules
+      const stakingModules = [mockedModuleCurated, mockedModuleDvt];
+      keysApiMockGetModules(keysApiService, stakingModules, meta);
+      // setup /v1/keys
+      keysApiMockGetAllKeys(keysApiService, duplicates, meta);
 
       await signingKeyEventsCacheService.setCachedEvents({
         data: [
@@ -371,9 +366,9 @@ describe('Deposits in case of duplicates', () => {
       expect(sendDepositMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
-          guardianAddress: wallet.address,
+          guardianAddress: walletAddress,
           guardianIndex: 7,
-          stakingModuleId: curatedModule.id,
+          stakingModuleId: 1,
         }),
       );
       // check that duplicates problem didnt trigger pause
@@ -382,9 +377,9 @@ describe('Deposits in case of duplicates', () => {
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
-          guardianAddress: wallet.address,
+          guardianAddress: walletAddress,
           guardianIndex: 7,
-          stakingModuleId: sdvtModule.id,
+          stakingModuleId: 2,
           operatorIds: '0x0000000000000000',
           vettedKeysByOperator: '0x00000000000000000000000000000000',
         }),
@@ -396,19 +391,20 @@ describe('Deposits in case of duplicates', () => {
       // after deleting duplicates in staking module,
       // council will resume deposits to module
       const unusedKeysWithoutDuplicates = [
-        mockKey,
-        {
-          ...mockKey2,
-          moduleAddress: SIMPLE_DVT,
-        },
+        { ...mockKey, moduleAddress: NOP_REGISTRY },
       ];
+
+      await providerService.provider.send('evm_mine', []);
       const newBlock = await providerService.provider.getBlock('latest');
-      setupMockModules(
-        newBlock,
+      // setup elBlockSnapshot
+      const newMeta = mockMeta(newBlock, newBlock.hash);
+      // setup /v1/modules
+      keysApiMockGetModules(keysApiService, stakingModules, newMeta);
+      // setup /v1/keys
+      keysApiMockGetAllKeys(
         keysApiService,
-        mockedOperators,
-        mockedDvtOperators,
         unusedKeysWithoutDuplicates,
+        newMeta,
       );
 
       sendDepositMessage.mockClear();
@@ -422,18 +418,17 @@ describe('Deposits in case of duplicates', () => {
       expect(sendDepositMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: newBlock.number,
-          guardianAddress: wallet.address,
+          guardianAddress: walletAddress,
           guardianIndex: 7,
-          stakingModuleId: curatedModule.id,
+          stakingModuleId: 1,
         }),
       );
-
       expect(sendDepositMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: newBlock.number,
-          guardianAddress: wallet.address,
+          guardianAddress: walletAddress,
           guardianIndex: 7,
-          stakingModuleId: sdvtModule.id,
+          stakingModuleId: 2,
         }),
       );
       expect(sendUnvetMessage).toBeCalledTimes(0);
@@ -445,8 +440,7 @@ describe('Deposits in case of duplicates', () => {
     'skip deposits for module if find duplicated key across operators of one modules',
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
-      const { depositData } = signDeposit(pk, sk);
-      const { wallet } = await makeDeposit(depositData, providerService);
+      const walletAddress = await getWalletAddress();
 
       await depositService.setCachedEvents({
         data: [],
@@ -456,35 +450,40 @@ describe('Deposits in case of duplicates', () => {
         },
       });
 
-      const unusedKeys = [
-        { ...mockKey, operatorIndex: mockOperator1.index },
+      const duplicates = [
+        { ...mockKey, index: 0, operatorIndex: 0 },
         {
           ...mockKey,
-          operatorIndex: mockOperator2.index,
+          index: 0,
+          operatorIndex: 1,
         },
       ];
 
-      const { curatedModule, sdvtModule } = setupMockModules(
-        currentBlock,
-        keysApiService,
-        mockedOperators,
-        mockedDvtOperators,
-        unusedKeys,
-      );
+      const meta = mockMeta(currentBlock, currentBlock.hash);
+      // setup /v1/modules
+      const stakingModules = [mockedModuleCurated, mockedModuleDvt];
+      keysApiMockGetModules(keysApiService, stakingModules, meta);
+      // setup /v1/keys
+      keysApiMockGetAllKeys(keysApiService, duplicates, meta);
 
       await signingKeyEventsCacheService.setCachedEvents({
         data: [
-          { ...mockKeyEvent, operatorIndex: mockOperator1.index },
-          // key of second module was added later
           {
             ...mockKeyEvent,
-            operatorIndex: mockOperator2.index,
-            blockNumber: mockKeyEvent.blockNumber + 1,
-            blockHash: 'somefakehash',
+            blockNumber: currentBlock.number - 4,
+            blockHash: 'somefakehash1',
+            operatorIndex: 0,
+          },
+          // key of second operator was added later
+          {
+            ...mockKeyEvent,
+            blockNumber: currentBlock.number - 3,
+            blockHash: 'somefakehash2',
+            operatorIndex: 1,
           },
         ],
         headers: {
-          startBlock: currentBlock.number - 2,
+          startBlock: currentBlock.number - 5,
           endBlock: currentBlock.number - 1,
           stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
@@ -509,9 +508,9 @@ describe('Deposits in case of duplicates', () => {
       expect(sendDepositMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
-          guardianAddress: wallet.address,
+          guardianAddress: walletAddress,
           guardianIndex: 7,
-          stakingModuleId: sdvtModule.id,
+          stakingModuleId: 2,
         }),
       );
       // check that duplicates problem didnt trigger pause
@@ -520,9 +519,9 @@ describe('Deposits in case of duplicates', () => {
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
-          guardianAddress: wallet.address,
+          guardianAddress: walletAddress,
           guardianIndex: 7,
-          stakingModuleId: curatedModule.id,
+          stakingModuleId: 1,
           operatorIds: '0x0000000000000001',
           vettedKeysByOperator: '0x00000000000000000000000000000000',
         }),
@@ -534,22 +533,16 @@ describe('Deposits in case of duplicates', () => {
       // after deleting duplicates in staking module,
       // council will resume deposits to module
 
-      const unusedKeysWithoutDuplicates = [
-        { ...mockKey, operatorIndex: mockOperator1.index },
-        {
-          ...mockKey2,
-          operatorIndex: mockOperator2.index,
-        },
-      ];
+      const noDuplicatesKeys = [{ ...mockKey, operatorIndex: 0 }];
 
+      await providerService.provider.send('evm_mine', []);
       const newBlock = await providerService.provider.getBlock('latest');
-      setupMockModules(
-        newBlock,
-        keysApiService,
-        mockedOperators,
-        mockedDvtOperators,
-        unusedKeysWithoutDuplicates,
-      );
+      // setup elBlockSnapshot
+      const newMeta = mockMeta(newBlock, newBlock.hash);
+      // setup /v1/modules
+      keysApiMockGetModules(keysApiService, stakingModules, newMeta);
+      // setup /v1/keys
+      keysApiMockGetAllKeys(keysApiService, noDuplicatesKeys, newMeta);
 
       sendDepositMessage.mockClear();
       sendUnvetMessage.mockClear();
@@ -562,18 +555,18 @@ describe('Deposits in case of duplicates', () => {
       expect(sendDepositMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: newBlock.number,
-          guardianAddress: wallet.address,
+          guardianAddress: walletAddress,
           guardianIndex: 7,
-          stakingModuleId: curatedModule.id,
+          stakingModuleId: 1,
         }),
       );
 
       expect(sendDepositMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: newBlock.number,
-          guardianAddress: wallet.address,
+          guardianAddress: walletAddress,
           guardianIndex: 7,
-          stakingModuleId: sdvtModule.id,
+          stakingModuleId: 2,
         }),
       );
     },
@@ -584,8 +577,7 @@ describe('Deposits in case of duplicates', () => {
     'added unused keys for that deposit was already made',
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
-      const { depositData } = signDeposit(pk, sk);
-      const { wallet } = await makeDeposit(depositData, providerService);
+      const walletAddress = getWalletAddress();
 
       await depositService.setCachedEvents({
         data: [],
@@ -595,22 +587,22 @@ describe('Deposits in case of duplicates', () => {
         },
       });
 
-      const keys = [
-        { ...mockKey, operatorIndex: mockOperator1.index, used: true },
+      const duplicates = [
+        { ...mockKey, operatorIndex: 0, used: true },
         {
           ...mockKey,
-          operatorIndex: mockOperator2.index,
+          operatorIndex: 1,
           used: false,
         },
       ];
 
-      const { curatedModule, sdvtModule } = setupMockModules(
-        currentBlock,
-        keysApiService,
-        mockedOperators,
-        mockedDvtOperators,
-        keys,
-      );
+      // setup elBlockSnapshot
+      const meta = mockMeta(currentBlock, currentBlock.hash);
+      // setup /v1/modules
+      const stakingModules = [mockedModuleCurated, mockedModuleDvt];
+      keysApiMockGetModules(keysApiService, stakingModules, meta);
+      // setup /v1/keys
+      keysApiMockGetAllKeys(keysApiService, duplicates, meta);
 
       await signingKeyEventsCacheService.setCachedEvents({
         data: [],
@@ -636,14 +628,13 @@ describe('Deposits in case of duplicates', () => {
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       // deposit will be skipped until unvetting
-      // so list of keys can be changed
       expect(sendDepositMessage).toBeCalledTimes(1);
       expect(sendDepositMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
-          guardianAddress: wallet.address,
+          guardianAddress: walletAddress,
           guardianIndex: 7,
-          stakingModuleId: sdvtModule.id,
+          stakingModuleId: 2,
         }),
       );
       expect(sendPauseMessage).toBeCalledTimes(0);
@@ -651,9 +642,9 @@ describe('Deposits in case of duplicates', () => {
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
-          guardianAddress: wallet.address,
+          guardianAddress: walletAddress,
           guardianIndex: 7,
-          stakingModuleId: curatedModule.id,
+          stakingModuleId: 1,
           operatorIds: '0x0000000000000001',
           vettedKeysByOperator: '0x00000000000000000000000000000000',
         }),
@@ -662,17 +653,14 @@ describe('Deposits in case of duplicates', () => {
 
       // after deleting duplicates in staking module,
       // council will resume deposits to module
+      await providerService.provider.send('evm_mine', []);
       const newBlock = await providerService.provider.getBlock('latest');
-      const keysWithoutDuplicates = [
-        { ...mockKey, operatorIndex: mockOperator1.index, used: true },
-      ];
-      setupMockModules(
-        newBlock,
-        keysApiService,
-        mockedOperators,
-        mockedDvtOperators,
-        keysWithoutDuplicates,
-      );
+      const noDuplicatesKeys = [{ ...mockKey, operatorIndex: 0, used: true }];
+      const newMeta = mockMeta(newBlock, newBlock.hash);
+      // setup /v1/modules
+      keysApiMockGetModules(keysApiService, stakingModules, newMeta);
+      // setup /v1/keys
+      keysApiMockGetAllKeys(keysApiService, noDuplicatesKeys, newMeta);
 
       sendDepositMessage.mockClear();
       sendUnvetMessage.mockClear();
@@ -684,18 +672,18 @@ describe('Deposits in case of duplicates', () => {
       expect(sendDepositMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: newBlock.number,
-          guardianAddress: wallet.address,
+          guardianAddress: walletAddress,
           guardianIndex: 7,
-          stakingModuleId: curatedModule.id,
+          stakingModuleId: 1,
         }),
       );
 
       expect(sendDepositMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: newBlock.number,
-          guardianAddress: wallet.address,
+          guardianAddress: walletAddress,
           guardianIndex: 7,
-          stakingModuleId: sdvtModule.id,
+          stakingModuleId: 2,
         }),
       );
       expect(sendUnvetMessage).toBeCalledTimes(0);
@@ -705,8 +693,7 @@ describe('Deposits in case of duplicates', () => {
 
   test('adding not vetted duplicate will not set on soft pause module', async () => {
     const currentBlock = await providerService.provider.getBlock('latest');
-    const { depositData } = signDeposit(pk, sk);
-    const { wallet } = await makeDeposit(depositData, providerService);
+    const walletAddress = await getWalletAddress();
 
     await depositService.setCachedEvents({
       data: [],
@@ -716,23 +703,24 @@ describe('Deposits in case of duplicates', () => {
       },
     });
 
-    const keys = [
-      { ...mockKey, operatorIndex: mockOperator1.index, used: false },
+    const duplicates = [
+      { ...mockKey, index: 0, operatorIndex: 1, used: false, vetted: true },
       {
         ...mockKey,
-        index: mockKey.index + 1,
-        operatorIndex: mockOperator1.index,
+        index: 1,
+        operatorIndex: 1,
         used: false,
+        vetted: false,
       },
     ];
 
-    const { curatedModule, sdvtModule } = setupMockModules(
-      currentBlock,
-      keysApiService,
-      [{ ...mockOperator1, stakingLimit: 1 }],
-      mockedDvtOperators,
-      keys,
-    );
+    // setup elBlockSnapshot
+    const meta = mockMeta(currentBlock, currentBlock.hash);
+    // setup /v1/modules
+    const stakingModules = [mockedModuleCurated, mockedModuleDvt];
+    keysApiMockGetModules(keysApiService, stakingModules, meta);
+    // setup /v1/keys
+    keysApiMockGetAllKeys(keysApiService, duplicates, meta);
 
     await signingKeyEventsCacheService.setCachedEvents({
       data: [],
@@ -751,15 +739,6 @@ describe('Deposits in case of duplicates', () => {
       },
     });
 
-    const handleCorrectKeys = jest.spyOn(
-      stakingModuleGuardService,
-      'handleCorrectKeys',
-    );
-
-    const getVettedUnusedKeys = jest.spyOn(
-      stakingModuleDataCollectorService,
-      'getVettedUnusedKeys',
-    );
     await guardianService.handleNewBlock();
     await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
@@ -767,38 +746,18 @@ describe('Deposits in case of duplicates', () => {
     expect(sendDepositMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         blockNumber: currentBlock.number,
-        guardianAddress: wallet.address,
+        guardianAddress: walletAddress,
         guardianIndex: 7,
-        stakingModuleId: curatedModule.id,
+        stakingModuleId: 1,
       }),
     );
     expect(sendDepositMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         blockNumber: currentBlock.number,
-        guardianAddress: wallet.address,
+        guardianAddress: walletAddress,
         guardianIndex: 7,
-        stakingModuleId: sdvtModule.id,
+        stakingModuleId: 2,
       }),
-    );
-    expect(getVettedUnusedKeys).toBeCalledTimes(4);
-    expect(getVettedUnusedKeys).toHaveBeenCalledWith(
-      expect.arrayContaining([keys[0]]),
-      expect.arrayContaining([keys[1]]),
-    );
-
-    //unresolved duplicates
-    expect(getVettedUnusedKeys).toHaveBeenCalledWith(
-      expect.arrayContaining([keys[0]]),
-      [],
-    );
-    expect(getVettedUnusedKeys).toHaveBeenCalledWith([], []);
-    //unresolved duplicates
-    expect(getVettedUnusedKeys).toHaveBeenCalledWith([], []);
-
-    expect(handleCorrectKeys).toBeCalledTimes(2);
-    expect(handleCorrectKeys).toHaveBeenCalledWith(
-      expect.objectContaining({ duplicatedKeys: [] }),
-      expect.anything(),
     );
   });
 
@@ -806,8 +765,7 @@ describe('Deposits in case of duplicates', () => {
     'skip deposits if cannot resolve duplicates',
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
-      const { depositData } = signDeposit(pk, sk);
-      const { wallet } = await makeDeposit(depositData, providerService);
+      const walletAddress = await getWalletAddress();
 
       await depositService.setCachedEvents({
         data: [],
@@ -817,21 +775,20 @@ describe('Deposits in case of duplicates', () => {
         },
       });
 
-      const unusedKeys = [
-        mockKey,
+      const duplicates = [
+        { ...mockKey, moduleAddress: NOP_REGISTRY },
         {
           ...mockKey,
           moduleAddress: SIMPLE_DVT,
         },
       ];
 
-      const { sdvtModule, curatedModule } = setupMockModules(
-        currentBlock,
-        keysApiService,
-        mockedOperators,
-        mockedDvtOperators,
-        unusedKeys,
-      );
+      const meta = mockMeta(currentBlock, currentBlock.hash);
+      // setup /v1/modules
+      const stakingModules = [mockedModuleCurated, mockedModuleDvt];
+      keysApiMockGetModules(keysApiService, stakingModules, meta);
+      // setup /v1/keys
+      keysApiMockGetAllKeys(keysApiService, duplicates, meta);
 
       await signingKeyEventsCacheService.setCachedEvents({
         data: [mockKeyEvent],
@@ -868,21 +825,14 @@ describe('Deposits in case of duplicates', () => {
 
       // after deleting duplicates in staking module,
       // council will resume deposits to module
-      const unusedKeysWithoutDuplicates = [
-        mockKey,
-        {
-          ...mockKey2,
-          moduleAddress: SIMPLE_DVT,
-        },
-      ];
+      await providerService.provider.send('evm_mine', []);
+      const noDuplicatesKeys = [{ ...mockKey, moduleAddress: NOP_REGISTRY }];
       const newBlock = await providerService.provider.getBlock('latest');
-      setupMockModules(
-        newBlock,
-        keysApiService,
-        mockedOperators,
-        mockedDvtOperators,
-        unusedKeysWithoutDuplicates,
-      );
+      const newMeta = mockMeta(newBlock, newBlock.hash);
+      // setup /v1/modules
+      keysApiMockGetModules(keysApiService, stakingModules, newMeta);
+      // setup /v1/keys
+      keysApiMockGetAllKeys(keysApiService, noDuplicatesKeys, newMeta);
 
       sendDepositMessage.mockClear();
       sendUnvetMessage.mockClear();
@@ -895,18 +845,18 @@ describe('Deposits in case of duplicates', () => {
       expect(sendDepositMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: newBlock.number,
-          guardianAddress: wallet.address,
+          guardianAddress: walletAddress,
           guardianIndex: 7,
-          stakingModuleId: curatedModule.id,
+          stakingModuleId: 1,
         }),
       );
 
       expect(sendDepositMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: newBlock.number,
-          guardianAddress: wallet.address,
+          guardianAddress: walletAddress,
           guardianIndex: 7,
-          stakingModuleId: sdvtModule.id,
+          stakingModuleId: 2,
         }),
       );
       expect(sendUnvetMessage).toBeCalledTimes(0);
@@ -914,5 +864,106 @@ describe('Deposits in case of duplicates', () => {
     TESTS_TIMEOUT,
   );
 
-  // TODO: test on unvetting of key of two modules
+  test(
+    'if duplicates in both modules, skip deposits for modules and unvet only for first on first iteration',
+    async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
+      // await providerService.provider.send('evm_mine', []);
+
+      // Set deposit cache
+      await depositService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+        },
+      });
+
+      const earliestKey = {
+        ...mockKey,
+        operatorIndex: 0,
+        moduleAddress: NOP_REGISTRY,
+        index: 0,
+      };
+      const duplicatesСurated = [
+        earliestKey,
+        { ...mockKey, operatorIndex: 0, moduleAddress: NOP_REGISTRY, index: 1 },
+        { ...mockKey, operatorIndex: 0, moduleAddress: NOP_REGISTRY, index: 2 },
+      ];
+
+      const duplicatesSimpleDVT = [
+        {
+          ...mockKey2,
+          operatorIndex: 0,
+          moduleAddress: SIMPLE_DVT,
+          index: 0,
+        },
+        {
+          ...mockKey2,
+          operatorIndex: 0,
+          moduleAddress: SIMPLE_DVT,
+          index: 1,
+        },
+      ];
+
+      // Mock Keys API
+      const vettedUnusedKeys = [...duplicatesСurated, ...duplicatesSimpleDVT];
+
+      // setup elBlockSnapshot
+      const meta = mockMeta(currentBlock, currentBlock.hash);
+      // setup /v1/modules
+      const stakingModules = [mockedModuleCurated, mockedModuleDvt];
+      keysApiMockGetModules(keysApiService, stakingModules, meta);
+      // setup /v1/keys
+      keysApiMockGetAllKeys(keysApiService, vettedUnusedKeys, meta);
+
+      // mock events cache to check
+      await signingKeyEventsCacheService.setCachedEvents({
+        data: [], // dont need events in this test
+        headers: {
+          startBlock: currentBlock.number - 2,
+          endBlock: currentBlock.number,
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
+        },
+      });
+
+      // Check that module was not paused
+      const routerContract = StakingRouterAbi__factory.connect(
+        STAKING_ROUTER,
+        providerService.provider,
+      );
+      const isOnPause = await routerContract.getStakingModuleIsDepositsPaused(
+        1,
+      );
+      expect(isOnPause).toBe(false);
+      await guardianService.handleNewBlock();
+
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+      const walletAddress = getWalletAddress();
+      // just skip on this iteration deposit for Curated staking module
+      expect(sendDepositMessage).toBeCalledTimes(1);
+      expect(sendDepositMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blockNumber: currentBlock.number,
+          guardianAddress: walletAddress,
+          guardianIndex: 7,
+          stakingModuleId: 2,
+        }),
+      );
+      expect(sendPauseMessage).toBeCalledTimes(0);
+      expect(sendUnvetMessage).toBeCalledTimes(1);
+      expect(sendUnvetMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blockNumber: currentBlock.number,
+          guardianAddress: walletAddress,
+          guardianIndex: 7,
+          stakingModuleId: 1,
+          operatorIds: '0x0000000000000000',
+          vettedKeysByOperator: '0x00000000000000000000000000000001',
+        }),
+      );
+    },
+    TESTS_TIMEOUT,
+  );
 });

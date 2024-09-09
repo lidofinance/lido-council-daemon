@@ -1,5 +1,7 @@
+import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
+
 // holesky
-export const mockKeys = [
+export const mockKeys: RegistryKey[] = [
   {
     key: '0x80d12670ec69b62abd4d24c828136cbb1666a63374a66269031d6101973419b66711ed712d17da05d7ca6c0b28ecd21f',
     depositSignature:
@@ -8,6 +10,7 @@ export const mockKeys = [
     used: true,
     moduleAddress: '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
     index: 0,
+    vetted: true,
   },
   {
     key: '0x81011ad6ebe5c7844e59b1799e12de769f785f66df3f63debb06149c1782d574c8c2cd9c923fa881e9dcf6d413159863',
@@ -17,6 +20,7 @@ export const mockKeys = [
     used: true,
     moduleAddress: '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
     index: 1,
+    vetted: true,
   },
   {
     key: '0x823c9c577aead54ac40c7986ceb8596eaf45df0140fe9b637bb8d465f878884e3f9e39914edf39c3c64f5720ec0be3a4',
@@ -26,6 +30,7 @@ export const mockKeys = [
     used: true,
     moduleAddress: '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
     index: 2,
+    vetted: true,
   },
   {
     key: '0x837851278c4ab4a4641128a709c9c985f7e4c7c35082e5e2a75ae4ed712c8161b493b135b35d39ee8a65024122feb7c1',
@@ -35,6 +40,7 @@ export const mockKeys = [
     used: true,
     moduleAddress: '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
     index: 3,
+    vetted: true,
   },
   {
     key: '0x80db3318374e7c1489e1f421a66bf1ef51a48f6ad02a6ad304c67fbbad60a0a5ce51a939aa008930c3b0ed25db63710f',
@@ -44,10 +50,11 @@ export const mockKeys = [
     used: true,
     moduleAddress: '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
     index: 0,
+    vetted: true,
   },
 ];
 
-export const mockKeys2 = [
+export const mockKeys2: RegistryKey[] = [
   ...mockKeys,
   {
     key: '0x8101cf19c664f22c5209c4129cf20629d8375a2de6a26f089ea37d142d000abe6b3585ab5bc7818c7449ed5089c86054',
@@ -57,5 +64,6 @@ export const mockKeys2 = [
     used: true,
     moduleAddress: '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
     index: 1,
+    vetted: true,
   },
 ];

@@ -75,16 +75,14 @@ describe('GuardianService', () => {
   it('should exit if the previous call is not completed', async () => {
     // OneAtTime test
     const getOperatorsAndModulesMock = jest
-      .spyOn(keysApiService, 'getOperatorListWithModule')
+      .spyOn(keysApiService, 'getModules')
       .mockImplementation(async () => ({
         data: [],
-        meta: {
-          elBlockSnapshot: {
-            blockNumber: 0,
-            blockHash: 'string',
-            timestamp: 0,
-            lastChangedBlockHash: '',
-          },
+        elBlockSnapshot: {
+          blockNumber: 0,
+          blockHash: 'string',
+          timestamp: 0,
+          lastChangedBlockHash: '',
         },
       }));
 

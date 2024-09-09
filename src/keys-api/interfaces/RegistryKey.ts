@@ -24,4 +24,8 @@ export type RegistryKey = {
    * Staking module address
    */
   moduleAddress: string;
+  /**
+   * Vetted key status
+   */
+  vetted: boolean;
 };

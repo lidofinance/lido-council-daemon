@@ -33,6 +33,9 @@ import { Meta } from 'keys-api/interfaces/Meta';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { SROperatorListWithModule } from 'keys-api/interfaces/SROperatorListWithModule';
 import { StakingRouterService } from 'contracts/staking-router';
+import { SRModuleListResponse } from 'keys-api/interfaces/SRModuleListResponse';
+import { ELBlockSnapshot } from 'keys-api/interfaces/ELBlockSnapshot';
+import { SRModule } from 'keys-api/interfaces';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -165,12 +168,10 @@ export class GuardianService implements OnModuleInit {
 
     try {
       // Fetch the minimum required data fro Keys Api to make an early exit
-      const { data: operatorsByModules, meta: firstRequestMeta } =
-        await this.keysApiService.getOperatorListWithModule();
+      const { data: stakingModules, elBlockSnapshot: firstRequestMeta } =
+        await this.keysApiService.getModules();
 
-      const {
-        elBlockSnapshot: { blockHash, blockNumber },
-      } = firstRequestMeta;
+      const { blockHash, blockNumber } = firstRequestMeta;
 
       // Compare the block stored in memory from the previous iteration with the current block from the Keys API.
       const isNewBlock = this.isNeedToProcessNewState({
@@ -180,7 +181,7 @@ export class GuardianService implements OnModuleInit {
 
       if (!isNewBlock) return;
 
-      const stakingModulesCount = operatorsByModules.length;
+      const stakingModulesCount = stakingModules.length;
 
       this.logger.log('Staking modules loaded', {
         modulesCount: stakingModulesCount,
@@ -192,7 +193,7 @@ export class GuardianService implements OnModuleInit {
 
       // check that there were no updates in Keys Api between two requests
       this.keysApiService.verifyMetaDataConsistency(
-        firstRequestMeta.elBlockSnapshot.lastChangedBlockHash,
+        firstRequestMeta.lastChangedBlockHash,
         secondRequestMeta.elBlockSnapshot.lastChangedBlockHash,
       );
 
@@ -202,7 +203,7 @@ export class GuardianService implements OnModuleInit {
       await this.depositService.handleNewBlock(blockNumber);
 
       const { stakingModulesData, blockData } = await this.collectData(
-        operatorsByModules,
+        stakingModules,
         firstRequestMeta,
         lidoKeys,
       );
@@ -242,13 +243,11 @@ export class GuardianService implements OnModuleInit {
   }
 
   private async collectData(
-    operatorsByModules: SROperatorListWithModule[],
-    meta: Meta,
+    stakingModules: SRModule[],
+    meta: ELBlockSnapshot,
     lidoKeys: RegistryKey[],
   ) {
-    const {
-      elBlockSnapshot: { blockHash, blockNumber },
-    } = meta;
+    const { blockHash, blockNumber } = meta;
 
     const [blockData, stakingModulesData] = await Promise.all([
       this.blockDataCollectorService.getCurrentBlockData({
@@ -258,7 +257,7 @@ export class GuardianService implements OnModuleInit {
       // Construct the Staking Module data array using information fetched from the Keys API,
       // identifying vetted unused keys and checking the module pause status
       this.stakingModuleDataCollectorService.collectStakingModuleData({
-        operatorsByModules,
+        stakingModules,
         meta,
         lidoKeys,
       }),
