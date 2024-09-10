@@ -17,6 +17,7 @@ import { MockProviderModule } from 'provider';
 import { BlockData } from 'guardian/interfaces';
 import { StakingRouterModule } from 'contracts/staking-router';
 import { RepositoryModule } from 'contracts/repository';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 describe('KeysDuplicationCheckerService', () => {
   let service: KeysDuplicationCheckerService;
   const mockSigningKeyEventsCacheService = {
@@ -42,6 +43,10 @@ describe('KeysDuplicationCheckerService', () => {
     service = moduleRef.get<KeysDuplicationCheckerService>(
       KeysDuplicationCheckerService,
     );
+
+    const loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
+    jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
+    jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
   });
 
   describe('findDuplicateKeys', () => {

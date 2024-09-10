@@ -188,6 +188,34 @@ describe('SecurityService', () => {
     });
   });
 
+  describe('signPauseDataV3', () => {
+    it('should add prefix', async () => {
+      const blockNumber = 1;
+
+      const mockGetPauseMessagePrefix = jest
+        .spyOn(securityService, 'getPauseMessagePrefix')
+        .mockImplementation(async () => hexZeroPad('0x2', 32));
+
+      const signPauseData = jest.spyOn(walletService, 'signPauseDataV3');
+
+      const signature = await securityService.signPauseDataV3(blockNumber);
+      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
+      expect(signPauseData).toBeCalledWith({
+        blockNumber: 1,
+        prefix:
+          '0x0000000000000000000000000000000000000000000000000000000000000002',
+      });
+      expect(signature).toEqual(
+        expect.objectContaining({
+          _vs: expect.any(String),
+          r: expect.any(String),
+          s: expect.any(String),
+          v: expect.any(Number),
+        }),
+      );
+    });
+  });
+
   describe('pauseDepositsV2', () => {
     const hash = hexZeroPad('0x1', 32);
     const blockNumber = 10;
@@ -232,9 +260,6 @@ describe('SecurityService', () => {
 
       expect(mockPauseDeposits).toBeCalledTimes(1);
       expect(mockWait).toBeCalledTimes(1);
-      // mockGetPauseMessagePrefix calls 3 times because
-      // we have more than one call under the hood
-      // 1 - repository, 2 — signPauseData, 3 — pauseDeposits
       expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
       expect(mockGetContractWithSigner).toBeCalledTimes(1);
     });
@@ -248,6 +273,194 @@ describe('SecurityService', () => {
       expect(mockPauseDeposits).toBeCalledTimes(1);
       expect(mockWait).toBeCalledTimes(1);
       expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
+      expect(mockGetContractWithSigner).toBeCalledTimes(1);
+    });
+  });
+
+  describe('pauseDepositsV3', () => {
+    const hash = hexZeroPad('0x1', 32);
+    const blockNumber = 10;
+
+    let mockWait;
+    let mockPauseDeposits;
+    let mockGetPauseMessagePrefix;
+    let mockGetContractWithSigner;
+    let signature;
+
+    beforeEach(async () => {
+      mockWait = jest.fn().mockImplementation(async () => undefined);
+      await mockRepository(repositoryService);
+      mockGetPauseMessagePrefix = jest
+        .spyOn(securityService, 'getPauseMessagePrefix')
+        .mockImplementation(async () => hexZeroPad('0x2', 32));
+
+      mockPauseDeposits = jest
+        .fn()
+        .mockImplementation(async () => ({ wait: mockWait, hash }));
+
+      mockGetContractWithSigner = jest
+        .spyOn(securityService, 'getContractWithSigner')
+        .mockImplementation(
+          () => ({ pauseDeposits: mockPauseDeposits } as any),
+        );
+
+      signature = await securityService.signPauseDataV3(blockNumber);
+    });
+
+    it('should call contract method', async () => {
+      await securityService.pauseDepositsV3(blockNumber, signature);
+
+      expect(mockPauseDeposits).toBeCalledTimes(1);
+      expect(mockWait).toBeCalledTimes(1);
+      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
+      expect(mockGetContractWithSigner).toBeCalledTimes(1);
+    });
+
+    it('should exit if the previous call is not completed', async () => {
+      await Promise.all([
+        securityService.pauseDepositsV3(blockNumber, signature),
+        securityService.pauseDepositsV3(blockNumber, signature),
+      ]);
+
+      expect(mockPauseDeposits).toBeCalledTimes(1);
+      expect(mockWait).toBeCalledTimes(1);
+      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
+      expect(mockGetContractWithSigner).toBeCalledTimes(1);
+    });
+  });
+
+  describe('signUnvetData', () => {
+    it('should add prefix', async () => {
+      const nonce = 1;
+      const blockNumber = 10;
+      const blockHash = hexZeroPad('0x3', 32);
+      const stakingModuleId = 1;
+      const operatorIds = '0x00000000000000010000000000000002';
+      const vettedKeysByOperator =
+        '0x0000000000000000000000000000000000000000000000000000000000000002';
+
+      const mockGetUnvetMessagePrefix = jest
+        .spyOn(securityService, 'getUnvetMessagePrefix')
+        .mockImplementation(async () => hexZeroPad('0x2', 32));
+
+      const signUnvetData = jest.spyOn(walletService, 'signUnvetData');
+
+      const signature = await securityService.signUnvetData(
+        nonce,
+        blockNumber,
+        blockHash,
+        stakingModuleId,
+        operatorIds,
+        vettedKeysByOperator,
+      );
+      expect(mockGetUnvetMessagePrefix).toBeCalledTimes(1);
+      expect(signUnvetData).toBeCalledWith({
+        blockNumber,
+        blockHash,
+        stakingModuleId,
+        nonce,
+        operatorIds,
+        vettedKeysByOperator,
+        prefix:
+          '0x0000000000000000000000000000000000000000000000000000000000000002',
+      });
+      expect(signature).toEqual(
+        expect.objectContaining({
+          _vs: expect.any(String),
+          r: expect.any(String),
+          s: expect.any(String),
+          v: expect.any(Number),
+        }),
+      );
+    });
+  });
+
+  describe('unvetSigningKeys', () => {
+    const hash = hexZeroPad('0x1', 32);
+
+    const nonce = 1;
+    const blockNumber = 10;
+    const blockHash = hexZeroPad('0x3', 32);
+    const stakingModuleId = 1;
+    const operatorIds = '0x00000000000000010000000000000002';
+    const vettedKeysByOperator =
+      '0x0000000000000000000000000000000000000000000000000000000000000002';
+
+    let mockWait;
+    let mockUnvetSigningKeys;
+    let mockGetUnvetMessagePrefix;
+    let mockGetContractWithSigner;
+    let signature;
+
+    beforeEach(async () => {
+      mockWait = jest.fn().mockImplementation(async () => undefined);
+      await mockRepository(repositoryService);
+      mockGetUnvetMessagePrefix = jest
+        .spyOn(securityService, 'getUnvetMessagePrefix')
+        .mockImplementation(async () => hexZeroPad('0x2', 32));
+
+      mockUnvetSigningKeys = jest
+        .fn()
+        .mockImplementation(async () => ({ wait: mockWait, hash }));
+
+      mockGetContractWithSigner = jest
+        .spyOn(securityService, 'getContractWithSigner')
+        .mockImplementation(
+          () => ({ unvetSigningKeys: mockUnvetSigningKeys } as any),
+        );
+
+      signature = await securityService.signUnvetData(
+        nonce,
+        blockNumber,
+        blockHash,
+        stakingModuleId,
+        operatorIds,
+        vettedKeysByOperator,
+      );
+    });
+
+    it('should call contract method', async () => {
+      await securityService.unvetSigningKeys(
+        nonce,
+        blockNumber,
+        blockHash,
+        stakingModuleId,
+        operatorIds,
+        vettedKeysByOperator,
+        signature,
+      );
+
+      expect(mockUnvetSigningKeys).toBeCalledTimes(1);
+      expect(mockWait).toBeCalledTimes(1);
+      expect(mockGetUnvetMessagePrefix).toBeCalledTimes(1);
+      expect(mockGetContractWithSigner).toBeCalledTimes(1);
+    });
+
+    it('should exit if the previous call is not completed', async () => {
+      await Promise.all([
+        securityService.unvetSigningKeys(
+          nonce,
+          blockNumber,
+          blockHash,
+          stakingModuleId,
+          operatorIds,
+          vettedKeysByOperator,
+          signature,
+        ),
+        securityService.unvetSigningKeys(
+          nonce,
+          blockNumber,
+          blockHash,
+          stakingModuleId,
+          operatorIds,
+          vettedKeysByOperator,
+          signature,
+        ),
+      ]);
+
+      expect(mockUnvetSigningKeys).toBeCalledTimes(1);
+      expect(mockWait).toBeCalledTimes(1);
+      expect(mockGetUnvetMessagePrefix).toBeCalledTimes(1);
       expect(mockGetContractWithSigner).toBeCalledTimes(1);
     });
   });

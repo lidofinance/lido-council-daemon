@@ -113,4 +113,28 @@ describe('RepositoryService', () => {
       expect(contract1).toEqual(contract2);
     });
   });
+
+  describe('staking router', () => {
+    let mockGetAddress;
+
+    beforeEach(async () => {
+      mockGetAddress = mockLocator(locatorService).SRAddr;
+      await mockRepository(repositoryService);
+    });
+
+    it('should return contract instance', async () => {
+      const contract = await repositoryService.getCachedStakingRouterContract();
+      expect(contract).toBeInstanceOf(Contract);
+    });
+
+    it('should call getDepositAddress once and cache instance ', async () => {
+      const contract1 =
+        await repositoryService.getCachedStakingRouterContract();
+      const contract2 =
+        await repositoryService.getCachedStakingRouterContract();
+      expect(mockGetAddress).toBeCalledTimes(1);
+
+      expect(contract1).toEqual(contract2);
+    });
+  });
 });
