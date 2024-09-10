@@ -191,6 +191,7 @@ describe('SecurityService', () => {
   describe('signPauseDataV3', () => {
     it('should add prefix', async () => {
       const blockNumber = 1;
+      const blockHash = '0x';
 
       const mockGetPauseMessagePrefix = jest
         .spyOn(securityService, 'getPauseMessagePrefix')
@@ -198,7 +199,10 @@ describe('SecurityService', () => {
 
       const signPauseData = jest.spyOn(walletService, 'signPauseDataV3');
 
-      const signature = await securityService.signPauseDataV3(blockNumber);
+      const signature = await securityService.signPauseDataV3(
+        blockNumber,
+        blockHash,
+      );
       expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
       expect(signPauseData).toBeCalledWith({
         blockNumber: 1,
@@ -280,6 +284,7 @@ describe('SecurityService', () => {
   describe('pauseDepositsV3', () => {
     const hash = hexZeroPad('0x1', 32);
     const blockNumber = 10;
+    const blockHash = '0x';
 
     let mockWait;
     let mockPauseDeposits;
@@ -304,7 +309,7 @@ describe('SecurityService', () => {
           () => ({ pauseDeposits: mockPauseDeposits } as any),
         );
 
-      signature = await securityService.signPauseDataV3(blockNumber);
+      signature = await securityService.signPauseDataV3(blockNumber, blockHash);
     });
 
     it('should call contract method', async () => {
@@ -467,6 +472,7 @@ describe('SecurityService', () => {
 
   describe('messages prefixes', () => {
     const blockNumber = 10;
+    const blockHash = '0x';
 
     beforeEach(async () => {
       jest
@@ -485,7 +491,7 @@ describe('SecurityService', () => {
           return iface.encodeFunctionResult('ATTEST_MESSAGE_PREFIX', result);
         });
 
-      const prefix = await securityService.getAttestMessagePrefix(blockNumber);
+      const prefix = await securityService.getAttestMessagePrefix(blockHash);
       expect(prefix).toBe(expected);
       expect(mockProviderCall).toBeCalledTimes(1);
     });
@@ -501,7 +507,7 @@ describe('SecurityService', () => {
           return iface.encodeFunctionResult('PAUSE_MESSAGE_PREFIX', result);
         });
 
-      const prefix = await securityService.getPauseMessagePrefix(blockNumber);
+      const prefix = await securityService.getPauseMessagePrefix(blockHash);
       expect(prefix).toBe(expected);
       expect(mockProviderCall).toBeCalledTimes(1);
     });
@@ -517,7 +523,7 @@ describe('SecurityService', () => {
           return iface.encodeFunctionResult('UNVET_MESSAGE_PREFIX', result);
         });
 
-      const prefix = await securityService.getUnvetMessagePrefix(blockNumber);
+      const prefix = await securityService.getUnvetMessagePrefix(blockHash);
       expect(prefix).toBe(expected);
       expect(mockProviderCall).toBeCalledTimes(1);
     });
