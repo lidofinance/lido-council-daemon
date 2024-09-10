@@ -81,9 +81,11 @@ export class KeysDuplicationCheckerService {
     suspectedDuplicateKeys: RegistryKey[],
     blockData: BlockData,
   ): Promise<{ duplicates: RegistryKey[]; unresolved: RegistryKey[] }> {
-    const operators = this.getOperators(suspectedDuplicateKeys);
+    const uniqueOperatorIdentifiers = this.getUniqueIdentifiersForOperators(
+      suspectedDuplicateKeys,
+    );
 
-    if (operators.length === 1) {
+    if (uniqueOperatorIdentifiers.length === 1) {
       return this.handleSingleOperatorDuplicates(suspectedDuplicateKeys);
     }
 
@@ -94,17 +96,17 @@ export class KeysDuplicationCheckerService {
     return await this.handleMultiOperatorDuplicates(
       key,
       suspectedDuplicateKeys,
-      operators,
+      uniqueOperatorIdentifiers,
       blockData,
     );
   }
 
-  private getOperators(keys: RegistryKey[]): string[] {
-    return [
-      ...new Set(
-        keys.map((key) => `${key.moduleAddress}-${key.operatorIndex}`),
-      ),
-    ];
+  private getUniqueIdentifiersForOperators(keys: RegistryKey[]): string[] {
+    return [...new Set(keys.map((key) => this.getKeyOperatorIdentifier(key)))];
+  }
+
+  private getKeyOperatorIdentifier(key: RegistryKey): string {
+    return `${key.moduleAddress}-${key.operatorIndex}`;
   }
 
   private handleSingleOperatorDuplicates(
@@ -130,14 +132,14 @@ export class KeysDuplicationCheckerService {
   private async handleMultiOperatorDuplicates(
     key: string,
     suspectedDuplicateKeys: RegistryKey[],
-    operators: string[],
+    uniqueOperatorIdentifiers: string[],
     blockData: BlockData,
   ) {
     const { duplicateKeys, unresolvedKeys } =
       await this.getDuplicatesAcrossOperators(
         key,
         suspectedDuplicateKeys,
-        operators,
+        uniqueOperatorIdentifiers,
         blockData,
       );
     return { duplicates: duplicateKeys, unresolved: unresolvedKeys };
@@ -167,13 +169,13 @@ export class KeysDuplicationCheckerService {
   private async getDuplicatesAcrossOperators(
     key: string,
     suspectedDuplicateKeys: RegistryKey[],
-    operators: string[],
+    uniqueOperatorIdentifiers: string[],
     blockData: BlockData,
   ) {
     const events = await this.fetchSigningKeyEvents(key, blockData);
 
     const operatorsWithoutEvents = this.getOperatorsWithoutEvents(
-      operators,
+      uniqueOperatorIdentifiers,
       events,
     );
 
@@ -236,13 +238,15 @@ export class KeysDuplicationCheckerService {
   }
 
   private getOperatorsWithoutEvents(
-    operators: string[],
+    uniqueOperatorIdentifiers: string[],
     events: SigningKeyEvent[],
   ): string[] {
     const eventOperators = new Set(
       events.map((event) => `${event.moduleAddress}-${event.operatorIndex}`),
     );
-    return operators.filter((op) => !eventOperators.has(op));
+    return uniqueOperatorIdentifiers.filter(
+      (operatorIdentifier) => !eventOperators.has(operatorIdentifier),
+    );
   }
 
   private filterNonEarliestKeys(
@@ -259,11 +263,9 @@ export class KeysDuplicationCheckerService {
     const earliestKey = this.findEarliestKeyWithinOperator(operatorKeys);
 
     this.logger.log('Earliest key is', {
-      ...{
-        earliestKey,
-        createBlockNumber: earliestEvent.blockNumber,
-        createBlockHash: earliestEvent.blockHash,
-      },
+      earliestKey,
+      createBlockNumber: earliestEvent.blockNumber,
+      createBlockHash: earliestEvent.blockHash,
       currentBlockNumber: blockData.blockNumber,
       currentBlockHash: blockData.blockHash,
     });
