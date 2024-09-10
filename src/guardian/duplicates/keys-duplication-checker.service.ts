@@ -4,6 +4,9 @@ import { SigningKeyEvent } from 'contracts/signing-key-events-cache/interfaces/e
 import { BlockData } from 'guardian/interfaces';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { rangePromise } from 'utils';
+
+const BATCH_SIZE = 10;
 
 @Injectable()
 export class KeysDuplicationCheckerService {
@@ -39,10 +42,20 @@ export class KeysDuplicationCheckerService {
     // First element of sub-arrays is a key, second - all it's occurrences
     const suspectedDuplicateKeyGroups = this.getDuplicateKeyGroups(keys);
 
-    const result = await Promise.all(
-      suspectedDuplicateKeyGroups.map(([key, suspectedDuplicateKeys]) =>
-        this.processDuplicateKeyGroup(key, suspectedDuplicateKeys, blockData),
-      ),
+    const processDuplicateGroup = async (index) => {
+      const [key, suspectedDuplicateKeys] = suspectedDuplicateKeyGroups[index];
+      return await this.processDuplicateKeyGroup(
+        key,
+        suspectedDuplicateKeys,
+        blockData,
+      );
+    };
+
+    const result = await rangePromise(
+      processDuplicateGroup,
+      0,
+      suspectedDuplicateKeyGroups.length,
+      BATCH_SIZE,
     );
 
     const duplicates = result.flatMap(({ duplicates }) => duplicates);
