@@ -81,7 +81,8 @@ export class DepositRegistryService {
     const totalEventsCount = initialCache.data.length;
     let newEventsCount = 0;
 
-    // verify blockchain
+    // check that the cache is written to a block less than or equal to the current block
+    // otherwise we consider that the Ethereum node has started sending incorrect data
     const isCacheValid = this.sanityChecker.verifyCacheBlock(
       initialCache,
       finalizedBlockNumber,
