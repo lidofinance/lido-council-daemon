@@ -187,7 +187,7 @@ export class DepositRegistryService {
       return {
         events: cachedEvents.data,
         startBlock: cachedEvents.headers.startBlock,
-        endBlock,
+        endBlock: cachedEvents.headers.endBlock,
         isValid: false,
       };
     }
