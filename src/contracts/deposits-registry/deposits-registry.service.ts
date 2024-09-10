@@ -108,7 +108,7 @@ export class DepositRegistryService {
         chunkToBlock,
       );
 
-      await this.sanityChecker.verifyEventsChunk(
+      await this.sanityChecker.addEventGroupToIndex(
         chunkStartBlock,
         chunkToBlock,
         chunkEventGroup.events,

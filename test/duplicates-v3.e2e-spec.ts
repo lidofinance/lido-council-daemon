@@ -167,7 +167,6 @@ describe('Deposits in case of duplicates', () => {
   test(
     'skip deposits for module if find duplicated key across operator',
     async () => {
-      // TODO: mine new block instead (? @Anna)
       const { depositData } = signDeposit(pk, sk);
       const { wallet } = await makeDeposit(depositData, providerService);
 

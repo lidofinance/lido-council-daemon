@@ -367,7 +367,7 @@ export class GuardianService implements OnModuleInit {
     ];
 
     // if neither of this conditions is true, deposits are allowed for module
-    const isCannot =
+    const ignoreDeposits =
       keysForUnvetting.length > 0 ||
       stakingModuleData.unresolvedDuplicatedKeys.length > 0 ||
       alreadyPausedDeposits ||
@@ -375,7 +375,7 @@ export class GuardianService implements OnModuleInit {
       stakingModuleData.isModuleDepositsPaused ||
       !isDepositsCacheValid;
 
-    if (isCannot) {
+    if (ignoreDeposits) {
       this.logger.warn('Deposits are not available', {
         keysForUnvetting: keysForUnvetting.length,
         duplicates: stakingModuleData.unresolvedDuplicatedKeys.length,
@@ -387,6 +387,6 @@ export class GuardianService implements OnModuleInit {
       });
     }
 
-    return isCannot;
+    return ignoreDeposits;
   }
 }

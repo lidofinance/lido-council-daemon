@@ -84,7 +84,7 @@ export class DepositRegistrySanityCheckerService {
     return isCacheValid;
   }
 
-  public async verifyEventsChunk(
+  public async addEventGroupToIndex(
     chunkStartBlock: number,
     chunkToBlock: number,
     events: VerifiedDepositEvent[],
@@ -93,7 +93,7 @@ export class DepositRegistrySanityCheckerService {
 
     const tree = await this.indexEventsChunk(events);
 
-    this.logger.log('Deposit events chunk was verified', {
+    this.logger.log('Deposit events chunk was indexed', {
       chunkStartBlock,
       chunkToBlock,
       depositRoot: tree.getRoot(),
