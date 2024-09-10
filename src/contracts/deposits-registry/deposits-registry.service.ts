@@ -16,6 +16,7 @@ import { BlockTag } from 'provider';
 import { DepositsRegistryStoreService } from './store';
 import { DepositsRegistryFetcherService } from './fetcher/fetcher.service';
 import { DepositRegistrySanityCheckerService } from './sanity-checker/sanity-checker.service';
+import { toHexString } from './crypto';
 
 @Injectable()
 export class DepositRegistryService {
@@ -212,7 +213,9 @@ export class DepositRegistryService {
         lastValidBlockNumber: lastValidEvent?.blockNumber,
         lastValidBlockHash: lastValidEvent?.blockHash,
         lastValidEventIndex: lastValidEvent?.index,
-        lastValidEventDepositDataRoot: lastValidEvent?.depositDataRoot,
+        lastValidEventDepositDataRoot: lastValidEvent?.depositDataRoot
+          ? toHexString(lastValidEvent?.depositDataRoot)
+          : '',
         lastValidEventDepositCount: lastValidEvent?.depositCount,
       });
     }

@@ -6,7 +6,7 @@ import {
 } from '../interfaces';
 import { BlockchainCheckerService } from './blockchain-checker/blockchain-checker.service';
 import { DepositIntegrityCheckerService } from './integrity-checker';
-
+import { toHexString } from '../crypto';
 @Injectable()
 export class DepositRegistrySanityCheckerService {
   constructor(
@@ -48,7 +48,7 @@ export class DepositRegistrySanityCheckerService {
       this.logger.error('Reorganization found in deposit event', {
         blockHash: event.blockHash,
         blockNumber: event.blockNumber,
-        depositDataRoot: event.depositDataRoot,
+        depositDataRoot: toHexString(event.depositDataRoot),
       });
       return true;
     }
