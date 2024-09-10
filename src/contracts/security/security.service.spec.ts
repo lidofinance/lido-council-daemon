@@ -4,7 +4,7 @@ import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { MockProviderModule, ProviderService } from 'provider';
 import { WalletService } from 'wallet';
-import { SecurityAbi__factory, StakingRouterAbi__factory } from 'generated';
+import { SecurityAbi__factory } from 'generated';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { Interface } from '@ethersproject/abi';
@@ -31,6 +31,7 @@ describe('SecurityService', () => {
   let repositoryService: RepositoryService;
   let walletService: WalletService;
   let loggerService: LoggerService;
+
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
@@ -187,27 +188,6 @@ describe('SecurityService', () => {
     });
   });
 
-  describe('isDepositsPaused', () => {
-    it('should call contract method', async () => {
-      const expected = true;
-
-      const mockProviderCalla = jest
-        .spyOn(providerService.provider, 'call')
-        .mockImplementation(async () => {
-          const iface = new Interface(StakingRouterAbi__factory.abi);
-          return iface.encodeFunctionResult('getStakingModuleIsActive', [
-            expected,
-          ]);
-        });
-
-      const isPaused = await securityService.isModuleDepositsPaused(
-        TEST_MODULE_ID,
-      );
-      expect(isPaused).toBe(!expected);
-      expect(mockProviderCalla).toBeCalledTimes(1);
-    });
-  });
-
   describe('pauseDepositsV2', () => {
     const hash = hexZeroPad('0x1', 32);
     const blockNumber = 10;
@@ -231,7 +211,7 @@ describe('SecurityService', () => {
         .mockImplementation(async () => ({ wait: mockWait, hash }));
 
       mockGetContractWithSigner = jest
-        .spyOn(securityService, 'getContractV2WithSigner')
+        .spyOn(securityService, 'getContractWithSignerDeprecated')
         .mockImplementation(
           () => ({ pauseDeposits: mockPauseDeposits } as any),
         );
@@ -269,6 +249,64 @@ describe('SecurityService', () => {
       expect(mockWait).toBeCalledTimes(1);
       expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
       expect(mockGetContractWithSigner).toBeCalledTimes(1);
+    });
+  });
+
+  describe('messages prefixes', () => {
+    const blockNumber = 10;
+
+    beforeEach(async () => {
+      jest
+        .spyOn(repositoryService, 'getDepositAddress')
+        .mockImplementation(async () => '0x' + '5'.repeat(40));
+    });
+
+    it('getAttestMessagePrefix', async () => {
+      const expected = '0x' + '1'.repeat(64);
+
+      const mockProviderCall = jest
+        .spyOn(providerService.provider, 'call')
+        .mockImplementation(async () => {
+          const iface = new Interface(SecurityAbi__factory.abi);
+          const result = [expected];
+          return iface.encodeFunctionResult('ATTEST_MESSAGE_PREFIX', result);
+        });
+
+      const prefix = await securityService.getAttestMessagePrefix(blockNumber);
+      expect(prefix).toBe(expected);
+      expect(mockProviderCall).toBeCalledTimes(1);
+    });
+
+    it('getPauseMessagePrefix', async () => {
+      const expected = '0x' + '1'.repeat(64);
+
+      const mockProviderCall = jest
+        .spyOn(providerService.provider, 'call')
+        .mockImplementation(async () => {
+          const iface = new Interface(SecurityAbi__factory.abi);
+          const result = [expected];
+          return iface.encodeFunctionResult('PAUSE_MESSAGE_PREFIX', result);
+        });
+
+      const prefix = await securityService.getPauseMessagePrefix(blockNumber);
+      expect(prefix).toBe(expected);
+      expect(mockProviderCall).toBeCalledTimes(1);
+    });
+
+    it('getUnvetMessagePrefix', async () => {
+      const expected = '0x' + '1'.repeat(64);
+
+      const mockProviderCall = jest
+        .spyOn(providerService.provider, 'call')
+        .mockImplementation(async () => {
+          const iface = new Interface(SecurityAbi__factory.abi);
+          const result = [expected];
+          return iface.encodeFunctionResult('UNVET_MESSAGE_PREFIX', result);
+        });
+
+      const prefix = await securityService.getUnvetMessagePrefix(blockNumber);
+      expect(prefix).toBe(expected);
+      expect(mockProviderCall).toBeCalledTimes(1);
     });
   });
 });

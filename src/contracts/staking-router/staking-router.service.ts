@@ -71,4 +71,33 @@ export class StakingRouterService {
 
     return await contract.queryFilter(filter, startBlock, endBlock);
   }
+
+  /**
+   * Returns the current state of deposits for module
+   */
+  public async isModuleDepositsPaused(
+    stakingModuleId: number,
+    blockTag?: BlockTag,
+  ): Promise<boolean> {
+    const stakingRouterContract =
+      await this.repositoryService.getCachedStakingRouterContract();
+
+    const isActive = await stakingRouterContract.getStakingModuleIsActive(
+      stakingModuleId,
+      {
+        blockTag: blockTag as any,
+      },
+    );
+
+    return !isActive;
+  }
+
+  public async getWithdrawalCredentials(blockTag?: BlockTag): Promise<string> {
+    const stakingRouterContract =
+      await this.repositoryService.getCachedStakingRouterContract();
+
+    return await stakingRouterContract.getWithdrawalCredentials({
+      blockTag: blockTag as any,
+    });
+  }
 }

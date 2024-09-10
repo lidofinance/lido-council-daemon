@@ -251,6 +251,6 @@ describe('Guardian balance monitoring test', () => {
   const mockUnvettingMethod = () => {
     unvetSigningKeys = jest
       .spyOn(securityService, 'unvetSigningKeys')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(null as any));
   };
 });

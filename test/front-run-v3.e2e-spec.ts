@@ -155,7 +155,7 @@ describe('ganache e2e tests', () => {
     // we cant make real unvetting
     unvetSigningKeys = jest
       .spyOn(securityService, 'unvetSigningKeys')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(null as any));
   };
 
   beforeEach(async () => {

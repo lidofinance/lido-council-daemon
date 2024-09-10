@@ -599,10 +599,6 @@ describe('ganache e2e tests', () => {
 
       // Your assertions after mining the block
       const newBlock = await providerService.provider.getBlock('latest');
-      console.log('Current block number:', {
-        newBlock: newBlock.number,
-        currentBlock: currentBlock.number,
-      });
 
       setupMockModules(
         newBlock,

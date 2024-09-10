@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import {
   KeyValidatorInterface,
   bufferFromHexString,
@@ -11,6 +11,7 @@ import { GENESIS_FORK_VERSION_BY_CHAIN_ID } from 'bls/bls.constants';
 import { LRUCache } from 'lru-cache';
 import { DEPOSIT_DATA_LRU_CACHE_SIZE } from './constants';
 import { ProviderService } from 'provider';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 type DepositData = {
   key: Pubkey;
@@ -26,6 +27,7 @@ export class KeysValidationService {
   constructor(
     private readonly keyValidator: KeyValidatorInterface,
     private readonly provider: ProviderService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
   ) {
     this.depositDataCache = new LRUCache({ max: DEPOSIT_DATA_LRU_CACHE_SIZE });
   }
@@ -82,6 +84,12 @@ export class KeysValidationService {
   ): Promise<[Key & DepositData, boolean][]> {
     const { cachedDepositData, uncachedDepositData } =
       this.partitionCachedData(depositDataList);
+
+    this.logger.log('Validation status of deposit keys:', {
+      cachedKeysCount: cachedDepositData.length,
+      keysNeedingValidationCount: uncachedDepositData.length,
+      totalKeysCount: depositDataList.length,
+    });
 
     const validatedDepositData: [Key & DepositData, boolean][] =
       await this.keyValidator.validateKeys(uncachedDepositData);
