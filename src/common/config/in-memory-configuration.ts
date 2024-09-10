@@ -1,6 +1,7 @@
 import { Transform } from 'class-transformer';
 import {
   IsIn,
+  IsInstance,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -12,8 +13,8 @@ import { Injectable } from '@nestjs/common';
 import { Configuration, PubsubService } from './configuration';
 import { SASLMechanism } from '../../transport';
 import { implementationOf } from '../di/decorators/implementationOf';
-import { ethers } from 'ethers';
-import { BadConfigException } from './exceptions';
+import { ethers, BigNumber } from 'ethers';
+import { TransformToWei } from 'common/decorators/transform-to-wei';
 
 const RABBITMQ = 'rabbitmq';
 const KAFKA = 'kafka';
@@ -142,34 +143,12 @@ export class InMemoryConfiguration implements Configuration {
   LOCATOR_DEVNET_ADDRESS = '';
 
   @IsOptional()
-  @Transform(
-    ({ value }) => {
-      try {
-        const weiValue = ethers.utils.parseEther(value || '0.5');
-        return weiValue;
-      } catch (error) {
-        throw new BadConfigException(
-          `Invalid WALLET_MIN_BALANCE value: ${value}. Please ensure it's a valid Ether amount that can be converted to Wei.`,
-        );
-      }
-    },
-    { toClassOnly: true },
-  )
-  WALLET_MIN_BALANCE: ethers.BigNumber = ethers.utils.parseEther('0.5');
+  @TransformToWei()
+  @IsInstance(BigNumber)
+  WALLET_MIN_BALANCE: BigNumber = ethers.utils.parseEther('0.5');
 
   @IsOptional()
-  @Transform(
-    ({ value }) => {
-      try {
-        const weiValue = ethers.utils.parseEther(value || '0.2');
-        return weiValue;
-      } catch (error) {
-        throw new BadConfigException(
-          `Invalid WALLET_CRITICAL_BALANCE value: ${value}. Please ensure it's a valid Ether amount that can be converted to Wei.`,
-        );
-      }
-    },
-    { toClassOnly: true },
-  )
-  WALLET_CRITICAL_BALANCE: ethers.BigNumber = ethers.utils.parseEther('0.2');
+  @TransformToWei()
+  @IsInstance(BigNumber)
+  WALLET_CRITICAL_BALANCE: BigNumber = ethers.utils.parseEther('0.2');
 }
