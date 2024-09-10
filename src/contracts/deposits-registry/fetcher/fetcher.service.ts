@@ -18,7 +18,7 @@ export class DepositsRegistryFetcherService {
   ) {}
 
   /**
-   * Returns events in the block range
+   * Returns events in the block range and verify signature
    * If the request failed, it tries to repeat it or split it into two
    * @param startBlock - start of the range
    * @param endBlock - end of the range
@@ -36,7 +36,7 @@ export class DepositsRegistryFetcherService {
   }
 
   /**
-   * Returns events in the block range
+   * Returns events in the block range and verify signature
    * @param startBlock - start of the range
    * @param endBlock - end of the range
    * @returns event group

@@ -14,7 +14,7 @@ export class DepositsRegistryModule {
   /**
    * Registers the deposits module with a specific tag to handle block finality.
    * The `finalizedTag` is primarily used to address issues with the Ganache handling of the 'finalized' tag,
-   * where it needs to be substituted with 'latest' for end-to-end tests. This tag is necessary only on a full Ethereum node
+   * where it needs to be substituted with 'latest' for end-to-end tests. This tag is necessary only on a Ethereum node
    * to avoid issues with blockchain reorganizations.
    * In a production environment, this argument should either be empty or set to 'finalized'.
    *

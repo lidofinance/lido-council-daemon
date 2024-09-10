@@ -23,7 +23,7 @@ export class DepositRegistrySanityCheckerService {
     return await this.depositsIntegrityChecker.putFinalizedEvents(events);
   }
   // putLatestEvents
-  private async checkFreshEventsChunk(
+  private async checkFreshEvents(
     blockNumber: number,
     events: VerifiedDepositEvent[],
   ) {
@@ -133,7 +133,7 @@ export class DepositRegistrySanityCheckerService {
     if (isReorgFound) return false;
 
     // Check if the deposit root of the events matches the expected values.
-    const isDepositRootMatches = await this.checkFreshEventsChunk(
+    const isDepositRootMatches = await this.checkFreshEvents(
       blockNumber,
       freshEvents,
     );
