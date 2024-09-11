@@ -43,7 +43,7 @@ export class DepositTree {
   /**
    * Forms the branch of the tree needed to update the root when a new node is inserted.
    * @param {Uint8Array} node - The node's data to be inserted.
-   * @param {number} depositCount - The sequential index of the deposit, representing the total deposits.
+   * @param {bigint} depositCount - The sequential index of the deposit, representing the total deposits.
    * @returns {Uint8Array[] | undefined} The updated branch of the tree after inserting the node.
    */
   private formBranch(

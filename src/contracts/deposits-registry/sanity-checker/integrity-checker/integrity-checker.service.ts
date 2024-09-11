@@ -118,7 +118,7 @@ export class DepositIntegrityCheckerService {
       if (index % DEPOSIT_TREE_STEP_SYNC === 0) {
         await new Promise((res) => setTimeout(res, 1));
 
-        this.logger.log('Checking integrity of saved deposit events', {
+        this.logger.log('Inserting verified deposit events', {
           processed: index,
           remaining: eventsCache.length - index,
         });

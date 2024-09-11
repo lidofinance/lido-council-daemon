@@ -334,7 +334,7 @@ export class GuardianService implements OnModuleInit {
         );
 
         if (
-          this.cannotDeposit(
+          this.ignoreDeposits(
             stakingModuleData,
             blockData.theftHappened,
             blockData.alreadyPausedDeposits,
@@ -353,7 +353,7 @@ export class GuardianService implements OnModuleInit {
     );
   }
 
-  cannotDeposit(
+  private ignoreDeposits(
     stakingModuleData: StakingModuleData,
     theftHappened: boolean,
     alreadyPausedDeposits: boolean,
