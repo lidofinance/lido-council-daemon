@@ -115,7 +115,7 @@ export class DepositRegistrySanityCheckerService {
   ) {
     const lastEvent = freshEvents[freshEvents.length - 1];
 
-    // If there is no last event, validate the finalized root for the current block hash.
+    // If events list is empty, there is no last event, so validate the finalized root for the current block hash.
     if (!lastEvent) {
       return this.depositsIntegrityChecker.checkFinalizedRoot(currentBlockHash);
     }

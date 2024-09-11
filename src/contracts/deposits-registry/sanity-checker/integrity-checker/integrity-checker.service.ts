@@ -51,7 +51,8 @@ export class DepositIntegrityCheckerService {
   }
 
   /**
-   * Checks the integrity of the latest root against the blockchain deposit root for a given block number.
+   * Checks the integrity of the latest deposit root against the blockchain deposit root for a given block number.
+   * latest is the tag against which the state relative to the blockchain is stored
    * @param {number} blockNumber - Block number to check the deposit root against.
    * @param {VerifiedDepositEvent[]} eventsCache - Latest events to verify against the deposit root.
    * @returns {Promise<void>} A promise that resolves if the roots match, otherwise throws an error.
@@ -68,7 +69,8 @@ export class DepositIntegrityCheckerService {
   }
 
   /**
-   * Checks the integrity of the finalized root against the blockchain deposit root for a given block number.
+   * Checks the integrity of the finalized deposit root against the blockchain deposit root for a given block number.
+   * finalized is the tag against which the state relative to the blockchain is stored.
    * @param {number} blockNumber - Block number to check the deposit root against.
    * @returns {Promise<void>} A promise that resolves if the roots match, otherwise throws an error.
    */
