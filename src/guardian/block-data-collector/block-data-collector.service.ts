@@ -12,14 +12,12 @@ import {
   METRIC_BLOCK_DATA_REQUEST_ERRORS,
 } from 'common/prometheus';
 import { Counter, Histogram } from 'prom-client';
-import { LidoService } from 'contracts/lido';
 import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 import { WalletService } from 'wallet';
+import { StakingRouterService } from 'contracts/staking-router';
 
 @Injectable()
-export class BlockGuardService {
-  protected lastProcessedStateMeta?: { blockHash: string; blockNumber: number };
-
+export class BlockDataCollectorService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER)
     private logger: LoggerService,
@@ -34,38 +32,10 @@ export class BlockGuardService {
 
     private depositService: DepositRegistryService,
     private securityService: SecurityService,
-    private lidoService: LidoService,
+    private stakingRouterService: StakingRouterService,
 
     private stakingModuleGuardService: StakingModuleGuardService,
   ) {}
-
-  public isNeedToProcessNewState(newMeta: {
-    blockHash: string;
-    blockNumber: number;
-  }) {
-    const lastMeta = this.lastProcessedStateMeta;
-    if (!lastMeta) return true;
-    if (lastMeta.blockNumber > newMeta.blockNumber) {
-      this.logger.error('Keys-api returns old state', newMeta);
-      return false;
-    }
-    const isSameBlock = lastMeta.blockHash !== newMeta.blockHash;
-
-    if (!isSameBlock) {
-      this.logger.log(`The block has not changed since the last cycle. Exit`, {
-        newMeta,
-      });
-    }
-
-    return isSameBlock;
-  }
-
-  public setLastProcessedStateMeta(newMeta: {
-    blockHash: string;
-    blockNumber: number;
-  }) {
-    this.lastProcessedStateMeta = newMeta;
-  }
 
   /**
    * Collects data from contracts in one place and by block hash,
@@ -88,14 +58,16 @@ export class BlockGuardService {
         guardianIndex,
         lidoWC,
         securityVersion,
+        walletBalanceCritical,
       ] = await Promise.all([
         this.depositService.getDepositRoot({ blockHash }),
         this.depositService.getAllDepositedEvents(blockNumber, blockHash),
         this.securityService.getGuardianIndex({ blockHash }),
-        this.lidoService.getWithdrawalCredentials({ blockHash }),
+        this.stakingRouterService.getWithdrawalCredentials({ blockHash }),
         this.securityService.version({
           blockHash,
         }),
+        this.walletService.isBalanceCritical(),
       ]);
 
       const theftHappened =
@@ -115,9 +87,6 @@ export class BlockGuardService {
           blockHash,
         });
       }
-
-      const walletBalanceCritical =
-        await this.walletService.isBalanceCritical();
 
       return {
         blockNumber,
@@ -146,7 +115,7 @@ export class BlockGuardService {
     securityVersion: number,
   ) {
     if (securityVersion === 3) {
-      const alreadyPaused = await this.securityService.isDepositContractPaused({
+      const alreadyPaused = await this.securityService.isDepositsPaused({
         blockHash,
       });
 

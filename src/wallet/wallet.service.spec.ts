@@ -79,13 +79,13 @@ describe('WalletService', () => {
     it('should sign deposit data', async () => {
       const prefix = hexZeroPad('0x1', 32);
       const depositRoot = hexZeroPad('0x2', 32);
-      const keysOpIndex = 1;
+      const nonce = 1;
       const blockNumber = 1;
       const blockHash = hexZeroPad('0x3', 32);
       const signature = await walletService.signDepositData({
         prefix,
         depositRoot,
-        keysOpIndex,
+        nonce,
         blockNumber,
         blockHash,
         stakingModuleId: TEST_MODULE_ID,

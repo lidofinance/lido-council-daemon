@@ -1,5 +1,4 @@
 import { SigningKeyEvent } from 'contracts/signing-key-events-cache/interfaces/event.interface';
-import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 
 export const keyMock1 = {
   key: '0xb3c90525010a5710d43acbea46047fc37ed55306d032527fa15dd7e8cd8a9a5fa490347cc5fce59936fb8300683cd9f3',
@@ -9,16 +8,6 @@ export const keyMock1 = {
   used: false,
   moduleAddress: '0x9D4AF1Ee19Dad8857db3a45B0374c81c8A1C6320',
   index: 52,
-};
-
-export const keyMock1Duplicate = {
-  key: '0xb3c90525010a5710d43acbea46047fc37ed55306d032527fa15dd7e8cd8a9a5fa490347cc5fce59936fb8300683cd9f3',
-  depositSignature:
-    '0x8a77d9411781360cc107344a99f6660b206d2c708ae7fa35565b76ec661a0b86b6c78f5b5691d2cf469c27d0655dfc6311451a9e0501f3c19c6f7e35a770d1a908bfec7cba2e07339dc633b8b6626216ce76ec0fa48ee56aaaf2f9dc7ccb2fe2',
-  operatorIndex: 1,
-  used: false,
-  moduleAddress: '0x9D4AF1Ee19Dad8857db3a45B0374c81c8A1C6320',
-  index: 53,
 };
 
 export const keyMock2 = {
@@ -31,12 +20,19 @@ export const keyMock2 = {
   index: 51,
 };
 
-export const keysMock: RegistryKey[] = [keyMock1, keyMock1Duplicate, keyMock2];
+export const eventMock1: SigningKeyEvent = {
+  operatorIndex: keyMock1.operatorIndex,
+  key: keyMock1.key,
+  moduleAddress: keyMock1.moduleAddress,
+  logIndex: 1,
+  blockNumber: 1,
+  blockHash: '0x',
+};
 
-export const eventMock: SigningKeyEvent = {
-  operatorIndex: keyMock1Duplicate.operatorIndex,
-  key: keyMock1Duplicate.key,
-  moduleAddress: keyMock1Duplicate.moduleAddress,
+export const eventMock2: SigningKeyEvent = {
+  operatorIndex: keyMock2.operatorIndex,
+  key: keyMock2.key,
+  moduleAddress: keyMock2.moduleAddress,
   logIndex: 1,
   blockNumber: 1,
   blockHash: '0x',

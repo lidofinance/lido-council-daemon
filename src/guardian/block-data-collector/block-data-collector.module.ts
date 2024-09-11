@@ -1,20 +1,20 @@
 import { Module } from '@nestjs/common';
 import { DepositsRegistryModule } from 'contracts/deposits-registry';
 import { SecurityModule } from 'contracts/security';
-import { BlockGuardService } from './block-guard.service';
-import { LidoModule } from 'contracts/lido';
 import { StakingModuleGuardModule } from 'guardian/staking-module-guard';
 import { WalletModule } from 'wallet';
+import { StakingRouterModule } from 'contracts/staking-router';
+import { BlockDataCollectorService } from './block-data-collector.service';
 
 @Module({
   imports: [
-    LidoModule,
     DepositsRegistryModule.register(),
     SecurityModule,
     StakingModuleGuardModule,
     WalletModule,
+    StakingRouterModule,
   ],
-  providers: [BlockGuardService],
-  exports: [BlockGuardService],
+  providers: [BlockDataCollectorService],
+  exports: [BlockDataCollectorService],
 })
-export class BlockGuardModule {}
+export class BlockDataCollectorModule {}

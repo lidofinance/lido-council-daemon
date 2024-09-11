@@ -3,7 +3,7 @@ export interface SignDepositDataParams {
   blockNumber: number;
   blockHash: string;
   depositRoot: string;
-  keysOpIndex: number;
+  nonce: number;
   stakingModuleId: number;
 }
 

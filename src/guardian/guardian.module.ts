@@ -1,34 +1,34 @@
 import { Module } from '@nestjs/common';
 import { DepositsRegistryModule } from 'contracts/deposits-registry';
 import { SecurityModule } from 'contracts/security';
-import { LidoModule } from 'contracts/lido';
 import { MessagesModule } from 'messages';
 import { GuardianService } from './guardian.service';
-import { StakingRouterModule } from 'staking-router';
 import { ScheduleModule } from 'common/schedule';
-import { BlockGuardModule } from './block-guard/block-guard.module';
+import { BlockDataCollectorModule } from './block-data-collector/block-data-collector.module';
 import { StakingModuleGuardModule } from './staking-module-guard';
 import { GuardianMessageModule } from './guardian-message';
 import { GuardianMetricsModule } from './guardian-metrics';
 import { KeysApiModule } from 'keys-api/keys-api.module';
 import { SigningKeyEventsCacheModule } from 'contracts/signing-key-events-cache';
 import { UnvettingModule } from './unvetting/unvetting.module';
+import { StakingModuleDataCollectorModule } from 'staking-module-data-collector';
+import { StakingRouterModule } from 'contracts/staking-router';
 
 @Module({
   imports: [
     DepositsRegistryModule.register(),
     SecurityModule,
-    LidoModule,
     MessagesModule,
-    StakingRouterModule,
+    StakingModuleDataCollectorModule,
     ScheduleModule,
-    BlockGuardModule,
+    BlockDataCollectorModule,
     StakingModuleGuardModule,
     UnvettingModule,
     GuardianMessageModule,
     GuardianMetricsModule,
     KeysApiModule,
     SigningKeyEventsCacheModule,
+    StakingRouterModule,
   ],
   providers: [GuardianService],
   exports: [GuardianService],

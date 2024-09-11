@@ -10,13 +10,12 @@ import { GuardianModule } from 'guardian';
 import { DepositsRegistryModule } from 'contracts/deposits-registry';
 import { SecurityModule } from 'contracts/security';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
-import { LidoModule } from 'contracts/lido';
 import { MessagesModule } from 'messages';
-import { StakingRouterModule } from 'staking-router';
+import { StakingModuleDataCollectorModule } from 'staking-module-data-collector';
 import { GuardianMetricsModule } from './guardian-metrics';
 import { GuardianMessageModule } from './guardian-message';
 import { StakingModuleGuardModule } from './staking-module-guard';
-import { BlockGuardModule, BlockGuardService } from './block-guard';
+import { BlockDataCollectorModule } from './block-data-collector';
 import { ScheduleModule } from 'common/schedule';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { mockLocator } from 'contracts/repository/locator/locator.mock';
@@ -28,8 +27,6 @@ jest.mock('../transport/stomp/stomp.client');
 
 describe('GuardianService', () => {
   let keysApiService: KeysApiService;
-  let blockGuardService: BlockGuardService;
-
   let guardianService: GuardianService;
   let loggerService: LoggerService;
 
@@ -47,11 +44,10 @@ describe('GuardianService', () => {
         RepositoryModule,
         DepositsRegistryModule.register('latest'),
         SecurityModule,
-        LidoModule,
         MessagesModule,
-        StakingRouterModule,
+        StakingModuleDataCollectorModule,
         ScheduleModule,
-        BlockGuardModule,
+        BlockDataCollectorModule,
         StakingModuleGuardModule,
         GuardianMessageModule,
         GuardianMetricsModule,
@@ -60,7 +56,6 @@ describe('GuardianService', () => {
     }).compile();
 
     keysApiService = moduleRef.get(KeysApiService);
-    blockGuardService = moduleRef.get(BlockGuardService);
 
     repositoryService = moduleRef.get(RepositoryService);
     locatorService = moduleRef.get(LocatorService);
@@ -105,8 +100,8 @@ describe('GuardianService', () => {
       },
     }));
 
-    const getBlockGuardServiceMock = jest
-      .spyOn(blockGuardService, 'isNeedToProcessNewState')
+    const isNeedToProcessNewStatMock = jest
+      .spyOn(guardianService, 'isNeedToProcessNewState')
       .mockImplementation(() => false);
 
     // run concurrently and check that second attempt
@@ -115,7 +110,7 @@ describe('GuardianService', () => {
       guardianService.handleNewBlock(),
     ]);
 
-    expect(getBlockGuardServiceMock).toBeCalledTimes(1);
+    expect(isNeedToProcessNewStatMock).toBeCalledTimes(1);
     expect(getOperatorsAndModulesMock).toBeCalledTimes(1);
   });
 });

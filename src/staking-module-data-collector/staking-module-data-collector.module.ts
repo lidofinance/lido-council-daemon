@@ -1,20 +1,20 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from 'common/config';
-import { StakingRouterService } from './staking-router.service';
-import { SecurityModule } from 'contracts/security';
+import { StakingModuleDataCollectorService } from './staking-module-data-collector.service';
 import { StakingModuleGuardModule } from 'guardian/staking-module-guard';
 import { KeysDuplicationCheckerModule } from 'guardian/duplicates';
 import { GuardianMetricsModule } from 'guardian/guardian-metrics';
+import { StakingRouterModule } from 'contracts/staking-router';
 
 @Module({
   imports: [
     ConfigModule,
-    SecurityModule,
     StakingModuleGuardModule,
     KeysDuplicationCheckerModule,
     GuardianMetricsModule,
+    StakingRouterModule,
   ],
-  providers: [StakingRouterService],
-  exports: [StakingRouterService],
+  providers: [StakingModuleDataCollectorService],
+  exports: [StakingModuleDataCollectorService],
 })
-export class StakingRouterModule {}
+export class StakingModuleDataCollectorModule {}

@@ -5,26 +5,25 @@ import { getVettedUnusedKeys } from './vetted-keys';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { Meta } from 'keys-api/interfaces/Meta';
 import { SROperatorListWithModule } from 'keys-api/interfaces/SROperatorListWithModule';
-import { SecurityService } from 'contracts/security';
 import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 import { KeysDuplicationCheckerService } from 'guardian/duplicates';
 import { GuardianMetricsService } from 'guardian/guardian-metrics';
+import { StakingRouterService } from 'contracts/staking-router';
 
 type State = {
   operatorsByModules: SROperatorListWithModule[];
   meta: Meta;
   lidoKeys: RegistryKey[];
-  blockData: BlockData;
 };
 
 @Injectable()
-export class StakingRouterService {
+export class StakingModuleDataCollectorService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-    private securityService: SecurityService,
     private stakingModuleGuardService: StakingModuleGuardService,
     private keysDuplicationCheckerService: KeysDuplicationCheckerService,
     private guardianMetricsService: GuardianMetricsService,
+    private stakingRouterService: StakingRouterService,
   ) {}
 
   /**
@@ -34,7 +33,6 @@ export class StakingRouterService {
     operatorsByModules,
     meta,
     lidoKeys,
-    blockData,
   }: State): Promise<StakingModuleData[]> {
     return await Promise.all(
       operatorsByModules.map(async ({ operators, module: stakingModule }) => {
@@ -51,16 +49,19 @@ export class StakingRouterService {
 
         // check pause
         const isModuleDepositsPaused =
-          await this.securityService.isModuleDepositsPaused(stakingModule.id, {
-            blockHash: blockData.blockHash,
-          });
+          await this.stakingRouterService.isModuleDepositsPaused(
+            stakingModule.id,
+            {
+              blockHash: meta.elBlockSnapshot.blockHash,
+            },
+          );
 
         return {
           isModuleDepositsPaused,
           nonce: stakingModule.nonce,
           stakingModuleId: stakingModule.id,
           stakingModuleAddress: stakingModule.stakingModuleAddress,
-          blockHash: blockData.blockHash,
+          blockHash: meta.elBlockSnapshot.blockHash,
           lastChangedBlockHash: meta.elBlockSnapshot.lastChangedBlockHash,
           vettedUnusedKeys: moduleVettedUnusedKeys,
           duplicatedKeys: [],

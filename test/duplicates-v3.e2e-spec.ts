@@ -19,8 +19,6 @@ import {
   NOP_REGISTRY,
   SIMPLE_DVT,
   UNLOCKED_ACCOUNTS,
-  CSM,
-  SANDBOX,
 } from './constants';
 
 // Contract Factories
@@ -46,7 +44,7 @@ import { SecurityService } from 'contracts/security';
 import { Server } from 'ganache';
 import { GuardianMessageService } from 'guardian/guardian-message';
 import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
-import { StakingRouterService } from 'staking-router';
+import { StakingModuleDataCollectorService } from 'staking-module-data-collector';
 import { makeServer } from './server';
 import { addGuardians } from './helpers/dsm';
 import { BlsService } from 'bls';
@@ -69,7 +67,7 @@ describe('Deposits in case of duplicates', () => {
 
   let stakingModuleGuardService: StakingModuleGuardService;
   let guardianMessageService: GuardianMessageService;
-  let stakingRouterService: StakingRouterService;
+  let stakingModuleDataCollectorService: StakingModuleDataCollectorService;
 
   // methods mocks
   let sendDepositMessage: jest.SpyInstance;
@@ -114,7 +112,7 @@ describe('Deposits in case of duplicates', () => {
     // we cant make real unvetting
     unvetSigningKeys = jest
       .spyOn(securityService, 'unvetSigningKeys')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(null as any));
   };
 
   const setupTestingServices = async (moduleRef) => {
@@ -149,7 +147,9 @@ describe('Deposits in case of duplicates', () => {
     // main service that check keys and make decision
     guardianService = moduleRef.get(GuardianService);
     stakingModuleGuardService = moduleRef.get(StakingModuleGuardService);
-    stakingRouterService = moduleRef.get(StakingRouterService);
+    stakingModuleDataCollectorService = moduleRef.get(
+      StakingModuleDataCollectorService,
+    );
   };
 
   beforeEach(async () => {
@@ -209,7 +209,7 @@ describe('Deposits in case of duplicates', () => {
         headers: {
           startBlock: currentBlock.number - 2,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, CSM, SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -347,7 +347,7 @@ describe('Deposits in case of duplicates', () => {
         headers: {
           startBlock: currentBlock.number - 2,
           endBlock: currentBlock.number - 1,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, CSM, SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -488,7 +488,7 @@ describe('Deposits in case of duplicates', () => {
         headers: {
           startBlock: currentBlock.number - 2,
           endBlock: currentBlock.number - 1,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, CSM, SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -622,7 +622,7 @@ describe('Deposits in case of duplicates', () => {
         headers: {
           startBlock: currentBlock.number - 2,
           endBlock: currentBlock.number - 1,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, CSM, SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -748,7 +748,7 @@ describe('Deposits in case of duplicates', () => {
       headers: {
         startBlock: currentBlock.number - 2,
         endBlock: currentBlock.number - 1,
-        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, CSM, SANDBOX],
+        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
       },
     });
 
@@ -766,7 +766,7 @@ describe('Deposits in case of duplicates', () => {
     );
 
     const getVettedUnusedKeys = jest.spyOn(
-      stakingRouterService,
+      stakingModuleDataCollectorService,
       'getVettedUnusedKeys',
     );
     await guardianService.handleNewBlock();
@@ -847,7 +847,7 @@ describe('Deposits in case of duplicates', () => {
         headers: {
           startBlock: currentBlock.number - 2,
           endBlock: currentBlock.number - 1,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, CSM, SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
