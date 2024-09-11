@@ -79,6 +79,11 @@ describe('KeysValidationService', () => {
       expect(validateKeysFun).toBeCalledTimes(1);
       expect(validateKeysFun).toBeCalledWith(depositKeyList);
       expect(result).toEqual([invalidKey1, duplicate, invalidKey2]);
+
+      expect(result[0].index).toEqual(invalidKey1.index);
+      expect(result[0].operatorIndex).toEqual(invalidKey1.operatorIndex);
+      expect(result[0].used).toEqual(invalidKey1.used);
+      expect(result[0].moduleAddress).toEqual(invalidKey1.moduleAddress);
     });
 
     it('validate with use of cache ', async () => {
