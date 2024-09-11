@@ -14,7 +14,7 @@ export class StakingRouterService {
 
   /**
    * @param blockTag
-   * @returns List of staking modules fetch from SR contract
+   * @returns List of staking modules fetched from the SR contract
    */
   public async getStakingModules(blockTag: BlockTag) {
     const stakingRouter =
@@ -26,6 +26,27 @@ export class StakingRouterService {
     return stakingModules;
   }
 
+  /**
+   * Retrieves the list of staking module addresses.
+   * This method fetches the cached staking modules contracts and returns the list of staking module addresses.
+   * @param blockHash - Block hash
+   * @returns Array of staking module addresses.
+   */
+  public async getStakingModulesAddresses(
+    blockHash: string,
+  ): Promise<string[]> {
+    const stakingModules = await this.getStakingModules({ blockHash });
+
+    return stakingModules.map(
+      (stakingModule) => stakingModule.stakingModuleAddress,
+    );
+  }
+
+  /**
+   * Retrieves contract factory
+   * @param stakingModuleAddress Staking module address
+   * @returns Contract factory
+   */
   public async getStakingModule(stakingModuleAddress: string) {
     return IStakingModuleAbi__factory.connect(
       stakingModuleAddress,
@@ -33,12 +54,19 @@ export class StakingRouterService {
     );
   }
 
+  /**
+   * Retrieves SigningKeyAdded events list
+   * @param startBlock - Start block for fetching events
+   * @param endBlock - End block for fetching events
+   * @param stakingModuleAddress - Staking module address
+   * @returns List of SigningKeyAdded events
+   */
   public async getSigningKeyAddedEvents(
     startBlock: number,
     endBlock: number,
-    address: string,
+    stakingModuleAddress: string,
   ) {
-    const contract = await this.getStakingModule(address);
+    const contract = await this.getStakingModule(stakingModuleAddress);
     const filter = contract.filters['SigningKeyAdded(uint256,bytes)']();
 
     return await contract.queryFilter(filter, startBlock, endBlock);
