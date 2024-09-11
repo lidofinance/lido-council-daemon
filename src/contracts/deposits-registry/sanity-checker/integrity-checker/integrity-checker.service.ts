@@ -71,7 +71,7 @@ export class DepositIntegrityCheckerService {
   /**
    * Checks the integrity of the finalized deposit root against the blockchain deposit root for a given block number.
    * finalized is the tag against which the state relative to the blockchain is stored.
-   * @param {number} blockNumber - Block number to check the deposit root against.
+   * @param {string | number} tag - Block Tag to check the deposit root against.
    * @returns {Promise<void>} A promise that resolves if the roots match, otherwise throws an error.
    */
   public async checkFinalizedRoot(tag: string | number): Promise<boolean> {
@@ -80,7 +80,7 @@ export class DepositIntegrityCheckerService {
 
   /**
    * A private helper method to compare the local deposit tree root with the remote deposit root from the blockchain.
-   * @param {number} blockNumber - Block number associated with the deposit root to verify.
+   * @param {string | number} tag - Block Tag associated with the deposit root to verify.
    * @param {DepositTree} tree - Deposit tree to use for comparison.
    * @returns {Promise<void>} A promise that resolves if the roots match, otherwise logs an error and throws.
    */
