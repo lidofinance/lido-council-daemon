@@ -157,7 +157,7 @@ export class GuardianService implements OnModuleInit {
       // contracts init
       await this.repositoryService.initCachedContracts({ blockHash });
 
-      const isNewBlock = this.blockGuardService.isNeedToProcessNewState({
+      const isNewBlock = this.isNeedToProcessNewState({
         blockHash,
         blockNumber,
       });
@@ -267,7 +267,7 @@ export class GuardianService implements OnModuleInit {
     await this.handleDeposit(stakingModulesData, blockData);
 
     const { blockHash, blockNumber } = blockData;
-    this.blockGuardService.setLastProcessedStateMeta({
+    this.setLastProcessedStateMeta({
       blockHash,
       blockNumber,
     });
@@ -393,5 +393,33 @@ export class GuardianService implements OnModuleInit {
       theftHappened ||
       stakingModuleData.isModuleDepositsPaused
     );
+  }
+
+  public isNeedToProcessNewState(newMeta: {
+    blockHash: string;
+    blockNumber: number;
+  }) {
+    const lastMeta = this.lastProcessedStateMeta;
+    if (!lastMeta) return true;
+    if (lastMeta.blockNumber > newMeta.blockNumber) {
+      this.logger.error('Keys-api returns old state', newMeta);
+      return false;
+    }
+    const isSameBlock = lastMeta.blockHash !== newMeta.blockHash;
+
+    if (!isSameBlock) {
+      this.logger.log(`The block has not changed since the last cycle. Exit`, {
+        newMeta,
+      });
+    }
+
+    return isSameBlock;
+  }
+
+  public setLastProcessedStateMeta(newMeta: {
+    blockHash: string;
+    blockNumber: number;
+  }) {
+    this.lastProcessedStateMeta = newMeta;
   }
 }

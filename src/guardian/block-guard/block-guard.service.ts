@@ -18,8 +18,6 @@ import { StakingRouterService } from 'contracts/staking-router';
 
 @Injectable()
 export class BlockGuardService {
-  protected lastProcessedStateMeta?: { blockHash: string; blockNumber: number };
-
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER)
     private logger: LoggerService,
@@ -38,34 +36,6 @@ export class BlockGuardService {
 
     private stakingModuleGuardService: StakingModuleGuardService,
   ) {}
-
-  public isNeedToProcessNewState(newMeta: {
-    blockHash: string;
-    blockNumber: number;
-  }) {
-    const lastMeta = this.lastProcessedStateMeta;
-    if (!lastMeta) return true;
-    if (lastMeta.blockNumber > newMeta.blockNumber) {
-      this.logger.error('Keys-api returns old state', newMeta);
-      return false;
-    }
-    const isSameBlock = lastMeta.blockHash !== newMeta.blockHash;
-
-    if (!isSameBlock) {
-      this.logger.log(`The block has not changed since the last cycle. Exit`, {
-        newMeta,
-      });
-    }
-
-    return isSameBlock;
-  }
-
-  public setLastProcessedStateMeta(newMeta: {
-    blockHash: string;
-    blockNumber: number;
-  }) {
-    this.lastProcessedStateMeta = newMeta;
-  }
 
   /**
    * Collects data from contracts in one place and by block hash,
@@ -88,6 +58,7 @@ export class BlockGuardService {
         guardianIndex,
         lidoWC,
         securityVersion,
+        walletBalanceCritical,
       ] = await Promise.all([
         this.depositService.getDepositRoot({ blockHash }),
         this.depositService.getAllDepositedEvents(blockNumber, blockHash),
@@ -96,6 +67,7 @@ export class BlockGuardService {
         this.securityService.version({
           blockHash,
         }),
+        this.walletService.isBalanceCritical(),
       ]);
 
       const theftHappened =
@@ -115,9 +87,6 @@ export class BlockGuardService {
           blockHash,
         });
       }
-
-      const walletBalanceCritical =
-        await this.walletService.isBalanceCritical();
 
       return {
         blockNumber,
