@@ -307,7 +307,6 @@ describe('StakingModuleGuardService', () => {
         nonce: 1,
         blockNumber: 100,
         lastChangedBlockHash: 'hash',
-        invalidKeysFound: false,
       };
       const result = stakingModuleGuardService.isSameContractsStates(
         { ...state },
@@ -322,7 +321,6 @@ describe('StakingModuleGuardService', () => {
         nonce: 1,
         blockNumber: 100,
         lastChangedBlockHash: 'hash',
-        invalidKeysFound: false,
       };
       const result = stakingModuleGuardService.isSameContractsStates(state, {
         ...state,
@@ -337,7 +335,6 @@ describe('StakingModuleGuardService', () => {
         nonce: 1,
         blockNumber: 100,
         lastChangedBlockHash: 'hash',
-        invalidKeysFound: false,
       };
       const result = stakingModuleGuardService.isSameContractsStates(state, {
         ...state,
@@ -352,7 +349,6 @@ describe('StakingModuleGuardService', () => {
         nonce: 1,
         blockNumber: 100,
         lastChangedBlockHash: 'hash',
-        invalidKeysFound: false,
       };
       const result = stakingModuleGuardService.isSameContractsStates(state, {
         ...state,
@@ -369,7 +365,6 @@ describe('StakingModuleGuardService', () => {
         nonce: 1,
         blockNumber: 100,
         lastChangedBlockHash: 'hash',
-        invalidKeysFound: false,
       };
       const result = stakingModuleGuardService.isSameContractsStates(state, {
         ...state,
