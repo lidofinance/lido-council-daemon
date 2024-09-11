@@ -4,7 +4,7 @@ import { SecurityModule } from 'contracts/security';
 import { MessagesModule } from 'messages';
 import { GuardianService } from './guardian.service';
 import { ScheduleModule } from 'common/schedule';
-import { BlockGuardModule } from './block-guard/block-guard.module';
+import { BlockDataCollectorModule } from './block-data-collector/block-data-collector.module';
 import { StakingModuleGuardModule } from './staking-module-guard';
 import { GuardianMessageModule } from './guardian-message';
 import { GuardianMetricsModule } from './guardian-metrics';
@@ -21,7 +21,7 @@ import { StakingRouterModule } from 'contracts/staking-router';
     MessagesModule,
     StakingModuleDataCollectorModule,
     ScheduleModule,
-    BlockGuardModule,
+    BlockDataCollectorModule,
     StakingModuleGuardModule,
     UnvettingModule,
     GuardianMessageModule,

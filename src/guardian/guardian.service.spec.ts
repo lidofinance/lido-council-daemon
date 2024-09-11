@@ -15,7 +15,7 @@ import { StakingModuleDataCollectorModule } from 'staking-module-data-collector'
 import { GuardianMetricsModule } from './guardian-metrics';
 import { GuardianMessageModule } from './guardian-message';
 import { StakingModuleGuardModule } from './staking-module-guard';
-import { BlockGuardModule, BlockGuardService } from './block-guard';
+import { BlockDataCollectorModule } from './block-data-collector';
 import { ScheduleModule } from 'common/schedule';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { mockLocator } from 'contracts/repository/locator/locator.mock';
@@ -27,8 +27,6 @@ jest.mock('../transport/stomp/stomp.client');
 
 describe('GuardianService', () => {
   let keysApiService: KeysApiService;
-  let blockGuardService: BlockGuardService;
-
   let guardianService: GuardianService;
   let loggerService: LoggerService;
 
@@ -49,7 +47,7 @@ describe('GuardianService', () => {
         MessagesModule,
         StakingModuleDataCollectorModule,
         ScheduleModule,
-        BlockGuardModule,
+        BlockDataCollectorModule,
         StakingModuleGuardModule,
         GuardianMessageModule,
         GuardianMetricsModule,
@@ -102,7 +100,7 @@ describe('GuardianService', () => {
       },
     }));
 
-    const getBlockGuardServiceMock = jest
+    const isNeedToProcessNewStatMock = jest
       .spyOn(guardianService, 'isNeedToProcessNewState')
       .mockImplementation(() => false);
 
@@ -112,7 +110,7 @@ describe('GuardianService', () => {
       guardianService.handleNewBlock(),
     ]);
 
-    expect(getBlockGuardServiceMock).toBeCalledTimes(1);
+    expect(isNeedToProcessNewStatMock).toBeCalledTimes(1);
     expect(getOperatorsAndModulesMock).toBeCalledTimes(1);
   });
 });
