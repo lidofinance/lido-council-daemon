@@ -622,7 +622,7 @@ describe('ganache e2e tests', () => {
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
 
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -670,7 +670,7 @@ describe('ganache e2e tests', () => {
         mockedMeta(currentBlock, currentBlock.hash),
       );
 
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [
           {
             valid: true,
