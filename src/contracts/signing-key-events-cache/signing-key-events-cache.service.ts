@@ -1,5 +1,4 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
-import { RepositoryService } from 'contracts/repository';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { ProviderService } from 'provider';
 import {
@@ -10,20 +9,21 @@ import {
 import { LevelDBService } from './leveldb';
 import { SigningKeyEventsCache } from './interfaces/cache.interface';
 import {
-  CURATED_MODULE_DEPLOYMENT_BLOCK_NETWORK,
+  EARLIEST_MODULE_DEPLOYMENT_BLOCK_NETWORK,
   FETCHING_EVENTS_STEP,
   SIGNING_KEYS_EVENTS_CACHE_LAG_BLOCKS,
   SIGNING_KEY_EVENTS_CACHE_UPDATE_BLOCK_RATE,
 } from './constants';
 import { performance } from 'perf_hooks';
+import { StakingRouterService } from 'contracts/staking-router';
 
 @Injectable()
 export class SigningKeyEventsCacheService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
-    private repositoryService: RepositoryService,
     private levelDBCacheService: LevelDBService,
+    private stakingRouterService: StakingRouterService,
   ) {}
 
   /**
@@ -36,15 +36,20 @@ export class SigningKeyEventsCacheService {
    * @param {number} blockNumber - The block number of the newly processed block.
    * @returns {Promise<void>}
    */
-  public async handleNewBlock(blockNumber): Promise<void> {
-    const wasUpdated = await this.stakingModuleListWasUpdated();
+  public async handleNewBlock(
+    blockNumber: number,
+    currentstakingModulesAddresses: string[],
+  ): Promise<void> {
+    const wasUpdated = await this.stakingModuleListWasUpdated(
+      currentstakingModulesAddresses,
+    );
     if (wasUpdated) {
       this.logger.log('Staking module list was updated. Deleting cache');
       await this.levelDBCacheService.deleteCache();
-      await this.updateEventsCache();
+      await this.updateEventsCache(currentstakingModulesAddresses);
     } else if (blockNumber % SIGNING_KEY_EVENTS_CACHE_UPDATE_BLOCK_RATE === 0) {
       // update for every SIGNING_KEY_EVENTS_CACHE_UPDATE_BLOCK_RATE block
-      await this.updateEventsCache();
+      await this.updateEventsCache(currentstakingModulesAddresses);
     }
   }
 
@@ -53,7 +58,10 @@ export class SigningKeyEventsCacheService {
    * @param {number} blockNumber - The block number to validate the cache against.
    * @returns {Promise<void>}
    */
-  public async initialize(blockNumber) {
+  public async initialize(
+    blockNumber: number,
+    currentstakingModulesAddresses: string[],
+  ) {
     await this.levelDBCacheService.initialize();
 
     const cachedEvents = await this.getCachedEvents();
@@ -65,13 +73,15 @@ export class SigningKeyEventsCacheService {
       process.exit(1);
     }
 
-    const wasUpdated = await this.stakingModuleListWasUpdated();
+    const wasUpdated = await this.stakingModuleListWasUpdated(
+      currentstakingModulesAddresses,
+    );
     if (wasUpdated) {
       this.logger.log('Staking module list was updated. Deleting cache');
       await this.levelDBCacheService.deleteCache();
     }
 
-    await this.updateEventsCache();
+    await this.updateEventsCache(currentstakingModulesAddresses);
   }
 
   /**
@@ -80,9 +90,13 @@ export class SigningKeyEventsCacheService {
    *
    * @returns {Promise<number>} The block number up to which the cache has been updated.
    */
-  public async updateEventsCache(): Promise<number> {
+  public async updateEventsCache(
+    currentStakingModulesAddresses: string[],
+  ): Promise<number> {
     const fetchTimeStart = performance.now();
 
+    // TODO: maybe we should add blockNumber as argument of updateEventsCache method
+    // and use block number from initialized and handleNewBlock methods
     const [latestBlock, initialCache] = await Promise.all([
       this.providerService.getBlockNumber(),
       this.getCachedEvents(),
@@ -93,8 +107,6 @@ export class SigningKeyEventsCacheService {
 
     const totalEventsCount = initialCache.data.length;
     let newEventsCount = 0;
-
-    const stakingModulesAddresses = await this.getStakingModules();
 
     for (
       let block = firstNotCachedBlock;
@@ -107,13 +119,14 @@ export class SigningKeyEventsCacheService {
       const chunkEventGroup = await this.fetchEventsFallOver(
         chunkStartBlock,
         chunkToBlock,
+        currentStakingModulesAddresses,
       );
 
       await this.levelDBCacheService.insertEventsCacheBatch({
         headers: {
           ...initialCache.headers,
           // as we update staking modules addresses always before run of this method, we can update value on every iteration
-          stakingModulesAddresses: stakingModulesAddresses,
+          stakingModulesAddresses: currentStakingModulesAddresses,
           endBlock: chunkEventGroup.endBlock,
         },
         data: chunkEventGroup.events,
@@ -149,12 +162,12 @@ export class SigningKeyEventsCacheService {
    *
    * @returns {Promise<boolean>} Return `true` if the staking modules list was updated, `false` otherwise.
    */
-  public async stakingModuleListWasUpdated(): Promise<boolean> {
+  public async stakingModuleListWasUpdated(
+    currentModules: string[],
+  ): Promise<boolean> {
     const {
       headers: { stakingModulesAddresses: previousModules },
     } = await this.levelDBCacheService.getHeader();
-
-    const currentModules = await this.getStakingModules();
 
     const wasUpdated = this.wasStakingModulesListUpdated(
       previousModules,
@@ -199,20 +212,6 @@ export class SigningKeyEventsCacheService {
   }
 
   /**
-   * Retrieves the list of staking module addresses.
-   *
-   * This method fetches the cached staking modules contracts and returns the list of staking module addresses.
-   *
-   * @returns {Promise<string[]>} Array of staking module addresses.
-   */
-  public async getStakingModules(): Promise<string[]> {
-    const stakingModulesContracts =
-      await this.repositoryService.getCachedStakingModulesContracts();
-
-    return Object.keys(stakingModulesContracts);
-  }
-
-  /**
    * Fetches signing key events within a specified block range, with fallback mechanisms.
    * If the request failed, it tries to repeat it or split it into two
    *
@@ -223,11 +222,15 @@ export class SigningKeyEventsCacheService {
   public async fetchEventsFallOver(
     startBlock: number,
     endBlock: number,
+    stakingModulesAddresses: string[],
   ): Promise<SigningKeyEventsGroup> {
+    const fetcherWrapper = (start: number, end: number) =>
+      this.fetchEvents(start, end, stakingModulesAddresses);
+
     return await this.providerService.fetchEventsFallOver(
       startBlock,
       endBlock,
-      this.fetchEvents.bind(this),
+      fetcherWrapper,
     );
   }
 
@@ -241,45 +244,37 @@ export class SigningKeyEventsCacheService {
   public async fetchEvents(
     startBlock: number,
     endBlock: number,
+    stakingModulesAddresses: string[],
   ): Promise<SigningKeyEventsGroup> {
-    const stakingModulesContracts =
-      await this.repositoryService.getCachedStakingModulesContracts();
-
     const events: SigningKeyEvent[] = [];
 
     await Promise.all(
-      Object.entries(stakingModulesContracts).map(
-        async ([address, { impl }]) => {
-          const filter = impl.filters['SigningKeyAdded(uint256,bytes)']();
-
-          const rawEvents = await impl.queryFilter(
-            filter,
+      stakingModulesAddresses.map(async (address) => {
+        const rawEvents =
+          await this.stakingRouterService.getSigningKeyAddedEvents(
             startBlock,
             endBlock,
+            address,
           );
 
-          const moduleEvents: SigningKeyEvent[] = rawEvents.map((rawEvent) => {
-            return {
-              operatorIndex: rawEvent.args[0].toNumber(),
-              key: rawEvent.args[1],
-              moduleAddress: address,
-              blockNumber: rawEvent.blockNumber,
-              logIndex: rawEvent.logIndex,
-              blockHash: rawEvent.blockHash,
-            };
-          });
+        const moduleEvents: SigningKeyEvent[] = rawEvents.map((rawEvent) => {
+          return {
+            operatorIndex: rawEvent.args[0].toNumber(),
+            key: rawEvent.args[1],
+            moduleAddress: address,
+            blockNumber: rawEvent.blockNumber,
+            logIndex: rawEvent.logIndex,
+            blockHash: rawEvent.blockHash,
+          };
+        });
 
-          events.push(...moduleEvents);
+        events.push(...moduleEvents);
 
-          this.logger.log(
-            'Fetched signing keys add events for staking module',
-            {
-              count: moduleEvents.length,
-              address,
-            },
-          );
-        },
-      ),
+        this.logger.log('Fetched signing keys add events for staking module', {
+          count: moduleEvents.length,
+          address,
+        });
+      }),
     );
 
     return { events, startBlock, endBlock };
@@ -354,6 +349,7 @@ export class SigningKeyEventsCacheService {
     const freshEventGroup = await this.fetchEventsFallOver(
       firstNotCachedBlock,
       endBlock,
+      cachedEvents.headers.stakingModulesAddresses,
     );
     const freshEvents = freshEventGroup.events;
     const lastEvent = freshEvents[freshEvents.length - 1];
@@ -484,7 +480,7 @@ export class SigningKeyEventsCacheService {
   public async getDeploymentBlockByNetwork(): Promise<number> {
     const chainId = await this.providerService.getChainId();
 
-    const block = CURATED_MODULE_DEPLOYMENT_BLOCK_NETWORK[chainId];
+    const block = EARLIEST_MODULE_DEPLOYMENT_BLOCK_NETWORK[chainId];
     if (block == null) throw new Error(`Chain ${chainId} is not supported`);
 
     return block;

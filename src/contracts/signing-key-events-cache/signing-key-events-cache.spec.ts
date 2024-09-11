@@ -10,7 +10,7 @@ import { mockLocator } from 'contracts/repository/locator/locator.mock';
 import { cacheMock, newEvent } from './leveldb/leveldb.fixtures';
 import { SigningKeyEventsCacheModule } from './signing-key-events-cache.module';
 import { SigningKeyEventsCacheService } from './signing-key-events-cache.service';
-import { StakingModule } from 'contracts/repository/interfaces/staking-module';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 describe('SigningKeyEventsCacheService', () => {
   const defaultCacheValue = {
@@ -45,6 +45,10 @@ describe('SigningKeyEventsCacheService', () => {
     locatorService = moduleRef.get(LocatorService);
     signingkeyEventsCacheService = moduleRef.get(SigningKeyEventsCacheService);
     providerService = moduleRef.get(ProviderService);
+
+    const loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
+    jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
+    jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
 
     mockLocator(locatorService);
     await mockRepository(repositoryService);
@@ -89,21 +93,6 @@ describe('SigningKeyEventsCacheService', () => {
         return endBlock;
       });
 
-    const record: Record<string, StakingModule> = {};
-
-    [
-      ...cacheMock.headers.stakingModulesAddresses,
-      newEvent.moduleAddress,
-    ].forEach((key) => {
-      record[key] = {} as StakingModule;
-    });
-
-    jest
-      .spyOn(repositoryService, 'getCachedStakingModulesContracts')
-      .mockImplementation(() => {
-        return record;
-      });
-
     jest
       .spyOn(signingkeyEventsCacheService, 'getDeploymentBlockByNetwork')
       .mockImplementation(async () => {
@@ -112,7 +101,10 @@ describe('SigningKeyEventsCacheService', () => {
 
     const deleteCache = jest.spyOn(dbService, 'deleteCache');
 
-    await signingkeyEventsCacheService.handleNewBlock(endBlock);
+    await signingkeyEventsCacheService.handleNewBlock(endBlock, [
+      ...cacheMock.headers.stakingModulesAddresses,
+      newEvent.moduleAddress,
+    ]);
 
     expect(deleteCache).toBeCalledTimes(1);
 

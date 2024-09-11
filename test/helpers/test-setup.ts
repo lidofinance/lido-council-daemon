@@ -3,7 +3,6 @@ import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
 import { DepositsRegistryModule } from 'contracts/deposits-registry';
-import { LidoModule } from 'contracts/lido';
 import { RepositoryModule } from 'contracts/repository';
 import { SecurityModule } from 'contracts/security';
 import { GuardianModule } from 'guardian';
@@ -12,6 +11,7 @@ import { GanacheProviderModule } from 'provider';
 import { WalletModule } from 'wallet';
 import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
 import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 export const setupTestingModule = async () => {
   const moduleRef = await Test.createTestingModule({
@@ -24,11 +24,17 @@ export const setupTestingModule = async () => {
       RepositoryModule,
       WalletModule,
       KeysApiModule,
-      LidoModule,
       DepositsRegistryModule.register('latest'),
       SecurityModule,
     ],
   }).compile();
+
+  const loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
+
+  jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
+  jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
+  jest.spyOn(loggerService, 'debug').mockImplementation(() => undefined);
+  jest.spyOn(loggerService, 'error').mockImplementation(() => undefined);
 
   return moduleRef;
 };

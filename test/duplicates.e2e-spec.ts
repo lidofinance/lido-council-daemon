@@ -18,7 +18,6 @@ import {
   SIMPLE_DVT,
   UNLOCKED_ACCOUNTS_V2,
   FORK_BLOCK_V2,
-  SANDBOX,
   SECURITY_MODULE_V2,
   SECURITY_MODULE_OWNER_V2,
 } from './constants';
@@ -46,7 +45,7 @@ import { KeysApiService } from 'keys-api/keys-api.service';
 import { Server } from 'ganache';
 import { GuardianMessageService } from 'guardian/guardian-message';
 import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
-import { StakingRouterService } from 'staking-router';
+import { StakingModuleDataCollectorService } from 'staking-module-data-collector';
 import { addGuardians } from './helpers/dsm';
 import { makeServer } from './server';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
@@ -65,7 +64,7 @@ describe('ganache e2e tests', () => {
   let signingKeyEventsCacheService: SigningKeyEventsCacheService;
   let stakingModuleGuardService: StakingModuleGuardService;
   let guardianMessageService: GuardianMessageService;
-  let stakingRouterService: StakingRouterService;
+  let stakingModuleDataCollectorService: StakingModuleDataCollectorService;
   let depositIntegrityCheckerService: DepositIntegrityCheckerService;
 
   const setupServer = async () => {
@@ -130,7 +129,9 @@ describe('ganache e2e tests', () => {
     // main service that check keys and make decision
     guardianService = moduleRef.get(GuardianService);
     stakingModuleGuardService = moduleRef.get(StakingModuleGuardService);
-    stakingRouterService = moduleRef.get(StakingRouterService);
+    stakingModuleDataCollectorService = moduleRef.get(
+      StakingModuleDataCollectorService,
+    );
   };
 
   beforeEach(async () => {
@@ -146,7 +147,7 @@ describe('ganache e2e tests', () => {
   });
 
   test(
-    'skip deposit if find duplicated key',
+    'skip deposit if find duplicated key8',
     async () => {
       const { depositData } = signDeposit(pk, sk);
       const { wallet } = await makeDeposit(depositData, providerService);
@@ -165,7 +166,7 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -308,7 +309,7 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number - 2,
           endBlock: currentBlock.number - 1,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -421,7 +422,7 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number - 2,
           endBlock: currentBlock.number - 1,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, SANDBOX],
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
         },
       });
 
@@ -520,7 +521,7 @@ describe('ganache e2e tests', () => {
       headers: {
         startBlock: currentBlock.number - 2,
         endBlock: currentBlock.number - 1,
-        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, SANDBOX],
+        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
       },
     });
 
@@ -530,7 +531,7 @@ describe('ganache e2e tests', () => {
     );
 
     const getVettedUnusedKeys = jest.spyOn(
-      stakingRouterService,
+      stakingModuleDataCollectorService,
       'getVettedUnusedKeys',
     );
     await guardianService.handleNewBlock();

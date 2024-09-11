@@ -28,10 +28,8 @@ import {
   GANACHE_PORT,
   NOP_REGISTRY,
   SIMPLE_DVT,
-  SANDBOX,
   UNLOCKED_ACCOUNTS,
   FORK_BLOCK,
-  CSM,
 } from './constants';
 
 // Contract and Service Imports
@@ -134,7 +132,7 @@ describe('Guardian balance monitoring test', () => {
       headers: {
         startBlock: blockNumber,
         endBlock: blockNumber,
-        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, SANDBOX, CSM],
+        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
       },
     });
   };
@@ -250,6 +248,6 @@ describe('Guardian balance monitoring test', () => {
   const mockUnvettingMethod = () => {
     unvetSigningKeys = jest
       .spyOn(securityService, 'unvetSigningKeys')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(null as any));
   };
 });

@@ -7,7 +7,6 @@ import { ConfigModule } from 'common/config';
 import { PrometheusModule } from 'common/prometheus';
 import { SecurityModule, SecurityService } from 'contracts/security';
 import { RepositoryModule } from 'contracts/repository';
-import { LidoModule } from 'contracts/lido';
 import { StakingModuleGuardModule } from './staking-module-guard.module';
 import { GuardianMetricsModule } from '../guardian-metrics';
 import {
@@ -56,7 +55,6 @@ describe('StakingModuleGuardService', () => {
         LoggerModule,
         StakingModuleGuardModule,
         SecurityModule,
-        LidoModule,
         KeysApiModule,
         GuardianMetricsModule,
         GuardianMessageModule,
@@ -309,7 +307,6 @@ describe('StakingModuleGuardService', () => {
         nonce: 1,
         blockNumber: 100,
         lastChangedBlockHash: 'hash',
-        invalidKeysFound: false,
       };
       const result = stakingModuleGuardService.isSameContractsStates(
         { ...state },
@@ -324,7 +321,6 @@ describe('StakingModuleGuardService', () => {
         nonce: 1,
         blockNumber: 100,
         lastChangedBlockHash: 'hash',
-        invalidKeysFound: false,
       };
       const result = stakingModuleGuardService.isSameContractsStates(state, {
         ...state,
@@ -339,7 +335,6 @@ describe('StakingModuleGuardService', () => {
         nonce: 1,
         blockNumber: 100,
         lastChangedBlockHash: 'hash',
-        invalidKeysFound: false,
       };
       const result = stakingModuleGuardService.isSameContractsStates(state, {
         ...state,
@@ -354,7 +349,6 @@ describe('StakingModuleGuardService', () => {
         nonce: 1,
         blockNumber: 100,
         lastChangedBlockHash: 'hash',
-        invalidKeysFound: false,
       };
       const result = stakingModuleGuardService.isSameContractsStates(state, {
         ...state,
@@ -371,7 +365,6 @@ describe('StakingModuleGuardService', () => {
         nonce: 1,
         blockNumber: 100,
         lastChangedBlockHash: 'hash',
-        invalidKeysFound: false,
       };
       const result = stakingModuleGuardService.isSameContractsStates(state, {
         ...state,
