@@ -2,19 +2,16 @@ import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { RepositoryService } from 'contracts/repository';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { BlockTag } from 'provider';
-import { DepositTree } from '../deposit-tree';
+import { DepositTree } from './deposit-tree';
 import {
   VerifiedDepositEvent,
   VerifiedDepositEventsCache,
-} from '../interfaces';
-import {
-  DepositCacheIntegrityError,
-  DEPOSIT_TREE_STEP_SYNC,
-} from './constants';
+} from '../../interfaces';
+import { DEPOSIT_TREE_STEP_SYNC } from './constants';
 
 @Injectable()
 export class DepositIntegrityCheckerService {
-  finalizedTree = new DepositTree();
+  private finalizedTree = new DepositTree();
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private repositoryService: RepositoryService,
@@ -54,7 +51,8 @@ export class DepositIntegrityCheckerService {
   }
 
   /**
-   * Checks the integrity of the latest root against the blockchain deposit root for a given block number.
+   * Checks the integrity of the latest deposit root against the blockchain deposit root for a given block number.
+   * latest is the tag against which the state relative to the blockchain is stored
    * @param {number} blockNumber - Block number to check the deposit root against.
    * @param {VerifiedDepositEvent[]} eventsCache - Latest events to verify against the deposit root.
    * @returns {Promise<void>} A promise that resolves if the roots match, otherwise throws an error.
@@ -62,7 +60,7 @@ export class DepositIntegrityCheckerService {
   public async checkLatestRoot(
     blockNumber: number,
     eventsCache: VerifiedDepositEvent[],
-  ): Promise<void> {
+  ): Promise<boolean> {
     const tree = await this.putLatestEvents(
       eventsCache.sort((a, b) => a.depositCount - b.depositCount),
     );
@@ -71,29 +69,30 @@ export class DepositIntegrityCheckerService {
   }
 
   /**
-   * Checks the integrity of the finalized root against the blockchain deposit root for a given block number.
-   * @param {number} blockNumber - Block number to check the deposit root against.
+   * Checks the integrity of the finalized deposit root against the blockchain deposit root for a given block number.
+   * finalized is the tag against which the state relative to the blockchain is stored.
+   * @param {string | number} tag - Block Tag to check the deposit root against.
    * @returns {Promise<void>} A promise that resolves if the roots match, otherwise throws an error.
    */
-  public async checkFinalizedRoot(blockNumber: number): Promise<void> {
-    return this.checkRoot(blockNumber, this.finalizedTree);
+  public async checkFinalizedRoot(tag: string | number): Promise<boolean> {
+    return this.checkRoot(tag, this.finalizedTree);
   }
 
   /**
    * A private helper method to compare the local deposit tree root with the remote deposit root from the blockchain.
-   * @param {number} blockNumber - Block number associated with the deposit root to verify.
+   * @param {string | number} tag - Block Tag associated with the deposit root to verify.
    * @param {DepositTree} tree - Deposit tree to use for comparison.
    * @returns {Promise<void>} A promise that resolves if the roots match, otherwise logs an error and throws.
    */
-  private async checkRoot(blockNumber: number, tree: DepositTree) {
+  private async checkRoot(tag: string | number, tree: DepositTree) {
     const localRoot = tree.getRoot();
-    const remoteRoot = await this.getDepositRoot(blockNumber);
+    const remoteRoot = await this.getDepositRoot(tag);
 
     if (localRoot === remoteRoot) {
       this.logger.log('Integrity check successfully completed', {
-        blockNumber,
+        tag,
       });
-      return;
+      return true;
     }
 
     this.logger.error(
@@ -101,9 +100,7 @@ export class DepositIntegrityCheckerService {
       { localRoot, remoteRoot },
     );
 
-    throw new DepositCacheIntegrityError(
-      'Deposit root is different from deposit root from the network',
-    );
+    return false;
   }
 
   /**
@@ -116,12 +113,12 @@ export class DepositIntegrityCheckerService {
     eventsCache: VerifiedDepositEvent[],
   ) {
     for (const [index, event] of eventsCache.entries()) {
-      tree.insertNode(event.depositDataRoot);
+      tree.insert(event.depositDataRoot);
 
       if (index % DEPOSIT_TREE_STEP_SYNC === 0) {
         await new Promise((res) => setTimeout(res, 1));
 
-        this.logger.log('Checking integrity of saved deposit events', {
+        this.logger.log('Inserting verified deposit events', {
           processed: index,
           remaining: eventsCache.length - index,
         });

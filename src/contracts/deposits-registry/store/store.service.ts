@@ -6,12 +6,16 @@ import {
   DB_DEFAULT_VALUE,
   MAX_DEPOSIT_COUNT,
   DB_LAYER_DIR,
-} from './leveldb.constants';
+} from './store.constants';
 import { ProviderService } from 'provider';
-import { VerifiedDepositEvent, VerifiedDepositEventsCacheHeaders } from '..';
+import {
+  VerifiedDepositEvent,
+  VerifiedDepositEventsCache,
+  VerifiedDepositEventsCacheHeaders,
+} from '../interfaces';
 
 @Injectable()
-export class LevelDBService {
+export class DepositsRegistryStoreService {
   private db!: Level<string, string>;
   constructor(
     private providerService: ProviderService,
@@ -65,6 +69,7 @@ export class LevelDBService {
   public async getEventsCache(): Promise<{
     data: VerifiedDepositEvent[];
     headers: VerifiedDepositEventsCacheHeaders;
+    lastValidEvent?: VerifiedDepositEvent;
   }> {
     try {
       const stream = this.db.iterator({ gte: 'deposit:', lte: 'deposit:\xFF' });
@@ -78,9 +83,31 @@ export class LevelDBService {
         await this.db.get('headers'),
       );
 
-      return { data, headers };
+      const lastValidEvent = await this.getLastValidEvent();
+
+      return { data, headers, lastValidEvent };
     } catch (error: any) {
       if (error.code === 'LEVEL_NOT_FOUND') return this.cacheDefaultValue;
+      throw error;
+    }
+  }
+
+  /**
+   * Retrieves the last valid deposit event from the database.
+   * This method queries the database for the 'last-valid-event' key to fetch the most recent
+   * valid event and parses it into a `VerifiedDepositEvent` object.
+   *
+   * @returns {Promise<VerifiedDepositEvent | undefined>} A promise that resolves to the last valid `VerifiedDepositEvent` object
+   * or `undefined` if no event is found or if the event could not be retrieved (e.g., key does not exist).
+   *
+   * @throws {Error} Throws an error if there is a database access issue other than a 'LEVEL_NOT_FOUND' error code.
+   */
+  public async getLastValidEvent(): Promise<VerifiedDepositEvent | undefined> {
+    try {
+      const lastValidEvent = await this.db.get('last-valid-event');
+      return this.parseDepositEvent(lastValidEvent);
+    } catch (error: any) {
+      if (error.code === 'LEVEL_NOT_FOUND') return undefined;
       throw error;
     }
   }
@@ -166,6 +193,17 @@ export class LevelDBService {
   }
 
   /**
+   * Inserts a batch of deposit events and a header into the database.
+   *
+   * @param {VerifiedDepositEvent} event - Last valid and verified event.
+   * @returns {Promise<void>} A promise that resolves when all operations have been successfully committed to the database.
+   * @public
+   */
+  public async insertLastValidEvent(event: VerifiedDepositEvent) {
+    await this.db.put('last-valid-event', this.serializeDepositEvent(event));
+  }
+
+  /**
    * Clears all entries from the database.
    *
    * @returns {Promise<void>}
@@ -183,5 +221,20 @@ export class LevelDBService {
    */
   public async close(): Promise<void> {
     await this.db.close();
+  }
+
+  /**
+   * Saves deposited events to cache
+   */
+  public async setCachedEvents(
+    cachedEvents: VerifiedDepositEventsCache,
+  ): Promise<void> {
+    await this.deleteCache();
+    await this.insertEventsCacheBatch({
+      ...cachedEvents,
+      headers: {
+        ...cachedEvents.headers,
+      },
+    });
   }
 }

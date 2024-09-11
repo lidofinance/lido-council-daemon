@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { VerifiedDepositEvent } from 'contracts/deposit';
+import { VerifiedDepositEvent } from 'contracts/deposits-registry';
 import { BlockData, StakingModuleData } from '../interfaces';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import {

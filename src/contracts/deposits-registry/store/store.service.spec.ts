@@ -2,9 +2,9 @@ import { Test } from '@nestjs/testing';
 import { MockProviderModule } from 'provider';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
-import { LevelDBModule } from './leveldb.module';
-import { LevelDBService } from './leveldb.service';
-import { cacheMock } from './leveldb.fixtures';
+import { DepositsRegistryStoreModule } from './store.module';
+import { DepositsRegistryStoreService } from './store.service';
+import { cacheMock } from './store.fixtures';
 
 describe('dbService', () => {
   const defaultCacheValue = {
@@ -12,19 +12,19 @@ describe('dbService', () => {
     data: [] as any[],
   };
 
-  let dbService: LevelDBService;
+  let dbService: DepositsRegistryStoreService;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot(),
         MockProviderModule.forRoot(),
-        LevelDBModule.register(defaultCacheValue, 'leveldb-spec'),
+        DepositsRegistryStoreModule.register(defaultCacheValue, 'leveldb-spec'),
         LoggerModule,
       ],
     }).compile();
 
-    dbService = moduleRef.get(LevelDBService);
+    dbService = moduleRef.get(DepositsRegistryStoreService);
     await dbService.initialize();
   });
 

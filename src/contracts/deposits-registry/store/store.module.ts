@@ -1,20 +1,20 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { ProviderModule } from 'provider';
-import { DB_DIR, DB_DEFAULT_VALUE, DB_LAYER_DIR } from './leveldb.constants';
-import { LevelDBService } from './leveldb.service';
+import { DB_DIR, DB_DEFAULT_VALUE, DB_LAYER_DIR } from './store.constants';
+import { DepositsRegistryStoreService } from './store.service';
 
 @Module({})
-export class LevelDBModule {
+export class DepositsRegistryStoreModule {
   static register(
     defaultValue: unknown,
     cacheDir = 'cache',
     cacheLayerDir = 'deposit-cache',
   ): DynamicModule {
     return {
-      module: LevelDBModule,
+      module: DepositsRegistryStoreModule,
       imports: [ProviderModule],
       providers: [
-        LevelDBService,
+        DepositsRegistryStoreService,
         {
           provide: DB_DIR,
           useValue: cacheDir,
@@ -28,7 +28,7 @@ export class LevelDBModule {
           useValue: defaultValue,
         },
       ],
-      exports: [LevelDBService],
+      exports: [DepositsRegistryStoreService],
     };
   }
 }

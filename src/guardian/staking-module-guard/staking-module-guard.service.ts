@@ -4,7 +4,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import {
   VerifiedDepositEvent,
   VerifiedDepositEventGroup,
-} from 'contracts/deposit';
+} from 'contracts/deposits-registry';
 import { SecurityService } from 'contracts/security';
 
 import { ContractsState, BlockData, StakingModuleData } from '../interfaces';

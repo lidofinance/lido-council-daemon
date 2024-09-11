@@ -1,7 +1,7 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
-import { DepositService } from 'contracts/deposit';
+import { DepositRegistryService } from 'contracts/deposits-registry';
 import { SecurityService } from 'contracts/security';
 
 import { BlockData } from '../interfaces';
@@ -30,7 +30,7 @@ export class BlockDataCollectorService {
 
     private walletService: WalletService,
 
-    private depositService: DepositService,
+    private depositService: DepositRegistryService,
     private securityService: SecurityService,
     private stakingRouterService: StakingRouterService,
 

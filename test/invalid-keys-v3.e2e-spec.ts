@@ -35,20 +35,19 @@ import {
   initLevelDB,
 } from './helpers/test-setup';
 import { SecurityService } from 'contracts/security';
-import { DepositService } from 'contracts/deposit';
 import { GuardianService } from 'guardian';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { ProviderService } from 'provider';
 import { Server } from 'ganache';
 import { GuardianMessageService } from 'guardian/guardian-message';
-import { LevelDBService } from 'contracts/deposit/leveldb';
+import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
 import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
 import { KeyValidatorInterface } from '@lido-nestjs/key-validation';
 import { makeDeposit, signDeposit } from './helpers/deposit';
 import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
 import { addGuardians } from './helpers/dsm';
 import { BlsService } from 'bls';
-import { DepositIntegrityCheckerService } from 'contracts/deposit/integrity-checker';
+import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
 import { makeServer } from './server';
 import { mockKey } from './helpers/keys-fixtures';
 
@@ -57,9 +56,8 @@ describe('ganache e2e tests', () => {
   let providerService: ProviderService;
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;
-  let depositService: DepositService;
   let keyValidator: KeyValidatorInterface;
-  let levelDBService: LevelDBService;
+  let levelDBService: DepositsRegistryStoreService;
   let signKeyLevelDBService: SignKeyLevelDBService;
   let guardianMessageService: GuardianMessageService;
   let signingKeyEventsCacheService: SigningKeyEventsCacheService;
@@ -84,7 +82,7 @@ describe('ganache e2e tests', () => {
 
   const setupTestingServices = async (moduleRef) => {
     // leveldb service
-    levelDBService = moduleRef.get(LevelDBService);
+    levelDBService = moduleRef.get(DepositsRegistryStoreService);
     signKeyLevelDBService = moduleRef.get(SignKeyLevelDBService);
 
     await initLevelDB(levelDBService, signKeyLevelDBService);
@@ -93,7 +91,6 @@ describe('ganache e2e tests', () => {
     depositIntegrityCheckerService = moduleRef.get(
       DepositIntegrityCheckerService,
     );
-    depositService = moduleRef.get(DepositService);
 
     const blsService = moduleRef.get(BlsService);
     await blsService.onModuleInit();
@@ -137,10 +134,10 @@ describe('ganache e2e tests', () => {
     // deposit cache mocks
     jest
       .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(true));
     jest
       .spyOn(depositIntegrityCheckerService, 'checkFinalizedRoot')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(true));
 
     // sign validation
     validateKeys = jest.spyOn(keyValidator, 'validateKeys');
@@ -170,7 +167,7 @@ describe('ganache e2e tests', () => {
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
 
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -198,15 +195,20 @@ describe('ganache e2e tests', () => {
         moduleAddress: NOP_REGISTRY,
       };
 
+      const { depositData: depositData } = signDeposit(pk, sk, LIDO_WC);
+      const { wallet } = await makeDeposit(depositData, providerService);
+
+      const blockAfterDeposit = await providerService.provider.getBlock(
+        'latest',
+      );
+
       const { curatedModule, sdvtModule } = setupMockModules(
-        currentBlock,
+        blockAfterDeposit,
         keysApiService,
         [mockOperator1, mockOperator2],
         mockedDvtOperators,
         [keyWithWrongSign],
       );
-      const { depositData: depositData } = signDeposit(pk, sk, LIDO_WC);
-      const { wallet } = await makeDeposit(depositData, providerService);
 
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
@@ -227,7 +229,7 @@ describe('ganache e2e tests', () => {
       expect(sendUnvetMessage).toBeCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
-          blockNumber: currentBlock.number,
+          blockNumber: blockAfterDeposit.number,
           guardianAddress: wallet.address,
           guardianIndex: 7,
           stakingModuleId: curatedModule.id,
@@ -240,13 +242,15 @@ describe('ganache e2e tests', () => {
       expect(sendDepositMessage).toBeCalledTimes(1);
       expect(sendDepositMessage).toBeCalledWith(
         expect.objectContaining({
-          blockNumber: currentBlock.number,
+          blockNumber: blockAfterDeposit.number,
           guardianAddress: wallet.address,
           guardianIndex: 7,
           stakingModuleId: sdvtModule.id,
         }),
       );
       expect(sendPauseMessage).toBeCalledTimes(0);
+
+      await providerService.provider.send('evm_mine', []);
 
       // if depositData was not changed it will not validate again
 
@@ -301,7 +305,7 @@ describe('ganache e2e tests', () => {
   test('should validate again if deposit data was changed', async () => {
     const currentBlock = await providerService.provider.getBlock('latest');
 
-    await depositService.setCachedEvents({
+    await levelDBService.setCachedEvents({
       data: [],
       headers: {
         startBlock: currentBlock.number,

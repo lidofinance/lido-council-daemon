@@ -1,18 +1,23 @@
+import {
+  DepositData,
+  digest2Bytes32,
+  fromHexString,
+  parseLittleEndian64,
+  toLittleEndian64BigInt,
+} from '../../../crypto';
 import { ethers } from 'ethers';
-import { digest2Bytes32 } from '@chainsafe/as-sha256';
-import { fromHexString } from '@chainsafe/ssz';
-import { parseLittleEndian64, toLittleEndian64 } from '../deposit.utils';
-import { DepositData } from 'bls/bls.containers';
-import { NodeData } from '../interfaces';
+import { NodeData } from '../../../interfaces';
+
+const ZERO_HASH_HEX =
+  '0x0000000000000000000000000000000000000000000000000000000000000000';
+const ZERO_HASH_ROOT_HEX = '0x000000000000000000000000000000000000000000000000';
 
 export class DepositTree {
   static DEPOSIT_CONTRACT_TREE_DEPTH = 32;
-  static ZERO_HASH = fromHexString(
-    '0x0000000000000000000000000000000000000000000000000000000000000000',
-  );
+  static ZERO_HASH = fromHexString(ZERO_HASH_HEX);
   zeroHashes: Uint8Array[] = new Array(DepositTree.DEPOSIT_CONTRACT_TREE_DEPTH);
   branch: Uint8Array[] = [];
-  nodeCount = 0;
+  nodeCount = 0n;
 
   constructor() {
     this.formZeroHashes();
@@ -38,12 +43,12 @@ export class DepositTree {
   /**
    * Forms the branch of the tree needed to update the root when a new node is inserted.
    * @param {Uint8Array} node - The node's data to be inserted.
-   * @param {number} depositCount - The sequential index of the deposit, representing the total deposits.
+   * @param {bigint} depositCount - The sequential index of the deposit, representing the total deposits.
    * @returns {Uint8Array[] | undefined} The updated branch of the tree after inserting the node.
    */
   private formBranch(
     node: Uint8Array,
-    depositCount: number,
+    depositCount: bigint,
   ): Uint8Array[] | undefined {
     let size = depositCount;
     for (
@@ -51,36 +56,22 @@ export class DepositTree {
       height < DepositTree.DEPOSIT_CONTRACT_TREE_DEPTH;
       height++
     ) {
-      if ((size & 1) == 1) {
+      if (size % 2n === 1n) {
         this.branch[height] = node;
         return this.branch;
       }
 
       node = digest2Bytes32(this.branch[height], node);
 
-      // Using size /= 2 is not a mistake. In JavaScript, when performing bitwise operations
-      // like & 1, floating-point numbers are implicitly converted to integers, discarding the fractional part.
-      // This ensures the algorithm works correctly and matches the logic of a Solidity smart contract.
-      // Solidity does not have floating-point numbers, and all division is performed as integer division, rounding down the result.
-      size /= 2;
+      size /= 2n;
     }
-  }
-
-  /**
-   * Inserts a new deposit into the tree using detailed node data.
-   * @param {NodeData} nodeData - The detailed data of the deposit to be inserted.
-   */
-  public insert(nodeData: NodeData) {
-    const node = DepositTree.formDepositNode(nodeData);
-    this.nodeCount++;
-    this.formBranch(node, this.nodeCount);
   }
 
   /**
    * Inserts a new node into the tree using already computed node hash.
    * @param {Uint8Array} node - The node's hash to be inserted.
    */
-  public insertNode(node: Uint8Array) {
+  public insert(node: Uint8Array) {
     this.nodeCount++;
     this.formBranch(node, this.nodeCount);
   }
@@ -97,20 +88,16 @@ export class DepositTree {
       height < DepositTree.DEPOSIT_CONTRACT_TREE_DEPTH;
       height++
     ) {
-      if ((size & 1) == 1) {
+      if (size % 2n === 1n) {
         node = digest2Bytes32(this.branch[height], node);
       } else {
         node = digest2Bytes32(node, this.zeroHashes[height]);
       }
-      size /= 2;
+      size /= 2n;
     }
     const finalRoot = ethers.utils.soliditySha256(
       ['bytes', 'bytes', 'bytes'],
-      [
-        node,
-        toLittleEndian64(this.nodeCount),
-        '0x000000000000000000000000000000000000000000000000',
-      ],
+      [node, toLittleEndian64BigInt(this.nodeCount), ZERO_HASH_ROOT_HEX],
     );
     return finalRoot;
   }
@@ -121,7 +108,7 @@ export class DepositTree {
    */
   public clone() {
     const tree = new DepositTree();
-    tree.branch = [...this.branch];
+    tree.branch = this.branch.map((array) => Uint8Array.from(array));
     tree.nodeCount = this.nodeCount;
     return tree;
   }

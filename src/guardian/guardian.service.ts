@@ -8,7 +8,7 @@ import { compare } from 'compare-versions';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
-import { DepositService } from 'contracts/deposit';
+import { DepositRegistryService } from 'contracts/deposits-registry';
 import { SecurityService } from 'contracts/security';
 import { RepositoryService } from 'contracts/repository';
 import {
@@ -45,7 +45,7 @@ export class GuardianService implements OnModuleInit {
 
     private schedulerRegistry: SchedulerRegistry,
 
-    private depositService: DepositService,
+    private depositService: DepositRegistryService,
     private securityService: SecurityService,
     private stakingModuleDataCollectorService: StakingModuleDataCollectorService,
 
@@ -75,7 +75,7 @@ export class GuardianService implements OnModuleInit {
           await this.stakingRouterService.getStakingModulesAddresses(blockHash);
 
         await Promise.all([
-          this.depositService.initialize(block.number),
+          this.depositService.initialize(),
           this.securityService.initialize({ blockHash }),
           this.signingKeyEventsCacheService.initialize(
             block.number,
@@ -108,7 +108,7 @@ export class GuardianService implements OnModuleInit {
 
         // The event cache is stored with an N block lag to avoid caching data from uncle blocks
         // so we don't worry about blockHash here
-        await this.depositService.updateEventsCache();
+        // TODO: rewrite signingKeyEventsCacheService
         await this.signingKeyEventsCacheService.updateEventsCache(
           stakingRouterModuleAddresses,
         );
@@ -181,7 +181,7 @@ export class GuardianService implements OnModuleInit {
       // contracts initialization
       await this.repositoryService.initCachedContracts({ blockHash });
 
-      await this.depositService.handleNewBlock(blockNumber);
+      await this.depositService.handleNewBlock();
 
       const { stakingModulesData, blockData } = await this.collectData(
         operatorsByModules,
@@ -345,10 +345,6 @@ export class GuardianService implements OnModuleInit {
     stakingModulesData: StakingModuleData[],
     blockData: BlockData,
   ) {
-    // Check the integrity of the cache, we can only make a deposit
-    // if the integrity of the deposit event data is intact
-    await blockData.depositedEvents.checkRoot();
-
     await Promise.all(
       stakingModulesData.map(async (stakingModuleData) => {
         this.guardianMetricsService.collectMetrics(
@@ -357,16 +353,14 @@ export class GuardianService implements OnModuleInit {
         );
 
         if (
-          this.cannotDeposit(
+          this.ignoreDeposits(
             stakingModuleData,
             blockData.theftHappened,
             blockData.alreadyPausedDeposits,
+            blockData.depositedEvents.isValid,
+            stakingModuleData.stakingModuleId,
           )
         ) {
-          this.logger.warn('Deposits are not available', {
-            stakingModuleId: stakingModuleData.stakingModuleId,
-            blockHash: blockData.blockHash,
-          });
           return;
         }
 
@@ -378,10 +372,12 @@ export class GuardianService implements OnModuleInit {
     );
   }
 
-  private cannotDeposit(
+  private ignoreDeposits(
     stakingModuleData: StakingModuleData,
     theftHappened: boolean,
     alreadyPausedDeposits: boolean,
+    isDepositsCacheValid: boolean,
+    stakingModuleId: number,
   ): boolean {
     const keysForUnvetting = stakingModuleData.invalidKeys.concat(
       stakingModuleData.frontRunKeys,
@@ -389,13 +385,27 @@ export class GuardianService implements OnModuleInit {
     );
 
     // if neither of this conditions is true, deposits are allowed for module
-    return (
+    const ignoreDeposits =
       keysForUnvetting.length > 0 ||
       stakingModuleData.unresolvedDuplicatedKeys.length > 0 ||
       alreadyPausedDeposits ||
       theftHappened ||
-      stakingModuleData.isModuleDepositsPaused
-    );
+      stakingModuleData.isModuleDepositsPaused ||
+      !isDepositsCacheValid;
+
+    if (ignoreDeposits) {
+      this.logger.warn('Deposits are not available', {
+        keysForUnvetting: keysForUnvetting.length,
+        duplicates: stakingModuleData.unresolvedDuplicatedKeys.length,
+        alreadyPausedDeposits,
+        theftHappened,
+        isModuleDepositsPaused: stakingModuleData.isModuleDepositsPaused,
+        isDepositsCacheValid,
+        stakingModuleId,
+      });
+    }
+
+    return ignoreDeposits;
   }
 
   public isNeedToProcessNewState(newMeta: {
