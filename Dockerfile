@@ -13,10 +13,9 @@ RUN npm i -g npm@7.19.0
 
 COPY ./package*.json ./
 COPY ./yarn*.lock ./
+COPY ./tsconfig*.json ./
 COPY ./src ./src
 RUN yarn install --frozen-lockfile --non-interactive && yarn cache clean
-
-COPY ./tsconfig*.json ./
 
 RUN yarn typechain && yarn build
 
