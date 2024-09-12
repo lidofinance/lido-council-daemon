@@ -16,6 +16,13 @@ export class KeysApiService {
     protected readonly fetchService: FetchService,
   ) {}
 
+  private getBaseUrl() {
+    const baseUrl =
+      this.config.KEYS_API_URL ||
+      `${this.config.KEYS_API_HOST}:${this.config.KEYS_API_PORT}`;
+    return baseUrl;
+  }
+
   protected async fetch<Response>(url: string, requestInit?: RequestInit) {
     const controller = new AbortController();
     const { signal } = controller;
@@ -24,8 +31,7 @@ export class KeysApiService {
       controller.abort();
     }, FETCH_REQUEST_TIMEOUT);
 
-    const baseUrl = `${this.config.KEYS_API_HOST}:${this.config.KEYS_API_PORT}`;
-
+    const baseUrl = this.getBaseUrl();
     try {
       const res: Response = await this.fetchService.fetchJson(
         `${baseUrl}${url}`,
@@ -34,9 +40,10 @@ export class KeysApiService {
           ...requestInit,
         },
       );
+
       clearTimeout(timer);
       return res;
-    } catch (error) {
+    } catch (error: any) {
       clearTimeout(timer);
       throw error;
     }
