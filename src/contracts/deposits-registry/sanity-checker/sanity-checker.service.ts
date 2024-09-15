@@ -24,11 +24,11 @@ export class DepositRegistrySanityCheckerService {
   }
   // putLatestEvents
   private async checkFreshEvents(
-    blockNumber: number,
+    blockHash: string,
     events: VerifiedDepositEvent[],
   ) {
     return await this.depositsIntegrityChecker.checkLatestRoot(
-      blockNumber,
+      blockHash,
       events,
     );
   }
@@ -134,14 +134,14 @@ export class DepositRegistrySanityCheckerService {
 
     // Check if the deposit root of the events matches the expected values.
     const isDepositRootMatches = await this.checkFreshEvents(
-      blockNumber,
+      blockHash,
       freshEvents,
     );
 
     return isDepositRootMatches;
   }
 
-  public async verifyUpdatedEvents(tag: string | number) {
-    return this.depositsIntegrityChecker.checkFinalizedRoot(tag);
+  public async verifyUpdatedEvents(blockHash: string) {
+    return this.depositsIntegrityChecker.checkFinalizedRoot(blockHash);
   }
 }
