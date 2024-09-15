@@ -1,7 +1,6 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { RepositoryService } from 'contracts/repository';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { BlockTag } from 'provider';
 import { DepositTree } from './deposit-tree';
 import {
   VerifiedDepositEvent,
@@ -131,7 +130,7 @@ export class DepositIntegrityCheckerService {
    * @param {BlockTag | undefined} blockTag - Specific block number or tag to retrieve the deposit root for.
    * @returns {Promise<string>} Promise that resolves with the deposit root.
    */
-  public async getDepositRoot(blockHash?: BlockTag): Promise<string> {
+  public async getDepositRoot(blockHash: string): Promise<string> {
     const contract = await this.repositoryService.getCachedDepositContract();
     const overrides = { blockTag: { blockHash } };
     const depositRoot = await contract.get_deposit_root(overrides as any);
