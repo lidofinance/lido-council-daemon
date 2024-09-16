@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { Block } from '@ethersproject/abstract-provider';
 import { MockProviderModule, ProviderService } from 'provider';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
@@ -90,11 +91,9 @@ describe('SigningKeysRegistryService', () => {
         };
       });
 
-    jest
-      .spyOn(providerService, 'getBlockNumber')
-      .mockImplementation(async () => {
-        return endBlock;
-      });
+    jest.spyOn(providerService, 'getBlock').mockImplementation(async () => {
+      return { number: endBlock } as Block;
+    });
 
     jest
       .spyOn(signingKeysRegistryService, 'getDeploymentBlockByNetwork')
