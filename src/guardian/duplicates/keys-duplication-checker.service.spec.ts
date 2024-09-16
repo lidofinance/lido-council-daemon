@@ -30,7 +30,7 @@ describe('KeysDuplicationCheckerService', () => {
         MockProviderModule.forRoot(),
         LoggerModule,
         KeysDuplicationCheckerModule,
-        SigningKeysRegistryModule,
+        SigningKeysRegistryModule.register('latest'),
       ],
     })
       .overrideProvider(SigningKeysRegistryService)
@@ -142,6 +142,7 @@ describe('KeysDuplicationCheckerService', () => {
             async () => {
               return {
                 events: [keyMock1Event],
+                isValid: true,
               };
             },
           );
@@ -184,6 +185,7 @@ describe('KeysDuplicationCheckerService', () => {
             async () => {
               return {
                 events: [keyMock1Event, keyMock2Event],
+                isValid: true,
               };
             },
           );
@@ -232,6 +234,7 @@ describe('KeysDuplicationCheckerService', () => {
             async () => {
               return {
                 events: [keyMock1Event, keyMock2Event],
+                isValid: true,
               };
             },
           );
@@ -300,6 +303,7 @@ describe('KeysDuplicationCheckerService', () => {
             async () => {
               return {
                 events: [keyMock1Event],
+                isValid: true,
               };
             },
           );
@@ -350,6 +354,7 @@ describe('KeysDuplicationCheckerService', () => {
             async () => {
               return {
                 events: [keyMock1Event, keyMock2Event],
+                isValid: true,
               };
             },
           );
@@ -402,6 +407,7 @@ describe('KeysDuplicationCheckerService', () => {
             async () => {
               return {
                 events: [keyMock1Event, keyMock2Event],
+                isValid: true,
               };
             },
           );

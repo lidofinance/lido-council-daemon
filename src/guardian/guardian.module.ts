@@ -27,7 +27,7 @@ import { StakingRouterModule } from 'contracts/staking-router';
     GuardianMessageModule,
     GuardianMetricsModule,
     KeysApiModule,
-    SigningKeysRegistryModule,
+    SigningKeysRegistryModule.register(),
     StakingRouterModule,
   ],
   providers: [GuardianService],

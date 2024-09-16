@@ -8,7 +8,7 @@ import {
   EARLIEST_MODULE_DEPLOYMENT_BLOCK_NETWORK,
   FETCHING_EVENTS_STEP,
   SIGNING_KEYS_REGISTRY_FINALIZED_TAG,
-} from './constants';
+} from './signing-keys-registry.constants';
 import { performance } from 'perf_hooks';
 import { SigningKeysRegistryFetcherService } from './fetcher';
 import { SigningKeysRegistrySanityCheckerService } from './sanity-checker/sanity-checker.service';

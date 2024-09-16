@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { BlsModule } from 'bls';
+import { StakingRouterModule } from 'contracts/staking-router';
 import { SigningKeysRegistryFetcherService } from './fetcher.service';
 
 @Module({
-  imports: [BlsModule],
+  imports: [StakingRouterModule],
   providers: [SigningKeysRegistryFetcherService],
   exports: [SigningKeysRegistryFetcherService],
 })

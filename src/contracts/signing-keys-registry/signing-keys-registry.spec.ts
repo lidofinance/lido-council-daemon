@@ -38,7 +38,7 @@ describe('SigningKeysRegistryService', () => {
           'signing-keys-spec',
         ),
         LoggerModule,
-        SigningKeysRegistryModule,
+        SigningKeysRegistryModule.register('latest'),
       ],
     }).compile();
 
