@@ -11,10 +11,12 @@ import {
   EARLIEST_MODULE_DEPLOYMENT_BLOCK_NETWORK,
   FETCHING_EVENTS_STEP,
   SIGNING_KEYS_EVENTS_CACHE_LAG_BLOCKS,
+  SIGNING_KEYS_REGISTRY_FINALIZED_TAG,
   SIGNING_KEY_EVENTS_CACHE_UPDATE_BLOCK_RATE,
 } from './constants';
 import { performance } from 'perf_hooks';
 import { SigningKeysRegistryFetcherService } from './fetcher';
+import { SigningKeysRegistrySanityCheckerService } from './sanity-checker/sanity-checker.service';
 
 @Injectable()
 export class SigningKeysRegistryService {
@@ -23,6 +25,8 @@ export class SigningKeysRegistryService {
     private providerService: ProviderService,
     private levelDBCacheService: SigningKeysStoreService,
     private fetcher: SigningKeysRegistryFetcherService,
+    private sanityChecker: SigningKeysRegistrySanityCheckerService,
+    @Inject(SIGNING_KEYS_REGISTRY_FINALIZED_TAG) private finalizedTag: string,
   ) {}
 
   /**
@@ -91,29 +95,39 @@ export class SigningKeysRegistryService {
    */
   public async updateEventsCache(
     currentStakingModulesAddresses: string[],
-  ): Promise<number> {
+  ): Promise<void> {
     const fetchTimeStart = performance.now();
 
-    // TODO: maybe we should add blockNumber as argument of updateEventsCache method
-    // and use block number from initialized and handleNewBlock methods
-    const [latestBlock, initialCache] = await Promise.all([
-      this.providerService.getBlockNumber(),
+    const [finalizedBlock, initialCache] = await Promise.all([
+      this.providerService.getBlock(this.finalizedTag),
       this.getCachedEvents(),
     ]);
 
+    const { number: finalizedBlockNumber } = finalizedBlock;
     const firstNotCachedBlock = initialCache.headers.endBlock + 1;
-    const toBlock = latestBlock - SIGNING_KEYS_EVENTS_CACHE_LAG_BLOCKS;
 
     const totalEventsCount = initialCache.data.length;
     let newEventsCount = 0;
 
+    // check that the cache is written to a block less than or equal to the current block
+    // otherwise we consider that the Ethereum node has started sending incorrect data
+    const isCacheValid = this.sanityChecker.verifyCacheBlock(
+      initialCache,
+      finalizedBlockNumber,
+    );
+
+    if (!isCacheValid) return;
+
     for (
       let block = firstNotCachedBlock;
-      block <= toBlock;
+      block <= finalizedBlockNumber;
       block += FETCHING_EVENTS_STEP
     ) {
       const chunkStartBlock = block;
-      const chunkToBlock = Math.min(toBlock, block + FETCHING_EVENTS_STEP - 1);
+      const chunkToBlock = Math.min(
+        finalizedBlockNumber,
+        block + FETCHING_EVENTS_STEP - 1,
+      );
 
       const chunkEventGroup = await this.fetcher.fetchEventsFallOver(
         chunkStartBlock,
@@ -134,7 +148,7 @@ export class SigningKeysRegistryService {
       newEventsCount += chunkEventGroup.events.length;
 
       this.logger.log('Historical signing key add events are fetched', {
-        toBlock,
+        finalizedBlockNumber,
         startBlock: chunkStartBlock,
         endBlock: chunkToBlock,
       });
@@ -149,8 +163,6 @@ export class SigningKeysRegistryService {
       totalEventsCount: totalEventsCount + newEventsCount,
       fetchTime,
     });
-
-    return toBlock;
   }
 
   /**

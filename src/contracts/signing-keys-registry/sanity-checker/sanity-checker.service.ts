@@ -21,7 +21,7 @@ export class SigningKeysRegistrySanityCheckerService {
    * @param {number} currentBlock - The current block number to compare against the cached block.
    * @returns {boolean} `true` if the cache is valid (i.e., the current block number is greater than or equal to the cached end block), `false` otherwise.
    */
-  public validateCacheBlock(
+  public verifyCacheBlock(
     cachedEvents: SigningKeyEventsCache,
     currentBlock: number,
   ): boolean {
