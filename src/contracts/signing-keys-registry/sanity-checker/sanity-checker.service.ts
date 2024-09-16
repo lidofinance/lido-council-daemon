@@ -64,15 +64,14 @@ export class SigningKeysRegistrySanityCheckerService {
     blockHash: string,
   ): boolean {
     const event = this.findReorganizedEvent(events, blockNumber, blockHash);
-
     if (event) {
       this.logger.error('Reorganization found in signing key event', {
         blockHash: event.blockHash,
         blockNumber: event.blockNumber,
       });
-      return true;
+      return false;
     }
-    return false;
+    return true;
   }
 
   /**
