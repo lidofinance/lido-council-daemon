@@ -11,6 +11,7 @@ import { cacheMock, newEvent } from './store/store.fixtures';
 import { SigningKeysRegistryModule } from './signing-keys-registry.module';
 import { SigningKeysRegistryService } from './signing-keys-registry.service';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { SigningKeysRegistryFetcherService } from './fetcher';
 
 describe('SigningKeyEventsCacheService', () => {
   const defaultCacheValue = {
@@ -22,6 +23,7 @@ describe('SigningKeyEventsCacheService', () => {
   let repositoryService: RepositoryService;
   let locatorService: LocatorService;
   let signingkeyEventsCacheService: SigningKeysRegistryService;
+  let signingKeysFetch: SigningKeysRegistryFetcherService;
   let providerService: ProviderService;
 
   beforeEach(async () => {
@@ -44,6 +46,7 @@ describe('SigningKeyEventsCacheService', () => {
     repositoryService = moduleRef.get(RepositoryService);
     locatorService = moduleRef.get(LocatorService);
     signingkeyEventsCacheService = moduleRef.get(SigningKeysRegistryService);
+    signingKeysFetch = moduleRef.get(SigningKeysRegistryFetcherService);
     providerService = moduleRef.get(ProviderService);
 
     const loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
@@ -74,7 +77,7 @@ describe('SigningKeyEventsCacheService', () => {
     const endBlock = newEvent.blockNumber + 2000; // (10 - (newEvent.blockNumber % 10));
 
     jest
-      .spyOn(signingkeyEventsCacheService, 'fetchEventsFallOver')
+      .spyOn(signingKeysFetch, 'fetchEventsFallOver')
       .mockImplementation(async () => {
         return {
           events: [...cacheMock.data, newEvent],

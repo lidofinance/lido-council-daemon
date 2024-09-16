@@ -1,6 +1,7 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
-import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
-import { SigningKeyEvent } from 'contracts/signing-key-events-cache/interfaces/event.interface';
+import { SigningKeyEvent } from 'contracts/signing-keys-registry/interfaces/event.interface';
+import { SigningKeysRegistryService } from 'contracts/signing-keys-registry/signing-keys-registry.service';
+
 import { BlockData } from 'guardian/interfaces';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
@@ -12,7 +13,7 @@ const BATCH_SIZE = 10;
 export class KeysDuplicationCheckerService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-    private signingKeyEventsCacheService: SigningKeyEventsCacheService,
+    private signingKeyEventsCacheService: SigningKeysRegistryService,
   ) {}
 
   /**
@@ -241,13 +242,20 @@ export class KeysDuplicationCheckerService {
     key: string,
     blockData: BlockData,
   ): Promise<SigningKeyEvent[]> {
-    const { events } =
+    const eventsGroup =
       await this.signingKeyEventsCacheService.getUpdatedSigningKeyEvents(
         key,
         blockData.blockNumber,
         blockData.blockHash,
       );
-    return events;
+
+    if (!eventsGroup.isValid) {
+      throw new Error(
+        `Signing keys events are not valid on the block ${blockData.blockHash}`,
+      );
+    }
+
+    return eventsGroup.events;
   }
 
   private getOperatorsWithoutEvents(

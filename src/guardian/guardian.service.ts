@@ -27,12 +27,12 @@ import { BlockData, StakingModuleData } from './interfaces';
 import { ProviderService } from 'provider';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { MIN_KAPI_VERSION } from './guardian.constants';
-import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
 import { UnvettingService } from './unvetting/unvetting.service';
 import { Meta } from 'keys-api/interfaces/Meta';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { SROperatorListWithModule } from 'keys-api/interfaces/SROperatorListWithModule';
 import { StakingRouterService } from 'contracts/staking-router';
+import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -56,7 +56,7 @@ export class GuardianService implements OnModuleInit {
 
     private providerService: ProviderService,
     private keysApiService: KeysApiService,
-    private signingKeyEventsCacheService: SigningKeyEventsCacheService,
+    private signingKeyEventsCacheService: SigningKeysRegistryService,
 
     private unvettingService: UnvettingService,
 
@@ -78,7 +78,6 @@ export class GuardianService implements OnModuleInit {
           this.depositService.initialize(),
           this.securityService.initialize({ blockHash }),
           this.signingKeyEventsCacheService.initialize(
-            block.number,
             stakingRouterModuleAddresses,
           ),
         ]);
@@ -290,7 +289,6 @@ export class GuardianService implements OnModuleInit {
     );
     // update cache if needs
     await this.signingKeyEventsCacheService.handleNewBlock(
-      blockData.blockNumber,
       stakingRouterModuleAddresses,
     );
 

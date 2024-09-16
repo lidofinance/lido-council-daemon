@@ -1,2 +1,2 @@
-export * from './signing-key-events-cache.module';
-export * from './signing-key-events-cache.service';
+export * from './signing-keys-registry.module';
+export * from './signing-keys-registry.service';
