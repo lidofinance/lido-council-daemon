@@ -1,5 +1,8 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
-import { SigningKeyEvent } from 'contracts/signing-keys-registry/interfaces/event.interface';
+import {
+  SigningKeyEvent,
+  SigningKeyEventsGroupWithStakingModules,
+} from 'contracts/signing-keys-registry/interfaces/event.interface';
 import { SigningKeysRegistryService } from 'contracts/signing-keys-registry/signing-keys-registry.service';
 
 import { BlockData } from 'guardian/interfaces';
@@ -186,7 +189,19 @@ export class KeysDuplicationCheckerService {
     uniqueOperatorIdentifiers: string[],
     blockData: BlockData,
   ) {
-    const events = await this.fetchSigningKeyEvents(key, blockData);
+    const { events, isValid } = await this.fetchSigningKeyEvents(
+      key,
+      blockData,
+    );
+
+    if (!isValid) {
+      this.logger.error('Signing keys events are not valid on the block', {
+        currentBlockNumber: blockData.blockNumber,
+        currentBlockHash: blockData.blockHash,
+      });
+      // Return the entire list of duplicates as unresolved
+      return { duplicateKeys: [], unresolvedKeys: suspectedDuplicateKeys };
+    }
 
     const operatorsWithoutEvents = this.getOperatorsWithoutEvents(
       uniqueOperatorIdentifiers,
@@ -241,7 +256,7 @@ export class KeysDuplicationCheckerService {
   private async fetchSigningKeyEvents(
     key: string,
     blockData: BlockData,
-  ): Promise<SigningKeyEvent[]> {
+  ): Promise<SigningKeyEventsGroupWithStakingModules> {
     const eventsGroup =
       await this.signingKeysRegistryService.getUpdatedSigningKeyEvents(
         key,
@@ -249,13 +264,7 @@ export class KeysDuplicationCheckerService {
         blockData.blockHash,
       );
 
-    if (!eventsGroup.isValid) {
-      throw new Error(
-        `Signing keys events are not valid on the block ${blockData.blockHash}`,
-      );
-    }
-
-    return eventsGroup.events;
+    return eventsGroup;
   }
 
   private getOperatorsWithoutEvents(
