@@ -29,11 +29,8 @@ import { KeysApiService } from 'keys-api/keys-api.service';
 import { MIN_KAPI_VERSION } from './guardian.constants';
 import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
 import { UnvettingService } from './unvetting/unvetting.service';
-import { Meta } from 'keys-api/interfaces/Meta';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
-import { SROperatorListWithModule } from 'keys-api/interfaces/SROperatorListWithModule';
 import { StakingRouterService } from 'contracts/staking-router';
-import { SRModuleListResponse } from 'keys-api/interfaces/SRModuleListResponse';
 import { ELBlockSnapshot } from 'keys-api/interfaces/ELBlockSnapshot';
 import { SRModule } from 'keys-api/interfaces';
 
