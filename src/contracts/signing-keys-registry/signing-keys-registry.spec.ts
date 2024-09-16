@@ -101,7 +101,7 @@ describe('SigningKeyEventsCacheService', () => {
 
     const deleteCache = jest.spyOn(dbService, 'deleteCache');
 
-    await signingkeyEventsCacheService.handleNewBlock(endBlock, [
+    await signingkeyEventsCacheService.handleNewBlock([
       ...cacheMock.headers.stakingModulesAddresses,
       newEvent.moduleAddress,
     ]);

@@ -1,18 +1,13 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { ProviderService } from 'provider';
-import {
-  SigningKeyEvent,
-  SigningKeyEventsGroupWithStakingModules,
-} from './interfaces/event.interface';
+import { SigningKeyEventsGroupWithStakingModules } from './interfaces/event.interface';
 import { SigningKeysStoreService } from './store';
 import { SigningKeyEventsCache } from './interfaces/cache.interface';
 import {
   EARLIEST_MODULE_DEPLOYMENT_BLOCK_NETWORK,
   FETCHING_EVENTS_STEP,
-  SIGNING_KEYS_EVENTS_CACHE_LAG_BLOCKS,
   SIGNING_KEYS_REGISTRY_FINALIZED_TAG,
-  SIGNING_KEY_EVENTS_CACHE_UPDATE_BLOCK_RATE,
 } from './constants';
 import { performance } from 'perf_hooks';
 import { SigningKeysRegistryFetcherService } from './fetcher';
@@ -23,7 +18,7 @@ export class SigningKeysRegistryService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
-    private levelDBCacheService: SigningKeysStoreService,
+    private store: SigningKeysStoreService,
     private fetcher: SigningKeysRegistryFetcherService,
     private sanityChecker: SigningKeysRegistrySanityCheckerService,
     @Inject(SIGNING_KEYS_REGISTRY_FINALIZED_TAG) private finalizedTag: string,
@@ -40,20 +35,9 @@ export class SigningKeysRegistryService {
    * @returns {Promise<void>}
    */
   public async handleNewBlock(
-    blockNumber: number,
-    currentstakingModulesAddresses: string[],
+    currentStakingModulesAddresses: string[],
   ): Promise<void> {
-    const wasUpdated = await this.stakingModuleListWasUpdated(
-      currentstakingModulesAddresses,
-    );
-    if (wasUpdated) {
-      this.logger.log('Staking module list was updated. Deleting cache');
-      await this.levelDBCacheService.deleteCache();
-      await this.updateEventsCache(currentstakingModulesAddresses);
-    } else if (blockNumber % SIGNING_KEY_EVENTS_CACHE_UPDATE_BLOCK_RATE === 0) {
-      // update for every SIGNING_KEY_EVENTS_CACHE_UPDATE_BLOCK_RATE block
-      await this.updateEventsCache(currentstakingModulesAddresses);
-    }
+    await this.updateEventsCache(currentStakingModulesAddresses);
   }
 
   /**
@@ -61,30 +45,9 @@ export class SigningKeysRegistryService {
    * @param {number} blockNumber - The block number to validate the cache against.
    * @returns {Promise<void>}
    */
-  public async initialize(
-    blockNumber: number,
-    currentstakingModulesAddresses: string[],
-  ) {
-    await this.levelDBCacheService.initialize();
-
-    const cachedEvents = await this.getCachedEvents();
-
-    // check age of cache
-    const isCacheValid = this.validateCacheBlock(cachedEvents, blockNumber);
-
-    if (!isCacheValid) {
-      process.exit(1);
-    }
-
-    const wasUpdated = await this.stakingModuleListWasUpdated(
-      currentstakingModulesAddresses,
-    );
-    if (wasUpdated) {
-      this.logger.log('Staking module list was updated. Deleting cache');
-      await this.levelDBCacheService.deleteCache();
-    }
-
-    await this.updateEventsCache(currentstakingModulesAddresses);
+  public async initialize(currentStakingModulesAddresses: string[]) {
+    await this.store.initialize();
+    await this.updateEventsCache(currentStakingModulesAddresses);
   }
 
   /**
@@ -97,6 +60,15 @@ export class SigningKeysRegistryService {
     currentStakingModulesAddresses: string[],
   ): Promise<void> {
     const fetchTimeStart = performance.now();
+
+    const wasUpdated = await this.stakingModuleListWasUpdated(
+      currentStakingModulesAddresses,
+    );
+
+    if (wasUpdated) {
+      this.logger.log('Staking module list was updated. Deleting cache');
+      await this.store.deleteCache();
+    }
 
     const [finalizedBlock, initialCache] = await Promise.all([
       this.providerService.getBlock(this.finalizedTag),
@@ -135,7 +107,7 @@ export class SigningKeysRegistryService {
         currentStakingModulesAddresses,
       );
 
-      await this.levelDBCacheService.insertEventsCacheBatch({
+      await this.store.insertEventsCacheBatch({
         headers: {
           ...initialCache.headers,
           // as we update staking modules addresses always before run of this method, we can update value on every iteration
@@ -178,7 +150,7 @@ export class SigningKeysRegistryService {
   ): Promise<boolean> {
     const {
       headers: { stakingModulesAddresses: previousModules },
-    } = await this.levelDBCacheService.getHeader();
+    } = await this.store.getHeader();
 
     const wasUpdated = this.wasStakingModulesListUpdated(
       previousModules,
@@ -233,7 +205,7 @@ export class SigningKeysRegistryService {
    * containing the cached signing key events and their metadata.
    */
   public async getCachedEvents(): Promise<SigningKeyEventsCache> {
-    const { headers, data } = await this.levelDBCacheService.getEventsCache();
+    const { headers, data } = await this.store.getEventsCache();
 
     // default values is startBlock: 0, endBlock: 0
     const deploymentBlock = await this.getDeploymentBlockByNetwork();
@@ -261,7 +233,7 @@ export class SigningKeysRegistryService {
     keys: string[],
   ): Promise<SigningKeyEventsCache> {
     const uniqueKeys = Array.from(new Set(keys));
-    return await this.levelDBCacheService.getCachedEvents(uniqueKeys);
+    return await this.store.getCachedEvents(uniqueKeys);
   }
 
   /**
@@ -283,8 +255,20 @@ export class SigningKeysRegistryService {
     const endBlock = blockNumber;
     const cachedEvents = await this.getEventsForOperatorsKeys([key]);
 
-    const isCacheValid = this.validateCacheBlock(cachedEvents, blockNumber);
-    if (!isCacheValid) process.exit(1);
+    const isCacheValid = this.sanityChecker.verifyCacheBlock(
+      cachedEvents,
+      blockNumber,
+    );
+
+    if (!isCacheValid) {
+      return {
+        events: cachedEvents.data,
+        startBlock: cachedEvents.headers.startBlock,
+        endBlock: cachedEvents.headers.endBlock,
+        stakingModulesAddresses: cachedEvents.headers.stakingModulesAddresses,
+        isValid: false,
+      };
+    }
 
     const firstNotCachedBlock = cachedEvents.headers.endBlock + 1;
 
@@ -297,7 +281,11 @@ export class SigningKeysRegistryService {
     const lastEvent = freshEvents[freshEvents.length - 1];
     const lastEventBlockHash = lastEvent?.blockHash;
 
-    this.checkEventsBlockHash(freshEvents, blockNumber, blockHash);
+    const isValid = this.sanityChecker.checkEventsBlockHash(
+      freshEvents,
+      blockNumber,
+      blockHash,
+    );
 
     this.logger.debug?.('Fresh signing key add events are fetched', {
       events: freshEvents.length,
@@ -326,6 +314,7 @@ export class SigningKeysRegistryService {
       stakingModulesAddresses: cachedEvents.headers.stakingModulesAddresses,
       startBlock: cachedEvents.headers.startBlock,
       endBlock,
+      isValid,
     };
   }
 
@@ -341,8 +330,8 @@ export class SigningKeysRegistryService {
   public async setCachedEvents(
     cachedEvents: SigningKeyEventsCache,
   ): Promise<void> {
-    await this.levelDBCacheService.deleteCache();
-    await this.levelDBCacheService.insertEventsCacheBatch({
+    await this.store.deleteCache();
+    await this.store.insertEventsCacheBatch({
       data: cachedEvents.data,
       headers: cachedEvents.headers,
     });

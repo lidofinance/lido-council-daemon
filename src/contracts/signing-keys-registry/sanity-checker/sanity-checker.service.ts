@@ -57,19 +57,38 @@ export class SigningKeysRegistrySanityCheckerService {
    * @param {SigningKeyEvent[]} events - The list of signing key events to be checked.
    * @param {number} blockNumber - The block number to match against the events' block numbers.
    * @param {string} blockHash - The block hash to match against the events' block hashes.
-   * @throws {Error} If any event's block hash does not match the provided block hash for the specified block number.
    */
   public checkEventsBlockHash(
     events: SigningKeyEvent[],
     blockNumber: number,
     blockHash: string,
-  ): void {
-    events.forEach((event) => {
-      if (event.blockNumber === blockNumber && event.blockHash !== blockHash) {
-        throw new Error(
-          'Blockhash of the received events does not match the current blockhash',
-        );
-      }
-    });
+  ): boolean {
+    const event = this.findReorganizedEvent(events, blockNumber, blockHash);
+
+    if (event) {
+      this.logger.error('Reorganization found in signing key event', {
+        blockHash: event.blockHash,
+        blockNumber: event.blockNumber,
+      });
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Checks events block hash
+   * An additional check to avoid events processing in an alternate chain
+   */
+  private findReorganizedEvent(
+    events: SigningKeyEvent[],
+    blockNumber: number,
+    blockHash: string,
+  ): SigningKeyEvent | null {
+    return (
+      events.find(
+        (event) =>
+          event.blockNumber === blockNumber && event.blockHash !== blockHash,
+      ) || null
+    );
   }
 }

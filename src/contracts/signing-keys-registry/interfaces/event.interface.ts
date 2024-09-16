@@ -15,4 +15,5 @@ export interface SigningKeyEventsGroup {
 export interface SigningKeyEventsGroupWithStakingModules
   extends SigningKeyEventsGroup {
   stakingModulesAddresses: string[];
+  isValid: boolean;
 }
