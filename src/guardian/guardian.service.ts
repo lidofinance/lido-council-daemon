@@ -56,7 +56,7 @@ export class GuardianService implements OnModuleInit {
 
     private providerService: ProviderService,
     private keysApiService: KeysApiService,
-    private signingKeyEventsCacheService: SigningKeysRegistryService,
+    private signingKeysRegistryService: SigningKeysRegistryService,
 
     private unvettingService: UnvettingService,
 
@@ -77,7 +77,7 @@ export class GuardianService implements OnModuleInit {
         await Promise.all([
           this.depositService.initialize(),
           this.securityService.initialize({ blockHash }),
-          this.signingKeyEventsCacheService.initialize(
+          this.signingKeysRegistryService.initialize(
             stakingRouterModuleAddresses,
           ),
         ]);
@@ -107,8 +107,8 @@ export class GuardianService implements OnModuleInit {
 
         // The event cache is stored with an N block lag to avoid caching data from uncle blocks
         // so we don't worry about blockHash here
-        // TODO: rewrite signingKeyEventsCacheService
-        await this.signingKeyEventsCacheService.updateEventsCache(
+        // TODO: rewrite SigningKeysRegistryService
+        await this.signingKeysRegistryService.updateEventsCache(
           stakingRouterModuleAddresses,
         );
 
@@ -288,7 +288,7 @@ export class GuardianService implements OnModuleInit {
       (stakingModule) => stakingModule.stakingModuleAddress,
     );
     // update cache if needs
-    await this.signingKeyEventsCacheService.handleNewBlock(
+    await this.signingKeysRegistryService.handleNewBlock(
       stakingRouterModuleAddresses,
     );
 

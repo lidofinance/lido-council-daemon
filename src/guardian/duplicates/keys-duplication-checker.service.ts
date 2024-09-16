@@ -13,7 +13,7 @@ const BATCH_SIZE = 10;
 export class KeysDuplicationCheckerService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-    private signingKeyEventsCacheService: SigningKeysRegistryService,
+    private signingKeysRegistryService: SigningKeysRegistryService,
   ) {}
 
   /**
@@ -243,7 +243,7 @@ export class KeysDuplicationCheckerService {
     blockData: BlockData,
   ): Promise<SigningKeyEvent[]> {
     const eventsGroup =
-      await this.signingKeyEventsCacheService.getUpdatedSigningKeyEvents(
+      await this.signingKeysRegistryService.getUpdatedSigningKeyEvents(
         key,
         blockData.blockNumber,
         blockData.blockHash,

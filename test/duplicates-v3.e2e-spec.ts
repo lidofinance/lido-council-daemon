@@ -34,7 +34,7 @@ import {
   closeServer,
   initLevelDB,
 } from './helpers/test-setup';
-import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
+import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
 import { makeDeposit, signDeposit } from './helpers/deposit';
 import { ProviderService } from 'provider';
@@ -43,7 +43,7 @@ import { KeysApiService } from 'keys-api/keys-api.service';
 import { SecurityService } from 'contracts/security';
 import { Server } from 'ganache';
 import { GuardianMessageService } from 'guardian/guardian-message';
-import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
+import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
 import { StakingModuleDataCollectorService } from 'staking-module-data-collector';
 import { makeServer } from './server';
 import { addGuardians } from './helpers/dsm';
@@ -63,7 +63,7 @@ describe('Deposits in case of duplicates', () => {
   let depositIntegrityCheckerService: DepositIntegrityCheckerService;
 
   let signKeyLevelDBService: SignKeyLevelDBService;
-  let signingKeyEventsCacheService: SigningKeyEventsCacheService;
+  let signingKeysRegistryService: SigningKeysRegistryService;
 
   let stakingModuleGuardService: StakingModuleGuardService;
   let guardianMessageService: GuardianMessageService;
@@ -131,7 +131,7 @@ describe('Deposits in case of duplicates', () => {
     await blsService.onModuleInit();
 
     // keys events service
-    signingKeyEventsCacheService = moduleRef.get(SigningKeyEventsCacheService);
+    signingKeysRegistryService = moduleRef.get(SigningKeysRegistryService);
 
     providerService = moduleRef.get(ProviderService);
 
@@ -204,7 +204,7 @@ describe('Deposits in case of duplicates', () => {
       );
 
       // mock events cache to check
-      await signingKeyEventsCacheService.setCachedEvents({
+      await signingKeysRegistryService.setCachedEvents({
         data: [], // dont need events in this test
         headers: {
           startBlock: currentBlock.number - 2,
@@ -333,7 +333,7 @@ describe('Deposits in case of duplicates', () => {
         unusedKeys,
       );
 
-      await signingKeyEventsCacheService.setCachedEvents({
+      await signingKeysRegistryService.setCachedEvents({
         data: [
           mockKeyEvent,
           // key of second module was added later
@@ -474,7 +474,7 @@ describe('Deposits in case of duplicates', () => {
         unusedKeys,
       );
 
-      await signingKeyEventsCacheService.setCachedEvents({
+      await signingKeysRegistryService.setCachedEvents({
         data: [
           { ...mockKeyEvent, operatorIndex: mockOperator1.index },
           // key of second module was added later
@@ -617,7 +617,7 @@ describe('Deposits in case of duplicates', () => {
         keys,
       );
 
-      await signingKeyEventsCacheService.setCachedEvents({
+      await signingKeysRegistryService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number - 2,
@@ -743,7 +743,7 @@ describe('Deposits in case of duplicates', () => {
       keys,
     );
 
-    await signingKeyEventsCacheService.setCachedEvents({
+    await signingKeysRegistryService.setCachedEvents({
       data: [],
       headers: {
         startBlock: currentBlock.number - 2,
@@ -842,7 +842,7 @@ describe('Deposits in case of duplicates', () => {
         unusedKeys,
       );
 
-      await signingKeyEventsCacheService.setCachedEvents({
+      await signingKeysRegistryService.setCachedEvents({
         data: [mockKeyEvent],
         headers: {
           startBlock: currentBlock.number - 2,

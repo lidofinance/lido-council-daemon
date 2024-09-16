@@ -13,7 +13,7 @@ import { SigningKeysRegistryService } from './signing-keys-registry.service';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { SigningKeysRegistryFetcherService } from './fetcher';
 
-describe('SigningKeyEventsCacheService', () => {
+describe('SigningKeysRegistryService', () => {
   const defaultCacheValue = {
     headers: {},
     data: [] as any[],
@@ -22,7 +22,7 @@ describe('SigningKeyEventsCacheService', () => {
   let dbService: SigningKeysStoreService;
   let repositoryService: RepositoryService;
   let locatorService: LocatorService;
-  let signingkeyEventsCacheService: SigningKeysRegistryService;
+  let signingKeysRegistryService: SigningKeysRegistryService;
   let signingKeysFetch: SigningKeysRegistryFetcherService;
   let providerService: ProviderService;
 
@@ -45,7 +45,7 @@ describe('SigningKeyEventsCacheService', () => {
     dbService = moduleRef.get(SigningKeysStoreService);
     repositoryService = moduleRef.get(RepositoryService);
     locatorService = moduleRef.get(LocatorService);
-    signingkeyEventsCacheService = moduleRef.get(SigningKeysRegistryService);
+    signingKeysRegistryService = moduleRef.get(SigningKeysRegistryService);
     signingKeysFetch = moduleRef.get(SigningKeysRegistryFetcherService);
     providerService = moduleRef.get(ProviderService);
 
@@ -97,14 +97,14 @@ describe('SigningKeyEventsCacheService', () => {
       });
 
     jest
-      .spyOn(signingkeyEventsCacheService, 'getDeploymentBlockByNetwork')
+      .spyOn(signingKeysRegistryService, 'getDeploymentBlockByNetwork')
       .mockImplementation(async () => {
         return expected.headers.startBlock;
       });
 
     const deleteCache = jest.spyOn(dbService, 'deleteCache');
 
-    await signingkeyEventsCacheService.handleNewBlock([
+    await signingKeysRegistryService.handleNewBlock([
       ...cacheMock.headers.stakingModulesAddresses,
       newEvent.moduleAddress,
     ]);
@@ -165,11 +165,10 @@ describe('SigningKeyEventsCacheService', () => {
       )}, currentModules = ${JSON.stringify(
         testCase.currentModules,
       )}, expected = ${testCase.expected}`, () => {
-        const result =
-          signingkeyEventsCacheService.wasStakingModulesListUpdated(
-            testCase.previousModules,
-            testCase.currentModules,
-          );
+        const result = signingKeysRegistryService.wasStakingModulesListUpdated(
+          testCase.previousModules,
+          testCase.currentModules,
+        );
 
         expect(result).toEqual(testCase.expected);
       });

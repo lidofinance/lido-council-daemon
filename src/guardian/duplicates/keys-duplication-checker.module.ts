@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { SigningKeyEventsCacheModule } from 'contracts/signing-key-events-cache';
+import { SigningKeysRegistryModule } from 'contracts/signing-keys-registry';
 import { KeysDuplicationCheckerService } from './keys-duplication-checker.service';
 
 @Module({
-  imports: [SigningKeyEventsCacheModule],
+  imports: [SigningKeysRegistryModule],
   providers: [KeysDuplicationCheckerService],
   exports: [KeysDuplicationCheckerService],
 })
