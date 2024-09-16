@@ -35,16 +35,15 @@ import {
 
 // Contract and Service Imports
 import { SecurityService } from 'contracts/security';
-import { DepositService } from 'contracts/deposit';
 import { GuardianService } from 'guardian';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { ProviderService } from 'provider';
 import { GuardianMessageService } from 'guardian/guardian-message';
-import { LevelDBService } from 'contracts/deposit/leveldb';
+import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
 import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
 import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
 import { BlsService } from 'bls';
-import { DepositIntegrityCheckerService } from 'contracts/deposit/integrity-checker';
+import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
 
 // Test Data
 import { mockKey, mockKey2 } from './helpers/keys-fixtures';
@@ -57,8 +56,7 @@ describe('Guardian balance monitoring test', () => {
   let providerService: ProviderService;
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;
-  let depositService: DepositService;
-  let levelDBService: LevelDBService;
+  let levelDBService: DepositsRegistryStoreService;
   let signKeyLevelDBService: SignKeyLevelDBService;
   let guardianMessageService: GuardianMessageService;
   let signingKeyEventsCacheService: SigningKeyEventsCacheService;
@@ -124,7 +122,7 @@ describe('Guardian balance monitoring test', () => {
   }
 
   const setupDefaultCache = async (blockNumber) => {
-    await depositService.setCachedEvents({
+    await levelDBService.setCachedEvents({
       data: [],
       headers: {
         startBlock: blockNumber,
@@ -196,7 +194,7 @@ describe('Guardian balance monitoring test', () => {
   };
 
   const initializeLevelDBServices = async (moduleRef) => {
-    levelDBService = moduleRef.get(LevelDBService);
+    levelDBService = moduleRef.get(DepositsRegistryStoreService);
     signKeyLevelDBService = moduleRef.get(SignKeyLevelDBService);
     await initLevelDB(levelDBService, signKeyLevelDBService);
   };
@@ -205,7 +203,6 @@ describe('Guardian balance monitoring test', () => {
     depositIntegrityCheckerService = moduleRef.get(
       DepositIntegrityCheckerService,
     );
-    depositService = moduleRef.get(DepositService);
   };
 
   const initializeKeyEventServices = (moduleRef) => {
@@ -252,10 +249,10 @@ describe('Guardian balance monitoring test', () => {
   const mockDepositCacheMethods = () => {
     jest
       .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(true));
     jest
       .spyOn(depositIntegrityCheckerService, 'checkFinalizedRoot')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(true));
   };
 
   const mockUnvettingMethod = () => {

@@ -8,4 +8,5 @@ export interface VerifiedDepositEventsCacheHeaders {
 export interface VerifiedDepositEventsCache {
   headers: VerifiedDepositEventsCacheHeaders;
   data: VerifiedDepositEvent[];
+  lastValidEvent?: VerifiedDepositEvent;
 }

@@ -4,7 +4,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import {
   VerifiedDepositEvent,
   VerifiedDepositEventGroup,
-} from 'contracts/deposit';
+} from 'contracts/deposits-registry';
 import { SecurityService } from 'contracts/security';
 
 import { ContractsState, BlockData, StakingModuleData } from '../interfaces';
@@ -361,9 +361,13 @@ export class StakingModuleGuardService {
   }
 
   public async handlePauseV3(blockData: BlockData): Promise<void> {
-    const { blockNumber, guardianAddress, guardianIndex } = blockData;
+    const { blockNumber, blockHash, guardianAddress, guardianIndex } =
+      blockData;
 
-    const signature = await this.securityService.signPauseDataV3(blockNumber);
+    const signature = await this.securityService.signPauseDataV3(
+      blockNumber,
+      blockHash,
+    );
 
     const pauseMessage = {
       guardianAddress,
@@ -444,6 +448,7 @@ export class StakingModuleGuardService {
 
     const signature = await this.securityService.signPauseDataV2(
       blockNumber,
+      blockHash,
       stakingModuleId,
     );
 

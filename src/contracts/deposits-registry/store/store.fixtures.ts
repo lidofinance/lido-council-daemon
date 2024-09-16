@@ -1,4 +1,7 @@
-import { VerifiedDepositEvent, VerifiedDepositEventsCacheHeaders } from '..';
+import {
+  VerifiedDepositEvent,
+  VerifiedDepositEventsCacheHeaders,
+} from '../interfaces';
 
 // Mock for VerifiedDepositEventsCacheHeaders
 export const headersMock: VerifiedDepositEventsCacheHeaders = {

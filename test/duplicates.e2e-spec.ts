@@ -13,8 +13,6 @@ import {
   STAKING_ROUTER,
   CHAIN_ID,
   GANACHE_PORT,
-  sk,
-  pk,
   NOP_REGISTRY,
   SIMPLE_DVT,
   UNLOCKED_ACCOUNTS_V2,
@@ -37,20 +35,18 @@ import {
   initLevelDB,
 } from './helpers/test-setup';
 import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
-import { LevelDBService } from 'contracts/deposit/leveldb';
-import { getWalletAddress, signDeposit } from './helpers/deposit';
-import { StakingModuleGuardService } from 'guardian/staking-module-guard';
+import { getWalletAddress } from './helpers/deposit';
+import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
+
 import { ProviderService } from 'provider';
-import { DepositService } from 'contracts/deposit';
 import { GuardianService } from 'guardian';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { Server } from 'ganache';
 import { GuardianMessageService } from 'guardian/guardian-message';
 import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
-import { StakingModuleDataCollectorService } from 'staking-module-data-collector';
 import { addGuardians } from './helpers/dsm';
 import { makeServer } from './server';
-import { DepositIntegrityCheckerService } from 'contracts/deposit/integrity-checker';
+import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
 import { BlsService } from 'bls';
 import { mockKey, mockKey2, mockKeyEvent } from './helpers/keys-fixtures';
 
@@ -59,15 +55,12 @@ describe('ganache e2e tests', () => {
   let providerService: ProviderService;
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;
-  let depositService: DepositService;
   let sendDepositMessage: jest.SpyInstance;
   let sendPauseMessage: jest.SpyInstance;
-  let levelDBService: LevelDBService;
+  let levelDBService: DepositsRegistryStoreService;
   let signKeyLevelDBService: SignKeyLevelDBService;
   let signingKeyEventsCacheService: SigningKeyEventsCacheService;
-  let stakingModuleGuardService: StakingModuleGuardService;
   let guardianMessageService: GuardianMessageService;
-  let stakingModuleDataCollectorService: StakingModuleDataCollectorService;
   let depositIntegrityCheckerService: DepositIntegrityCheckerService;
 
   const setupServer = async () => {
@@ -97,15 +90,15 @@ describe('ganache e2e tests', () => {
     // deposit cache mocks
     jest
       .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(true));
     jest
       .spyOn(depositIntegrityCheckerService, 'checkFinalizedRoot')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(true));
   };
 
   const setupTestingServices = async (moduleRef) => {
     // leveldb service
-    levelDBService = moduleRef.get(LevelDBService);
+    levelDBService = moduleRef.get(DepositsRegistryStoreService);
     signKeyLevelDBService = moduleRef.get(SignKeyLevelDBService);
 
     await initLevelDB(levelDBService, signKeyLevelDBService);
@@ -114,7 +107,6 @@ describe('ganache e2e tests', () => {
     depositIntegrityCheckerService = moduleRef.get(
       DepositIntegrityCheckerService,
     );
-    depositService = moduleRef.get(DepositService);
 
     const blsService = moduleRef.get(BlsService);
     await blsService.onModuleInit();
@@ -132,10 +124,6 @@ describe('ganache e2e tests', () => {
 
     // main service that check keys and make decision
     guardianService = moduleRef.get(GuardianService);
-    stakingModuleGuardService = moduleRef.get(StakingModuleGuardService);
-    stakingModuleDataCollectorService = moduleRef.get(
-      StakingModuleDataCollectorService,
-    );
   };
 
   beforeEach(async () => {
@@ -156,7 +144,7 @@ describe('ganache e2e tests', () => {
       const currentBlock = await providerService.provider.getBlock('latest');
       const walletAddress = await getWalletAddress();
 
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -199,6 +187,7 @@ describe('ganache e2e tests', () => {
       expect(isOnPause).toBe(false);
 
       await guardianService.handleNewBlock();
+
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       // just skip on this iteration deposit for Curated staking module
@@ -264,7 +253,7 @@ describe('ganache e2e tests', () => {
       const currentBlock = await providerService.provider.getBlock('latest');
       const walletAddress = await getWalletAddress();
 
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -325,6 +314,7 @@ describe('ganache e2e tests', () => {
       );
       expect(sendPauseMessage).toBeCalledTimes(0);
 
+      await providerService.provider.send('evm_mine', []);
       // after deleting duplicates in staking module,
       // council will resume deposits to module
       const unusedKeysWithoutDuplicates = [
@@ -334,8 +324,6 @@ describe('ganache e2e tests', () => {
           moduleAddress: SIMPLE_DVT,
         },
       ];
-
-      await providerService.provider.send('evm_mine', []);
       const newBlock = await providerService.provider.getBlock('latest');
       const newMeta = mockMeta(newBlock, newBlock.hash);
       // setup /v1/modules
@@ -380,7 +368,7 @@ describe('ganache e2e tests', () => {
       const currentBlock = await providerService.provider.getBlock('latest');
       const walletAddress = await getWalletAddress();
 
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -471,7 +459,7 @@ describe('ganache e2e tests', () => {
     const currentBlock = await providerService.provider.getBlock('latest');
     const walletAddress = await getWalletAddress();
 
-    await depositService.setCachedEvents({
+    await levelDBService.setCachedEvents({
       data: [],
       headers: {
         startBlock: currentBlock.number,
@@ -487,7 +475,6 @@ describe('ganache e2e tests', () => {
         index: 1,
         operatorIndex: 0,
         used: false,
-
         vetted: false,
       },
     ];

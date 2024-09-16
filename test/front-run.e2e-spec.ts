@@ -41,18 +41,17 @@ import {
   closeServer,
   initLevelDB,
 } from './helpers/test-setup';
-import { DepositService } from 'contracts/deposit';
 import { GuardianService } from 'guardian';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { ProviderService } from 'provider';
 import { Server } from 'ganache';
-import { LevelDBService } from 'contracts/deposit/leveldb';
+import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
 import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
 import { GuardianMessageService } from 'guardian/guardian-message';
 import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
 import { makeServer } from './server';
 import { addGuardians } from './helpers/dsm';
-import { DepositIntegrityCheckerService } from 'contracts/deposit/integrity-checker';
+import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
 import { BlsService } from 'bls';
 import { makeDeposit, signDeposit } from './helpers/deposit';
 import { mockKey, mockKey2 } from './helpers/keys-fixtures';
@@ -67,10 +66,9 @@ describe('ganache e2e tests', () => {
   let providerService: ProviderService;
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;
-  let depositService: DepositService;
   let sendDepositMessage: jest.SpyInstance;
   let sendPauseMessage: jest.SpyInstance;
-  let levelDBService: LevelDBService;
+  let levelDBService: DepositsRegistryStoreService;
   let signKeyLevelDBService: SignKeyLevelDBService;
   let guardianMessageService: GuardianMessageService;
   let signingKeyEventsCacheService: SigningKeyEventsCacheService;
@@ -90,7 +88,7 @@ describe('ganache e2e tests', () => {
 
   const setupTestingServices = async (moduleRef) => {
     // leveldb service
-    levelDBService = moduleRef.get(LevelDBService);
+    levelDBService = moduleRef.get(DepositsRegistryStoreService);
     signKeyLevelDBService = moduleRef.get(SignKeyLevelDBService);
 
     await initLevelDB(levelDBService, signKeyLevelDBService);
@@ -99,7 +97,6 @@ describe('ganache e2e tests', () => {
     depositIntegrityCheckerService = moduleRef.get(
       DepositIntegrityCheckerService,
     );
-    depositService = moduleRef.get(DepositService);
 
     const blsService = moduleRef.get(BlsService);
     await blsService.onModuleInit();
@@ -133,10 +130,10 @@ describe('ganache e2e tests', () => {
     // deposit cache mocks
     jest
       .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(true));
     jest
       .spyOn(depositIntegrityCheckerService, 'checkFinalizedRoot')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(true));
   };
 
   beforeEach(async () => {
@@ -178,7 +175,8 @@ describe('ganache e2e tests', () => {
         },
       ];
 
-      await depositService.setCachedEvents({
+      // add in deposit cache event of deposit on key with lido creds
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -234,7 +232,7 @@ describe('ganache e2e tests', () => {
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
 
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -315,7 +313,7 @@ describe('ganache e2e tests', () => {
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
 
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -379,7 +377,7 @@ describe('ganache e2e tests', () => {
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
 
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -444,6 +442,7 @@ describe('ganache e2e tests', () => {
       expect(sendDepositMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: newBlock.number,
+
           guardianAddress: wallet.address,
           guardianIndex: 7,
           stakingModuleId: 2,
@@ -471,7 +470,7 @@ describe('ganache e2e tests', () => {
     'inconsistent kapi requests data',
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -506,7 +505,7 @@ describe('ganache e2e tests', () => {
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
 
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -572,6 +571,7 @@ describe('ganache e2e tests', () => {
           stakingModuleId: 2,
         }),
       );
+      expect(sendPauseMessage).toBeCalledTimes(0);
 
       // Check if on pause now
       const routerContract = StakingRouterAbi__factory.connect(
@@ -615,7 +615,7 @@ describe('ganache e2e tests', () => {
         },
       ];
 
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [
           {
             valid: true,
@@ -680,6 +680,7 @@ describe('ganache e2e tests', () => {
 
       expect(isOnPause2Module).toBe(false);
       expect(sendDepositMessage).toBeCalledTimes(0);
+      expect(sendPauseMessage).toBeCalledTimes(1);
 
       // Mine a new block
       await providerService.provider.send('evm_mine', []);
@@ -693,6 +694,8 @@ describe('ganache e2e tests', () => {
       // setup /v1/keys
       keysApiMockGetAllKeys(keysApiService, keys, newMeta);
       mockedKeysApiFind(keysApiService, keys, newMeta);
+
+      sendPauseMessage.mockClear();
 
       await guardianService.handleNewBlock();
 
@@ -709,6 +712,7 @@ describe('ganache e2e tests', () => {
       expect(isOnPause2NextIter).toBe(true);
 
       expect(sendDepositMessage).toBeCalledTimes(0);
+      expect(sendPauseMessage).toBeCalledTimes(1);
     },
     TESTS_TIMEOUT,
   );

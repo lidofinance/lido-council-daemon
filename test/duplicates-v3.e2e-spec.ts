@@ -6,8 +6,6 @@ import {
   CHAIN_ID,
   FORK_BLOCK,
   GANACHE_PORT,
-  sk,
-  pk,
   NOP_REGISTRY,
   SIMPLE_DVT,
   UNLOCKED_ACCOUNTS,
@@ -27,10 +25,9 @@ import {
   initLevelDB,
 } from './helpers/test-setup';
 import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
-import { LevelDBService } from 'contracts/deposit/leveldb';
 import { getWalletAddress } from './helpers/deposit';
+import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
 import { ProviderService } from 'provider';
-import { DepositService } from 'contracts/deposit';
 import { GuardianService } from 'guardian';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { SecurityService } from 'contracts/security';
@@ -41,7 +38,6 @@ import { makeServer } from './server';
 import { addGuardians } from './helpers/dsm';
 import { BlsService } from 'bls';
 import { mockKey, mockKey2, mockKeyEvent } from './helpers/keys-fixtures';
-import { DepositIntegrityCheckerService } from 'contracts/deposit/integrity-checker';
 import {
   keysApiMockGetAllKeys,
   keysApiMockGetModules,
@@ -49,16 +45,16 @@ import {
   mockedModuleDvt,
   mockMeta,
 } from './helpers';
+import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
 
 describe('Deposits in case of duplicates', () => {
   let server: Server<'ethereum'>;
   let providerService: ProviderService;
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;
-  let depositService: DepositService;
   let securityService: SecurityService;
 
-  let levelDBService: LevelDBService;
+  let levelDBService: DepositsRegistryStoreService;
   let depositIntegrityCheckerService: DepositIntegrityCheckerService;
 
   let signKeyLevelDBService: SignKeyLevelDBService;
@@ -98,10 +94,10 @@ describe('Deposits in case of duplicates', () => {
     // deposit cache mocks
     jest
       .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(true));
     jest
       .spyOn(depositIntegrityCheckerService, 'checkFinalizedRoot')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(true));
 
     // mock unvetting method of contract
     // as we dont use real keys api and work with fixtures of operators and keys
@@ -113,7 +109,7 @@ describe('Deposits in case of duplicates', () => {
 
   const setupTestingServices = async (moduleRef) => {
     // leveldb service
-    levelDBService = moduleRef.get(LevelDBService);
+    levelDBService = moduleRef.get(DepositsRegistryStoreService);
     signKeyLevelDBService = moduleRef.get(SignKeyLevelDBService);
 
     await initLevelDB(levelDBService, signKeyLevelDBService);
@@ -122,7 +118,6 @@ describe('Deposits in case of duplicates', () => {
     depositIntegrityCheckerService = moduleRef.get(
       DepositIntegrityCheckerService,
     );
-    depositService = moduleRef.get(DepositService);
 
     const blsService = moduleRef.get(BlsService);
     await blsService.onModuleInit();
@@ -161,10 +156,9 @@ describe('Deposits in case of duplicates', () => {
     'skip deposits for module if find duplicated key across operator',
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
-      // await providerService.provider.send('evm_mine', []);
 
       // Set deposit cache
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -248,6 +242,9 @@ describe('Deposits in case of duplicates', () => {
       );
       expect(unvetSigningKeys).toBeCalledTimes(1);
 
+      // Mine a new block
+      await providerService.provider.send('evm_mine', []);
+
       // after deleting duplicates in staking module,
       // council will resume deposits to module
       const unusedKeysWithoutDuplicates = [
@@ -304,8 +301,7 @@ describe('Deposits in case of duplicates', () => {
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
       const walletAddress = getWalletAddress();
-
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -371,7 +367,7 @@ describe('Deposits in case of duplicates', () => {
           stakingModuleId: 1,
         }),
       );
-      // check that duplicates problem didnt trigger pause
+      // check that duplicates problem didn't trigger pause
       expect(sendPauseMessage).toBeCalledTimes(0);
       expect(sendUnvetMessage).toBeCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
@@ -385,8 +381,6 @@ describe('Deposits in case of duplicates', () => {
         }),
       );
       expect(unvetSigningKeys).toBeCalledTimes(1);
-      expect(sendDepositMessage).toBeCalledTimes(1);
-      expect(sendPauseMessage).toBeCalledTimes(0);
 
       // after deleting duplicates in staking module,
       // council will resume deposits to module
@@ -394,6 +388,7 @@ describe('Deposits in case of duplicates', () => {
         { ...mockKey, moduleAddress: NOP_REGISTRY },
       ];
 
+      // Mine a new block
       await providerService.provider.send('evm_mine', []);
       const newBlock = await providerService.provider.getBlock('latest');
       // setup elBlockSnapshot
@@ -409,6 +404,7 @@ describe('Deposits in case of duplicates', () => {
 
       sendDepositMessage.mockClear();
       sendUnvetMessage.mockClear();
+      sendPauseMessage.mockClear();
 
       await guardianService.handleNewBlock();
 
@@ -432,6 +428,7 @@ describe('Deposits in case of duplicates', () => {
         }),
       );
       expect(sendUnvetMessage).toBeCalledTimes(0);
+      expect(sendPauseMessage).toBeCalledTimes(0);
     },
     TESTS_TIMEOUT,
   );
@@ -442,7 +439,7 @@ describe('Deposits in case of duplicates', () => {
       const currentBlock = await providerService.provider.getBlock('latest');
       const walletAddress = await getWalletAddress();
 
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -527,14 +524,13 @@ describe('Deposits in case of duplicates', () => {
         }),
       );
       expect(unvetSigningKeys).toBeCalledTimes(1);
-      expect(sendDepositMessage).toBeCalledTimes(1);
       expect(sendPauseMessage).toBeCalledTimes(0);
 
       // after deleting duplicates in staking module,
       // council will resume deposits to module
-
       const noDuplicatesKeys = [{ ...mockKey, operatorIndex: 0 }];
 
+      // Mine a new block
       await providerService.provider.send('evm_mine', []);
       const newBlock = await providerService.provider.getBlock('latest');
       // setup elBlockSnapshot
@@ -546,6 +542,7 @@ describe('Deposits in case of duplicates', () => {
 
       sendDepositMessage.mockClear();
       sendUnvetMessage.mockClear();
+      sendPauseMessage.mockClear();
 
       await guardianService.handleNewBlock();
 
@@ -569,6 +566,8 @@ describe('Deposits in case of duplicates', () => {
           stakingModuleId: 2,
         }),
       );
+      expect(sendPauseMessage).toBeCalledTimes(0);
+      expect(sendPauseMessage).toBeCalledTimes(0);
     },
     TESTS_TIMEOUT,
   );
@@ -579,7 +578,7 @@ describe('Deposits in case of duplicates', () => {
       const currentBlock = await providerService.provider.getBlock('latest');
       const walletAddress = getWalletAddress();
 
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -653,9 +652,11 @@ describe('Deposits in case of duplicates', () => {
 
       // after deleting duplicates in staking module,
       // council will resume deposits to module
+      const noDuplicatesKeys = [{ ...mockKey, operatorIndex: 0, used: true }];
+      // Mine a new block
       await providerService.provider.send('evm_mine', []);
       const newBlock = await providerService.provider.getBlock('latest');
-      const noDuplicatesKeys = [{ ...mockKey, operatorIndex: 0, used: true }];
+
       const newMeta = mockMeta(newBlock, newBlock.hash);
       // setup /v1/modules
       keysApiMockGetModules(keysApiService, stakingModules, newMeta);
@@ -664,6 +665,7 @@ describe('Deposits in case of duplicates', () => {
 
       sendDepositMessage.mockClear();
       sendUnvetMessage.mockClear();
+      sendPauseMessage.mockClear();
 
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
@@ -687,6 +689,7 @@ describe('Deposits in case of duplicates', () => {
         }),
       );
       expect(sendUnvetMessage).toBeCalledTimes(0);
+      expect(sendPauseMessage).toBeCalledTimes(0);
     },
     TESTS_TIMEOUT,
   );
@@ -695,7 +698,7 @@ describe('Deposits in case of duplicates', () => {
     const currentBlock = await providerService.provider.getBlock('latest');
     const walletAddress = await getWalletAddress();
 
-    await depositService.setCachedEvents({
+    await levelDBService.setCachedEvents({
       data: [],
       headers: {
         startBlock: currentBlock.number,
@@ -731,14 +734,6 @@ describe('Deposits in case of duplicates', () => {
       },
     });
 
-    await depositService.setCachedEvents({
-      data: [],
-      headers: {
-        startBlock: currentBlock.number,
-        endBlock: currentBlock.number,
-      },
-    });
-
     await guardianService.handleNewBlock();
     await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
@@ -759,6 +754,8 @@ describe('Deposits in case of duplicates', () => {
         stakingModuleId: 2,
       }),
     );
+    expect(sendPauseMessage).toBeCalledTimes(0);
+    expect(unvetSigningKeys).toBeCalledTimes(0);
   });
 
   test(
@@ -767,7 +764,7 @@ describe('Deposits in case of duplicates', () => {
       const currentBlock = await providerService.provider.getBlock('latest');
       const walletAddress = await getWalletAddress();
 
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -815,12 +812,10 @@ describe('Deposits in case of duplicates', () => {
 
       // just skip on this iteration deposit for Curated staking module
       expect(sendDepositMessage).toBeCalledTimes(0);
-
       // check that duplicates problem didnt trigger pause
       expect(sendPauseMessage).toBeCalledTimes(0);
       expect(sendUnvetMessage).toBeCalledTimes(0);
       expect(unvetSigningKeys).toBeCalledTimes(0);
-      expect(sendDepositMessage).toBeCalledTimes(0);
       expect(sendPauseMessage).toBeCalledTimes(0);
 
       // after deleting duplicates in staking module,
@@ -836,6 +831,7 @@ describe('Deposits in case of duplicates', () => {
 
       sendDepositMessage.mockClear();
       sendUnvetMessage.mockClear();
+      sendPauseMessage.mockClear();
 
       await guardianService.handleNewBlock();
 
@@ -860,6 +856,7 @@ describe('Deposits in case of duplicates', () => {
         }),
       );
       expect(sendUnvetMessage).toBeCalledTimes(0);
+      expect(sendPauseMessage).toBeCalledTimes(0);
     },
     TESTS_TIMEOUT,
   );
@@ -871,7 +868,7 @@ describe('Deposits in case of duplicates', () => {
       // await providerService.provider.send('evm_mine', []);
 
       // Set deposit cache
-      await depositService.setCachedEvents({
+      await levelDBService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,

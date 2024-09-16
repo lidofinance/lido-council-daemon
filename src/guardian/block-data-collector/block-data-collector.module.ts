@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { DepositModule } from 'contracts/deposit';
+import { DepositsRegistryModule } from 'contracts/deposits-registry';
 import { SecurityModule } from 'contracts/security';
 import { StakingModuleGuardModule } from 'guardian/staking-module-guard';
 import { WalletModule } from 'wallet';
@@ -8,7 +8,7 @@ import { BlockDataCollectorService } from './block-data-collector.service';
 
 @Module({
   imports: [
-    DepositModule,
+    DepositsRegistryModule.register(),
     SecurityModule,
     StakingModuleGuardModule,
     WalletModule,

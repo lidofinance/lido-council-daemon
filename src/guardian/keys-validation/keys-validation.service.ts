@@ -64,10 +64,10 @@ export class KeysValidationService {
 
     const invalidKeys = this.filterInvalidKeys(validatedDepositKeyList);
 
-    return [...cachedInvalidKeyList, ...invalidKeys];
+    return cachedInvalidKeyList.concat(invalidKeys);
   }
 
-  filterInvalidKeys(
+  private filterInvalidKeys(
     validatedKeys: [DepositKey & Key, boolean][],
   ): RegistryKey[] {
     return validatedKeys.reduce<RegistryKey[]>(

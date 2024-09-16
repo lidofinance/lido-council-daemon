@@ -55,7 +55,14 @@ describe('KeysValidationService', () => {
     });
 
     it('validate without use of cache', async () => {
-      const keysForValidation = [...validKeys, invalidKey1, invalidKey2];
+      const duplicate = { ...invalidKey1, index: 102 };
+      const keysForValidation = [
+        ...validKeys,
+        invalidKey1,
+        // getInvalidKeys should return all invalid duplicates
+        duplicate,
+        invalidKey2,
+      ];
       const result = await keysValidationService.getInvalidKeys(
         keysForValidation,
         wc,
@@ -71,22 +78,29 @@ describe('KeysValidationService', () => {
 
       expect(validateKeysFun).toBeCalledTimes(1);
       expect(validateKeysFun).toBeCalledWith(depositKeyList);
-      expect(result).toEqual([invalidKey1, invalidKey2]);
+      expect(result).toEqual([invalidKey1, duplicate, invalidKey2]);
+
+      expect(result[0].index).toEqual(invalidKey1.index);
+      expect(result[0].operatorIndex).toEqual(invalidKey1.operatorIndex);
+      expect(result[0].used).toEqual(invalidKey1.used);
+      expect(result[0].moduleAddress).toEqual(invalidKey1.moduleAddress);
     });
 
     it('validate with use of cache ', async () => {
+      const duplicate = { ...invalidKey1, index: 102 };
       // Test scenario where one invalid key was removed from request's list
       const newResult = await keysValidationService.getInvalidKeys(
-        [...validKeys, invalidKey1, invalidKey2],
+        [...validKeys, invalidKey1, duplicate, invalidKey2],
         wc,
       );
 
       expect(validateKeysFun).toBeCalledTimes(1);
       expect(validateKeysFun).toBeCalledWith([]);
-      expect(newResult).toEqual([invalidKey1, invalidKey2]);
+      expect(newResult).toEqual([invalidKey1, duplicate, invalidKey2]);
     });
 
     it('validate without use of cache because of signature change', async () => {
+      const duplicate = { ...invalidKey1, index: 102 };
       const invalidKey2Fix = {
         ...invalidKey2,
         depositSignature: invalidKey2GoodSign,
@@ -94,6 +108,7 @@ describe('KeysValidationService', () => {
       const keyForValidation = [
         ...validKeys,
         invalidKey1,
+        duplicate,
         // change signature on valid
         invalidKey2Fix,
       ];
@@ -109,7 +124,7 @@ describe('KeysValidationService', () => {
 
       expect(validateKeysFun).toBeCalledTimes(1);
       expect(validateKeysFun).toBeCalledWith(depositKeyList);
-      expect(newResult).toEqual([invalidKey1]);
+      expect(newResult).toEqual([invalidKey1, duplicate]);
     });
   });
 });
