@@ -7,6 +7,7 @@ import {
   VerifiedDepositEventsCache,
 } from '../../interfaces';
 import { DEPOSIT_TREE_STEP_SYNC } from './constants';
+import { toHexString } from 'contracts/deposits-registry/crypto';
 
 @Injectable()
 export class DepositIntegrityCheckerService {
@@ -130,11 +131,11 @@ export class DepositIntegrityCheckerService {
           'Problem found while forming deposit tree with event',
           {
             depositCount,
-            depositDataRoot,
+            depositDataRoot: toHexString(depositDataRoot),
             blockHash,
             blockNumber,
             eventIndex,
-            depositCountInTree: tree.nodeCount,
+            depositCountInTree: Number(tree.nodeCount),
           },
         );
 

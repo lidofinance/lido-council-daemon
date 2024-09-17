@@ -76,7 +76,7 @@ export class DepositTree {
    * @returns {boolean} Returns true if the node was successfully inserted, false otherwise.
    */
   public insert(node: Uint8Array, depositCount: bigint): boolean {
-    if (depositCount !== this.nodeCount + 1n) {
+    if (depositCount !== this.nodeCount) {
       return false;
     }
     this.nodeCount++;

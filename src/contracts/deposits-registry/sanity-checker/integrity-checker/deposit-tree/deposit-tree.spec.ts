@@ -5,7 +5,7 @@ import {
   depositDataRootsFixture10k,
   dataTransformFixtures,
 } from './deposit-tree.fixture';
-const MOCK_DEPOSIT_COUNT = 1n;
+const MOCK_DEPOSIT_COUNT = 0n;
 describe('DepositTree', () => {
   let depositTree: DepositTree;
 
@@ -44,7 +44,7 @@ describe('DepositTree', () => {
       signature: '0x987654321fedcba0',
       amount: '0x0100000000000000',
     };
-    originalTree.insert(DepositTree.formDepositNode(nodeData), 1n);
+    originalTree.insert(DepositTree.formDepositNode(nodeData), 0n);
     expect(Number(originalTree.nodeCount)).toBe(1);
 
     const oldDepositRoot = originalTree.getRoot();
@@ -52,7 +52,7 @@ describe('DepositTree', () => {
 
     cloned.insert(
       DepositTree.formDepositNode({ ...nodeData, wc: '0x123456789abcdef1' }),
-      2n,
+      1n,
     );
 
     expect(cloned.getRoot()).not.toEqual(oldDepositRoot);
@@ -61,10 +61,10 @@ describe('DepositTree', () => {
 
     const freshTree = new DepositTree();
 
-    freshTree.insert(DepositTree.formDepositNode(nodeData), 1n);
+    freshTree.insert(DepositTree.formDepositNode(nodeData), 0n);
     freshTree.insert(
       DepositTree.formDepositNode({ ...nodeData, wc: '0x123456789abcdef1' }),
-      2n,
+      1n,
     );
 
     expect(cloned.getRoot()).toEqual(freshTree.getRoot());
@@ -81,7 +81,7 @@ describe('DepositTree', () => {
 
     originalTree.insert(
       DepositTree.formDepositNode({ ...nodeData, wc: '0x123456789abcdef1' }),
-      1n,
+      0n,
     );
     originalTree.insert(
       DepositTree.formDepositNode({ ...nodeData, wc: '0x123456789abcdef1' }),
@@ -162,7 +162,7 @@ describe('DepositTree', () => {
 
   test('hashes should matches with fixtures (first 10k blocks from holesky)', () => {
     depositDataRootsFixture10k.events.map((ev, index) =>
-      depositTree.insert(fromHexString(ev), BigInt(index + 1)),
+      depositTree.insert(fromHexString(ev), BigInt(index)),
     );
 
     expect(Number(depositTree.nodeCount)).toEqual(
@@ -173,7 +173,7 @@ describe('DepositTree', () => {
 
   test('hashes should matches with fixtures (second 10k blocks from holesky)', () => {
     depositDataRootsFixture10k.events.map((ev, index) =>
-      depositTree.insert(fromHexString(ev), BigInt(index + 1)),
+      depositTree.insert(fromHexString(ev), BigInt(index)),
     );
 
     expect(Number(depositTree.nodeCount)).toEqual(
@@ -184,7 +184,7 @@ describe('DepositTree', () => {
     depositDataRootsFixture20k.events.map((ev, index) =>
       depositTree.insert(
         fromHexString(ev),
-        BigInt(depositDataRootsFixture10k.events.length + index + 1),
+        BigInt(depositDataRootsFixture10k.events.length + index),
       ),
     );
     expect(Number(depositTree.nodeCount)).toEqual(
