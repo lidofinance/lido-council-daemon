@@ -101,6 +101,9 @@ describe('Deposits in case of duplicates', () => {
 
     // deposit cache mocks
     jest
+      .spyOn(depositIntegrityCheckerService, 'putEventsToTree')
+      .mockImplementation(() => Promise.resolve());
+    jest
       .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
       .mockImplementation(() => Promise.resolve(true));
     jest
