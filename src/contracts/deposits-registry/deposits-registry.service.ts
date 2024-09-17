@@ -87,7 +87,7 @@ export class DepositRegistryService {
       initialCache,
       finalizedBlockNumber,
     );
-    // TODO: We can delete the cache if the node starts giving earlier blocks, but this functionality was not available in the earlier version and it is not known how the system will behave
+
     if (!isCacheValid) return;
 
     let lastIndexedEvent: VerifiedDepositEvent | undefined = undefined;
