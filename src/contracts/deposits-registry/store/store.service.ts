@@ -140,7 +140,7 @@ export class DepositsRegistryStoreService {
     const upperBoundKey = this.generateDepositKey(depositCount);
 
     // Initialize the iterator starting from the upper boundary key
-    const stream = this.db.iterator({ gte: upperBoundKey });
+    const stream = this.db.iterator({ gt: upperBoundKey, lte: 'deposit:\xFF' });
 
     // Initialize an array to hold batch operations
     const ops: { type: 'del'; key: string }[] = [];
