@@ -112,7 +112,34 @@ export class DepositIntegrityCheckerService {
     eventsCache: VerifiedDepositEvent[],
   ) {
     for (const [index, event] of eventsCache.entries()) {
-      tree.insert(event.depositDataRoot);
+      const insertionIsMade = tree.insert(
+        event.depositDataRoot,
+        BigInt(event.depositCount),
+      );
+
+      if (!insertionIsMade) {
+        const {
+          depositCount,
+          depositDataRoot,
+          index: eventIndex,
+          blockHash,
+          blockNumber,
+        } = event;
+
+        this.logger.warn(
+          'Problem found while forming deposit tree with event',
+          {
+            depositCount,
+            depositDataRoot,
+            blockHash,
+            blockNumber,
+            eventIndex,
+            depositCountInTree: tree.nodeCount,
+          },
+        );
+
+        throw new Error('Problem found while forming deposit tree with event');
+      }
 
       if (index % DEPOSIT_TREE_STEP_SYNC === 0) {
         await new Promise((res) => setTimeout(res, 1));

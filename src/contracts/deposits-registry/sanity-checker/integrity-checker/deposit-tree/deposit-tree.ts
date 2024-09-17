@@ -68,12 +68,20 @@ export class DepositTree {
   }
 
   /**
-   * Inserts a new node into the tree using already computed node hash.
-   * @param {Uint8Array} node - The node's hash to be inserted.
+   * Inserts a new node into the tree using an already computed hash. The insertion only proceeds
+   * if the deposit count provided is the next sequential number expected (one more than the current node count).
+   * @param {Uint8Array} node - The hash of the node to be inserted, represented as a Uint8Array.
+   * @param {bigint} depositCount - The sequential count of the deposit event from the blockchain,
+   *                                expected to be one more than the current highest node count.
+   * @returns {boolean} Returns true if the node was successfully inserted, false otherwise.
    */
-  public insert(node: Uint8Array) {
+  public insert(node: Uint8Array, depositCount: bigint): boolean {
+    if (depositCount !== this.nodeCount + 1n) {
+      return false;
+    }
     this.nodeCount++;
     this.formBranch(node, this.nodeCount);
+    return true;
   }
 
   /**
