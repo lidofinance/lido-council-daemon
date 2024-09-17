@@ -10,8 +10,8 @@ const getEventsDepositCount = async (
   dbService: DepositsRegistryStoreService,
 ) => {
   const result = await dbService.getEventsCache();
-  const remainingDeposits = result.data.map((event) => event.depositCount);
-  return remainingDeposits;
+  const expectedDeposits = result.data.map((event) => event.depositCount);
+  return expectedDeposits;
 };
 
 describe('dbService', () => {
@@ -81,11 +81,11 @@ describe('dbService', () => {
 
         await dbService.deleteDepositsGreaterThanNBatch(N);
 
-        const remainingDeposits = await getEventsDepositCount(dbService);
-        expect(remainingDeposits).toEqual(
+        const expectedDeposits = await getEventsDepositCount(dbService);
+        expect(expectedDeposits).toEqual(
           expect.arrayContaining(expectedRemaining),
         );
-        expect(remainingDeposits.length).toBe(expectedRemaining.length);
+        expect(expectedDeposits.length).toBe(expectedRemaining.length);
       },
     );
   });
@@ -123,11 +123,11 @@ describe('dbService', () => {
 
         await dbService.clearFromLastValidEvent();
 
-        const remainingDeposits = await getEventsDepositCount(dbService);
-        expect(remainingDeposits).toEqual(
+        const expectedDeposits = await getEventsDepositCount(dbService);
+        expect(expectedDeposits).toEqual(
           expect.arrayContaining(expectedRemaining),
         );
-        expect(remainingDeposits.length).toBe(expectedRemaining.length);
+        expect(expectedDeposits.length).toBe(expectedRemaining.length);
       },
     );
   });
