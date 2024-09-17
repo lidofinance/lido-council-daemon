@@ -261,13 +261,9 @@ export class SigningKeysRegistryService {
     );
 
     if (!isCacheValid) {
-      return {
-        events: cachedEvents.data,
-        startBlock: cachedEvents.headers.startBlock,
-        endBlock: cachedEvents.headers.endBlock,
-        stakingModulesAddresses: cachedEvents.headers.stakingModulesAddresses,
-        isValid: false,
-      };
+      throw new Error(
+        `Signing key events cache is newer than the current block: ${blockNumber}`,
+      );
     }
 
     const firstNotCachedBlock = cachedEvents.headers.endBlock + 1;
@@ -286,6 +282,10 @@ export class SigningKeysRegistryService {
       blockNumber,
       blockHash,
     );
+
+    if (!isValid) {
+      throw new Error(`Reorganization found on block ${blockNumber}`);
+    }
 
     this.logger.debug?.('Fresh signing key add events are fetched', {
       events: freshEvents.length,
@@ -314,7 +314,6 @@ export class SigningKeysRegistryService {
       stakingModulesAddresses: cachedEvents.headers.stakingModulesAddresses,
       startBlock: cachedEvents.headers.startBlock,
       endBlock,
-      isValid,
     };
   }
 

@@ -189,19 +189,7 @@ export class KeysDuplicationCheckerService {
     uniqueOperatorIdentifiers: string[],
     blockData: BlockData,
   ) {
-    const { events, isValid } = await this.fetchSigningKeyEvents(
-      key,
-      blockData,
-    );
-
-    if (!isValid) {
-      this.logger.error('Signing keys events are not valid on the block', {
-        currentBlockNumber: blockData.blockNumber,
-        currentBlockHash: blockData.blockHash,
-      });
-      // Return the entire list of duplicates as unresolved
-      return { duplicateKeys: [], unresolvedKeys: suspectedDuplicateKeys };
-    }
+    const { events } = await this.fetchSigningKeyEvents(key, blockData);
 
     const operatorsWithoutEvents = this.getOperatorsWithoutEvents(
       uniqueOperatorIdentifiers,
