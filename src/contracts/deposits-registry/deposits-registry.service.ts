@@ -87,7 +87,7 @@ export class DepositRegistryService {
       initialCache,
       finalizedBlockNumber,
     );
-
+    // TODO: We can delete the cache if the node starts giving earlier blocks, but this functionality was not available in the earlier version and it is not known how the system will behave
     if (!isCacheValid) return;
 
     let lastIndexedEvent: VerifiedDepositEvent | undefined = undefined;
@@ -159,6 +159,10 @@ export class DepositRegistryService {
         finalizedBlock,
         finalizedBlockHash,
       });
+
+      // Delete invalid cache only after full synchronization due to:
+      // - we cannot check root at arbitrary times, only if the backlog is less than 120 blocks
+      await this.store.clearFromLastValidEvent();
     }
 
     this.logger.log('Deposit events cache is updated', {
@@ -184,12 +188,9 @@ export class DepositRegistryService {
     );
 
     if (!isCacheValid) {
-      return {
-        events: cachedEvents.data,
-        startBlock: cachedEvents.headers.startBlock,
-        endBlock: cachedEvents.headers.endBlock,
-        isValid: false,
-      };
+      throw new Error(
+        `Deposit events cache is newer than the current block ${blockNumber}`,
+      );
     }
 
     const firstNotCachedBlock = cachedEvents.headers.endBlock + 1;
@@ -219,6 +220,8 @@ export class DepositRegistryService {
           : '',
         lastValidEventDepositCount: lastValidEvent?.depositCount,
       });
+
+      throw new Error(`Integrity check failed on block ${blockNumber}`);
     }
 
     this.logger.debug?.('Fresh deposit events are fetched', {
@@ -235,7 +238,6 @@ export class DepositRegistryService {
       events: mergedEvents,
       startBlock: cachedEvents.headers.startBlock,
       endBlock,
-      isValid,
     };
   }
 

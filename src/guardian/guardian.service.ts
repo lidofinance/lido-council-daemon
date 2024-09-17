@@ -348,7 +348,6 @@ export class GuardianService implements OnModuleInit {
             stakingModuleData,
             blockData.theftHappened,
             blockData.alreadyPausedDeposits,
-            blockData.depositedEvents.isValid,
             stakingModuleData.stakingModuleId,
           )
         ) {
@@ -367,7 +366,6 @@ export class GuardianService implements OnModuleInit {
     stakingModuleData: StakingModuleData,
     theftHappened: boolean,
     alreadyPausedDeposits: boolean,
-    isDepositsCacheValid: boolean,
     stakingModuleId: number,
   ): boolean {
     const keysForUnvetting = stakingModuleData.invalidKeys.concat(
@@ -381,8 +379,7 @@ export class GuardianService implements OnModuleInit {
       stakingModuleData.unresolvedDuplicatedKeys.length > 0 ||
       alreadyPausedDeposits ||
       theftHappened ||
-      stakingModuleData.isModuleDepositsPaused ||
-      !isDepositsCacheValid;
+      stakingModuleData.isModuleDepositsPaused;
 
     if (ignoreDeposits) {
       this.logger.warn('Deposits are not available', {
@@ -391,7 +388,6 @@ export class GuardianService implements OnModuleInit {
         alreadyPausedDeposits,
         theftHappened,
         isModuleDepositsPaused: stakingModuleData.isModuleDepositsPaused,
-        isDepositsCacheValid,
         stakingModuleId,
       });
     }

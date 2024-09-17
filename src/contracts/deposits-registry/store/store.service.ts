@@ -113,6 +113,53 @@ export class DepositsRegistryStoreService {
   }
 
   /**
+   * Clears all deposit records from the database starting from the deposit count of the last valid event.
+   * If no valid event is found, it will clear deposits greater than deposit count zero.
+   * This method leverages the `deleteDepositsGreaterThanNBatch` method for batch deletion.
+   * @returns {Promise<void>} A promise that resolves when all appropriate deposits have been deleted.
+   */
+  public async clearFromLastValidEvent(): Promise<void> {
+    const lastValidEvent = await this.getLastValidEvent();
+
+    // Determine the starting index for deletion based on the last valid event's deposit count
+    const fromIndex = lastValidEvent ? lastValidEvent.depositCount : 0;
+
+    // Delete all deposits from the determined index onwards
+    await this.deleteDepositsGreaterThanNBatch(fromIndex);
+  }
+
+  /**
+   * Deletes all deposit records from the database with keys greater than a specified number.
+   * @param {number} depositCount - The number above which deposit keys will be deleted.
+   * @returns {Promise<void>} A promise that resolves when the operation is complete.
+   */
+  public async deleteDepositsGreaterThanNBatch(
+    depositCount: number,
+  ): Promise<void> {
+    // Generate the upper boundary key for deletion
+    const upperBoundKey = this.generateDepositKey(depositCount);
+
+    // Initialize the iterator starting from the upper boundary key
+    const stream = this.db.iterator({ gte: upperBoundKey });
+
+    // Initialize an array to hold batch operations
+    const ops: { type: 'del'; key: string }[] = [];
+
+    // Populate the batch operations array with delete operations
+    for await (const [key] of stream) {
+      ops.push({
+        type: 'del',
+        key: key,
+      });
+    }
+
+    // Execute the batch operation if there are any operations to perform
+    if (ops.length > 0) {
+      await this.db.batch(ops);
+    }
+  }
+
+  /**
    * Generates a deposit key string based on a given number.
    * The number is checked to ensure it falls within a valid range (from 0 up to MAX_DEPOSIT_COUNT).
    * If the number is out of bounds, an error is thrown.
