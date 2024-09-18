@@ -27,12 +27,12 @@ import { BlockData, StakingModuleData } from './interfaces';
 import { ProviderService } from 'provider';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { MIN_KAPI_VERSION } from './guardian.constants';
-import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
 import { UnvettingService } from './unvetting/unvetting.service';
 import { Meta } from 'keys-api/interfaces/Meta';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { SROperatorListWithModule } from 'keys-api/interfaces/SROperatorListWithModule';
 import { StakingRouterService } from 'contracts/staking-router';
+import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -56,7 +56,7 @@ export class GuardianService implements OnModuleInit {
 
     private providerService: ProviderService,
     private keysApiService: KeysApiService,
-    private signingKeyEventsCacheService: SigningKeyEventsCacheService,
+    private signingKeysRegistryService: SigningKeysRegistryService,
 
     private unvettingService: UnvettingService,
 
@@ -77,8 +77,7 @@ export class GuardianService implements OnModuleInit {
         await Promise.all([
           this.depositService.initialize(),
           this.securityService.initialize({ blockHash }),
-          this.signingKeyEventsCacheService.initialize(
-            block.number,
+          this.signingKeysRegistryService.initialize(
             stakingRouterModuleAddresses,
           ),
         ]);
@@ -105,13 +104,6 @@ export class GuardianService implements OnModuleInit {
             `The KAPI version must be greater than or equal to ${MIN_KAPI_VERSION}`,
           );
         }
-
-        // The event cache is stored with an N block lag to avoid caching data from uncle blocks
-        // so we don't worry about blockHash here
-        // TODO: rewrite signingKeyEventsCacheService
-        await this.signingKeyEventsCacheService.updateEventsCache(
-          stakingRouterModuleAddresses,
-        );
 
         this.subscribeToModulesUpdates();
       } catch (error) {
@@ -289,8 +281,7 @@ export class GuardianService implements OnModuleInit {
       (stakingModule) => stakingModule.stakingModuleAddress,
     );
     // update cache if needs
-    await this.signingKeyEventsCacheService.handleNewBlock(
-      blockData.blockNumber,
+    await this.signingKeysRegistryService.handleNewBlock(
       stakingRouterModuleAddresses,
     );
 

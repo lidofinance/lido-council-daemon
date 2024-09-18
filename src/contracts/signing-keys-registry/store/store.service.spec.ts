@@ -2,9 +2,9 @@ import { Test } from '@nestjs/testing';
 import { MockProviderModule } from 'provider';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
-import { LevelDBModule } from './leveldb.module';
-import { LevelDBService } from './leveldb.service';
-import { cacheMock, eventsMock1, keyMock1 } from './leveldb.fixtures';
+import { SigningKeysStoreModule } from './store.module';
+import { SigningKeysStoreService } from './store.service';
+import { cacheMock, eventsMock1, keyMock1 } from './store.fixtures';
 
 describe('dbService', () => {
   const defaultCacheValue = {
@@ -12,14 +12,14 @@ describe('dbService', () => {
     data: [] as any[],
   };
 
-  let dbService: LevelDBService;
+  let dbService: SigningKeysStoreService;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot(),
         MockProviderModule.forRoot(),
-        LevelDBModule.register(
+        SigningKeysStoreModule.register(
           defaultCacheValue,
           'leveldb-spec',
           'signing-keys-spec',
@@ -28,7 +28,7 @@ describe('dbService', () => {
       ],
     }).compile();
 
-    dbService = moduleRef.get(LevelDBService);
+    dbService = moduleRef.get(SigningKeysStoreService);
     await dbService.initialize();
   });
 

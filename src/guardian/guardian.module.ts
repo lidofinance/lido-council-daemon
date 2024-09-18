@@ -9,7 +9,7 @@ import { StakingModuleGuardModule } from './staking-module-guard';
 import { GuardianMessageModule } from './guardian-message';
 import { GuardianMetricsModule } from './guardian-metrics';
 import { KeysApiModule } from 'keys-api/keys-api.module';
-import { SigningKeyEventsCacheModule } from 'contracts/signing-key-events-cache';
+import { SigningKeysRegistryModule } from 'contracts/signing-keys-registry';
 import { UnvettingModule } from './unvetting/unvetting.module';
 import { StakingModuleDataCollectorModule } from 'staking-module-data-collector';
 import { StakingRouterModule } from 'contracts/staking-router';
@@ -27,7 +27,7 @@ import { StakingRouterModule } from 'contracts/staking-router';
     GuardianMessageModule,
     GuardianMetricsModule,
     KeysApiModule,
-    SigningKeyEventsCacheModule,
+    SigningKeysRegistryModule.register(),
     StakingRouterModule,
   ],
   providers: [GuardianService],

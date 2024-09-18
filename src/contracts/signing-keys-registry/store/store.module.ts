@@ -1,20 +1,20 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { ProviderModule } from 'provider';
-import { DB_DIR, DB_DEFAULT_VALUE, DB_LAYER_DIR } from './leveldb.constants';
-import { LevelDBService } from './leveldb.service';
+import { DB_DIR, DB_DEFAULT_VALUE, DB_LAYER_DIR } from './store.constants';
+import { SigningKeysStoreService } from './store.service';
 
 @Module({})
-export class LevelDBModule {
+export class SigningKeysStoreModule {
   static register(
     defaultValue: unknown,
     cacheDir = 'cache',
     cacheLayerDir = 'add-sign-keys-cache',
   ): DynamicModule {
     return {
-      module: LevelDBModule,
+      module: SigningKeysStoreModule,
       imports: [ProviderModule],
       providers: [
-        LevelDBService,
+        SigningKeysStoreService,
         {
           provide: DB_DIR,
           useValue: cacheDir,
@@ -28,7 +28,7 @@ export class LevelDBModule {
           useValue: cacheLayerDir,
         },
       ],
-      exports: [LevelDBService],
+      exports: [SigningKeysStoreService],
     };
   }
 }

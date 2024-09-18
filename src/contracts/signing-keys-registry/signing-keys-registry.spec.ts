@@ -1,27 +1,30 @@
 import { Test } from '@nestjs/testing';
+import { Block } from '@ethersproject/abstract-provider';
 import { MockProviderModule, ProviderService } from 'provider';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
-import { LevelDBModule, LevelDBService } from './leveldb';
+import { SigningKeysStoreService, SigningKeysStoreModule } from './store';
 import { mockRepository } from 'contracts/repository/repository.mock';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { mockLocator } from 'contracts/repository/locator/locator.mock';
-import { cacheMock, newEvent } from './leveldb/leveldb.fixtures';
-import { SigningKeyEventsCacheModule } from './signing-key-events-cache.module';
-import { SigningKeyEventsCacheService } from './signing-key-events-cache.service';
+import { cacheMock, newEvent } from './store/store.fixtures';
+import { SigningKeysRegistryModule } from './signing-keys-registry.module';
+import { SigningKeysRegistryService } from './signing-keys-registry.service';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { SigningKeysRegistryFetcherService } from './fetcher';
 
-describe('SigningKeyEventsCacheService', () => {
+describe('SigningKeysRegistryService', () => {
   const defaultCacheValue = {
     headers: {},
     data: [] as any[],
   };
 
-  let dbService: LevelDBService;
+  let dbService: SigningKeysStoreService;
   let repositoryService: RepositoryService;
   let locatorService: LocatorService;
-  let signingkeyEventsCacheService: SigningKeyEventsCacheService;
+  let signingKeysRegistryService: SigningKeysRegistryService;
+  let signingKeysFetch: SigningKeysRegistryFetcherService;
   let providerService: ProviderService;
 
   beforeEach(async () => {
@@ -30,20 +33,21 @@ describe('SigningKeyEventsCacheService', () => {
         ConfigModule.forRoot(),
         MockProviderModule.forRoot(),
         RepositoryModule,
-        LevelDBModule.register(
+        SigningKeysStoreModule.register(
           defaultCacheValue,
           'leveldb-spec',
           'signing-keys-spec',
         ),
         LoggerModule,
-        SigningKeyEventsCacheModule,
+        SigningKeysRegistryModule.register('latest'),
       ],
     }).compile();
 
-    dbService = moduleRef.get(LevelDBService);
+    dbService = moduleRef.get(SigningKeysStoreService);
     repositoryService = moduleRef.get(RepositoryService);
     locatorService = moduleRef.get(LocatorService);
-    signingkeyEventsCacheService = moduleRef.get(SigningKeyEventsCacheService);
+    signingKeysRegistryService = moduleRef.get(SigningKeysRegistryService);
+    signingKeysFetch = moduleRef.get(SigningKeysRegistryFetcherService);
     providerService = moduleRef.get(ProviderService);
 
     const loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
@@ -74,7 +78,7 @@ describe('SigningKeyEventsCacheService', () => {
     const endBlock = newEvent.blockNumber + 2000; // (10 - (newEvent.blockNumber % 10));
 
     jest
-      .spyOn(signingkeyEventsCacheService, 'fetchEventsFallOver')
+      .spyOn(signingKeysFetch, 'fetchEventsFallOver')
       .mockImplementation(async () => {
         return {
           events: [...cacheMock.data, newEvent],
@@ -87,21 +91,19 @@ describe('SigningKeyEventsCacheService', () => {
         };
       });
 
-    jest
-      .spyOn(providerService, 'getBlockNumber')
-      .mockImplementation(async () => {
-        return endBlock;
-      });
+    jest.spyOn(providerService, 'getBlock').mockImplementation(async () => {
+      return { number: endBlock } as Block;
+    });
 
     jest
-      .spyOn(signingkeyEventsCacheService, 'getDeploymentBlockByNetwork')
+      .spyOn(signingKeysRegistryService, 'getDeploymentBlockByNetwork')
       .mockImplementation(async () => {
         return expected.headers.startBlock;
       });
 
     const deleteCache = jest.spyOn(dbService, 'deleteCache');
 
-    await signingkeyEventsCacheService.handleNewBlock(endBlock, [
+    await signingKeysRegistryService.handleNewBlock([
       ...cacheMock.headers.stakingModulesAddresses,
       newEvent.moduleAddress,
     ]);
@@ -162,11 +164,10 @@ describe('SigningKeyEventsCacheService', () => {
       )}, currentModules = ${JSON.stringify(
         testCase.currentModules,
       )}, expected = ${testCase.expected}`, () => {
-        const result =
-          signingkeyEventsCacheService.wasStakingModulesListUpdated(
-            testCase.previousModules,
-            testCase.currentModules,
-          );
+        const result = signingKeysRegistryService.wasStakingModulesListUpdated(
+          testCase.previousModules,
+          testCase.currentModules,
+        );
 
         expect(result).toEqual(testCase.expected);
       });
