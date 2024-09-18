@@ -174,7 +174,6 @@ describe('ganache e2e tests', () => {
         },
       });
 
-      // const { depositData: depositData } = signDeposit(pk, sk, LIDO_WC);
       const walletAddress = await getWalletAddress();
 
       const keyWithWrongSign = {
