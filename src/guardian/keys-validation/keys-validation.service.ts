@@ -1,8 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import {
   KeyValidatorInterface,
   bufferFromHexString,
-  Pubkey,
   WithdrawalCredentialsBuffer,
   Key,
 } from '@lido-nestjs/key-validation';
@@ -11,10 +10,9 @@ import { GENESIS_FORK_VERSION_BY_CHAIN_ID } from 'bls/bls.constants';
 import { LRUCache } from 'lru-cache';
 import { DEPOSIT_DATA_LRU_CACHE_SIZE } from './constants';
 import { ProviderService } from 'provider';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
-type DepositData = {
-  key: Pubkey;
-  depositSignature: string;
+type DepositKey = RegistryKey & {
   withdrawalCredentials: WithdrawalCredentialsBuffer;
   genesisForkVersion: Buffer;
 };
@@ -26,6 +24,7 @@ export class KeysValidationService {
   constructor(
     private readonly keyValidator: KeyValidatorInterface,
     private readonly provider: ProviderService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
   ) {
     this.depositDataCache = new LRUCache({ max: DEPOSIT_DATA_LRU_CACHE_SIZE });
   }
@@ -44,29 +43,45 @@ export class KeysValidationService {
     );
     const genesisForkVersion: Uint8Array = await this.forkVersion();
     const genesisForkVersionBuffer = Buffer.from(genesisForkVersion.buffer);
-    const depositDataList = this.createDepositDataList(
-      keys,
-      withdrawalCredentialsBuffer,
-      genesisForkVersionBuffer,
-    );
-    return await this.findInvalidKeys(keys, depositDataList);
+
+    const { cachedInvalidKeyList, uncachedDepositKeyList } =
+      this.partitionCachedData(
+        keys,
+        withdrawalCredentialsBuffer,
+        genesisForkVersionBuffer,
+      );
+
+    this.logger.log('Validation status of deposit keys:', {
+      cachedInvalidKeyCount: cachedInvalidKeyList.length,
+      keysNeedingValidationCount: uncachedDepositKeyList.length,
+      totalKeysCount: keys.length,
+    });
+
+    const validatedDepositKeyList: [DepositKey & Key, boolean][] =
+      await this.keyValidator.validateKeys<DepositKey>(uncachedDepositKeyList);
+
+    this.updateCache(validatedDepositKeyList);
+
+    const invalidKeys = this.filterInvalidKeys(validatedDepositKeyList);
+
+    return cachedInvalidKeyList.concat(invalidKeys);
   }
 
-  async findInvalidKeys(
-    keys: RegistryKey[],
-    depositDataList: DepositData[],
-  ): Promise<RegistryKey[]> {
-    const validatedKeys = await this.validateKeys(depositDataList);
-
+  private filterInvalidKeys(
+    validatedKeys: [DepositKey & Key, boolean][],
+  ): RegistryKey[] {
     return validatedKeys.reduce<RegistryKey[]>(
       (invalidKeys, [data, isValid]) => {
         if (!isValid) {
-          const matchingInvalidKeys = keys.filter(
-            (key) =>
-              key.key === data.key &&
-              key.depositSignature === data.depositSignature,
-          );
-          invalidKeys.push(...matchingInvalidKeys);
+          invalidKeys.push({
+            key: data.key,
+            depositSignature: data.depositSignature,
+            operatorIndex: data.operatorIndex,
+            used: data.used,
+            index: data.index,
+            moduleAddress: data.moduleAddress,
+            vetted: data.vetted,
+          });
         }
         return invalidKeys;
       },
@@ -74,55 +89,47 @@ export class KeysValidationService {
     );
   }
 
-  /*
-   * Validate data with use of cache
-   */
-  public async validateKeys(
-    depositDataList: DepositData[],
-  ): Promise<[Key & DepositData, boolean][]> {
-    const { cachedDepositData, uncachedDepositData } =
-      this.partitionCachedData(depositDataList);
-
-    const validatedDepositData: [Key & DepositData, boolean][] =
-      await this.keyValidator.validateKeys(uncachedDepositData);
-
-    this.updateCache(validatedDepositData);
-
-    return [...cachedDepositData, ...validatedDepositData];
-  }
-
   /**
    * Partition the deposit data into cached invalid data and uncached data.
    * @param depositDataList List of deposit data to check against the cache
    * @returns An object containing cached invalid data and uncached data
    */
-  private partitionCachedData(depositDataList: DepositData[]): {
-    cachedDepositData: [DepositData, boolean][];
-    uncachedDepositData: DepositData[];
+  private partitionCachedData(
+    keys: RegistryKey[],
+    withdrawalCredentialsBuffer: WithdrawalCredentialsBuffer,
+    genesisForkVersionBuffer: Buffer,
+  ): {
+    cachedInvalidKeyList: RegistryKey[];
+    uncachedDepositKeyList: DepositKey[];
   } {
-    return depositDataList.reduce<{
-      cachedDepositData: [DepositData, boolean][];
-      uncachedDepositData: DepositData[];
+    return keys.reduce<{
+      cachedInvalidKeyList: RegistryKey[];
+      uncachedDepositKeyList: DepositKey[];
     }>(
-      (acc, depositData) => {
-        const cacheResult = this.getCachedDepositData(depositData);
+      (acc, key) => {
+        const depositKey = {
+          ...key,
+          withdrawalCredentials: withdrawalCredentialsBuffer,
+          genesisForkVersion: genesisForkVersionBuffer,
+        };
+        const cacheResult = this.getCachedDepositData(depositKey);
 
-        if (cacheResult === false || cacheResult === true) {
-          acc.cachedDepositData.push([depositData, cacheResult]);
+        if (cacheResult === false) {
+          acc.cachedInvalidKeyList.push(key);
         }
 
         if (cacheResult === undefined) {
-          acc.uncachedDepositData.push(depositData);
+          acc.uncachedDepositKeyList.push(depositKey);
         }
 
         return acc;
       },
-      { cachedDepositData: [], uncachedDepositData: [] },
+      { cachedInvalidKeyList: [], uncachedDepositKeyList: [] },
     );
   }
 
-  private getCachedDepositData(depositData: DepositData): boolean | undefined {
-    return this.depositDataCache.get(this.serializeDepositData(depositData));
+  private getCachedDepositData(depositKey: DepositKey): boolean | undefined {
+    return this.depositDataCache.get(this.serializeDepositData(depositKey));
   }
 
   private async forkVersion(): Promise<Uint8Array> {
@@ -136,7 +143,7 @@ export class KeysValidationService {
     return forkVersion;
   }
 
-  private async updateCache(validatedKeys: [Key & DepositData, boolean][]) {
+  private async updateCache(validatedKeys: [Key & DepositKey, boolean][]) {
     validatedKeys.forEach(([depositData, isValid]) =>
       this.depositDataCache.set(
         this.serializeDepositData(depositData),
@@ -145,24 +152,12 @@ export class KeysValidationService {
     );
   }
 
-  private serializeDepositData(depositData: DepositData): string {
+  private serializeDepositData(depositKey: DepositKey): string {
     return JSON.stringify({
-      ...depositData,
-      withdrawalCredentials: depositData.withdrawalCredentials.toString('hex'),
-      genesisForkVersion: depositData.genesisForkVersion.toString('hex'),
+      key: depositKey.key,
+      depositSignature: depositKey.depositSignature,
+      withdrawalCredentials: depositKey.withdrawalCredentials.toString('hex'),
+      genesisForkVersion: depositKey.genesisForkVersion.toString('hex'),
     });
-  }
-
-  private createDepositDataList(
-    keys: RegistryKey[],
-    withdrawalCredentialsBuffer: WithdrawalCredentialsBuffer,
-    genesisForkVersionBuffer: Buffer,
-  ): DepositData[] {
-    return keys.map((key) => ({
-      key: key.key,
-      depositSignature: key.depositSignature,
-      withdrawalCredentials: withdrawalCredentialsBuffer,
-      genesisForkVersion: genesisForkVersionBuffer,
-    }));
   }
 }

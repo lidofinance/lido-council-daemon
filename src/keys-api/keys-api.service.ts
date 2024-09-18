@@ -7,6 +7,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Configuration } from 'common/config';
 import { GroupedByModuleOperatorListResponse } from './interfaces/GroupedByModuleOperatorListResponse';
 import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
+import { SRModuleListResponse } from './interfaces/SRModuleListResponse';
 
 @Injectable()
 export class KeysApiService {
@@ -16,6 +17,13 @@ export class KeysApiService {
     protected readonly fetchService: FetchService,
   ) {}
 
+  private getBaseUrl() {
+    const baseUrl =
+      this.config.KEYS_API_URL ||
+      `${this.config.KEYS_API_HOST}:${this.config.KEYS_API_PORT}`;
+    return baseUrl;
+  }
+
   protected async fetch<Response>(url: string, requestInit?: RequestInit) {
     const controller = new AbortController();
     const { signal } = controller;
@@ -24,8 +32,7 @@ export class KeysApiService {
       controller.abort();
     }, FETCH_REQUEST_TIMEOUT);
 
-    const baseUrl = `${this.config.KEYS_API_HOST}:${this.config.KEYS_API_PORT}`;
-
+    const baseUrl = this.getBaseUrl();
     try {
       const res: Response = await this.fetchService.fetchJson(
         `${baseUrl}${url}`,
@@ -34,9 +41,10 @@ export class KeysApiService {
           ...requestInit,
         },
       );
+
       clearTimeout(timer);
       return res;
-    } catch (error) {
+    } catch (error: any) {
       clearTimeout(timer);
       throw error;
     }
@@ -77,6 +85,11 @@ export class KeysApiService {
    */
   public async getKeys() {
     const result = await this.fetch<KeyListResponse>(`/v1/keys`);
+    return result;
+  }
+
+  public async getModules() {
+    const result = await this.fetch<SRModuleListResponse>(`/v1/modules`);
     return result;
   }
 

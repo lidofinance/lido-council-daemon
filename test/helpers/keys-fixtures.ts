@@ -8,6 +8,7 @@ export const mockKey = {
   used: false,
   index: 0,
   moduleAddress: NOP_REGISTRY,
+  vetted: true,
 };
 
 export const mockKeyEvent = {
@@ -27,4 +28,5 @@ export const mockKey2 = {
   used: true,
   moduleAddress: NOP_REGISTRY,
   index: 1,
+  vetted: true,
 };

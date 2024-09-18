@@ -1,6 +1,7 @@
 import { Transform } from 'class-transformer';
 import {
   IsIn,
+  IsInstance,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -12,8 +13,8 @@ import { Injectable } from '@nestjs/common';
 import { Configuration, PubsubService } from './configuration';
 import { SASLMechanism } from '../../transport';
 import { implementationOf } from '../di/decorators/implementationOf';
-import { ethers } from 'ethers';
-import { BadConfigException } from './exceptions';
+import { ethers, BigNumber } from 'ethers';
+import { TransformToWei } from 'common/decorators/transform-to-wei';
 
 const RABBITMQ = 'rabbitmq';
 const KAFKA = 'kafka';
@@ -127,49 +128,36 @@ export class InMemoryConfiguration implements Configuration {
   @Transform(({ value }) => parseInt(value, 10), { toClassOnly: true })
   REGISTRY_KEYS_QUERY_CONCURRENCY = 5;
 
+  @ValidateIf((conf) => !conf.KEYS_API_URL)
   @IsNotEmpty()
   @IsNumber()
   @Min(1)
   @Transform(({ value }) => parseInt(value, 10), { toClassOnly: true })
-  KEYS_API_PORT = 3001;
+  KEYS_API_PORT = 0;
 
-  @IsOptional()
+  @ValidateIf((conf) => !conf.KEYS_API_URL)
+  @IsNotEmpty()
   @IsString()
-  KEYS_API_HOST = 'http://localhost';
+  KEYS_API_HOST = '';
+
+  @ValidateIf((conf) => {
+    return !conf.KEYS_API_PORT && !conf.KEYS_API_HOST;
+  })
+  @IsNotEmpty()
+  @IsString()
+  KEYS_API_URL = '';
 
   @IsOptional()
   @IsString()
   LOCATOR_DEVNET_ADDRESS = '';
 
   @IsOptional()
-  @Transform(
-    ({ value }) => {
-      try {
-        const weiValue = ethers.utils.parseEther(value || '0.5');
-        return weiValue;
-      } catch (error) {
-        throw new BadConfigException(
-          `Invalid WALLET_MIN_BALANCE value: ${value}. Please ensure it's a valid Ether amount that can be converted to Wei.`,
-        );
-      }
-    },
-    { toClassOnly: true },
-  )
-  WALLET_MIN_BALANCE: ethers.BigNumber = ethers.utils.parseEther('0.5');
+  @TransformToWei()
+  @IsInstance(BigNumber)
+  WALLET_MIN_BALANCE: BigNumber = ethers.utils.parseEther('0.5');
 
   @IsOptional()
-  @Transform(
-    ({ value }) => {
-      try {
-        const weiValue = ethers.utils.parseEther(value || '0.2');
-        return weiValue;
-      } catch (error) {
-        throw new BadConfigException(
-          `Invalid WALLET_CRITICAL_BALANCE value: ${value}. Please ensure it's a valid Ether amount that can be converted to Wei.`,
-        );
-      }
-    },
-    { toClassOnly: true },
-  )
-  WALLET_CRITICAL_BALANCE: ethers.BigNumber = ethers.utils.parseEther('0.2');
+  @TransformToWei()
+  @IsInstance(BigNumber)
+  WALLET_CRITICAL_BALANCE: BigNumber = ethers.utils.parseEther('0.2');
 }

@@ -2,16 +2,16 @@ import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
-import { DepositModule } from 'contracts/deposit';
-import { LidoModule } from 'contracts/lido';
+import { DepositsRegistryModule } from 'contracts/deposits-registry';
 import { RepositoryModule } from 'contracts/repository';
 import { SecurityModule } from 'contracts/security';
 import { GuardianModule } from 'guardian';
 import { KeysApiModule } from 'keys-api/keys-api.module';
 import { GanacheProviderModule } from 'provider';
 import { WalletModule } from 'wallet';
-import { LevelDBService } from 'contracts/deposit/leveldb';
-import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
+import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
+import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 export const setupTestingModule = async () => {
   const moduleRef = await Test.createTestingModule({
@@ -24,17 +24,23 @@ export const setupTestingModule = async () => {
       RepositoryModule,
       WalletModule,
       KeysApiModule,
-      LidoModule,
-      DepositModule,
+      DepositsRegistryModule.register('latest'),
       SecurityModule,
     ],
   }).compile();
+
+  const loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
+
+  jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
+  jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
+  jest.spyOn(loggerService, 'debug').mockImplementation(() => undefined);
+  jest.spyOn(loggerService, 'error').mockImplementation(() => undefined);
 
   return moduleRef;
 };
 
 export const initLevelDB = async (
-  levelDBService: LevelDBService,
+  levelDBService: DepositsRegistryStoreService,
   signKeyLevelDBService: SignKeyLevelDBService,
 ) => {
   await levelDBService.initialize();
@@ -43,7 +49,7 @@ export const initLevelDB = async (
 
 export const closeServer = async (
   server,
-  levelDBService: LevelDBService,
+  levelDBService: DepositsRegistryStoreService,
   signKeyLevelDBService: SignKeyLevelDBService,
 ) => {
   await server.close();
@@ -54,7 +60,7 @@ export const closeServer = async (
 };
 
 export const closeLevelDB = async (
-  levelDBService: LevelDBService,
+  levelDBService: DepositsRegistryStoreService,
   signKeyLevelDBService: SignKeyLevelDBService,
 ) => {
   await levelDBService.deleteCache();

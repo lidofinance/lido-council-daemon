@@ -10,6 +10,7 @@ export const validKeys: RegistryKey[] = [
     used: false,
     moduleAddress: '0x9D4AF1Ee19Dad8857db3a45B0374c81c8A1C6320',
     index: 51,
+    vetted: true,
   },
   {
     key: '0xb3c90525010a5710d43acbea46047fc37ed55306d032527fa15dd7e8cd8a9a5fa490347cc5fce59936fb8300683cd9f3',
@@ -19,6 +20,7 @@ export const validKeys: RegistryKey[] = [
     used: false,
     moduleAddress: '0x9D4AF1Ee19Dad8857db3a45B0374c81c8A1C6320',
     index: 52,
+    vetted: true,
   },
 ];
 export const invalidKey1: RegistryKey = {
@@ -29,6 +31,7 @@ export const invalidKey1: RegistryKey = {
   used: false,
   moduleAddress: '0x11a93807078f8BB880c1BD0ee4C387537de4b4b6',
   index: 5,
+  vetted: true,
 };
 
 export const invalidKey2: RegistryKey = {
@@ -39,6 +42,7 @@ export const invalidKey2: RegistryKey = {
   used: false,
   moduleAddress: '0x9D4AF1Ee19Dad8857db3a45B0374c81c8A1C6320',
   index: 54,
+  vetted: true,
 };
 
 export const invalidKey2GoodSign =

@@ -54,8 +54,8 @@ export class ProviderService {
   /**
    * Returns current block
    */
-  public async getBlock(): Promise<Block> {
-    return await this.provider.getBlock('latest');
+  public async getBlock(tag: string | number = 'latest'): Promise<Block> {
+    return await this.provider.getBlock(tag);
   }
 
   /**

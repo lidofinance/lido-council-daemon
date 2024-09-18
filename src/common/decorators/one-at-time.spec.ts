@@ -1,8 +1,8 @@
-import { OneAtTime, StakingModuleId } from './one-at-time';
+import { OneAtTime, OneAtTimeCallId } from './one-at-time';
 
 class TestOneAtTime {
   public value;
-  public stakingModuleId = new Map<number, number>();
+  public oneAtTimeCallId = new Map<number, number>();
 
   public executionLog: string[] = [];
 
@@ -20,9 +20,9 @@ class TestOneAtTime {
   }
 
   @OneAtTime(2000)
-  async testStakingModuleId(@StakingModuleId id, value) {
+  async testOneAtTimeCallId(@OneAtTimeCallId id, value) {
     this.executionLog.push(`start-${id}-${value}`);
-    this.stakingModuleId.set(id, value);
+    this.oneAtTimeCallId.set(id, value);
 
     await this.sleep(1000);
     this.executionLog.push(`end-${id}-${value}`);
@@ -50,12 +50,12 @@ it('OneAtTime', async () => {
 it('StakingModuleId', async () => {
   const testOneAtTime = new TestOneAtTime();
 
-  expect(testOneAtTime.stakingModuleId.get(1)).toBeUndefined();
-  expect(testOneAtTime.stakingModuleId.get(2)).toBeUndefined();
+  expect(testOneAtTime.oneAtTimeCallId.get(1)).toBeUndefined();
+  expect(testOneAtTime.oneAtTimeCallId.get(2)).toBeUndefined();
 
-  testOneAtTime.testStakingModuleId(1, 1);
-  testOneAtTime.testStakingModuleId(1, 2);
-  testOneAtTime.testStakingModuleId(2, 2);
+  testOneAtTime.testOneAtTimeCallId(1, 1);
+  testOneAtTime.testOneAtTimeCallId(1, 2);
+  testOneAtTime.testOneAtTimeCallId(2, 2);
 
   await testOneAtTime.sleep(1500);
 
@@ -64,15 +64,15 @@ it('StakingModuleId', async () => {
     expect.arrayContaining(['start-1-1', 'end-1-1', 'start-2-2', 'end-2-2']),
   );
 
-  expect(testOneAtTime.stakingModuleId.get(1)).toEqual(1);
-  expect(testOneAtTime.stakingModuleId.get(2)).toEqual(2);
+  expect(testOneAtTime.oneAtTimeCallId.get(1)).toEqual(1);
+  expect(testOneAtTime.oneAtTimeCallId.get(2)).toEqual(2);
 
   testOneAtTime.executionLog = [];
-  await testOneAtTime.testStakingModuleId(1, 2);
+  await testOneAtTime.testOneAtTimeCallId(1, 2);
 
   expect(testOneAtTime.executionLog.length).toEqual(2);
   expect(testOneAtTime.executionLog).toEqual(
     expect.arrayContaining(['start-1-2', 'end-1-2']),
   );
-  expect(testOneAtTime.stakingModuleId.get(1)).toEqual(2);
+  expect(testOneAtTime.oneAtTimeCallId.get(1)).toEqual(2);
 });
