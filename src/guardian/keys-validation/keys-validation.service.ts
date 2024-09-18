@@ -80,6 +80,7 @@ export class KeysValidationService {
             used: data.used,
             index: data.index,
             moduleAddress: data.moduleAddress,
+            vetted: data.vetted,
           });
         }
         return invalidKeys;

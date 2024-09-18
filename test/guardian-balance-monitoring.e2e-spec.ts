@@ -7,10 +7,11 @@ import { Server } from 'ganache';
 
 // Helper Functions and Mocks
 import {
-  mockedDvtOperators,
-  mockOperator1,
-  mockOperator2,
-  setupMockModules,
+  keysApiMockGetAllKeys,
+  keysApiMockGetModules,
+  mockedModuleCurated,
+  mockedModuleDvt,
+  mockMeta,
 } from './helpers';
 
 import {
@@ -47,6 +48,8 @@ import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sani
 // Test Data
 import { mockKey, mockKey2 } from './helpers/keys-fixtures';
 import { addGuardians, setGuardianBalance } from './helpers/dsm';
+import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
+import { ethers } from 'ethers';
 
 describe('Guardian balance monitoring test', () => {
   let server: Server<'ethereum'>;
@@ -137,27 +140,34 @@ describe('Guardian balance monitoring test', () => {
     });
   };
 
-  const setupKAPIWithInvalidSignProblem = (block) => {
-    const norKeyWithWrongSign = {
+  const setupKAPIWithInvalidSignProblem = (block: ethers.providers.Block) => {
+    // keys fixtures
+    const norKeyWithWrongSign: RegistryKey = {
       ...mockKey,
       depositSignature:
         '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
+      vetted: true,
     };
-
-    const dvtKey = {
+    const dvtKey: RegistryKey = {
       ...mockKey2,
+      index: 1,
       used: false,
-      operatorIndex: mockedDvtOperators[0].index,
+      operatorIndex: 0,
       moduleAddress: SIMPLE_DVT,
+      vetted: true,
     };
+    const dvtKey2 = { ...dvtKey, index: 2 };
 
-    setupMockModules(
-      block,
-      keysApiService,
-      [mockOperator1, mockOperator2],
-      mockedDvtOperators,
-      [norKeyWithWrongSign, dvtKey, { ...dvtKey, index: dvtKey.index + 1 }],
-    );
+    // setup elBlockSnapshot
+    const meta = mockMeta(block, block.hash);
+
+    // setup /v1/modules
+    const stakingModules = [mockedModuleCurated, mockedModuleDvt];
+    keysApiMockGetModules(keysApiService, stakingModules, meta);
+
+    // setup /v1/keys
+    const keys = [norKeyWithWrongSign, dvtKey, dvtKey2];
+    keysApiMockGetAllKeys(keysApiService, keys, meta);
   };
 
   async function waitForProcessing() {

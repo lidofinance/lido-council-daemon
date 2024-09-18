@@ -1,18 +1,17 @@
 import { Injectable, LoggerService, Inject } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { StakingModuleData, BlockData } from 'guardian';
-import { getVettedUnusedKeys } from './vetted-keys';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
-import { Meta } from 'keys-api/interfaces/Meta';
-import { SROperatorListWithModule } from 'keys-api/interfaces/SROperatorListWithModule';
 import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 import { KeysDuplicationCheckerService } from 'guardian/duplicates';
 import { GuardianMetricsService } from 'guardian/guardian-metrics';
 import { StakingRouterService } from 'contracts/staking-router';
+import { SRModule } from 'keys-api/interfaces';
+import { ELBlockSnapshot } from 'keys-api/interfaces/ELBlockSnapshot';
 
 type State = {
-  operatorsByModules: SROperatorListWithModule[];
-  meta: Meta;
+  stakingModules: SRModule[];
+  meta: ELBlockSnapshot;
   lidoKeys: RegistryKey[];
 };
 
@@ -30,40 +29,29 @@ export class StakingModuleDataCollectorService {
    * Collects basic data about the staking module, including activity status, vetted unused keys list, ID, address, and nonce.
    */
   public async collectStakingModuleData({
-    operatorsByModules,
+    stakingModules,
     meta,
     lidoKeys,
   }: State): Promise<StakingModuleData[]> {
     return await Promise.all(
-      operatorsByModules.map(async ({ operators, module: stakingModule }) => {
-        const unusedKeys = lidoKeys.filter(
-          (key) =>
-            !key.used &&
-            key.moduleAddress === stakingModule.stakingModuleAddress,
-        );
-
-        const moduleVettedUnusedKeys = getVettedUnusedKeys(
-          operators,
-          unusedKeys,
-        );
-
-        // check pause
-        const isModuleDepositsPaused =
-          await this.stakingRouterService.isModuleDepositsPaused(
-            stakingModule.id,
-            {
-              blockHash: meta.elBlockSnapshot.blockHash,
-            },
-          );
-
+      stakingModules.map(async (stakingModule) => {
         return {
-          isModuleDepositsPaused,
+          isModuleDepositsPaused:
+            await this.stakingRouterService.isModuleDepositsPaused(
+              stakingModule.id,
+              {
+                blockHash: meta.blockHash,
+              },
+            ),
           nonce: stakingModule.nonce,
           stakingModuleId: stakingModule.id,
           stakingModuleAddress: stakingModule.stakingModuleAddress,
-          blockHash: meta.elBlockSnapshot.blockHash,
-          lastChangedBlockHash: meta.elBlockSnapshot.lastChangedBlockHash,
-          vettedUnusedKeys: moduleVettedUnusedKeys,
+          blockHash: meta.blockHash,
+          lastChangedBlockHash: meta.lastChangedBlockHash,
+          vettedUnusedKeys: this.getModuleVettedUnusedKeys(
+            stakingModule.stakingModuleAddress,
+            lidoKeys,
+          ),
           duplicatedKeys: [],
           invalidKeys: [],
           frontRunKeys: [],
@@ -89,80 +77,118 @@ export class StakingModuleDataCollectorService {
 
     await Promise.all(
       stakingModulesData.map(async (stakingModuleData) => {
+        // identify keys that were front-run withing vetted unused keys
         stakingModuleData.frontRunKeys =
           this.stakingModuleGuardService.getFrontRunAttempts(
             stakingModuleData,
             blockData,
           );
+        // identify keys with invalid signatures within vetted unused keys
         stakingModuleData.invalidKeys =
           await this.stakingModuleGuardService.getInvalidKeys(
             stakingModuleData,
             blockData,
           );
-        const allDuplicatedKeys = this.getModuleKeys(
+
+        // Filter all keys for the module to get the total number of duplicated keys,
+        // for Prometheus metrics
+        const allModuleDuplicatedKeys = this.getModuleKeys(
           stakingModuleData.stakingModuleAddress,
           duplicates,
         );
-        stakingModuleData.duplicatedKeys = this.getVettedUnusedKeys(
-          stakingModuleData.vettedUnusedKeys,
-          allDuplicatedKeys,
+        // Filter vetted and unused duplicated keys for the module
+        stakingModuleData.duplicatedKeys = this.getModuleVettedUnusedKeys(
+          stakingModuleData.stakingModuleAddress,
+          duplicates,
         );
 
-        const allUnresolved = this.getModuleKeys(
+        // Filter all unresolved keys (keys without a SigningKeyAdded event) for the module,
+        // including both vetted and unvetted keys, to show the total count of unresolved keys
+        // for Prometheus metrics
+        const allModuleUnresolved = this.getModuleKeys(
           stakingModuleData.stakingModuleAddress,
           unresolved,
         );
+        // Filter vetted and unused duplicated keys for the module
+        stakingModuleData.unresolvedDuplicatedKeys =
+          this.getModuleVettedUnusedKeys(
+            stakingModuleData.stakingModuleAddress,
+            unresolved,
+          );
 
-        stakingModuleData.unresolvedDuplicatedKeys = this.getVettedUnusedKeys(
-          stakingModuleData.vettedUnusedKeys,
-          allUnresolved,
+        this.collectModuleMetric(
+          stakingModuleData,
+          allModuleUnresolved,
+          stakingModuleData.unresolvedDuplicatedKeys,
+          allModuleDuplicatedKeys,
+          stakingModuleData.duplicatedKeys,
         );
 
-        this.guardianMetricsService.collectDuplicatedKeysMetrics(
-          stakingModuleData.stakingModuleId,
-          allUnresolved.length,
-          stakingModuleData.unresolvedDuplicatedKeys.length,
-          allDuplicatedKeys.length,
-          stakingModuleData.duplicatedKeys.length,
-        );
-
-        this.guardianMetricsService.collectInvalidKeysMetrics(
-          stakingModuleData.stakingModuleId,
-          stakingModuleData.invalidKeys.length,
-        );
-
-        this.logger.log('Keys check state', {
-          stakingModuleId: stakingModuleData.stakingModuleId,
-          frontRunAttempt: stakingModuleData.frontRunKeys.length,
-          invalid: stakingModuleData.invalidKeys.length,
-          duplicated: stakingModuleData.duplicatedKeys.length,
-          unresolvedDuplicated:
-            stakingModuleData.unresolvedDuplicatedKeys.length,
-          blockNumber: blockData.blockNumber,
-        });
+        this.logKeysCheckState(stakingModuleData);
       }),
     );
+  }
+
+  private collectModuleMetric(
+    stakingModuleData: StakingModuleData,
+    unresolvedKeys: RegistryKey[],
+    vettedUnusedUnresolvedKeys: RegistryKey[],
+    duplicatedKeys: RegistryKey[],
+    vettedUnusedDuplcaitedKeys: RegistryKey[],
+  ) {
+    const { invalidKeys, stakingModuleId } = stakingModuleData;
+
+    // Collect metrics for unresolved and duplicated keys in the staking module:
+    // - Total unresolved keys (keys without a corresponding SigningKeyAdded event)
+    // - Subset of unresolved keys that are vetted and unused
+    // - Total duplicated keys
+    // - Subset of duplicated keys that are vetted and unused
+    this.guardianMetricsService.collectDuplicatedKeysMetrics(
+      stakingModuleId,
+      unresolvedKeys.length,
+      vettedUnusedUnresolvedKeys.length,
+      duplicatedKeys.length,
+      vettedUnusedDuplcaitedKeys.length,
+    );
+
+    // Collect metrics for the total number of vetted unused keys with invalid signatures within the staking module
+    this.guardianMetricsService.collectInvalidKeysMetrics(
+      stakingModuleId,
+      invalidKeys.length,
+    );
+  }
+
+  private logKeysCheckState(stakingModuleData: StakingModuleData) {
+    const {
+      stakingModuleId,
+      blockHash,
+      frontRunKeys,
+      invalidKeys,
+      duplicatedKeys,
+      unresolvedDuplicatedKeys,
+    } = stakingModuleData;
+    this.logger.log('Keys check state', {
+      stakingModuleId: stakingModuleId,
+      frontRunAttempt: frontRunKeys.length,
+      invalid: invalidKeys.length,
+      duplicated: duplicatedKeys.length,
+      unresolvedDuplicated: unresolvedDuplicatedKeys.length,
+      blockHash: blockHash,
+    });
   }
 
   private getModuleKeys(stakingModuleAddress: string, keys: RegistryKey[]) {
     return keys.filter((key) => key.moduleAddress === stakingModuleAddress);
   }
 
-  /**
-   * filter from the list all keys that are not vetted as unused
-   */
-  public getVettedUnusedKeys(
-    vettedUnusedKeys: RegistryKey[],
-    keys: RegistryKey[],
+  private getModuleVettedUnusedKeys(
+    stakingModuleAddress: string,
+    lidoKeys: RegistryKey[],
   ) {
-    const vettedUnused = keys.filter((key) => {
-      const r = vettedUnusedKeys.some(
-        (k) => k.index == key.index && k.operatorIndex == key.operatorIndex,
-      );
-
-      return r;
-    });
-
-    return vettedUnused;
+    const vettedUnusedKeys = lidoKeys.filter(
+      (key) =>
+        !key.used && key.vetted && key.moduleAddress === stakingModuleAddress,
+    );
+    return vettedUnusedKeys;
   }
 }

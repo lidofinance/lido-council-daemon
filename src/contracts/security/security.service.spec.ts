@@ -471,7 +471,6 @@ describe('SecurityService', () => {
   });
 
   describe('messages prefixes', () => {
-    const blockNumber = 10;
     const blockHash = '0x';
 
     beforeEach(async () => {
