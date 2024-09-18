@@ -1,6 +1,10 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
-import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
-import { SigningKeyEvent } from 'contracts/signing-key-events-cache/interfaces/event.interface';
+import {
+  SigningKeyEvent,
+  SigningKeyEventsGroupWithStakingModules,
+} from 'contracts/signing-keys-registry/interfaces/event.interface';
+import { SigningKeysRegistryService } from 'contracts/signing-keys-registry/signing-keys-registry.service';
+
 import { BlockData } from 'guardian/interfaces';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
@@ -12,7 +16,7 @@ const BATCH_SIZE = 10;
 export class KeysDuplicationCheckerService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-    private signingKeyEventsCacheService: SigningKeyEventsCacheService,
+    private signingKeysRegistryService: SigningKeysRegistryService,
   ) {}
 
   /**
@@ -185,7 +189,7 @@ export class KeysDuplicationCheckerService {
     uniqueOperatorIdentifiers: string[],
     blockData: BlockData,
   ) {
-    const events = await this.fetchSigningKeyEvents(key, blockData);
+    const { events } = await this.fetchSigningKeyEvents(key, blockData);
 
     const operatorsWithoutEvents = this.getOperatorsWithoutEvents(
       uniqueOperatorIdentifiers,
@@ -240,14 +244,15 @@ export class KeysDuplicationCheckerService {
   private async fetchSigningKeyEvents(
     key: string,
     blockData: BlockData,
-  ): Promise<SigningKeyEvent[]> {
-    const { events } =
-      await this.signingKeyEventsCacheService.getUpdatedSigningKeyEvents(
+  ): Promise<SigningKeyEventsGroupWithStakingModules> {
+    const eventsGroup =
+      await this.signingKeysRegistryService.getUpdatedSigningKeyEvents(
         key,
         blockData.blockNumber,
         blockData.blockHash,
       );
-    return events;
+
+    return eventsGroup;
   }
 
   private getOperatorsWithoutEvents(

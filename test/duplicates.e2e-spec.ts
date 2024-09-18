@@ -34,16 +34,15 @@ import {
   closeServer,
   initLevelDB,
 } from './helpers/test-setup';
-import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
 import { getWalletAddress } from './helpers/deposit';
+import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
-
 import { ProviderService } from 'provider';
 import { GuardianService } from 'guardian';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { Server } from 'ganache';
 import { GuardianMessageService } from 'guardian/guardian-message';
-import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
+import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
 import { addGuardians } from './helpers/dsm';
 import { makeServer } from './server';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
@@ -59,7 +58,7 @@ describe('ganache e2e tests', () => {
   let sendPauseMessage: jest.SpyInstance;
   let levelDBService: DepositsRegistryStoreService;
   let signKeyLevelDBService: SignKeyLevelDBService;
-  let signingKeyEventsCacheService: SigningKeyEventsCacheService;
+  let signingKeysRegistryService: SigningKeysRegistryService;
   let guardianMessageService: GuardianMessageService;
   let depositIntegrityCheckerService: DepositIntegrityCheckerService;
 
@@ -89,6 +88,9 @@ describe('ganache e2e tests', () => {
 
     // deposit cache mocks
     jest
+      .spyOn(depositIntegrityCheckerService, 'putEventsToTree')
+      .mockImplementation(() => Promise.resolve());
+    jest
       .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
       .mockImplementation(() => Promise.resolve(true));
     jest
@@ -112,7 +114,7 @@ describe('ganache e2e tests', () => {
     await blsService.onModuleInit();
 
     // keys events service
-    signingKeyEventsCacheService = moduleRef.get(SigningKeyEventsCacheService);
+    signingKeysRegistryService = moduleRef.get(SigningKeysRegistryService);
 
     providerService = moduleRef.get(ProviderService);
 
@@ -152,7 +154,7 @@ describe('ganache e2e tests', () => {
         },
       });
 
-      await signingKeyEventsCacheService.setCachedEvents({
+      await signingKeysRegistryService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -274,7 +276,7 @@ describe('ganache e2e tests', () => {
       // setup /v1/keys
       keysApiMockGetAllKeys(keysApiService, duplicates, meta);
 
-      await signingKeyEventsCacheService.setCachedEvents({
+      await signingKeysRegistryService.setCachedEvents({
         data: [
           mockKeyEvent,
           {
@@ -393,7 +395,7 @@ describe('ganache e2e tests', () => {
       // setup /v1/keys
       keysApiMockGetAllKeys(keysApiService, duplicates, meta);
 
-      await signingKeyEventsCacheService.setCachedEvents({
+      await signingKeysRegistryService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number - 2,
@@ -486,7 +488,7 @@ describe('ganache e2e tests', () => {
     // setup /v1/keys
     keysApiMockGetAllKeys(keysApiService, duplicates, meta);
 
-    await signingKeyEventsCacheService.setCachedEvents({
+    await signingKeysRegistryService.setCachedEvents({
       data: [],
       headers: {
         startBlock: currentBlock.number - 2,

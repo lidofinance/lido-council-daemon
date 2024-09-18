@@ -40,8 +40,8 @@ import { KeysApiService } from 'keys-api/keys-api.service';
 import { ProviderService } from 'provider';
 import { GuardianMessageService } from 'guardian/guardian-message';
 import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
-import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
-import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
+import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
+import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 import { BlsService } from 'bls';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
 
@@ -59,7 +59,7 @@ describe('Guardian balance monitoring test', () => {
   let levelDBService: DepositsRegistryStoreService;
   let signKeyLevelDBService: SignKeyLevelDBService;
   let guardianMessageService: GuardianMessageService;
-  let signingKeyEventsCacheService: SigningKeyEventsCacheService;
+  let signingKeysRegistryService: SigningKeysRegistryService;
   let depositIntegrityCheckerService: DepositIntegrityCheckerService;
   let securityService: SecurityService;
 
@@ -130,7 +130,7 @@ describe('Guardian balance monitoring test', () => {
       },
     });
 
-    await signingKeyEventsCacheService.setCachedEvents({
+    await signingKeysRegistryService.setCachedEvents({
       data: [],
       headers: {
         startBlock: blockNumber,
@@ -206,7 +206,7 @@ describe('Guardian balance monitoring test', () => {
   };
 
   const initializeKeyEventServices = (moduleRef) => {
-    signingKeyEventsCacheService = moduleRef.get(SigningKeyEventsCacheService);
+    signingKeysRegistryService = moduleRef.get(SigningKeysRegistryService);
   };
 
   const initializeProviders = (moduleRef) => {
@@ -247,6 +247,9 @@ describe('Guardian balance monitoring test', () => {
   };
 
   const mockDepositCacheMethods = () => {
+    jest
+      .spyOn(depositIntegrityCheckerService, 'putEventsToTree')
+      .mockImplementation(() => Promise.resolve());
     jest
       .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
       .mockImplementation(() => Promise.resolve(true));

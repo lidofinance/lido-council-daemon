@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LoggerModule } from 'common/logger';
 import {
-  SigningKeyEventsCacheModule,
-  SigningKeyEventsCacheService,
-} from 'contracts/signing-key-events-cache';
+  SigningKeysRegistryModule,
+  SigningKeysRegistryService,
+} from 'contracts/signing-keys-registry';
 import { KeysDuplicationCheckerModule } from './keys-duplication-checker.module';
 import { KeysDuplicationCheckerService } from './keys-duplication-checker.service';
 import { eventMock1, keyMock1, keyMock2 } from './keys.fixtures';
@@ -15,7 +15,7 @@ import { RepositoryModule } from 'contracts/repository';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 describe('KeysDuplicationCheckerService', () => {
   let service: KeysDuplicationCheckerService;
-  const mockSigningKeyEventsCacheService = {
+  const mockSigningKeysRegistryService = {
     getUpdatedSigningKeyEvents: jest.fn(),
   };
 
@@ -30,11 +30,11 @@ describe('KeysDuplicationCheckerService', () => {
         MockProviderModule.forRoot(),
         LoggerModule,
         KeysDuplicationCheckerModule,
-        SigningKeyEventsCacheModule,
+        SigningKeysRegistryModule.register('latest'),
       ],
     })
-      .overrideProvider(SigningKeyEventsCacheService)
-      .useValue(mockSigningKeyEventsCacheService)
+      .overrideProvider(SigningKeysRegistryService)
+      .useValue(mockSigningKeysRegistryService)
       .compile();
 
     service = moduleRef.get<KeysDuplicationCheckerService>(
@@ -138,10 +138,11 @@ describe('KeysDuplicationCheckerService', () => {
             blockNumber: 1,
           };
 
-          mockSigningKeyEventsCacheService.getUpdatedSigningKeyEvents.mockImplementationOnce(
+          mockSigningKeysRegistryService.getUpdatedSigningKeyEvents.mockImplementationOnce(
             async () => {
               return {
                 events: [keyMock1Event],
+                isValid: true,
               };
             },
           );
@@ -180,10 +181,11 @@ describe('KeysDuplicationCheckerService', () => {
             blockNumber: 1,
           };
 
-          mockSigningKeyEventsCacheService.getUpdatedSigningKeyEvents.mockImplementationOnce(
+          mockSigningKeysRegistryService.getUpdatedSigningKeyEvents.mockImplementationOnce(
             async () => {
               return {
                 events: [keyMock1Event, keyMock2Event],
+                isValid: true,
               };
             },
           );
@@ -228,10 +230,11 @@ describe('KeysDuplicationCheckerService', () => {
             blockNumber: 2,
           };
 
-          mockSigningKeyEventsCacheService.getUpdatedSigningKeyEvents.mockImplementationOnce(
+          mockSigningKeysRegistryService.getUpdatedSigningKeyEvents.mockImplementationOnce(
             async () => {
               return {
                 events: [keyMock1Event, keyMock2Event],
+                isValid: true,
               };
             },
           );
@@ -296,10 +299,11 @@ describe('KeysDuplicationCheckerService', () => {
             blockNumber: 1,
           };
 
-          mockSigningKeyEventsCacheService.getUpdatedSigningKeyEvents.mockImplementationOnce(
+          mockSigningKeysRegistryService.getUpdatedSigningKeyEvents.mockImplementationOnce(
             async () => {
               return {
                 events: [keyMock1Event],
+                isValid: true,
               };
             },
           );
@@ -346,10 +350,11 @@ describe('KeysDuplicationCheckerService', () => {
             blockNumber: 1,
           };
 
-          mockSigningKeyEventsCacheService.getUpdatedSigningKeyEvents.mockImplementationOnce(
+          mockSigningKeysRegistryService.getUpdatedSigningKeyEvents.mockImplementationOnce(
             async () => {
               return {
                 events: [keyMock1Event, keyMock2Event],
+                isValid: true,
               };
             },
           );
@@ -398,10 +403,11 @@ describe('KeysDuplicationCheckerService', () => {
             blockNumber: 2,
           };
 
-          mockSigningKeyEventsCacheService.getUpdatedSigningKeyEvents.mockImplementationOnce(
+          mockSigningKeysRegistryService.getUpdatedSigningKeyEvents.mockImplementationOnce(
             async () => {
               return {
                 events: [keyMock1Event, keyMock2Event],
+                isValid: true,
               };
             },
           );

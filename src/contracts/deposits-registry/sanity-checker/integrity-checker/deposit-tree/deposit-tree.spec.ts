@@ -5,7 +5,7 @@ import {
   depositDataRootsFixture10k,
   dataTransformFixtures,
 } from './deposit-tree.fixture';
-
+const MOCK_DEPOSIT_COUNT = 0n;
 describe('DepositTree', () => {
   let depositTree: DepositTree;
 
@@ -23,8 +23,17 @@ describe('DepositTree', () => {
   test('should correctly insert a node and update the tree', () => {
     const initialNodeCount = depositTree.nodeCount;
     const node = new Uint8Array(32).fill(1); // Example node hash
-    depositTree.insert(node);
+    depositTree.insert(node, MOCK_DEPOSIT_COUNT);
     expect(depositTree.nodeCount).toBe(initialNodeCount + 1n);
+  });
+
+  test('should detect problem with deposit count while inserting new node', () => {
+    const initialNodeCount = depositTree.nodeCount;
+    const node = new Uint8Array(32).fill(1);
+    const SOME_UNREAL_DEPOSIT_COUNT = 100n;
+    const isInserted = depositTree.insert(node, SOME_UNREAL_DEPOSIT_COUNT);
+    expect(depositTree.nodeCount).toBe(initialNodeCount);
+    expect(isInserted).toBeFalsy();
   });
 
   test('should handle detailed node data correctly', () => {
@@ -35,7 +44,7 @@ describe('DepositTree', () => {
       signature: '0x987654321fedcba0',
       amount: '0x0100000000000000',
     };
-    originalTree.insert(DepositTree.formDepositNode(nodeData));
+    originalTree.insert(DepositTree.formDepositNode(nodeData), 0n);
     expect(Number(originalTree.nodeCount)).toBe(1);
 
     const oldDepositRoot = originalTree.getRoot();
@@ -43,6 +52,7 @@ describe('DepositTree', () => {
 
     cloned.insert(
       DepositTree.formDepositNode({ ...nodeData, wc: '0x123456789abcdef1' }),
+      1n,
     );
 
     expect(cloned.getRoot()).not.toEqual(oldDepositRoot);
@@ -51,9 +61,10 @@ describe('DepositTree', () => {
 
     const freshTree = new DepositTree();
 
-    freshTree.insert(DepositTree.formDepositNode(nodeData));
+    freshTree.insert(DepositTree.formDepositNode(nodeData), 0n);
     freshTree.insert(
       DepositTree.formDepositNode({ ...nodeData, wc: '0x123456789abcdef1' }),
+      1n,
     );
 
     expect(cloned.getRoot()).toEqual(freshTree.getRoot());
@@ -70,9 +81,11 @@ describe('DepositTree', () => {
 
     originalTree.insert(
       DepositTree.formDepositNode({ ...nodeData, wc: '0x123456789abcdef1' }),
+      0n,
     );
     originalTree.insert(
       DepositTree.formDepositNode({ ...nodeData, wc: '0x123456789abcdef1' }),
+      1n,
     );
 
     originalTree.branch[0][0] = 1;
@@ -90,12 +103,15 @@ describe('DepositTree', () => {
       signature: '0x987654321fedcba0',
       amount: '0x0100000000000000',
     };
-    depositTree.insert(DepositTree.formDepositNode(nodeData));
+    depositTree.insert(
+      DepositTree.formDepositNode(nodeData),
+      MOCK_DEPOSIT_COUNT,
+    );
     expect(Number(depositTree.nodeCount)).toBe(1);
   });
 
   test('should clone the tree correctly', () => {
-    depositTree.insert(new Uint8Array(32).fill(1));
+    depositTree.insert(new Uint8Array(32).fill(1), MOCK_DEPOSIT_COUNT);
     const clonedTree = depositTree.clone();
     expect(clonedTree.nodeCount).toEqual(depositTree.nodeCount);
     expect(clonedTree.branch).toEqual(depositTree.branch);
@@ -104,12 +120,12 @@ describe('DepositTree', () => {
 
   test('branch updates correctly after multiple insertions', () => {
     const node1 = new Uint8Array(32).fill(1); // First example node
-    depositTree.insert(node1); // First insertion
+    depositTree.insert(node1, MOCK_DEPOSIT_COUNT); // First insertion
 
     expect(depositTree.branch[0]).toEqual(node1);
 
     const node2 = new Uint8Array(32).fill(2); // Second example node
-    depositTree.insert(node2); // Second insertion
+    depositTree.insert(node2, MOCK_DEPOSIT_COUNT + 1n); // Second insertion
 
     // Now, we need to check the second level of the branch
     // This should use the same hashing function as used in your actual code
@@ -145,8 +161,8 @@ describe('DepositTree', () => {
   );
 
   test('hashes should matches with fixtures (first 10k blocks from holesky)', () => {
-    depositDataRootsFixture10k.events.map((ev) =>
-      depositTree.insert(fromHexString(ev)),
+    depositDataRootsFixture10k.events.map((ev, index) =>
+      depositTree.insert(fromHexString(ev), BigInt(index)),
     );
 
     expect(Number(depositTree.nodeCount)).toEqual(
@@ -156,8 +172,8 @@ describe('DepositTree', () => {
   });
 
   test('hashes should matches with fixtures (second 10k blocks from holesky)', () => {
-    depositDataRootsFixture10k.events.map((ev) =>
-      depositTree.insert(fromHexString(ev)),
+    depositDataRootsFixture10k.events.map((ev, index) =>
+      depositTree.insert(fromHexString(ev), BigInt(index)),
     );
 
     expect(Number(depositTree.nodeCount)).toEqual(
@@ -165,8 +181,11 @@ describe('DepositTree', () => {
     );
     expect(depositTree.getRoot()).toEqual(depositDataRootsFixture10k.root);
 
-    depositDataRootsFixture20k.events.map((ev) =>
-      depositTree.insert(fromHexString(ev)),
+    depositDataRootsFixture20k.events.map((ev, index) =>
+      depositTree.insert(
+        fromHexString(ev),
+        BigInt(depositDataRootsFixture10k.events.length + index),
+      ),
     );
     expect(Number(depositTree.nodeCount)).toEqual(
       depositDataRootsFixture10k.events.length +

@@ -1,5 +1,5 @@
-import { SigningKeyEvent } from 'contracts/signing-key-events-cache/interfaces/event.interface';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
+import { SigningKeyEvent } from 'contracts/signing-keys-registry/interfaces/event.interface';
 
 export const keyMock1: RegistryKey = {
   key: '0xb3c90525010a5710d43acbea46047fc37ed55306d032527fa15dd7e8cd8a9a5fa490347cc5fce59936fb8300683cd9f3',

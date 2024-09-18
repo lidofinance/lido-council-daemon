@@ -1,13 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Level } from 'level';
 import { join } from 'path';
-import { DB_DIR, DB_DEFAULT_VALUE, DB_LAYER_DIR } from './leveldb.constants';
+import { DB_DIR, DB_DEFAULT_VALUE, DB_LAYER_DIR } from './store.constants';
 import { ProviderService } from 'provider';
 import { SigningKeyEvent } from '../interfaces/event.interface';
 import { SigningKeyEventsCacheHeaders } from '../interfaces/cache.interface';
 
 @Injectable()
-export class LevelDBService {
+export class SigningKeysStoreService {
   private db!: Level<string, string>;
   constructor(
     private providerService: ProviderService,

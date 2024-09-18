@@ -14,6 +14,25 @@ const DEFAULTS = {
   RPC_URL: 'some-rpc-url',
   RABBITMQ_URL: 'some-rabbit-url',
   RABBITMQ_LOGIN: 'some-rabbit-login',
+  KEYS_API_URL: 'keys-api',
+};
+
+const extractError = async <T>(
+  fn: Promise<T>,
+): Promise<[ValidationError[], T]> => {
+  try {
+    return [[], await fn];
+  } catch (error: any) {
+    return [error as ValidationError[], undefined as unknown as T];
+  }
+};
+
+const toHaveProblemWithRecords = (
+  recordsKeys: string[],
+  errors: ValidationError[],
+) => {
+  const errorKeys = errors.map((error) => error.property);
+  expect(recordsKeys.sort()).toEqual(errorKeys.sort());
 };
 
 describe('ConfigLoaderService base spec', () => {
@@ -103,6 +122,96 @@ describe('ConfigLoaderService base spec', () => {
 
       const config = await configLoaderService.loadSecrets(prepConfig);
       expect(config).toHaveProperty('RABBITMQ_PASSCODE', 'rabbit');
+    });
+  });
+
+  describe('kapi url config', () => {
+    test('all invariants are empty', async () => {
+      const prepConfig = plainToClass(InMemoryConfiguration, {
+        RABBITMQ_PASSCODE: 'some-rabbit-passcode',
+        ...DEFAULTS,
+        KEYS_API_URL: undefined,
+      });
+      const [validationErrors] = await extractError(
+        configLoaderService.loadSecrets(prepConfig),
+      );
+
+      toHaveProblemWithRecords(
+        ['KEYS_API_URL', 'KEYS_API_PORT', 'KEYS_API_HOST'],
+        validationErrors,
+      );
+    });
+
+    test('KEYS_API_URL is set and the rest is default', async () => {
+      const KEYS_API_URL = 'kapi-url';
+      const KEYS_API_HOST = '';
+      const KEYS_API_PORT = 0;
+      const prepConfig = plainToClass(InMemoryConfiguration, {
+        RABBITMQ_PASSCODE: 'some-rabbit-passcode',
+        ...DEFAULTS,
+        KEYS_API_URL,
+      });
+      const [validationErrors, result] = await extractError(
+        configLoaderService.loadSecrets(prepConfig),
+      );
+      expect(validationErrors).toHaveLength(0);
+      expect(result.KEYS_API_URL).toBe(KEYS_API_URL);
+      expect(result.KEYS_API_HOST).toBe(KEYS_API_HOST);
+      expect(result.KEYS_API_PORT).toBe(KEYS_API_PORT);
+    });
+
+    test('KEYS_API_URL is empty and the rest is set', async () => {
+      const KEYS_API_URL = undefined;
+      const KEYS_API_HOST = 'kapi-host';
+      const KEYS_API_PORT = 2222;
+      const prepConfig = plainToClass(InMemoryConfiguration, {
+        RABBITMQ_PASSCODE: 'some-rabbit-passcode',
+        ...DEFAULTS,
+        KEYS_API_URL,
+        KEYS_API_HOST,
+        KEYS_API_PORT,
+      });
+      const [validationErrors, result] = await extractError(
+        configLoaderService.loadSecrets(prepConfig),
+      );
+      expect(validationErrors).toHaveLength(0);
+      expect(result.KEYS_API_URL).toBe(KEYS_API_URL);
+      expect(result.KEYS_API_HOST).toBe(KEYS_API_HOST);
+      expect(result.KEYS_API_PORT).toBe(KEYS_API_PORT);
+    });
+
+    test('KEYS_API_URL and KEYS_API_PORT are empty and the KEYS_API_HOST is set', async () => {
+      const KEYS_API_URL = undefined;
+      const KEYS_API_HOST = 'kapi-host';
+      const KEYS_API_PORT = 0;
+      const prepConfig = plainToClass(InMemoryConfiguration, {
+        RABBITMQ_PASSCODE: 'some-rabbit-passcode',
+        ...DEFAULTS,
+        KEYS_API_URL,
+        KEYS_API_HOST,
+        KEYS_API_PORT,
+      });
+      const [validationErrors] = await extractError(
+        configLoaderService.loadSecrets(prepConfig),
+      );
+      toHaveProblemWithRecords(['KEYS_API_PORT'], validationErrors);
+    });
+
+    test('KEYS_API_URL and KEYS_API_HOST are empty and the KEYS_API_PORT is set', async () => {
+      const KEYS_API_URL = undefined;
+      const KEYS_API_HOST = '';
+      const KEYS_API_PORT = 2222;
+      const prepConfig = plainToClass(InMemoryConfiguration, {
+        RABBITMQ_PASSCODE: 'some-rabbit-passcode',
+        ...DEFAULTS,
+        KEYS_API_URL,
+        KEYS_API_HOST,
+        KEYS_API_PORT,
+      });
+      const [validationErrors] = await extractError(
+        configLoaderService.loadSecrets(prepConfig),
+      );
+      toHaveProblemWithRecords(['KEYS_API_HOST'], validationErrors);
     });
   });
 

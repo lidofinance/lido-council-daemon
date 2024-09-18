@@ -46,9 +46,9 @@ import { KeysApiService } from 'keys-api/keys-api.service';
 import { ProviderService } from 'provider';
 import { Server } from 'ganache';
 import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
-import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
+import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
 import { GuardianMessageService } from 'guardian/guardian-message';
-import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
+import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 import { makeServer } from './server';
 import { addGuardians } from './helpers/dsm';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
@@ -71,7 +71,7 @@ describe('ganache e2e tests', () => {
   let levelDBService: DepositsRegistryStoreService;
   let signKeyLevelDBService: SignKeyLevelDBService;
   let guardianMessageService: GuardianMessageService;
-  let signingKeyEventsCacheService: SigningKeyEventsCacheService;
+  let signingKeysRegistryService: SigningKeysRegistryService;
   let depositIntegrityCheckerService: DepositIntegrityCheckerService;
 
   // method mocks
@@ -105,7 +105,7 @@ describe('ganache e2e tests', () => {
     await blsService.onModuleInit();
 
     // keys events service
-    signingKeyEventsCacheService = moduleRef.get(SigningKeyEventsCacheService);
+    signingKeysRegistryService = moduleRef.get(SigningKeysRegistryService);
 
     providerService = moduleRef.get(ProviderService);
 
@@ -138,6 +138,9 @@ describe('ganache e2e tests', () => {
       .mockImplementation(() => Promise.resolve());
 
     // deposit cache mocks
+    jest
+      .spyOn(depositIntegrityCheckerService, 'putEventsToTree')
+      .mockImplementation(() => Promise.resolve());
     jest
       .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
       .mockImplementation(() => Promise.resolve(true));
@@ -202,8 +205,8 @@ describe('ganache e2e tests', () => {
         },
       });
 
-      // don't set events for keys as we check this cache only in case of duplicated keys
-      await signingKeyEventsCacheService.setCachedEvents({
+      // dont set events for keys as we check this cache only in case of duplicated keys
+      await signingKeysRegistryService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -271,7 +274,7 @@ describe('ganache e2e tests', () => {
         },
       });
 
-      await signingKeyEventsCacheService.setCachedEvents({
+      await signingKeysRegistryService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -353,7 +356,7 @@ describe('ganache e2e tests', () => {
         },
       });
 
-      await signingKeyEventsCacheService.setCachedEvents({
+      await signingKeysRegistryService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -419,7 +422,7 @@ describe('ganache e2e tests', () => {
         },
       });
 
-      await signingKeyEventsCacheService.setCachedEvents({
+      await signingKeysRegistryService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -526,14 +529,6 @@ describe('ganache e2e tests', () => {
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
 
-      await levelDBService.setCachedEvents({
-        data: [],
-        headers: {
-          startBlock: currentBlock.number,
-          endBlock: currentBlock.number,
-        },
-      });
-
       const { signature: lidoSign } = signDeposit(pk, sk);
       const { signature: theftDepositSign } = signDeposit(pk, sk, BAD_WC);
 
@@ -620,7 +615,7 @@ describe('ganache e2e tests', () => {
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
 
-      await signingKeyEventsCacheService.setCachedEvents({
+      await signingKeysRegistryService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,
@@ -747,7 +742,7 @@ describe('ganache e2e tests', () => {
         },
       });
 
-      await signingKeyEventsCacheService.setCachedEvents({
+      await signingKeysRegistryService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number,

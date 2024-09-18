@@ -24,8 +24,8 @@ import {
   closeServer,
   initLevelDB,
 } from './helpers/test-setup';
-import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
 import { getWalletAddress } from './helpers/deposit';
+import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
 import { ProviderService } from 'provider';
 import { GuardianService } from 'guardian';
@@ -33,7 +33,7 @@ import { KeysApiService } from 'keys-api/keys-api.service';
 import { SecurityService } from 'contracts/security';
 import { Server } from 'ganache';
 import { GuardianMessageService } from 'guardian/guardian-message';
-import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
+import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
 import { makeServer } from './server';
 import { addGuardians } from './helpers/dsm';
 import { BlsService } from 'bls';
@@ -58,7 +58,7 @@ describe('Deposits in case of duplicates', () => {
   let depositIntegrityCheckerService: DepositIntegrityCheckerService;
 
   let signKeyLevelDBService: SignKeyLevelDBService;
-  let signingKeyEventsCacheService: SigningKeyEventsCacheService;
+  let signingKeysRegistryService: SigningKeysRegistryService;
 
   let guardianMessageService: GuardianMessageService;
   // methods mocks
@@ -93,6 +93,9 @@ describe('Deposits in case of duplicates', () => {
 
     // deposit cache mocks
     jest
+      .spyOn(depositIntegrityCheckerService, 'putEventsToTree')
+      .mockImplementation(() => Promise.resolve());
+    jest
       .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
       .mockImplementation(() => Promise.resolve(true));
     jest
@@ -123,7 +126,7 @@ describe('Deposits in case of duplicates', () => {
     await blsService.onModuleInit();
 
     // keys events service
-    signingKeyEventsCacheService = moduleRef.get(SigningKeyEventsCacheService);
+    signingKeysRegistryService = moduleRef.get(SigningKeysRegistryService);
 
     providerService = moduleRef.get(ProviderService);
 
@@ -195,7 +198,7 @@ describe('Deposits in case of duplicates', () => {
       keysApiMockGetAllKeys(keysApiService, vettedUnusedKeys, meta);
 
       // mock events cache to check
-      await signingKeyEventsCacheService.setCachedEvents({
+      await signingKeysRegistryService.setCachedEvents({
         data: [], // dont need events in this test
         headers: {
           startBlock: currentBlock.number - 2,
@@ -325,7 +328,7 @@ describe('Deposits in case of duplicates', () => {
       // setup /v1/keys
       keysApiMockGetAllKeys(keysApiService, duplicates, meta);
 
-      await signingKeyEventsCacheService.setCachedEvents({
+      await signingKeysRegistryService.setCachedEvents({
         data: [
           mockKeyEvent,
           // key of second module was added later
@@ -463,7 +466,7 @@ describe('Deposits in case of duplicates', () => {
       // setup /v1/keys
       keysApiMockGetAllKeys(keysApiService, duplicates, meta);
 
-      await signingKeyEventsCacheService.setCachedEvents({
+      await signingKeysRegistryService.setCachedEvents({
         data: [
           {
             ...mockKeyEvent,
@@ -603,7 +606,7 @@ describe('Deposits in case of duplicates', () => {
       // setup /v1/keys
       keysApiMockGetAllKeys(keysApiService, duplicates, meta);
 
-      await signingKeyEventsCacheService.setCachedEvents({
+      await signingKeysRegistryService.setCachedEvents({
         data: [],
         headers: {
           startBlock: currentBlock.number - 2,
@@ -725,7 +728,7 @@ describe('Deposits in case of duplicates', () => {
     // setup /v1/keys
     keysApiMockGetAllKeys(keysApiService, duplicates, meta);
 
-    await signingKeyEventsCacheService.setCachedEvents({
+    await signingKeysRegistryService.setCachedEvents({
       data: [],
       headers: {
         startBlock: currentBlock.number - 2,
@@ -787,7 +790,7 @@ describe('Deposits in case of duplicates', () => {
       // setup /v1/keys
       keysApiMockGetAllKeys(keysApiService, duplicates, meta);
 
-      await signingKeyEventsCacheService.setCachedEvents({
+      await signingKeysRegistryService.setCachedEvents({
         data: [mockKeyEvent],
         headers: {
           startBlock: currentBlock.number - 2,
@@ -915,7 +918,7 @@ describe('Deposits in case of duplicates', () => {
       keysApiMockGetAllKeys(keysApiService, vettedUnusedKeys, meta);
 
       // mock events cache to check
-      await signingKeyEventsCacheService.setCachedEvents({
+      await signingKeysRegistryService.setCachedEvents({
         data: [], // dont need events in this test
         headers: {
           startBlock: currentBlock.number - 2,

@@ -18,5 +18,5 @@ export const EARLIEST_MODULE_DEPLOYMENT_BLOCK_NETWORK: {
 
 // will make a gap in case of reorganization
 export const SIGNING_KEYS_EVENTS_CACHE_LAG_BLOCKS = 100;
-export const SIGNING_KEY_EVENTS_CACHE_UPDATE_BLOCK_RATE = 10;
 export const FETCHING_EVENTS_STEP = 10_000;
+export const SIGNING_KEYS_REGISTRY_FINALIZED_TAG = 'finalized';

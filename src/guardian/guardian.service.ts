@@ -27,12 +27,12 @@ import { BlockData, StakingModuleData } from './interfaces';
 import { ProviderService } from 'provider';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { MIN_KAPI_VERSION } from './guardian.constants';
-import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
 import { UnvettingService } from './unvetting/unvetting.service';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { StakingRouterService } from 'contracts/staking-router';
 import { ELBlockSnapshot } from 'keys-api/interfaces/ELBlockSnapshot';
 import { SRModule } from 'keys-api/interfaces';
+import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -56,7 +56,7 @@ export class GuardianService implements OnModuleInit {
 
     private providerService: ProviderService,
     private keysApiService: KeysApiService,
-    private signingKeyEventsCacheService: SigningKeyEventsCacheService,
+    private signingKeysRegistryService: SigningKeysRegistryService,
 
     private unvettingService: UnvettingService,
 
@@ -77,8 +77,7 @@ export class GuardianService implements OnModuleInit {
         await Promise.all([
           this.depositService.initialize(),
           this.securityService.initialize({ blockHash }),
-          this.signingKeyEventsCacheService.initialize(
-            block.number,
+          this.signingKeysRegistryService.initialize(
             stakingRouterModuleAddresses,
           ),
         ]);
@@ -105,13 +104,6 @@ export class GuardianService implements OnModuleInit {
             `The KAPI version must be greater than or equal to ${MIN_KAPI_VERSION}`,
           );
         }
-
-        // The event cache is stored with an N block lag to avoid caching data from uncle blocks
-        // so we don't worry about blockHash here
-        // TODO: rewrite signingKeyEventsCacheService
-        await this.signingKeyEventsCacheService.updateEventsCache(
-          stakingRouterModuleAddresses,
-        );
 
         this.subscribeToModulesUpdates();
       } catch (error) {
@@ -285,8 +277,7 @@ export class GuardianService implements OnModuleInit {
       (stakingModule) => stakingModule.stakingModuleAddress,
     );
     // update cache if needs
-    await this.signingKeyEventsCacheService.handleNewBlock(
-      blockData.blockNumber,
+    await this.signingKeysRegistryService.handleNewBlock(
       stakingRouterModuleAddresses,
     );
 
@@ -353,7 +344,6 @@ export class GuardianService implements OnModuleInit {
             stakingModuleData,
             blockData.theftHappened,
             blockData.alreadyPausedDeposits,
-            blockData.depositedEvents.isValid,
             stakingModuleData.stakingModuleId,
           )
         ) {
@@ -372,7 +362,6 @@ export class GuardianService implements OnModuleInit {
     stakingModuleData: StakingModuleData,
     theftHappened: boolean,
     alreadyPausedDeposits: boolean,
-    isDepositsCacheValid: boolean,
     stakingModuleId: number,
   ): boolean {
     const keysForUnvetting = stakingModuleData.invalidKeys.concat(
@@ -386,8 +375,7 @@ export class GuardianService implements OnModuleInit {
       stakingModuleData.unresolvedDuplicatedKeys.length > 0 ||
       alreadyPausedDeposits ||
       theftHappened ||
-      stakingModuleData.isModuleDepositsPaused ||
-      !isDepositsCacheValid;
+      stakingModuleData.isModuleDepositsPaused;
 
     if (ignoreDeposits) {
       this.logger.warn('Deposits are not available', {
@@ -396,7 +384,6 @@ export class GuardianService implements OnModuleInit {
         alreadyPausedDeposits,
         theftHappened,
         isModuleDepositsPaused: stakingModuleData.isModuleDepositsPaused,
-        isDepositsCacheValid,
         stakingModuleId,
       });
     }

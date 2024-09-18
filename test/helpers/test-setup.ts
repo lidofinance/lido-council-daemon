@@ -10,7 +10,7 @@ import { KeysApiModule } from 'keys-api/keys-api.module';
 import { GanacheProviderModule } from 'provider';
 import { WalletModule } from 'wallet';
 import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
-import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
+import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 export const setupTestingModule = async () => {
