@@ -238,6 +238,9 @@ describe('Guardian balance monitoring test', () => {
 
   const mockDepositCacheMethods = () => {
     jest
+      .spyOn(depositIntegrityCheckerService, 'putEventsToTree')
+      .mockImplementation(() => Promise.resolve());
+    jest
       .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
       .mockImplementation(() => Promise.resolve(true));
     jest

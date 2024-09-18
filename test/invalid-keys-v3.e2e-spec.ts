@@ -133,6 +133,9 @@ describe('ganache e2e tests', () => {
 
     // deposit cache mocks
     jest
+      .spyOn(depositIntegrityCheckerService, 'putEventsToTree')
+      .mockImplementation(() => Promise.resolve());
+    jest
       .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
       .mockImplementation(() => Promise.resolve(true));
     jest
