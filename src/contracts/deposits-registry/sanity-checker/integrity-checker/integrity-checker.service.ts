@@ -1,7 +1,6 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { RepositoryService } from 'contracts/repository';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { BlockTag } from 'provider';
 import { DepositTree } from './deposit-tree';
 import {
   VerifiedDepositEvent,
@@ -58,14 +57,14 @@ export class DepositIntegrityCheckerService {
    * @returns {Promise<void>} A promise that resolves if the roots match, otherwise throws an error.
    */
   public async checkLatestRoot(
-    blockNumber: number,
+    blockHash: string,
     eventsCache: VerifiedDepositEvent[],
   ): Promise<boolean> {
     const tree = await this.putLatestEvents(
       eventsCache.sort((a, b) => a.depositCount - b.depositCount),
     );
 
-    return this.checkRoot(blockNumber, tree);
+    return this.checkRoot(blockHash, tree);
   }
 
   /**
@@ -74,8 +73,8 @@ export class DepositIntegrityCheckerService {
    * @param {string | number} tag - Block Tag to check the deposit root against.
    * @returns {Promise<void>} A promise that resolves if the roots match, otherwise throws an error.
    */
-  public async checkFinalizedRoot(tag: string | number): Promise<boolean> {
-    return this.checkRoot(tag, this.finalizedTree);
+  public async checkFinalizedRoot(blockHash: string): Promise<boolean> {
+    return this.checkRoot(blockHash, this.finalizedTree);
   }
 
   /**
@@ -84,13 +83,13 @@ export class DepositIntegrityCheckerService {
    * @param {DepositTree} tree - Deposit tree to use for comparison.
    * @returns {Promise<void>} A promise that resolves if the roots match, otherwise logs an error and throws.
    */
-  private async checkRoot(tag: string | number, tree: DepositTree) {
+  private async checkRoot(blockHash: string, tree: DepositTree) {
     const localRoot = tree.getRoot();
-    const remoteRoot = await this.getDepositRoot(tag);
+    const remoteRoot = await this.getDepositRoot(blockHash);
 
     if (localRoot === remoteRoot) {
       this.logger.log('Integrity check successfully completed', {
-        tag,
+        blockHash,
       });
       return true;
     }
@@ -131,11 +130,10 @@ export class DepositIntegrityCheckerService {
    * @param {BlockTag | undefined} blockTag - Specific block number or tag to retrieve the deposit root for.
    * @returns {Promise<string>} Promise that resolves with the deposit root.
    */
-  public async getDepositRoot(blockTag?: BlockTag): Promise<string> {
+  public async getDepositRoot(blockHash: string): Promise<string> {
     const contract = await this.repositoryService.getCachedDepositContract();
-    const depositRoot = await contract.get_deposit_root({
-      blockTag: blockTag as any,
-    });
+    const overrides = { blockTag: { blockHash } };
+    const depositRoot = await contract.get_deposit_root(overrides as any);
 
     return depositRoot;
   }
