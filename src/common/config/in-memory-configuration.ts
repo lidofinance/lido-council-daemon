@@ -128,15 +128,24 @@ export class InMemoryConfiguration implements Configuration {
   @Transform(({ value }) => parseInt(value, 10), { toClassOnly: true })
   REGISTRY_KEYS_QUERY_CONCURRENCY = 5;
 
+  @ValidateIf((conf) => !conf.KEYS_API_URL)
   @IsNotEmpty()
   @IsNumber()
   @Min(1)
   @Transform(({ value }) => parseInt(value, 10), { toClassOnly: true })
-  KEYS_API_PORT = 3001;
+  KEYS_API_PORT = 0;
 
-  @IsOptional()
+  @ValidateIf((conf) => !conf.KEYS_API_URL)
+  @IsNotEmpty()
   @IsString()
-  KEYS_API_HOST = 'http://localhost';
+  KEYS_API_HOST = '';
+
+  @ValidateIf((conf) => {
+    return !conf.KEYS_API_PORT && !conf.KEYS_API_HOST;
+  })
+  @IsNotEmpty()
+  @IsString()
+  KEYS_API_URL = '';
 
   @IsOptional()
   @IsString()
