@@ -29,7 +29,10 @@ class OnBlockError extends Error {
   }
 }
 
-const getProviderFactory = (SourceProvider: typeof JsonRpcProvider) => {
+const getProviderFactory = (
+  SourceProvider: typeof JsonRpcProvider,
+  providerUrlPath = 'RPC_URL',
+) => {
   return async (
     requestsHistogram: Histogram<string>,
     errorsCounter: Counter<string>,
@@ -106,11 +109,11 @@ const getProviderFactory = (SourceProvider: typeof JsonRpcProvider) => {
       }
 
       clone() {
-        return new Provider(config.RPC_URL);
+        return new Provider(config[providerUrlPath]);
       }
     }
 
-    return new Provider(config.RPC_URL);
+    return new Provider(config[providerUrlPath]);
   };
 };
 
@@ -137,6 +140,32 @@ export class ProviderModule {
         {
           provide: RpcBatchProvider,
           useFactory: getProviderFactory(JsonRpcBatchProvider),
+          inject: providerDeps,
+        },
+      ],
+      exports: [ProviderService, RpcProvider, RpcBatchProvider],
+    };
+  }
+
+  static forFeature(config: { providerUrlPath: string }): DynamicModule {
+    return {
+      module: ProviderModule,
+      providers: [
+        ProviderService,
+        {
+          provide: RpcProvider,
+          useFactory: getProviderFactory(
+            StaticJsonRpcProvider,
+            config.providerUrlPath,
+          ),
+          inject: providerDeps,
+        },
+        {
+          provide: RpcBatchProvider,
+          useFactory: getProviderFactory(
+            JsonRpcBatchProvider,
+            config.providerUrlPath,
+          ),
           inject: providerDeps,
         },
       ],
