@@ -1,7 +1,14 @@
 import { Contract, providers, Signer, utils } from 'ethers';
 import { DataBusAbi as DataBus } from 'generated';
-import { TypedEvent } from 'generated/common';
-import eventsAbi from '../../abi-human-readable/data-bus.abi.json';
+import { EventDataMap, eventMappers } from './data-bus.serializer';
+// import eventsAbi from '../../abi-human-readable/data-bus.abi.json';
+const eventsAbi = [
+  'event MessageDepositV1(address indexed guardianAddress, (uint256 blockNumber, bytes32 blockHash, bytes32 depositRoot, uint256 stakingModuleId, uint256 nonce, (bytes32 r, bytes32 vs) signature, (bytes32 version) app) data)',
+  'event MessagePauseV2(address indexed guardianAddress, (uint256 blockNumber, bytes32 blockHash, (bytes32 r, bytes32 vs) signature, uint256 stakingModuleId, (bytes32 version) app) data)',
+  'event MessagePauseV3(address indexed guardianAddress, (uint256 blockNumber, bytes32 blockHash, (bytes32 r, bytes32 vs) signature, (bytes32 version) app) data)',
+  'event MessagePingV1(address indexed guardianAddress, (uint256 blockNumber, (bytes32 version) app) data)',
+  'event MessageUnvetV1(address indexed guardianAddress, (uint256 blockNumber, bytes32 blockHash, uint256 stakingModuleId, uint256 nonce, bytes operatorIds, bytes vettedKeysByOperator, (bytes32 r, bytes32 vs) signature, (bytes32 version) app) data)',
+];
 
 export class DataBusClient {
   private dataBusAddress: string;
@@ -13,6 +20,7 @@ export class DataBusClient {
   constructor(dataBusAddress: string, signer: Signer) {
     this.dataBusAddress = dataBusAddress;
     this.eventsInterface = new utils.Interface(eventsAbi);
+
     if (!signer.provider) {
       throw new Error('Signer with provider is required');
     }
@@ -37,7 +45,7 @@ export class DataBusClient {
     }
     const eventId = this.eventsInterface.getEventTopic(event);
     const dataBytes = utils.defaultAbiCoder.encode(
-      [event.inputs[1].type],
+      [event.inputs[1].format('full')],
       [data],
     );
 
@@ -46,11 +54,13 @@ export class DataBusClient {
     return tx;
   }
 
-  async get<EventName extends keyof DataBus['filters']>(
+  async get<EventName extends keyof EventDataMap>(
     eventName: EventName,
     blockFrom = 0,
     blockTo: number | string = 'latest',
-  ): Promise<Array<TypedEvent<any> & { name: string; txHash: string }>> {
+  ): Promise<
+    Array<EventDataMap[EventName] & { name: EventName; txHash: string }>
+  > {
     const event = this.eventsFragments.find(
       (ev) => ev.name === (eventName as string),
     );
@@ -59,13 +69,17 @@ export class DataBusClient {
     }
 
     const topic = this.eventsInterface.getEventTopic(event);
-    return this.getByTopics([topic], blockFrom, blockTo);
+    return this.getByTopics([topic], blockFrom, blockTo) as Promise<
+      Array<EventDataMap[EventName] & { name: EventName; txHash: string }>
+    >;
   }
 
   async getAll(
     blockFrom = 0,
     blockTo: number | string = 'latest',
-  ): Promise<Array<TypedEvent<any> & { name: string; txHash: string }>> {
+  ): Promise<
+    Array<EventDataMap[keyof EventDataMap] & { name: string; txHash: string }>
+  > {
     const topics = this.eventsFragments.map((event) =>
       this.eventsInterface.getEventTopic(event),
     );
@@ -76,25 +90,42 @@ export class DataBusClient {
     topics: string[],
     blockFrom: number,
     blockTo: number | string,
-  ) {
+  ): Promise<
+    Array<EventDataMap[keyof EventDataMap] & { name: string; txHash: string }>
+  > {
     const filter: providers.Filter = {
       address: this.dataBusAddress,
       topics: [topics],
       fromBlock: blockFrom,
       toBlock: blockTo,
     };
-    const result: Array<TypedEvent<any> & { name: string; txHash: string }> =
-      [];
+    const result: Array<
+      EventDataMap[keyof EventDataMap] & { name: string; txHash: string }
+    > = [];
+
     const logs = await this.provider.getLogs(filter);
+
     for (const log of logs) {
-      const data = this.eventsInterface.parseLog(log);
+      const decodedData = utils.defaultAbiCoder.decode(['bytes'], log.data)[0];
+      const data = this.eventsInterface.parseLog({
+        ...log,
+        data: decodedData,
+      });
+
       if (!data) continue;
 
-      result.push({
-        ...data.args,
-        name: data.name,
-        txHash: log.transactionHash,
-      } as any);
+      const mapper = eventMappers[data.name];
+      if (!mapper) {
+        continue;
+      }
+
+      const mappedData = mapper(data.args);
+
+      // Assign txHash and name
+      mappedData.txHash = log.transactionHash;
+      mappedData.name = data.name;
+
+      result.push(mappedData);
     }
 
     return result;
