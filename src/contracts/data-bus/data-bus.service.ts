@@ -14,18 +14,24 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Gauge, register } from 'prom-client';
 import { ProviderService } from 'provider';
 import {
+  DATA_BUS_ADDRESS,
   DATA_BUS_BALANCE_UPDATE_BLOCK_RATE,
   DATA_BUS_PRIVATE_KEY,
 } from './data-bus.constants';
 
 import { Configuration } from 'common/config';
+import { DataBusClient } from './data-bus.client';
+import { MessageRequiredFields } from 'messages';
+import { DSMMessageSender } from './dsm-message.sender.client';
 
 @Injectable()
 export class DataBusService implements OnModuleInit {
+  private dsmMessageSender!: DSMMessageSender;
   constructor(
     @InjectMetric(METRIC_ACCOUNT_BALANCE) private accountBalance: Gauge<string>,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     @Inject(DATA_BUS_PRIVATE_KEY) private privateKey: string,
+    @Inject(DATA_BUS_ADDRESS) private dataBusAddress: string,
     private providerService: ProviderService,
     protected readonly config: Configuration,
   ) {}
@@ -35,6 +41,8 @@ export class DataBusService implements OnModuleInit {
     register.setDefaultLabels({ guardianAddress });
 
     try {
+      const dataBusClient = new DataBusClient(this.dataBusAddress, this.wallet);
+      this.dsmMessageSender = new DSMMessageSender(dataBusClient);
       await this.monitorGuardianBalance();
       this.subscribeToEthereumUpdates();
     } catch (error) {
@@ -143,5 +151,11 @@ export class DataBusService implements OnModuleInit {
    */
   public get address(): string {
     return this.wallet.address;
+  }
+
+  public publish(
+    message: MessageRequiredFields & { app: { version: string } },
+  ) {
+    return this.dsmMessageSender.sendMessage(message);
   }
 }

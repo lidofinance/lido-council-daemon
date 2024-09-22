@@ -51,7 +51,6 @@ export type MessagePauseV2 = {
 
 export type MessagePauseV3 = {
   blockNumber: number;
-  blockHash: string;
   signature: {
     r: string;
     vs: string;
