@@ -1,3 +1,4 @@
+import { formatBytes32String } from 'ethers/lib/utils';
 import {
   MessageDeposit,
   MessageRequiredFields,
@@ -42,8 +43,8 @@ export class DSMMessageSender {
   }
 
   private transformMessage(message: MessageRequiredFields & MessageMeta): any {
-    const { app } = message;
-
+    const { app: appMeta } = message;
+    const app = { version: formatBytes32String(appMeta.version) };
     switch (message.type) {
       case MessageType.DEPOSIT: {
         const {

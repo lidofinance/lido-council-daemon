@@ -140,7 +140,10 @@ export class DataBusService implements OnModuleInit {
       this.privateKey = Wallet.createRandom().privateKey;
     }
 
-    this.cachedWallet = new Wallet(this.privateKey);
+    this.cachedWallet = new Wallet(
+      this.privateKey,
+      this.providerService.provider,
+    );
     return this.cachedWallet;
   }
 

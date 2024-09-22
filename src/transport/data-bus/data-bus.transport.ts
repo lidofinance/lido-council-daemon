@@ -27,7 +27,7 @@ export class DataBusTransport implements TransportInterface, OnModuleInit {
     message: T,
     messageType: MessageType,
   ): Promise<void> {
-    this.logger.debug?.(
+    this.logger.log?.(
       `Publishing message of type "${messageType}" to topic "${topic}"`,
     );
     await this.dataBusService.publish(message as any);

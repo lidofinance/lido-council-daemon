@@ -20,7 +20,7 @@ export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
 
 @Module({
   exports: [TransportInterface],
-  imports: [WalletModule, DataBusModule],
+  imports: [WalletModule, DataBusModule.register()],
   providers: [
     {
       provide: TransportInterface,
@@ -78,7 +78,12 @@ export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
           return new DataBusTransport(logger, dataBusService);
         }
       },
-      inject: [Configuration, WINSTON_MODULE_NEST_PROVIDER, WalletService],
+      inject: [
+        Configuration,
+        WINSTON_MODULE_NEST_PROVIDER,
+        WalletService,
+        DataBusService,
+      ],
     },
   ],
 })
