@@ -160,4 +160,8 @@ export class InMemoryConfiguration implements Configuration {
   @TransformToWei()
   @IsInstance(BigNumber)
   WALLET_CRITICAL_BALANCE: BigNumber = ethers.utils.parseEther('0.2');
+
+  @IsOptional()
+  @IsNotEmpty()
+  DATA_BUS_ADDRESS = '';
 }

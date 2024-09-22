@@ -10,6 +10,12 @@ import {
 } from '../../../test/constants';
 import { makeServer } from '../../../test/server';
 import { DataBusClient } from './data-bus.client';
+import {
+  MessageDepositV1,
+  MessagePingV1,
+  MessagesDataMap,
+  MessagesNames,
+} from './message.interface';
 
 export const randomInt = (min: number, max: number) =>
   Math.floor(Math.random() * (max - min + 1)) + min;
@@ -76,6 +82,17 @@ const getVariants = (block: Block) => {
   return messages;
 };
 
+const getVariant = <Name extends MessagesNames>(
+  name: Name,
+  variants: ReturnType<typeof getVariants>,
+): MessagesDataMap[Name] => {
+  const dataVariant = variants.find((n) => n.name === name);
+  if (!dataVariant) {
+    throw new Error(`variant with name ${name} not found`);
+  }
+  return dataVariant.data as MessagesDataMap[Name];
+};
+
 describe('DataBus', () => {
   let provider: ethers.providers.JsonRpcProvider;
   let owner: ethers.Signer;
@@ -126,10 +143,10 @@ describe('DataBus', () => {
   });
 
   it('should measure gas for sendPingMessage', async () => {
-    const messageName = 'MessagePingV1';
-    const dataVariant = variants.find((n) => n.name === messageName)?.data;
+    const messageName = 'MessagePingV1' as const;
+    const dataVariant: MessagePingV1 = getVariant(messageName, variants);
 
-    const tx = await sdk.sendMessage(messageName, dataVariant as any);
+    const tx = await sdk.sendMessage(messageName, dataVariant);
 
     const receipt = await tx.wait();
     const { gasUsed } = receipt;
@@ -149,10 +166,10 @@ describe('DataBus', () => {
   });
 
   it('should measure gas for sendDepositMessage', async () => {
-    const messageName = 'MessageDepositV1';
-    const dataVariant = variants.find((n) => n.name === messageName)?.data;
+    const messageName = 'MessageDepositV1' as const;
+    const dataVariant: MessageDepositV1 = getVariant(messageName, variants);
 
-    const tx = await sdk.sendMessage(messageName, dataVariant as any);
+    const tx = await sdk.sendMessage(messageName, dataVariant);
 
     const receipt = await tx.wait();
     const { gasUsed } = receipt;
@@ -174,10 +191,10 @@ describe('DataBus', () => {
   });
 
   it('should measure gas for sendUnvetMessage', async () => {
-    const messageName = 'MessageUnvetV1';
-    const dataVariant = variants.find((n) => n.name === messageName)?.data;
+    const messageName = 'MessageUnvetV1' as const;
+    const dataVariant = getVariant(messageName, variants);
 
-    const tx = await sdk.sendMessage(messageName, dataVariant as any);
+    const tx = await sdk.sendMessage(messageName, dataVariant);
 
     const receipt = await tx.wait();
     const { gasUsed } = receipt;
@@ -198,7 +215,7 @@ describe('DataBus', () => {
 
   it('should measure gas for sendPauseMessageV2', async () => {
     const messageName = 'MessagePauseV2';
-    const dataVariant = variants.find((n) => n.name === messageName)?.data;
+    const dataVariant = getVariant(messageName, variants);
 
     const tx = await sdk.sendMessage(messageName, dataVariant as any);
 
@@ -221,7 +238,7 @@ describe('DataBus', () => {
 
   it('should measure gas for sendPauseMessageV3', async () => {
     const messageName = 'MessagePauseV3';
-    const dataVariant = variants.find((n) => n.name === messageName)?.data;
+    const dataVariant = getVariant(messageName, variants);
 
     const tx = await sdk.sendMessage(messageName, dataVariant as any);
 

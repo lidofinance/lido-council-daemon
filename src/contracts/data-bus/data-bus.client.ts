@@ -1,6 +1,6 @@
 import { Contract, providers, Signer, utils } from 'ethers';
-import { DataBusAbi as DataBus } from 'generated';
 import { EventDataMap, eventMappers } from './data-bus.serializer';
+import { MessagesDataMap, MessagesNames } from './message.interface';
 // import eventsAbi from '../../abi-human-readable/data-bus.abi.json';
 const eventsAbi = [
   'event MessageDepositV1(address indexed guardianAddress, (uint256 blockNumber, bytes32 blockHash, bytes32 depositRoot, uint256 stakingModuleId, uint256 nonce, (bytes32 r, bytes32 vs) signature, (bytes32 version) app) data)',
@@ -33,9 +33,9 @@ export class DataBusClient {
     );
   }
 
-  async sendMessage<EventName extends keyof DataBus['filters']>(
+  async sendMessage<EventName extends MessagesNames>(
     eventName: EventName,
-    data: Parameters<DataBus['filters'][EventName]>[0],
+    data: MessagesDataMap[EventName],
   ) {
     const event = this.eventsFragments.find(
       (ev) => ev.name === (eventName as string),
