@@ -6,7 +6,7 @@ import {
   MessageUnvet,
   MessagePauseV2 as OGMessagePauseV2,
   MessagePauseV3 as OGMessagePauseV3,
-} from 'messages';
+} from 'messages/interfaces';
 import { DataBusClient } from './data-bus.client';
 import {
   MessageDepositV1,
