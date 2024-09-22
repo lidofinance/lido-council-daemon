@@ -4,7 +4,7 @@ import { ethers } from 'ethers';
 
 export const Configuration = createInterface<Configuration>('Configuration');
 
-export type PubsubService = 'rabbitmq' | 'kafka';
+export type PubsubService = 'rabbitmq' | 'kafka' | 'onchain-data-bus';
 
 export interface Configuration {
   NODE_ENV: string;

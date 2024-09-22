@@ -18,6 +18,7 @@ import { TransformToWei } from 'common/decorators/transform-to-wei';
 
 const RABBITMQ = 'rabbitmq';
 const KAFKA = 'kafka';
+const DATA_BUS = 'onchain-data-bus';
 
 @Injectable()
 @implementationOf(Configuration)
@@ -57,7 +58,7 @@ export class InMemoryConfiguration implements Configuration {
   BROKER_TOPIC = 'defender';
 
   @IsString()
-  @IsIn([KAFKA, RABBITMQ])
+  @IsIn([KAFKA, RABBITMQ, DATA_BUS])
   PUBSUB_SERVICE: PubsubService = RABBITMQ;
 
   @ValidateIf((conf) => conf.PUBSUB_SERVICE === KAFKA)
