@@ -161,7 +161,11 @@ export class InMemoryConfiguration implements Configuration {
   @IsInstance(BigNumber)
   WALLET_CRITICAL_BALANCE: BigNumber = ethers.utils.parseEther('0.2');
 
-  @IsOptional()
   @IsNotEmpty()
+  @IsString()
   DATA_BUS_ADDRESS = '';
+
+  @IsNotEmpty()
+  @IsString()
+  DATA_BUS_PROVIDER_URL = '';
 }

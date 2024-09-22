@@ -15,6 +15,8 @@ const DEFAULTS = {
   RABBITMQ_URL: 'some-rabbit-url',
   RABBITMQ_LOGIN: 'some-rabbit-login',
   KEYS_API_URL: 'keys-api',
+  DATA_BUS_ADDRESS: 'DATA_BUS_ADDRESS',
+  DATA_BUS_PROVIDER_URL: 'DATA_BUS_PROVIDER_URL',
 };
 
 const extractError = async <T>(
