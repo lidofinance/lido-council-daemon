@@ -14,8 +14,8 @@ import { MockProviderModule } from 'provider';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 jest.mock('../../transport/stomp/stomp.client');
-// TODO: mock data-bus provider
-describe.skip('UnvettingService', () => {
+
+describe('UnvettingService', () => {
   let service: UnvettingService;
   let securityService: SecurityService;
   let guardianMessageService: GuardianMessageService;

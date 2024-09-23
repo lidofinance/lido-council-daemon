@@ -22,6 +22,10 @@ export class DataBusTransport implements TransportInterface, OnModuleInit {
     this.logger.log('DataBusTransport initialized');
   }
 
+  public async initialize() {
+    await this.dataBusService.initialize();
+  }
+
   public async publish<T>(
     topic: string,
     message: T,

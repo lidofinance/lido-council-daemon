@@ -1,11 +1,9 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { ConfigModule, Configuration } from 'common/config';
-import { ProviderModule } from 'provider';
 import {
   DATA_BUS_ADDRESS,
   DATA_BUS_PRIVATE_KEY,
   DATA_BUS_PRIVATE_KEY_CONFIG_PATH,
-  DATA_BUS_PROVIDER_CONFIG_PATH,
 } from './data-bus.constants';
 import { DataBusService } from './data-bus.service';
 
@@ -16,12 +14,7 @@ export class DataBusModule {
   ): DynamicModule {
     return {
       module: DataBusModule,
-      imports: [
-        ConfigModule,
-        ProviderModule.forFeature({
-          providerUrlPath: DATA_BUS_PROVIDER_CONFIG_PATH,
-        }),
-      ],
+      imports: [ConfigModule],
       providers: [
         DataBusService,
         {
