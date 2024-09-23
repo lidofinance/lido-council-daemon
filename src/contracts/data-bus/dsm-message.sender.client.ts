@@ -8,6 +8,7 @@ import {
   MessagePauseV3 as OGMessagePauseV3,
 } from 'messages/interfaces';
 import { DataBusClient } from './data-bus.client';
+import { Mutex } from './utils';
 import {
   MessageDepositV1,
   MessagePauseV3,
@@ -30,16 +31,23 @@ type MessageMeta = {
 
 export class DSMMessageSender {
   private dataBusClient: DataBusClient;
-
+  private mutex: Mutex;
   constructor(dataBusClient: DataBusClient) {
     this.dataBusClient = dataBusClient;
+    this.mutex = new Mutex();
   }
 
   async sendMessage(message: MessageRequiredFields & MessageMeta) {
     const outputMessage = this.transformMessage(message);
     const eventName = this.getEventName(message.type, message);
-
-    await this.dataBusClient.sendMessage(eventName, outputMessage);
+    // TODO: send once per start
+    if (eventName === 'MessagePingV1') return;
+    try {
+      await this.mutex.lock();
+      await this.dataBusClient.sendMessage(eventName, outputMessage);
+    } finally {
+      await this.mutex.unlock();
+    }
   }
 
   private transformMessage(message: MessageRequiredFields & MessageMeta): any {
