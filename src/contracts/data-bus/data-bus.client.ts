@@ -1,21 +1,14 @@
 import { Contract, providers, Signer, utils } from 'ethers';
 import { EventDataMap, eventMappers } from './data-bus.serializer';
 import { MessagesDataMap, MessagesNames } from './message.interface';
-// import eventsAbi from '../../abi-human-readable/data-bus.abi.json';
-const eventsAbi = [
-  'event MessageDepositV1(address indexed guardianAddress, (uint256 blockNumber, bytes32 blockHash, bytes32 depositRoot, uint256 stakingModuleId, uint256 nonce, (bytes32 r, bytes32 vs) signature, (bytes32 version) app) data)',
-  'event MessagePauseV2(address indexed guardianAddress, (uint256 blockNumber, bytes32 blockHash, (bytes32 r, bytes32 vs) signature, uint256 stakingModuleId, (bytes32 version) app) data)',
-  'event MessagePauseV3(address indexed guardianAddress, (uint256 blockNumber, bytes32 blockHash, (bytes32 r, bytes32 vs) signature, (bytes32 version) app) data)',
-  'event MessagePingV1(address indexed guardianAddress, (uint256 blockNumber, (bytes32 version) app) data)',
-  'event MessageUnvetV1(address indexed guardianAddress, (uint256 blockNumber, bytes32 blockHash, uint256 stakingModuleId, uint256 nonce, bytes operatorIds, bytes vettedKeysByOperator, (bytes32 r, bytes32 vs) signature, (bytes32 version) app) data)',
-];
+import * as eventsAbi from '../../abi-human-readable/data-bus.abi.json';
 
 export class DataBusClient {
   private dataBusAddress: string;
   private eventsInterface: utils.Interface;
   private provider: providers.Provider;
   private eventsFragments: utils.EventFragment[] = [];
-  private dataBus: any;
+  private dataBus: Contract;
 
   constructor(dataBusAddress: string, signer: Signer) {
     this.dataBusAddress = dataBusAddress;

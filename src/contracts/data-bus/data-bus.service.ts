@@ -45,19 +45,15 @@ export class DataBusService {
   ) {}
 
   async initialize() {
-    try {
-      this.provider = await this.createProvider();
+    this.provider = await this.createProvider();
 
-      const guardianAddress = this.address;
-      register.setDefaultLabels({ guardianAddress });
+    const guardianAddress = this.address;
+    register.setDefaultLabels({ guardianAddress });
 
-      const dataBusClient = new DataBusClient(this.dataBusAddress, this.wallet);
-      this.dsmMessageSender = new DSMMessageSender(dataBusClient);
-      await this.monitorGuardianBalance();
-      this.subscribeToEthereumUpdates();
-    } catch (error) {
-      this.logger.error(error);
-    }
+    const dataBusClient = new DataBusClient(this.dataBusAddress, this.wallet);
+    this.dsmMessageSender = new DSMMessageSender(dataBusClient);
+    await this.monitorGuardianBalance();
+    this.subscribeToEthereumUpdates();
   }
 
   /**
