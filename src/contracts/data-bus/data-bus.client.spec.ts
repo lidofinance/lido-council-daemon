@@ -15,7 +15,7 @@ import {
   MessagePingV1,
   MessagesDataMap,
   MessagesNames,
-} from './message.interface';
+} from './data-bus.serializer';
 
 export const randomInt = (min: number, max: number) =>
   Math.floor(Math.random() * (max - min + 1)) + min;

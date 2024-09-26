@@ -26,7 +26,10 @@ import { GuardianMetricsService } from './guardian-metrics';
 import { BlockData, StakingModuleData } from './interfaces';
 import { ProviderService } from 'provider';
 import { KeysApiService } from 'keys-api/keys-api.service';
-import { MIN_KAPI_VERSION } from './guardian.constants';
+import {
+  MIN_KAPI_VERSION,
+  GUARDIAN_PING_BLOCKS_PERIOD,
+} from './guardian.constants';
 import { UnvettingService } from './unvetting/unvetting.service';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { StakingRouterService } from 'contracts/staking-router';
@@ -37,7 +40,7 @@ import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 @Injectable()
 export class GuardianService implements OnModuleInit {
   protected lastProcessedStateMeta?: { blockHash: string; blockNumber: number };
-
+  private lastPingBlock?: number;
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER)
     private logger: LoggerService,
@@ -202,11 +205,6 @@ export class GuardianService implements OnModuleInit {
       this.handleKeys(stakingModulesData, blockData, lidoKeys).catch(
         this.logger.error,
       );
-
-      await this.guardianMessageService.pingMessageBroker(
-        stakingModulesData.map(({ stakingModuleId }) => stakingModuleId),
-        blockData,
-      );
     } catch (error) {
       this.logger.error('Staking router state update error');
       this.logger.error(error);
@@ -356,6 +354,17 @@ export class GuardianService implements OnModuleInit {
         );
       }),
     );
+
+    if (
+      !this.lastPingBlock ||
+      this.lastPingBlock + GUARDIAN_PING_BLOCKS_PERIOD <= blockData.blockNumber
+    ) {
+      this.lastPingBlock = blockData.blockNumber;
+      await this.guardianMessageService.pingMessageBroker(
+        stakingModulesData.map(({ stakingModuleId }) => stakingModuleId),
+        blockData,
+      );
+    }
   }
 
   private ignoreDeposits(

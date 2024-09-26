@@ -1,6 +1,6 @@
 import { Contract, providers, Signer, utils } from 'ethers';
 import { EventDataMap, eventMappers } from './data-bus.serializer';
-import { MessagesDataMap, MessagesNames } from './message.interface';
+import { MessagesDataMap, MessagesNames } from './data-bus.serializer';
 import * as eventsAbi from '../../abi-human-readable/data-bus.abi.json';
 
 export class DataBusClient {
@@ -30,9 +30,7 @@ export class DataBusClient {
     eventName: EventName,
     data: MessagesDataMap[EventName],
   ) {
-    const event = this.eventsFragments.find(
-      (ev) => ev.name === (eventName as string),
-    );
+    const event = this.eventsFragments.find((ev) => ev.name === eventName);
     if (!event) {
       throw new Error(`Event with name "${eventName}" not found`);
     }

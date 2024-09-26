@@ -82,7 +82,6 @@ function mapMessagePauseV2(args: unknown) {
 // 3. MessagePauseV3
 const MessagePauseV3DataSchema = z.object({
   blockNumber: BigNumberSchema,
-  blockHash: z.string(),
   signature: SignatureSchema,
   app: AppSchema,
 });
@@ -170,3 +169,21 @@ export type EventDataMap = {
   MessagePingV1: MessagePingV1Event;
   MessageUnvetV1: MessageUnvetV1Event;
 };
+
+export type MessageDepositV1 = MessageDepositV1Event['data'];
+export type MessagePauseV2 = MessagePauseV2Event['data'];
+export type MessagePauseV3 = MessagePauseV3Event['data'];
+export type MessagePingV1 = MessagePingV1Event['data'];
+export type MessageUnvetV1 = MessageUnvetV1Event['data'];
+
+export type MessagesDataMap = {
+  MessagePingV1: MessagePingV1;
+  MessageDepositV1: MessageDepositV1;
+  MessageUnvetV1: MessageUnvetV1;
+  MessagePauseV2: MessagePauseV2;
+  MessagePauseV3: MessagePauseV3;
+};
+
+export type MessagesTypes = MessagesDataMap[keyof MessagesDataMap];
+
+export type MessagesNames = keyof MessagesDataMap;

@@ -16,7 +16,8 @@ import {
   MessageUnvetV1,
   MessagePingV1,
   MessagesNames,
-} from './message.interface';
+  MessagesTypes,
+} from './data-bus.serializer';
 
 interface MessagePing {
   type: MessageType.PING;
@@ -40,8 +41,7 @@ export class DSMMessageSender {
   async sendMessage(message: MessageRequiredFields & MessageMeta) {
     const outputMessage = this.transformMessage(message);
     const eventName = this.getEventName(message.type, message);
-    // TODO: send once per start
-    if (eventName === 'MessagePingV1') return;
+
     try {
       await this.mutex.lock();
       await this.dataBusClient.sendMessage(eventName, outputMessage);
@@ -50,7 +50,9 @@ export class DSMMessageSender {
     }
   }
 
-  private transformMessage(message: MessageRequiredFields & MessageMeta): any {
+  private transformMessage(
+    message: MessageRequiredFields & MessageMeta,
+  ): MessagesTypes {
     const { app: appMeta } = message;
     const app = { version: formatBytes32String(appMeta.version) };
     switch (message.type) {
