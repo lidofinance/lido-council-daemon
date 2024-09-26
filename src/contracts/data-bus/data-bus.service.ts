@@ -5,9 +5,9 @@ import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { getToken, InjectMetric } from '@willsoto/nestjs-prometheus';
 import { OneAtTime } from 'common/decorators';
 import {
-  METRIC_ACCOUNT_BALANCE,
-  METRIC_RPC_REQUEST_DURATION,
-  METRIC_RPC_REQUEST_ERRORS,
+  METRIC_DATA_BUS_ACCOUNT_BALANCE,
+  METRIC_DATA_BUS_RPC_REQUEST_DURATION,
+  METRIC_DATA_BUS_RPC_REQUEST_ERRORS,
 } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Counter, Gauge, Histogram, register } from 'prom-client';
@@ -32,14 +32,15 @@ export class DataBusService {
   private dsmMessageSender!: DSMMessageSender;
   private provider!: RpcProvider;
   constructor(
-    @InjectMetric(METRIC_ACCOUNT_BALANCE) private accountBalance: Gauge<string>,
+    @InjectMetric(METRIC_DATA_BUS_ACCOUNT_BALANCE)
+    private accountBalance: Gauge<string>,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     @Inject(DATA_BUS_PRIVATE_KEY) private privateKey: string,
     @Inject(DATA_BUS_ADDRESS) private dataBusAddress: string,
     protected readonly config: Configuration,
-    @Inject(getToken(METRIC_RPC_REQUEST_DURATION))
+    @Inject(getToken(METRIC_DATA_BUS_RPC_REQUEST_DURATION))
     private rpcReqDurationMetric: Histogram<string>,
-    @Inject(getToken(METRIC_RPC_REQUEST_ERRORS))
+    @Inject(getToken(METRIC_DATA_BUS_RPC_REQUEST_ERRORS))
     private rpcReqErrorsMetric: Counter<string>,
     private moduleRef: ModuleRef,
   ) {}
@@ -69,7 +70,7 @@ export class DataBusService {
       );
     });
 
-    this.logger.log('WalletService subscribed to Ethereum events');
+    this.logger.log('DataBusService subscribed to network events');
   }
 
   /**
@@ -107,7 +108,9 @@ export class DataBusService {
     const isCritical = balanceWei.lte(this.config.WALLET_CRITICAL_BALANCE);
 
     if (isCritical) {
-      this.logger.log('Account balance is critical', { balance: formatted });
+      this.logger.log('DataBusService account balance is critical', {
+        balance: formatted,
+      });
     }
 
     return isCritical;
@@ -124,9 +127,13 @@ export class DataBusService {
     const isSufficient = balanceWei.gte(this.config.WALLET_MIN_BALANCE);
 
     if (isSufficient) {
-      this.logger.log('Account balance is sufficient', { balance: formatted });
+      this.logger.log('DataBusService account balance is sufficient', {
+        balance: formatted,
+      });
     } else {
-      this.logger.warn('Account balance is too low', { balance: formatted });
+      this.logger.warn('DataBusService account balance is too low', {
+        balance: formatted,
+      });
     }
 
     return isSufficient;

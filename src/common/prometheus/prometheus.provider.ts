@@ -20,6 +20,9 @@ import {
   METRIC_DUPLICATED_KEYS_TOTAL,
   METRIC_INVALID_KEYS_TOTAL,
   METRIC_UNVET_ATTEMPTS,
+  METRIC_DATA_BUS_ACCOUNT_BALANCE,
+  METRIC_DATA_BUS_RPC_REQUEST_DURATION,
+  METRIC_DATA_BUS_RPC_REQUEST_ERRORS,
 } from './prometheus.constants';
 
 export const PrometheusTransportMessageCounterProvider = makeCounterProvider({
@@ -47,6 +50,23 @@ export const PrometheusRPCRequestsHistogramProvider = makeHistogramProvider({
 export const PrometheusRPCErrorsCounterProvider = makeCounterProvider({
   name: METRIC_RPC_REQUEST_ERRORS,
   help: 'Number of RPC requests errors',
+});
+
+export const PrometheusDataBusAccountBalanceProvider = makeGaugeProvider({
+  name: METRIC_DATA_BUS_ACCOUNT_BALANCE,
+  help: 'DataBus guardian account balance',
+});
+
+export const PrometheusDataBusRPCRequestsHistogramProvider =
+  makeHistogramProvider({
+    name: METRIC_DATA_BUS_RPC_REQUEST_DURATION,
+    help: 'DataBus RPC request duration',
+    buckets: [0.1, 0.2, 0.3, 0.6, 1, 1.5, 2, 5],
+  });
+
+export const PrometheusDataBusRPCErrorsCounterProvider = makeCounterProvider({
+  name: METRIC_DATA_BUS_RPC_REQUEST_ERRORS,
+  help: 'Number of DataBus RPC requests errors',
 });
 
 export const PrometheusAccountBalanceProvider = makeGaugeProvider({
