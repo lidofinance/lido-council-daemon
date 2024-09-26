@@ -12,9 +12,12 @@ import { makeServer } from '../../../test/server';
 import { DataBusClient } from './data-bus.client';
 import {
   MessageDepositV1,
+  MessagePauseV2,
+  MessagePauseV3,
   MessagePingV1,
   MessagesDataMap,
   MessagesNames,
+  MessageUnvetV1,
 } from './data-bus.serializer';
 
 export const randomInt = (min: number, max: number) =>
@@ -192,7 +195,7 @@ describe('DataBus', () => {
 
   it('should measure gas for sendUnvetMessage', async () => {
     const messageName = 'MessageUnvetV1' as const;
-    const dataVariant = getVariant(messageName, variants);
+    const dataVariant: MessageUnvetV1 = getVariant(messageName, variants);
 
     const tx = await sdk.sendMessage(messageName, dataVariant);
 
@@ -215,7 +218,7 @@ describe('DataBus', () => {
 
   it('should measure gas for sendPauseMessageV2', async () => {
     const messageName = 'MessagePauseV2';
-    const dataVariant = getVariant(messageName, variants);
+    const dataVariant: MessagePauseV2 = getVariant(messageName, variants);
 
     const tx = await sdk.sendMessage(messageName, dataVariant as any);
 
@@ -237,8 +240,8 @@ describe('DataBus', () => {
   });
 
   it('should measure gas for sendPauseMessageV3', async () => {
-    const messageName = 'MessagePauseV3';
-    const dataVariant = getVariant(messageName, variants);
+    const messageName = 'MessagePauseV3' as const;
+    const dataVariant: MessagePauseV3 = getVariant(messageName, variants);
 
     const tx = await sdk.sendMessage(messageName, dataVariant as any);
 

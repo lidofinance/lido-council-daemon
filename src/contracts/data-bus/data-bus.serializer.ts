@@ -82,6 +82,7 @@ function mapMessagePauseV2(args: unknown) {
 // 3. MessagePauseV3
 const MessagePauseV3DataSchema = z.object({
   blockNumber: BigNumberSchema,
+  blockHash: z.string(),
   signature: SignatureSchema,
   app: AppSchema,
 });

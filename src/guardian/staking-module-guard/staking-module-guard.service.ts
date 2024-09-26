@@ -373,6 +373,7 @@ export class StakingModuleGuardService {
       guardianAddress,
       guardianIndex,
       blockNumber,
+      blockHash,
       signature,
     };
 

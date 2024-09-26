@@ -100,11 +100,12 @@ export class DSMMessageSender {
           return output;
         } else {
           // MessagePauseV3
-          const { blockNumber, signature } = message as OGMessagePauseV3 &
-            MessageMeta;
+          const { blockNumber, blockHash, signature } =
+            message as OGMessagePauseV3 & MessageMeta;
 
           const output: MessagePauseV3 = {
             blockNumber,
+            blockHash,
             signature: {
               r: signature.r,
               vs: signature._vs,
