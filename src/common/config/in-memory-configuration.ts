@@ -18,7 +18,7 @@ import { TransformToWei } from 'common/decorators/transform-to-wei';
 
 const RABBITMQ = 'rabbitmq';
 const KAFKA = 'kafka';
-const DATA_BUS = 'onchain-data-bus';
+const DATA_BUS = 'evm-chain';
 
 @Injectable()
 @implementationOf(Configuration)

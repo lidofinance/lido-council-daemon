@@ -74,7 +74,7 @@ export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
           });
 
           return transport;
-        } else if (config.PUBSUB_SERVICE == `onchain-data-bus`) {
+        } else if (config.PUBSUB_SERVICE == 'evm-chain') {
           const dataBus = new DataBusTransport(logger, dataBusService);
           await dataBus.initialize();
           return dataBus;

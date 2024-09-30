@@ -55,6 +55,7 @@ export const PrometheusRPCErrorsCounterProvider = makeCounterProvider({
 export const PrometheusDataBusAccountBalanceProvider = makeGaugeProvider({
   name: METRIC_DATA_BUS_ACCOUNT_BALANCE,
   help: 'DataBus guardian account balance',
+  labelNames: ['chainId'] as const,
 });
 
 export const PrometheusDataBusRPCRequestsHistogramProvider =

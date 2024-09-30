@@ -81,7 +81,8 @@ export class DataBusService {
   public async monitorGuardianBalance() {
     const balanceWei = await this.getAccountBalance();
     const balanceETH = formatEther(balanceWei);
-    this.accountBalance.set(Number(balanceETH));
+    const { chainId } = await this.provider.getNetwork();
+    this.accountBalance.set({ chainId }, Number(balanceETH));
     this.isBalanceSufficient(balanceWei);
   }
 
@@ -184,6 +185,14 @@ export class DataBusService {
   public publish(
     message: MessageRequiredFields & { app: { version: string } },
   ) {
-    return this.dsmMessageSender.sendMessage(message);
+    try {
+      return this.dsmMessageSender.sendMessage(message);
+    } catch (error: any) {
+      this.logger.error(
+        `An error occurred when sending a message using Data Bus`,
+        { errorMessage: error.message, dataBusMessage: message },
+      );
+      throw error;
+    }
   }
 }
