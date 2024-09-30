@@ -2,6 +2,8 @@ import { Contract, providers, Signer, utils } from 'ethers';
 import { EventDataMap, eventMappers } from './data-bus.serializer';
 import { MessagesDataMap, MessagesNames } from './data-bus.serializer';
 import * as eventsAbi from '../../abi-human-readable/data-bus.abi.json';
+import { TransactionResponse } from '@ethersproject/abstract-provider';
+import { DATA_BUS_REQUEST_TIMEOUT } from './data-bus.constants';
 
 export class DataBusClient {
   private dataBusAddress: string;
@@ -26,10 +28,20 @@ export class DataBusClient {
     );
   }
 
+  async sendTransaction(eventId: string, dataBytes: string) {
+    const tx: TransactionResponse = await this.dataBus.sendMessage(
+      eventId,
+      dataBytes,
+    );
+    await tx.wait();
+    return tx;
+  }
+
   async sendMessage<EventName extends MessagesNames>(
     eventName: EventName,
     data: MessagesDataMap[EventName],
-  ) {
+    timeout = DATA_BUS_REQUEST_TIMEOUT,
+  ): Promise<TransactionResponse> {
     const event = this.eventsFragments.find((ev) => ev.name === eventName);
     if (!event) {
       throw new Error(`Event with name "${eventName}" not found`);
@@ -40,8 +52,19 @@ export class DataBusClient {
       [data],
     );
 
-    const tx = await this.dataBus.sendMessage(eventId, dataBytes);
-    await tx.wait();
+    // Promise for the timeout
+    const timeoutPromise = new Promise<TransactionResponse>((_, reject) => {
+      const id = setTimeout(() => {
+        clearTimeout(id);
+        reject(new Error(`Data Bus transaction timed out after ${timeout}ms`));
+      }, timeout);
+    });
+
+    // Use Promise.race to set a timeout for the entire process
+    const tx: TransactionResponse = await Promise.race([
+      this.sendTransaction(eventId, dataBytes),
+      timeoutPromise,
+    ]);
     return tx;
   }
 

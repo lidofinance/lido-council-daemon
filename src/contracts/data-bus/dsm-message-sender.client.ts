@@ -82,7 +82,7 @@ export class DSMMessageSender {
       }
 
       case MessageType.PAUSE: {
-        if ('depositRoot' in message) {
+        if (this.isPauseMessageV2(message.type, message)) {
           // MessagePauseV2
           const { blockNumber, blockHash, signature, stakingModuleId } =
             message as OGMessagePauseV2;
@@ -157,6 +157,15 @@ export class DSMMessageSender {
     }
   }
 
+  private isPauseMessageV2(
+    messageType: MessageType,
+    message,
+  ): message is OGMessagePauseV2 {
+    return (
+      messageType === MessageType.PAUSE && message.stakingModuleId !== undefined
+    );
+  }
+
   private getEventName(messageType: MessageType, message): MessagesNames {
     const eventNameMap: Record<MessageType, MessagesNames> = {
       [MessageType.DEPOSIT]: 'MessageDepositV1',
@@ -165,7 +174,7 @@ export class DSMMessageSender {
       [MessageType.UNVET]: 'MessageUnvetV1',
     };
 
-    if (messageType === MessageType.PAUSE && message.stakingModuleId) {
+    if (this.isPauseMessageV2(messageType, message)) {
       return 'MessagePauseV2';
     }
 
