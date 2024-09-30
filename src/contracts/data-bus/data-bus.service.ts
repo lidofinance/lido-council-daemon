@@ -54,13 +54,13 @@ export class DataBusService {
     const dataBusClient = new DataBusClient(this.dataBusAddress, this.wallet);
     this.dsmMessageSender = new DSMMessageSender(dataBusClient);
     await this.monitorGuardianBalance();
-    this.subscribeToEthereumUpdates();
+    this.subscribeToEVMChainUpdates();
   }
 
   /**
    * Subscribes to the event of a new block appearance
    */
-  public subscribeToEthereumUpdates() {
+  public subscribeToEVMChainUpdates() {
     const provider = this.provider;
     this.provider.clone();
     provider.on('block', async (blockNumber) => {
