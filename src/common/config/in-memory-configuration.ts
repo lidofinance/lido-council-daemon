@@ -171,4 +171,11 @@ export class InMemoryConfiguration implements Configuration {
   @IsNotEmpty()
   @IsString()
   EVM_CHAIN_DATA_BUS_PROVIDER_URL = '';
+
+  @ValidateIf((conf) => conf.PUBSUB_SERVICE === EVM_CHAIN)
+  @IsOptional()
+  @TransformToWei()
+  @IsInstance(BigNumber)
+  EVM_CHAIN_DATA_BUS_WALLET_MIN_BALANCE: BigNumber =
+    ethers.utils.parseEther('1');
 }

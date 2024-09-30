@@ -37,4 +37,5 @@ export interface Configuration {
   WALLET_CRITICAL_BALANCE: ethers.BigNumber;
   EVM_CHAIN_DATA_BUS_ADDRESS: string;
   EVM_CHAIN_DATA_BUS_PROVIDER_URL: string;
+  EVM_CHAIN_DATA_BUS_WALLET_MIN_BALANCE: ethers.BigNumber;
 }

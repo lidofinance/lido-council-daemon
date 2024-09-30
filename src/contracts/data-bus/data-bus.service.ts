@@ -83,7 +83,7 @@ export class DataBusService {
     const balanceETH = formatEther(balanceWei);
     const { chainId } = await this.provider.getNetwork();
     this.accountBalance.set({ chainId }, Number(balanceETH));
-    this.isBalanceSufficient(balanceWei);
+    this.isBalanceSufficient(balanceWei, chainId);
   }
 
   /**
@@ -96,44 +96,25 @@ export class DataBusService {
   }
 
   /**
-   * Checks if the balance is at or below the critical threshold,
-   * indicating that the balance is critical and may require intervention.
-   *
-   * @returns True if the balance is at or below the critical value, otherwise false.
-   */
-  public async isBalanceCritical(): Promise<boolean> {
-    const balanceWei = await this.getAccountBalance();
-    const balanceETH = formatEther(balanceWei);
-    const formatted = `${balanceETH} ETH`;
-    // TODO: check critical balance in data bus use case
-    const isCritical = balanceWei.lte(this.config.WALLET_CRITICAL_BALANCE);
-
-    if (isCritical) {
-      this.logger.log('DataBusService account balance is critical', {
-        balance: formatted,
-      });
-    }
-
-    return isCritical;
-  }
-
-  /**
-   * Checks if the balance is sufficient to perform at least 10 unvetting operations.
+   * Checks if the balance is sufficient to perform at least 10000 messages.
    * @param balanceWei The current balance in Wei.
    * @returns True if the balance is sufficient, otherwise false.
    */
-  public isBalanceSufficient(balanceWei): boolean {
-    const balanceETH = formatEther(balanceWei);
-    const formatted = `${balanceETH} ETH`;
-    const isSufficient = balanceWei.gte(this.config.WALLET_MIN_BALANCE);
+  public isBalanceSufficient(balanceWei: BigNumber, chainId: number): boolean {
+    const balance = formatEther(balanceWei);
+    const isSufficient = balanceWei.gte(
+      this.config.EVM_CHAIN_DATA_BUS_WALLET_MIN_BALANCE,
+    );
 
     if (isSufficient) {
       this.logger.log('DataBusService account balance is sufficient', {
-        balance: formatted,
+        balance,
+        chainId,
       });
     } else {
       this.logger.warn('DataBusService account balance is too low', {
-        balance: formatted,
+        balance,
+        chainId,
       });
     }
 
