@@ -35,5 +35,6 @@ export interface Configuration {
   LOCATOR_DEVNET_ADDRESS: string;
   WALLET_MIN_BALANCE: ethers.BigNumber;
   WALLET_CRITICAL_BALANCE: ethers.BigNumber;
-  DATA_BUS_ADDRESS: string;
+  EVM_CHAIN_DATA_BUS_ADDRESS: string;
+  EVM_CHAIN_DATA_BUS_PROVIDER_URL: string;
 }

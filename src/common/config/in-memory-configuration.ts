@@ -18,7 +18,7 @@ import { TransformToWei } from 'common/decorators/transform-to-wei';
 
 const RABBITMQ = 'rabbitmq';
 const KAFKA = 'kafka';
-const DATA_BUS = 'evm-chain';
+const EVM_CHAIN = 'evm-chain';
 
 @Injectable()
 @implementationOf(Configuration)
@@ -58,7 +58,7 @@ export class InMemoryConfiguration implements Configuration {
   BROKER_TOPIC = 'defender';
 
   @IsString()
-  @IsIn([KAFKA, RABBITMQ, DATA_BUS])
+  @IsIn([KAFKA, RABBITMQ, EVM_CHAIN])
   PUBSUB_SERVICE: PubsubService = RABBITMQ;
 
   @ValidateIf((conf) => conf.PUBSUB_SERVICE === KAFKA)
@@ -162,11 +162,13 @@ export class InMemoryConfiguration implements Configuration {
   @IsInstance(BigNumber)
   WALLET_CRITICAL_BALANCE: BigNumber = ethers.utils.parseEther('0.2');
 
+  @ValidateIf((conf) => conf.PUBSUB_SERVICE === EVM_CHAIN)
   @IsNotEmpty()
   @IsString()
-  DATA_BUS_ADDRESS = '';
+  EVM_CHAIN_DATA_BUS_ADDRESS = '';
 
+  @ValidateIf((conf) => conf.PUBSUB_SERVICE === EVM_CHAIN)
   @IsNotEmpty()
   @IsString()
-  DATA_BUS_PROVIDER_URL = '';
+  EVM_CHAIN_DATA_BUS_PROVIDER_URL = '';
 }

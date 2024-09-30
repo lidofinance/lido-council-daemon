@@ -27,7 +27,7 @@ export class DataBusModule {
         {
           provide: DATA_BUS_ADDRESS,
           useFactory: async (config: Configuration) => {
-            return config.DATA_BUS_ADDRESS;
+            return config.EVM_CHAIN_DATA_BUS_ADDRESS;
           },
           inject: [Configuration],
         },
