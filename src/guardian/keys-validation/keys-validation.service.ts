@@ -143,7 +143,7 @@ export class KeysValidationService {
     return forkVersion;
   }
 
-  private async updateCache(validatedKeys: [Key & DepositKey, boolean][]) {
+  private updateCache(validatedKeys: [Key & DepositKey, boolean][]) {
     validatedKeys.forEach(([depositData, isValid]) =>
       this.depositDataCache.set(
         this.serializeDepositData(depositData),
