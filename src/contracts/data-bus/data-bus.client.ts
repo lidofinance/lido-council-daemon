@@ -1,7 +1,7 @@
 import { Contract, providers, Signer, utils } from 'ethers';
 import { EventDataMap, eventMappers } from './data-bus.serializer';
 import { MessagesDataMap, MessagesNames } from './data-bus.serializer';
-import * as eventsAbi from '../../abi-human-readable/data-bus.abi.json';
+import * as eventsAbi from '../../abi/data-bus.abi.json';
 import { TransactionResponse } from '@ethersproject/abstract-provider';
 import { DATA_BUS_REQUEST_TIMEOUT } from './data-bus.constants';
 
