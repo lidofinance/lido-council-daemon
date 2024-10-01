@@ -53,3 +53,9 @@ export async function makeDeposit(
 
   return { wallet: signer, depositSign: depositData.signature };
 }
+
+export function getWalletAddress() {
+  if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
+  const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
+  return wallet.address;
+}

@@ -7,10 +7,11 @@ import { Server } from 'ganache';
 
 // Helper Functions and Mocks
 import {
-  mockedDvtOperators,
-  mockOperator1,
-  mockOperator2,
-  setupMockModules,
+  keysApiMockGetAllKeys,
+  keysApiMockGetModules,
+  mockedModuleCurated,
+  mockedModuleDvt,
+  mockMeta,
 } from './helpers';
 
 import {
@@ -28,39 +29,37 @@ import {
   GANACHE_PORT,
   NOP_REGISTRY,
   SIMPLE_DVT,
-  SANDBOX,
   UNLOCKED_ACCOUNTS,
   FORK_BLOCK,
-  CSM,
 } from './constants';
 
 // Contract and Service Imports
 import { SecurityService } from 'contracts/security';
-import { DepositService } from 'contracts/deposit';
 import { GuardianService } from 'guardian';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { ProviderService } from 'provider';
 import { GuardianMessageService } from 'guardian/guardian-message';
-import { LevelDBService } from 'contracts/deposit/leveldb';
-import { LevelDBService as SignKeyLevelDBService } from 'contracts/signing-key-events-cache/leveldb';
-import { SigningKeyEventsCacheService } from 'contracts/signing-key-events-cache';
+import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
+import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
+import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 import { BlsService } from 'bls';
-import { DepositIntegrityCheckerService } from 'contracts/deposit/integrity-checker';
+import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
 
 // Test Data
 import { mockKey, mockKey2 } from './helpers/keys-fixtures';
 import { addGuardians, setGuardianBalance } from './helpers/dsm';
+import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
+import { ethers } from 'ethers';
 
 describe('Guardian balance monitoring test', () => {
   let server: Server<'ethereum'>;
   let providerService: ProviderService;
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;
-  let depositService: DepositService;
-  let levelDBService: LevelDBService;
+  let levelDBService: DepositsRegistryStoreService;
   let signKeyLevelDBService: SignKeyLevelDBService;
   let guardianMessageService: GuardianMessageService;
-  let signingKeyEventsCacheService: SigningKeyEventsCacheService;
+  let signingKeysRegistryService: SigningKeysRegistryService;
   let depositIntegrityCheckerService: DepositIntegrityCheckerService;
   let securityService: SecurityService;
 
@@ -123,7 +122,7 @@ describe('Guardian balance monitoring test', () => {
   }
 
   const setupDefaultCache = async (blockNumber) => {
-    await depositService.setCachedEvents({
+    await levelDBService.setCachedEvents({
       data: [],
       headers: {
         startBlock: blockNumber,
@@ -131,37 +130,44 @@ describe('Guardian balance monitoring test', () => {
       },
     });
 
-    await signingKeyEventsCacheService.setCachedEvents({
+    await signingKeysRegistryService.setCachedEvents({
       data: [],
       headers: {
         startBlock: blockNumber,
         endBlock: blockNumber,
-        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, SANDBOX, CSM],
+        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
       },
     });
   };
 
-  const setupKAPIWithInvalidSignProblem = (block) => {
-    const norKeyWithWrongSign = {
+  const setupKAPIWithInvalidSignProblem = (block: ethers.providers.Block) => {
+    // keys fixtures
+    const norKeyWithWrongSign: RegistryKey = {
       ...mockKey,
       depositSignature:
         '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
+      vetted: true,
     };
-
-    const dvtKey = {
+    const dvtKey: RegistryKey = {
       ...mockKey2,
+      index: 1,
       used: false,
-      operatorIndex: mockedDvtOperators[0].index,
+      operatorIndex: 0,
       moduleAddress: SIMPLE_DVT,
+      vetted: true,
     };
+    const dvtKey2 = { ...dvtKey, index: 2 };
 
-    setupMockModules(
-      block,
-      keysApiService,
-      [mockOperator1, mockOperator2],
-      mockedDvtOperators,
-      [norKeyWithWrongSign, dvtKey, { ...dvtKey, index: dvtKey.index + 1 }],
-    );
+    // setup elBlockSnapshot
+    const meta = mockMeta(block, block.hash);
+
+    // setup /v1/modules
+    const stakingModules = [mockedModuleCurated, mockedModuleDvt];
+    keysApiMockGetModules(keysApiService, stakingModules, meta);
+
+    // setup /v1/keys
+    const keys = [norKeyWithWrongSign, dvtKey, dvtKey2];
+    keysApiMockGetAllKeys(keysApiService, keys, meta);
   };
 
   async function waitForProcessing() {
@@ -188,7 +194,7 @@ describe('Guardian balance monitoring test', () => {
   };
 
   const initializeLevelDBServices = async (moduleRef) => {
-    levelDBService = moduleRef.get(LevelDBService);
+    levelDBService = moduleRef.get(DepositsRegistryStoreService);
     signKeyLevelDBService = moduleRef.get(SignKeyLevelDBService);
     await initLevelDB(levelDBService, signKeyLevelDBService);
   };
@@ -197,11 +203,10 @@ describe('Guardian balance monitoring test', () => {
     depositIntegrityCheckerService = moduleRef.get(
       DepositIntegrityCheckerService,
     );
-    depositService = moduleRef.get(DepositService);
   };
 
   const initializeKeyEventServices = (moduleRef) => {
-    signingKeyEventsCacheService = moduleRef.get(SigningKeyEventsCacheService);
+    signingKeysRegistryService = moduleRef.get(SigningKeysRegistryService);
   };
 
   const initializeProviders = (moduleRef) => {
@@ -243,16 +248,19 @@ describe('Guardian balance monitoring test', () => {
 
   const mockDepositCacheMethods = () => {
     jest
-      .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
+      .spyOn(depositIntegrityCheckerService, 'putEventsToTree')
       .mockImplementation(() => Promise.resolve());
     jest
+      .spyOn(depositIntegrityCheckerService, 'checkLatestRoot')
+      .mockImplementation(() => Promise.resolve(true));
+    jest
       .spyOn(depositIntegrityCheckerService, 'checkFinalizedRoot')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(true));
   };
 
   const mockUnvettingMethod = () => {
     unvetSigningKeys = jest
       .spyOn(securityService, 'unvetSigningKeys')
-      .mockImplementation(() => Promise.resolve());
+      .mockImplementation(() => Promise.resolve(null as any));
   };
 });

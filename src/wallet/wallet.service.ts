@@ -167,7 +167,7 @@ export class WalletService implements OnModuleInit {
    * @param signDepositDataParams - parameters for signing deposit message
    * @param signDepositDataParams.prefix - unique prefix from the contract for this type of message
    * @param signDepositDataParams.depositRoot - current deposit root from the deposit contract
-   * @param signDepositDataParams.keysOpIndex - current index of keys operations from the registry contract
+   * @param signDepositDataParams.nonce - current index of keys operations from the registry contract
    * @param signDepositDataParams.blockNumber - current block number
    * @param signDepositDataParams.blockHash - current block hash
    * @param signDepositDataParams.stakingModuleId - target module id
@@ -178,19 +178,12 @@ export class WalletService implements OnModuleInit {
     blockNumber,
     blockHash,
     depositRoot,
-    keysOpIndex,
+    nonce,
     stakingModuleId,
   }: SignDepositDataParams): Promise<Signature> {
     const encodedData = defaultAbiCoder.encode(
       ['bytes32', 'uint256', 'bytes32', 'bytes32', 'uint256', 'uint256'],
-      [
-        prefix,
-        blockNumber,
-        blockHash,
-        depositRoot,
-        stakingModuleId,
-        keysOpIndex,
-      ],
+      [prefix, blockNumber, blockHash, depositRoot, stakingModuleId, nonce],
     );
 
     const messageHash = keccak256(encodedData);
