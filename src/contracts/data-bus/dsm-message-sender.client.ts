@@ -46,7 +46,7 @@ export class DSMMessageSender {
       await this.mutex.lock();
       await this.dataBusClient.sendMessage(eventName, outputMessage);
     } finally {
-      await this.mutex.unlock();
+      this.mutex.unlock();
     }
   }
 

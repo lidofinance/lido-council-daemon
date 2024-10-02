@@ -62,7 +62,6 @@ export class DataBusService {
    */
   public subscribeToEVMChainUpdates() {
     const provider = this.provider;
-    this.provider.clone();
     provider.on('block', async (blockNumber) => {
       if (blockNumber % DATA_BUS_BALANCE_UPDATE_BLOCK_RATE !== 0) return;
       await this.monitorGuardianBalance().catch((error) =>
