@@ -258,6 +258,20 @@ export class GuardianService implements OnModuleInit {
     await this.handleDeposit(stakingModulesData, blockData);
 
     const { blockHash, blockNumber } = blockData;
+
+    if (
+      !this.lastPingBlock ||
+      this.lastPingBlock + GUARDIAN_PING_BLOCKS_PERIOD <= blockNumber
+    ) {
+      this.lastPingBlock = blockNumber;
+      this.guardianMessageService
+        .pingMessageBroker(
+          stakingModulesData.map(({ stakingModuleId }) => stakingModuleId),
+          blockData,
+        )
+        .catch((error) => this.logger.error(error));
+    }
+
     this.setLastProcessedStateMeta({
       blockHash,
       blockNumber,
@@ -354,17 +368,6 @@ export class GuardianService implements OnModuleInit {
         );
       }),
     );
-
-    if (
-      !this.lastPingBlock ||
-      this.lastPingBlock + GUARDIAN_PING_BLOCKS_PERIOD <= blockData.blockNumber
-    ) {
-      this.lastPingBlock = blockData.blockNumber;
-      await this.guardianMessageService.pingMessageBroker(
-        stakingModulesData.map(({ stakingModuleId }) => stakingModuleId),
-        blockData,
-      );
-    }
   }
 
   private ignoreDeposits(
