@@ -141,7 +141,7 @@ describe('ganache e2e tests', () => {
   });
 
   test(
-    'skip deposit if find duplicated key',
+    'skip deposit if find duplicated key2',
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
       const walletAddress = await getWalletAddress();

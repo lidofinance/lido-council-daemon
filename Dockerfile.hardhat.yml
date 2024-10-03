@@ -1,0 +1,10 @@
+FROM node:18.14.2
+
+WORKDIR /app
+
+COPY hardhat.config.ts ./hardhat.config.ts
+
+RUN npm install -g hardhat
+
+
+CMD ["npx", "hardhat", "node"]
