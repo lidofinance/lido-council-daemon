@@ -34,8 +34,6 @@ export class HardhatFork {
         stdio: 'pipe', // or 'inherit' to show output in console
       },
     );
-
-    // console.log(`Hardhat node started on port ${this.port}...`);
   }
 
   public stop(): void {

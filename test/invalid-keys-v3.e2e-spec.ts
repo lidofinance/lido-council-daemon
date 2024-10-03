@@ -53,7 +53,7 @@ import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sani
 import { mockKey } from './helpers/keys-fixtures';
 import {
   HardhatFork,
-  // impersonateAccount,
+  impersonateAccount,
   waitForServerStdout,
 } from './helpers/hardhat-fork';
 import { cutKeys } from './helpers/reduce-keys';
@@ -81,7 +81,7 @@ describe('ganache e2e tests', () => {
   const setupHardhatServer = async () => {
     server = new HardhatFork(process.env.RPC_URL!, FORK_BLOCK, '8545');
     // Start the Hardhat node
-    server.start();
+    await server.start();
 
     // Wait until the Hardhat node is ready
     if (server.process?.stdout) {
@@ -169,9 +169,9 @@ describe('ganache e2e tests', () => {
 
   beforeEach(async () => {
     await setupHardhatServer();
-    // await impersonateAccount(SECURITY_MODULE_OWNER);
+    await impersonateAccount(SECURITY_MODULE_OWNER);
 
-    await cutKeys(0, '0x4E8970d148CB38460bE9b6ddaab20aE2A74879AF', 10);
+    // await cutKeys(0, '0x4E8970d148CB38460bE9b6ddaab20aE2A74879AF', 10);
 
     await setupGuardians();
     const moduleRef = await setupTestingModule();
