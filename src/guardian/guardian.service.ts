@@ -36,6 +36,9 @@ import { StakingRouterService } from 'contracts/staking-router';
 import { ELBlockSnapshot } from 'keys-api/interfaces/ELBlockSnapshot';
 import { SRModule } from 'keys-api/interfaces';
 import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
+import { InjectMetric } from '@willsoto/nestjs-prometheus';
+import { METRIC_JOB_DURATION } from 'common/prometheus';
+import { Histogram } from 'prom-client';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -64,6 +67,9 @@ export class GuardianService implements OnModuleInit {
     private unvettingService: UnvettingService,
 
     private stakingRouterService: StakingRouterService,
+
+    @InjectMetric(METRIC_JOB_DURATION)
+    private jobDurationMetric: Histogram<string>,
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -141,6 +147,10 @@ export class GuardianService implements OnModuleInit {
     this.logger.log('New staking router state cycle start');
 
     try {
+      const endTimer = this.jobDurationMetric
+        .labels({ jobName: 'handleNewBlock' })
+        .startTimer();
+
       // Fetch the minimum required data fro Keys Api to make an early exit
       const { data: stakingModules, elBlockSnapshot: firstRequestMeta } =
         await this.keysApiService.getModules();
@@ -161,9 +171,15 @@ export class GuardianService implements OnModuleInit {
         modulesCount: stakingModulesCount,
       });
 
+      const endTimerKeysReq = this.jobDurationMetric
+        .labels({ jobName: 'keysReq' })
+        .startTimer();
+
       // fetch all lido keys
       const { data: lidoKeys, meta: secondRequestMeta } =
         await this.keysApiService.getKeys();
+
+      endTimerKeysReq();
 
       // check that there were no updates in Keys Api between two requests
       this.keysApiService.verifyMetaDataConsistency(
@@ -202,9 +218,9 @@ export class GuardianService implements OnModuleInit {
       // To avoid blocking the pause, run the following tasks asynchronously:
       // updating the SigningKeyAdded events cache, checking keys, handling the unvetting of keys,
       // and sending deposit messages to the queue.
-      this.handleKeys(stakingModulesData, blockData, lidoKeys).catch(
-        this.logger.error,
-      );
+      this.handleKeys(stakingModulesData, blockData, lidoKeys)
+        .catch(this.logger.error)
+        .finally(() => endTimer());
     } catch (error) {
       this.logger.error('Staking router state update error');
       this.logger.error(error);
