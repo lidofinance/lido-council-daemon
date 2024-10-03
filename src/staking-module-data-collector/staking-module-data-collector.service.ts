@@ -8,6 +8,9 @@ import { GuardianMetricsService } from 'guardian/guardian-metrics';
 import { StakingRouterService } from 'contracts/staking-router';
 import { SRModule } from 'keys-api/interfaces';
 import { ELBlockSnapshot } from 'keys-api/interfaces/ELBlockSnapshot';
+import { METRIC_JOB_DURATION } from 'common/prometheus';
+import { InjectMetric } from '@willsoto/nestjs-prometheus';
+import { Histogram } from 'prom-client';
 
 type State = {
   stakingModules: SRModule[];
@@ -23,6 +26,8 @@ export class StakingModuleDataCollectorService {
     private keysDuplicationCheckerService: KeysDuplicationCheckerService,
     private guardianMetricsService: GuardianMetricsService,
     private stakingRouterService: StakingRouterService,
+    @InjectMetric(METRIC_JOB_DURATION)
+    private jobDurationMetric: Histogram<string>,
   ) {}
 
   /**
@@ -69,11 +74,17 @@ export class StakingModuleDataCollectorService {
     lidoKeys: RegistryKey[],
     blockData: BlockData,
   ): Promise<void> {
+    const endTimerDuplicates = this.jobDurationMetric
+      .labels({ jobName: 'duplicates' })
+      .startTimer();
+
     const { duplicates, unresolved } =
       await this.keysDuplicationCheckerService.getDuplicatedKeys(
         lidoKeys,
         blockData,
       );
+
+    endTimerDuplicates();
 
     await Promise.all(
       stakingModulesData.map(async (stakingModuleData) => {
@@ -83,12 +94,21 @@ export class StakingModuleDataCollectorService {
             stakingModuleData,
             blockData,
           );
+
+        const endTimerValidation = this.jobDurationMetric
+          .labels({
+            jobName: 'validation',
+            stakingModuleId: stakingModuleData.stakingModuleId,
+          })
+          .startTimer();
+
         // identify keys with invalid signatures within vetted unused keys
         stakingModuleData.invalidKeys =
           await this.stakingModuleGuardService.getInvalidKeys(
             stakingModuleData,
             blockData,
           );
+        endTimerValidation();
 
         // Filter all keys for the module to get the total number of duplicated keys,
         // for Prometheus metrics
