@@ -505,8 +505,6 @@ export class StakingModuleGuardService {
       lastContractsState,
     );
 
-    this.lastContractsStateByModuleId[stakingModuleId] = currentContractState;
-
     if (isSameContractsState) {
       this.logger.log("Contract states didn't change", { stakingModuleId });
       return;
@@ -539,6 +537,8 @@ export class StakingModuleGuardService {
     });
 
     await this.guardianMessageService.sendDepositMessage(depositMessage);
+
+    this.lastContractsStateByModuleId[stakingModuleId] = currentContractState;
   }
 
   public async getInvalidKeys(
