@@ -4,7 +4,7 @@ import { ethers } from 'ethers';
 
 export const Configuration = createInterface<Configuration>('Configuration');
 
-export type PubsubService = 'rabbitmq' | 'kafka';
+export type PubsubService = 'rabbitmq' | 'kafka' | 'evm-chain';
 
 export interface Configuration {
   NODE_ENV: string;
@@ -35,4 +35,7 @@ export interface Configuration {
   LOCATOR_DEVNET_ADDRESS: string;
   WALLET_MIN_BALANCE: ethers.BigNumber;
   WALLET_CRITICAL_BALANCE: ethers.BigNumber;
+  EVM_CHAIN_DATA_BUS_ADDRESS: string;
+  EVM_CHAIN_DATA_BUS_PROVIDER_URL: string;
+  EVM_CHAIN_DATA_BUS_WALLET_MIN_BALANCE: ethers.BigNumber;
 }

@@ -46,6 +46,10 @@ export class KeysApiService {
       return res;
     } catch (error: any) {
       clearTimeout(timer);
+      this.logger.error('Keys API request error', {
+        url: `${baseUrl}${url}`,
+        error,
+      });
       throw error;
     }
   }

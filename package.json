@@ -1,6 +1,6 @@
 {
   "name": "lido-council-daemon",
-  "version": "3.0.2",
+  "version": "3.1.0",
   "description": "Lido Council Daemon",
   "author": "Lido team",
   "private": true,
@@ -60,7 +60,8 @@
     "rimraf": "^3.0.2",
     "rxjs": "^7.2.0",
     "winston": "^3.3.3",
-    "ws": "^8.10.0"
+    "ws": "^8.10.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@nestjs/cli": "^8.2.5",
