@@ -31,3 +31,5 @@ export const METRIC_KEYS_API_REQUEST_DURATION = `${METRICS_PREFIX}keys_api_reque
 export const METRIC_DUPLICATED_KEYS_TOTAL = `${METRICS_PREFIX}duplicated_keys_total`;
 
 export const METRIC_INVALID_KEYS_TOTAL = `${METRICS_PREFIX}invalid_keys_total`;
+
+export const METRIC_JOB_DURATION = `${METRICS_PREFIX}handle_job_duration`;
