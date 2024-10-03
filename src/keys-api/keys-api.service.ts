@@ -6,6 +6,8 @@ import { KeyListResponse, Status } from './interfaces';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Configuration } from 'common/config';
 import { GroupedByModuleOperatorListResponse } from './interfaces/GroupedByModuleOperatorListResponse';
+import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
+import { SRModuleListResponse } from './interfaces/SRModuleListResponse';
 
 @Injectable()
 export class KeysApiService {
@@ -15,6 +17,13 @@ export class KeysApiService {
     protected readonly fetchService: FetchService,
   ) {}
 
+  private getBaseUrl() {
+    const baseUrl =
+      this.config.KEYS_API_URL ||
+      `${this.config.KEYS_API_HOST}:${this.config.KEYS_API_PORT}`;
+    return baseUrl;
+  }
+
   protected async fetch<Response>(url: string, requestInit?: RequestInit) {
     const controller = new AbortController();
     const { signal } = controller;
@@ -23,8 +32,7 @@ export class KeysApiService {
       controller.abort();
     }, FETCH_REQUEST_TIMEOUT);
 
-    const baseUrl = `${this.config.KEYS_API_HOST}:${this.config.KEYS_API_PORT}`;
-
+    const baseUrl = this.getBaseUrl();
     try {
       const res: Response = await this.fetchService.fetchJson(
         `${baseUrl}${url}`,
@@ -33,18 +41,17 @@ export class KeysApiService {
           ...requestInit,
         },
       );
+
       clearTimeout(timer);
       return res;
-    } catch (error) {
+    } catch (error: any) {
       clearTimeout(timer);
       throw error;
     }
   }
 
   /**
-   *
-   * @param The /v1/keys/find API endpoint returns keys along with their duplicates
-   * @returns
+   * The /v1/keys/find API endpoint returns keys along with their duplicates
    */
   public async getKeysByPubkeys(pubkeys: string[]) {
     const result = await this.fetch<KeyListResponse>(`/v1/keys/find`, {
@@ -57,11 +64,6 @@ export class KeysApiService {
     return result;
   }
 
-  public async getUnusedKeys() {
-    const result = await this.fetch<KeyListResponse>(`/v1/keys?used=false`);
-    return result;
-  }
-
   public async getOperatorListWithModule() {
     const result = await this.fetch<GroupedByModuleOperatorListResponse>(
       `/v1/operators`,
@@ -70,12 +72,43 @@ export class KeysApiService {
   }
 
   /**
-   *
    * @param The /v1/status API endpoint returns chainId, appVersion, El and Cl meta
    * @returns
    */
   public async getKeysApiStatus(): Promise<Status> {
     const result = await this.fetch<Status>(`/v1/status`);
     return result;
+  }
+
+  /**
+   * The /v1/keys endpoint returns full list of keys
+   */
+  public async getKeys() {
+    const result = await this.fetch<KeyListResponse>(`/v1/keys`);
+    return result;
+  }
+
+  public async getModules() {
+    const result = await this.fetch<SRModuleListResponse>(`/v1/modules`);
+    return result;
+  }
+
+  /**
+   * Verifies the consistency of metadata by comparing hashes.
+   * @param firstRequestHash - Hash of the first request
+   * @param secondRequestHash - Hash of the second request
+   */
+  public verifyMetaDataConsistency(
+    firstRequestHash: string,
+    secondRequestHash: string,
+  ) {
+    if (firstRequestHash !== secondRequestHash) {
+      const error =
+        'Since the last request, data in Kapi has been updated. This may result in inconsistencies between the data from two separate requests.';
+
+      this.logger.error(error, { firstRequestHash, secondRequestHash });
+
+      throw new InconsistentLastChangedBlockHash();
+    }
   }
 }

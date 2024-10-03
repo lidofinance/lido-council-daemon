@@ -1,5 +1,6 @@
 import { createInterface } from '../di/functions/createInterface';
 import { SASLMechanism } from '../../transport';
+import { ethers } from 'ethers';
 
 export const Configuration = createInterface<Configuration>('Configuration');
 
@@ -30,4 +31,8 @@ export interface Configuration {
   REGISTRY_KEYS_QUERY_CONCURRENCY: number;
   KEYS_API_PORT: number;
   KEYS_API_HOST: string;
+  KEYS_API_URL: string;
+  LOCATOR_DEVNET_ADDRESS: string;
+  WALLET_MIN_BALANCE: ethers.BigNumber;
+  WALLET_CRITICAL_BALANCE: ethers.BigNumber;
 }

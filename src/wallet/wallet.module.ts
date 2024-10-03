@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
-import { Configuration } from 'common/config';
+import { ConfigModule, Configuration } from 'common/config';
 import { WALLET_PRIVATE_KEY } from './wallet.constants';
 import { WalletService } from './wallet.service';
 
 @Module({
+  imports: [ConfigModule],
   providers: [
     WalletService,
     {

@@ -3,6 +3,7 @@ export const METRICS_PREFIX = 'council_daemon_';
 
 export const METRIC_SENT_MESSAGES = `${METRICS_PREFIX}sent_messages_total`;
 export const METRIC_PAUSE_ATTEMPTS = `${METRICS_PREFIX}pause_deposits_attempts_total`;
+export const METRIC_UNVET_ATTEMPTS = `${METRICS_PREFIX}unvet_attempts_total`;
 
 export const METRIC_RPC_REQUEST_DURATION = `${METRICS_PREFIX}rpc_requests_duration_seconds`;
 export const METRIC_RPC_REQUEST_ERRORS = `${METRICS_PREFIX}rpc_requests_errors`;
@@ -22,8 +23,6 @@ export const METRIC_OPERATORS_KEYS_TOTAL = `${METRICS_PREFIX}operators_keys_tota
 
 export const METRIC_KEYS_API_REQUEST_DURATION = `${METRICS_PREFIX}keys_api_requests_duration_seconds`;
 
-export const METRIC_DUPLICATED_VETTED_UNUSED_KEYS_TOTAL = `${METRICS_PREFIX}duplicated_vetted_unused_keys`;
+export const METRIC_DUPLICATED_KEYS_TOTAL = `${METRICS_PREFIX}duplicated_keys_total`;
 
-export const METRIC_DUPLICATED_USED_KEYS_TOTAL = `${METRICS_PREFIX}duplicated_used_keys`;
-
-export const METRIC_INVALID_KEYS_TOTAL = `${METRICS_PREFIX}invalid_keys`;
+export const METRIC_INVALID_KEYS_TOTAL = `${METRICS_PREFIX}invalid_keys_total`;

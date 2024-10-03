@@ -7,27 +7,26 @@ import { LoggerService } from '@nestjs/common';
 import { ConfigModule } from 'common/config';
 import { PrometheusModule } from 'common/prometheus';
 import { GuardianModule } from 'guardian';
-import { DepositModule } from 'contracts/deposit';
+import { DepositsRegistryModule } from 'contracts/deposits-registry';
 import { SecurityModule } from 'contracts/security';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
-import { LidoModule } from 'contracts/lido';
 import { MessagesModule } from 'messages';
-import { StakingRouterModule, StakingRouterService } from 'staking-router';
+import { StakingModuleDataCollectorModule } from 'staking-module-data-collector';
 import { GuardianMetricsModule } from './guardian-metrics';
 import { GuardianMessageModule } from './guardian-message';
 import { StakingModuleGuardModule } from './staking-module-guard';
-import { BlockGuardModule, BlockGuardService } from './block-guard';
+import { BlockDataCollectorModule } from './block-data-collector';
 import { ScheduleModule } from 'common/schedule';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { mockLocator } from 'contracts/repository/locator/locator.mock';
 import { mockRepository } from 'contracts/repository/repository.mock';
+import { KeysApiService } from 'keys-api/keys-api.service';
+import { UnvettingModule } from './unvetting/unvetting.module';
 
 jest.mock('../transport/stomp/stomp.client');
 
 describe('GuardianService', () => {
-  let stakingRouterService: StakingRouterService;
-  let blockGuardService: BlockGuardService;
-
+  let keysApiService: KeysApiService;
   let guardianService: GuardianService;
   let loggerService: LoggerService;
 
@@ -43,21 +42,20 @@ describe('GuardianService', () => {
         PrometheusModule,
         GuardianModule,
         RepositoryModule,
-        DepositModule,
+        DepositsRegistryModule.register('latest'),
         SecurityModule,
-        LidoModule,
         MessagesModule,
-        StakingRouterModule,
+        StakingModuleDataCollectorModule,
         ScheduleModule,
-        BlockGuardModule,
+        BlockDataCollectorModule,
         StakingModuleGuardModule,
         GuardianMessageModule,
         GuardianMetricsModule,
+        UnvettingModule,
       ],
     }).compile();
 
-    stakingRouterService = moduleRef.get(StakingRouterService);
-    blockGuardService = moduleRef.get(BlockGuardService);
+    keysApiService = moduleRef.get(KeysApiService);
 
     repositoryService = moduleRef.get(RepositoryService);
     locatorService = moduleRef.get(LocatorService);
@@ -77,21 +75,31 @@ describe('GuardianService', () => {
   it('should exit if the previous call is not completed', async () => {
     // OneAtTime test
     const getOperatorsAndModulesMock = jest
-      .spyOn(stakingRouterService, 'getOperatorsAndModules')
+      .spyOn(keysApiService, 'getModules')
       .mockImplementation(async () => ({
         data: [],
-        meta: {
-          elBlockSnapshot: {
-            blockNumber: 0,
-            blockHash: 'string',
-            timestamp: 0,
-            lastChangedBlockHash: '',
-          },
+        elBlockSnapshot: {
+          blockNumber: 0,
+          blockHash: 'string',
+          timestamp: 0,
+          lastChangedBlockHash: '',
         },
       }));
 
-    const getBlockGuardServiceMock = jest
-      .spyOn(blockGuardService, 'isNeedToProcessNewState')
+    jest.spyOn(keysApiService, 'getKeys').mockImplementation(async () => ({
+      data: [],
+      meta: {
+        elBlockSnapshot: {
+          blockNumber: 0,
+          blockHash: 'string',
+          timestamp: 0,
+          lastChangedBlockHash: '',
+        },
+      },
+    }));
+
+    const isNeedToProcessNewStatMock = jest
+      .spyOn(guardianService, 'isNeedToProcessNewState')
       .mockImplementation(() => false);
 
     // run concurrently and check that second attempt
@@ -100,7 +108,7 @@ describe('GuardianService', () => {
       guardianService.handleNewBlock(),
     ]);
 
-    expect(getBlockGuardServiceMock).toBeCalledTimes(1);
+    expect(isNeedToProcessNewStatMock).toBeCalledTimes(1);
     expect(getOperatorsAndModulesMock).toBeCalledTimes(1);
   });
 });

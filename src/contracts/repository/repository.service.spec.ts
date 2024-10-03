@@ -3,15 +3,13 @@ import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
-import { MockProviderModule, ProviderService } from 'provider';
+import { MockProviderModule } from 'provider';
 import { RepositoryService } from 'contracts/repository';
 import { RepositoryModule } from './repository.module';
 import { LocatorService } from './locator/locator.service';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { mockLocator } from './locator/locator.mock';
 import { mockRepository } from './repository.mock';
-import { SecurityAbi__factory } from 'generated';
-import { Interface } from '@ethersproject/abi';
 
 describe('RepositoryService', () => {
   let repositoryService: RepositoryService;
@@ -116,74 +114,27 @@ describe('RepositoryService', () => {
     });
   });
 
-  describe('messages prefixes', () => {
-    let repositoryService: RepositoryService;
-    let locatorService: LocatorService;
-    let providerService: ProviderService;
+  describe('staking router', () => {
+    let mockGetAddress;
 
     beforeEach(async () => {
-      const moduleRef = await Test.createTestingModule({
-        imports: [
-          ConfigModule.forRoot(),
-          MockProviderModule.forRoot(),
-          LoggerModule,
-          PrometheusModule,
-          RepositoryModule,
-        ],
-      }).compile();
-
-      repositoryService = moduleRef.get(RepositoryService);
-      locatorService = moduleRef.get(LocatorService);
-      providerService = moduleRef.get(ProviderService);
-      jest
-        .spyOn(moduleRef.get(WINSTON_MODULE_NEST_PROVIDER), 'log')
-        .mockImplementation(() => undefined);
+      mockGetAddress = mockLocator(locatorService).SRAddr;
+      await mockRepository(repositoryService);
     });
 
-    it('getAttestMessagePrefix', async () => {
-      const expected = '0x' + '1'.repeat(64);
-
-      const mockProviderCall = jest
-        .spyOn(providerService.provider, 'call')
-        .mockImplementation(async () => {
-          const iface = new Interface(SecurityAbi__factory.abi);
-          const result = [expected];
-          return iface.encodeFunctionResult('ATTEST_MESSAGE_PREFIX', result);
-        });
-
-      jest
-        .spyOn(repositoryService, 'getDepositAddress')
-        .mockImplementation(async () => '0x' + '5'.repeat(40));
-
-      mockLocator(locatorService);
-
-      await repositoryService.initCachedContracts('latest');
-      const prefix = await repositoryService.getAttestMessagePrefix();
-      expect(prefix).toBe(expected);
-      expect(mockProviderCall).toBeCalledTimes(2);
+    it('should return contract instance', async () => {
+      const contract = await repositoryService.getCachedStakingRouterContract();
+      expect(contract).toBeInstanceOf(Contract);
     });
 
-    it('getPauseMessagePrefix', async () => {
-      const expected = '0x' + '1'.repeat(64);
+    it('should call getDepositAddress once and cache instance ', async () => {
+      const contract1 =
+        await repositoryService.getCachedStakingRouterContract();
+      const contract2 =
+        await repositoryService.getCachedStakingRouterContract();
+      expect(mockGetAddress).toBeCalledTimes(1);
 
-      const mockProviderCall = jest
-        .spyOn(providerService.provider, 'call')
-        .mockImplementation(async () => {
-          const iface = new Interface(SecurityAbi__factory.abi);
-          const result = [expected];
-          return iface.encodeFunctionResult('PAUSE_MESSAGE_PREFIX', result);
-        });
-
-      jest
-        .spyOn(repositoryService, 'getDepositAddress')
-        .mockImplementation(async () => '0x' + '5'.repeat(40));
-
-      mockLocator(locatorService);
-
-      await repositoryService.initCachedContracts('latest');
-      const prefix = await repositoryService.getPauseMessagePrefix();
-      expect(prefix).toBe(expected);
-      expect(mockProviderCall).toBeCalledTimes(2);
+      expect(contract1).toEqual(contract2);
     });
   });
 });

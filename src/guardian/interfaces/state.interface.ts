@@ -3,5 +3,4 @@ export interface ContractsState {
   nonce: number;
   depositRoot: string;
   lastChangedBlockHash: string;
-  invalidKeysFound: boolean;
 }

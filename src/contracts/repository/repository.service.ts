@@ -1,3 +1,4 @@
+import { Block } from '@ethersproject/abstract-provider';
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { LidoAbi, LidoAbi__factory, LocatorAbi } from 'generated';
 import { SecurityAbi, SecurityAbi__factory } from 'generated';
@@ -26,9 +27,6 @@ export class RepositoryService {
     string,
     LidoAbi | LocatorAbi | SecurityAbi | StakingRouterAbi
   > = {};
-  // store prefixes on the current state of the contracts.
-  // if the contracts are updated we will change these addresses too
-  private cachedDSMPrefixes: Record<string, string> = {};
   private permanentContractsCache: Record<string, DepositAbi> = {};
 
   /**
@@ -39,13 +37,13 @@ export class RepositoryService {
     // order is important: deposit contract depends on dsm
     await this.initCachedDSMContract(blockTag);
     await this.initCachedDepositContract(blockTag);
-    await this.initCachedStakingRouterAbiContract(blockTag);
+    await this.initCachedStakingRouterContract(blockTag);
   }
 
   /**
    * Init cache for each contract or wait if it makes some error
    */
-  public async initOrWaitCachedContracts() {
+  public async initOrWaitCachedContracts(): Promise<Block> {
     const block = await this.providerService.getBlock();
     try {
       await this.initCachedContracts({ blockHash: block.hash });
@@ -151,15 +149,6 @@ export class RepositoryService {
       DSM_ABI,
       SecurityAbi__factory.connect(address, provider),
     );
-
-    // prune dsm prefixes
-    this.cachedDSMPrefixes = {};
-
-    // re-init dsm prefixes
-    await Promise.all([
-      this.getAttestMessagePrefix(),
-      this.getPauseMessagePrefix(),
-    ]);
   }
 
   /**
@@ -180,7 +169,7 @@ export class RepositoryService {
   /**
    * Init cache for SR contract
    */
-  private async initCachedStakingRouterAbiContract(
+  private async initCachedStakingRouterContract(
     blockTag: BlockTag,
   ): Promise<void> {
     const stakingRouterAddress =
@@ -192,27 +181,6 @@ export class RepositoryService {
       STAKING_ROUTER_ABI,
       StakingRouterAbi__factory.connect(stakingRouterAddress, provider),
     );
-  }
-
-  /**
-   * Returns a prefix from the contract with which the deposit message should be signed
-   */
-  public async getAttestMessagePrefix(): Promise<string> {
-    if (this.cachedDSMPrefixes.attest) return this.cachedDSMPrefixes.attest;
-    const contract = await this.getCachedDSMContract();
-    this.cachedDSMPrefixes.attest = await contract.ATTEST_MESSAGE_PREFIX();
-    return this.cachedDSMPrefixes.attest;
-  }
-
-  /**
-   * Returns a prefix from the contract with which the pause message should be signed
-   */
-  public async getPauseMessagePrefix(): Promise<string> {
-    if (this.cachedDSMPrefixes.pause) return this.cachedDSMPrefixes.pause;
-    const contract = await this.getCachedDSMContract();
-    this.cachedDSMPrefixes.pause = await contract.PAUSE_MESSAGE_PREFIX();
-
-    return this.cachedDSMPrefixes.pause;
   }
 
   /**

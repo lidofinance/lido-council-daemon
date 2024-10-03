@@ -1,4 +1,3 @@
-import { hexZeroPad } from '@ethersproject/bytes';
 import { RepositoryService } from './repository.service';
 
 export const mockRepository = async (repositoryService: RepositoryService) => {
@@ -8,16 +7,10 @@ export const mockRepository = async (repositoryService: RepositoryService) => {
     .spyOn(repositoryService, 'getDepositAddress')
     .mockImplementation(async () => address1);
 
-  const mockGetPauseMessagePrefix = jest
-    .spyOn(repositoryService, 'getPauseMessagePrefix')
-    .mockImplementation(async () => hexZeroPad('0x2', 32));
-
-  const mockGetAttestMessagePrefix = jest
-    .spyOn(repositoryService, 'getAttestMessagePrefix')
-    .mockImplementation(async () => hexZeroPad('0x1', 32));
-
   await repositoryService.initCachedContracts('latest');
   jest.spyOn(repositoryService, 'getCachedLidoContract');
 
-  return { depositAddr, mockGetPauseMessagePrefix, mockGetAttestMessagePrefix };
+  return {
+    depositAddr,
+  };
 };

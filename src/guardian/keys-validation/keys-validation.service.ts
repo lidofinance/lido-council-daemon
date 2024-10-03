@@ -1,120 +1,135 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
-import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import {
   KeyValidatorInterface,
   bufferFromHexString,
-  Pubkey,
   WithdrawalCredentialsBuffer,
   Key,
 } from '@lido-nestjs/key-validation';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { GENESIS_FORK_VERSION_BY_CHAIN_ID } from 'bls/bls.constants';
 import { LRUCache } from 'lru-cache';
-import { KEYS_LRU_CACHE_SIZE } from './constants';
+import { DEPOSIT_DATA_LRU_CACHE_SIZE } from './constants';
 import { ProviderService } from 'provider';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
-type DepositData = {
-  key: Pubkey;
-  depositSignature: string;
+type DepositKey = RegistryKey & {
   withdrawalCredentials: WithdrawalCredentialsBuffer;
   genesisForkVersion: Buffer;
 };
 
 @Injectable()
 export class KeysValidationService {
-  private keysCache: LRUCache<string, { signature: string; isValid: boolean }>;
+  private depositDataCache: LRUCache<string, boolean>;
 
   constructor(
-    @Inject(WINSTON_MODULE_NEST_PROVIDER)
-    protected readonly logger: LoggerService,
     private readonly keyValidator: KeyValidatorInterface,
     private readonly provider: ProviderService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
   ) {
-    this.keysCache = new LRUCache({ max: KEYS_LRU_CACHE_SIZE });
+    this.depositDataCache = new LRUCache({ max: DEPOSIT_DATA_LRU_CACHE_SIZE });
   }
 
   /**
-   *
-   * Return list of invalid keys
+   * return list of invalid keys
+   * @param keys
+   * @param withdrawalCredentials
    */
-  public async findInvalidKeys(
-    vettedKeys: RegistryKey[],
+  public async getInvalidKeys(
+    keys: RegistryKey[],
     withdrawalCredentials: string,
-  ): Promise<{ key: string; depositSignature: string }[]> {
-    const forkVersion: Uint8Array = await this.forkVersion();
-
-    const { keysNeedingValidation, unchangedAndInvalidKeys } =
-      this.divideKeys(vettedKeys);
-
-    const keysForValidation = keysNeedingValidation.map((key) =>
-      this.toDepositData(key, withdrawalCredentials, forkVersion),
+  ): Promise<RegistryKey[]> {
+    const withdrawalCredentialsBuffer = bufferFromHexString(
+      withdrawalCredentials,
     );
+    const genesisForkVersion: Uint8Array = await this.forkVersion();
+    const genesisForkVersionBuffer = Buffer.from(genesisForkVersion.buffer);
 
-    const validatedKeys: [Key & DepositData, boolean][] =
-      await this.keyValidator.validateKeys(keysForValidation);
+    const { cachedInvalidKeyList, uncachedDepositKeyList } =
+      this.partitionCachedData(
+        keys,
+        withdrawalCredentialsBuffer,
+        genesisForkVersionBuffer,
+      );
 
-    this.updateCache(validatedKeys);
-
-    // this list will not include invalid keys from cache
-    const invalidKeysFromCurrentValidation = validatedKeys
-      .filter(([, isValid]) => !isValid)
-      .map(([key]) => ({
-        key: key.key,
-        depositSignature: key.depositSignature,
-      }));
-
-    this.logger.log('Validation keys information', {
-      vettedKeysCount: vettedKeys.length,
-      currentCacheSize: this.keysCache.size,
-      cacheInvalidKeysCount: unchangedAndInvalidKeys.length,
-      newInvalidKeys: invalidKeysFromCurrentValidation.length,
+    this.logger.log('Validation status of deposit keys:', {
+      cachedInvalidKeyCount: cachedInvalidKeyList.length,
+      keysNeedingValidationCount: uncachedDepositKeyList.length,
+      totalKeysCount: keys.length,
     });
 
-    const unchangedAndInvalidKeysValues = unchangedAndInvalidKeys.map(
-      (key) => ({
-        key: key.key,
-        depositSignature: key.depositSignature,
-      }),
-    );
+    const validatedDepositKeyList: [DepositKey & Key, boolean][] =
+      await this.keyValidator.validateKeys<DepositKey>(uncachedDepositKeyList);
 
-    // merge just checked invalid keys and invalid keys from cache but only from vettedKeys
-    return [
-      ...invalidKeysFromCurrentValidation,
-      ...unchangedAndInvalidKeysValues,
-    ];
+    this.updateCache(validatedDepositKeyList);
+
+    const invalidKeys = this.filterInvalidKeys(validatedDepositKeyList);
+
+    return cachedInvalidKeyList.concat(invalidKeys);
   }
 
-  private divideKeys(vettedKeys: RegistryKey[]): {
-    keysNeedingValidation: RegistryKey[];
-    unchangedAndInvalidKeys: RegistryKey[];
+  private filterInvalidKeys(
+    validatedKeys: [DepositKey & Key, boolean][],
+  ): RegistryKey[] {
+    return validatedKeys.reduce<RegistryKey[]>(
+      (invalidKeys, [data, isValid]) => {
+        if (!isValid) {
+          invalidKeys.push({
+            key: data.key,
+            depositSignature: data.depositSignature,
+            operatorIndex: data.operatorIndex,
+            used: data.used,
+            index: data.index,
+            moduleAddress: data.moduleAddress,
+            vetted: data.vetted,
+          });
+        }
+        return invalidKeys;
+      },
+      [],
+    );
+  }
+
+  /**
+   * Partition the deposit data into cached invalid data and uncached data.
+   * @param depositDataList List of deposit data to check against the cache
+   * @returns An object containing cached invalid data and uncached data
+   */
+  private partitionCachedData(
+    keys: RegistryKey[],
+    withdrawalCredentialsBuffer: WithdrawalCredentialsBuffer,
+    genesisForkVersionBuffer: Buffer,
+  ): {
+    cachedInvalidKeyList: RegistryKey[];
+    uncachedDepositKeyList: DepositKey[];
   } {
-    const keysNeedingValidation: RegistryKey[] = [];
-    const unchangedAndInvalidKeys: RegistryKey[] = [];
+    return keys.reduce<{
+      cachedInvalidKeyList: RegistryKey[];
+      uncachedDepositKeyList: DepositKey[];
+    }>(
+      (acc, key) => {
+        const depositKey = {
+          ...key,
+          withdrawalCredentials: withdrawalCredentialsBuffer,
+          genesisForkVersion: genesisForkVersionBuffer,
+        };
+        const cacheResult = this.getCachedDepositData(depositKey);
 
-    vettedKeys.forEach((key) => {
-      const cachedEntry = this.keysCache.get(key.key);
+        if (cacheResult === false) {
+          acc.cachedInvalidKeyList.push(key);
+        }
 
-      if (!cachedEntry || cachedEntry.signature !== key.depositSignature) {
-        keysNeedingValidation.push(key);
-      } else if (!cachedEntry.isValid) {
-        unchangedAndInvalidKeys.push(key);
-      }
-    });
+        if (cacheResult === undefined) {
+          acc.uncachedDepositKeyList.push(depositKey);
+        }
 
-    return { keysNeedingValidation, unchangedAndInvalidKeys };
+        return acc;
+      },
+      { cachedInvalidKeyList: [], uncachedDepositKeyList: [] },
+    );
   }
 
-  private toDepositData(
-    key: RegistryKey,
-    withdrawalCredentials: string,
-    forkVersion: Uint8Array,
-  ): DepositData {
-    return {
-      key: key.key,
-      depositSignature: key.depositSignature,
-      withdrawalCredentials: bufferFromHexString(withdrawalCredentials),
-      genesisForkVersion: Buffer.from(forkVersion.buffer),
-    };
+  private getCachedDepositData(depositKey: DepositKey): boolean | undefined {
+    return this.depositDataCache.get(this.serializeDepositData(depositKey));
   }
 
   private async forkVersion(): Promise<Uint8Array> {
@@ -128,9 +143,21 @@ export class KeysValidationService {
     return forkVersion;
   }
 
-  private async updateCache(validatedKeys: [Key & DepositData, boolean][]) {
-    validatedKeys.forEach(([key, isValid]) =>
-      this.keysCache.set(key.key, { signature: key.depositSignature, isValid }),
+  private updateCache(validatedKeys: [Key & DepositKey, boolean][]) {
+    validatedKeys.forEach(([depositData, isValid]) =>
+      this.depositDataCache.set(
+        this.serializeDepositData(depositData),
+        isValid,
+      ),
     );
+  }
+
+  private serializeDepositData(depositKey: DepositKey): string {
+    return JSON.stringify({
+      key: depositKey.key,
+      depositSignature: depositKey.depositSignature,
+      withdrawalCredentials: depositKey.withdrawalCredentials.toString('hex'),
+      genesisForkVersion: depositKey.genesisForkVersion.toString('hex'),
+    });
   }
 }

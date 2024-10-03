@@ -100,8 +100,18 @@ describe('ProviderService', () => {
     it('should fetch recursive if missing response', async () => {
       const event1 = {} as any;
       const event2 = {} as any;
-      const expectedFirst = { events: [event1], startBlock: 0, endBlock: 4 };
-      const expectedSecond = { events: [event2], startBlock: 5, endBlock: 10 };
+      const expectedFirst = {
+        events: [event1],
+        startBlock: 0,
+        endBlock: 4,
+        extraField: 'some value',
+      };
+      const expectedSecond = {
+        events: [event2],
+        startBlock: 5,
+        endBlock: 10,
+        extraField: 'some value',
+      };
 
       const startBlock = 0;
       const endBlock = 10;
@@ -123,6 +133,7 @@ describe('ProviderService', () => {
       const { calls, results } = mockFetchEvents.mock;
       const events = [event1, event2];
 
+      expect(Object.keys(result)).toHaveLength(3);
       expect(result).toEqual({ events, startBlock, endBlock });
       expect(mockFetchEvents).toBeCalledTimes(3);
       expect(calls[0]).toEqual([startBlock, endBlock]);

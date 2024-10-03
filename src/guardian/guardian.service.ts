@@ -8,7 +8,7 @@ import { compare } from 'compare-versions';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
-import { DepositService } from 'contracts/deposit';
+import { DepositRegistryService } from 'contracts/deposits-registry';
 import { SecurityService } from 'contracts/security';
 import { RepositoryService } from 'contracts/repository';
 import {
@@ -16,16 +16,23 @@ import {
   GUARDIAN_DEPOSIT_JOB_NAME,
 } from './guardian.constants';
 import { OneAtTime } from 'common/decorators';
-import { StakingRouterService } from 'staking-router';
+import { StakingModuleDataCollectorService } from 'staking-module-data-collector';
 
-import { BlockGuardService } from './block-guard';
+import { BlockDataCollectorService } from './block-data-collector';
+
 import { StakingModuleGuardService } from './staking-module-guard';
 import { GuardianMessageService } from './guardian-message';
 import { GuardianMetricsService } from './guardian-metrics';
-import { StakingModuleData } from './interfaces';
+import { BlockData, StakingModuleData } from './interfaces';
 import { ProviderService } from 'provider';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { MIN_KAPI_VERSION } from './guardian.constants';
+import { UnvettingService } from './unvetting/unvetting.service';
+import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
+import { StakingRouterService } from 'contracts/staking-router';
+import { ELBlockSnapshot } from 'keys-api/interfaces/ELBlockSnapshot';
+import { SRModule } from 'keys-api/interfaces';
+import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -38,17 +45,22 @@ export class GuardianService implements OnModuleInit {
 
     private schedulerRegistry: SchedulerRegistry,
 
-    private depositService: DepositService,
+    private depositService: DepositRegistryService,
     private securityService: SecurityService,
-    private stakingRouterService: StakingRouterService,
+    private stakingModuleDataCollectorService: StakingModuleDataCollectorService,
 
-    private blockGuardService: BlockGuardService,
+    private blockDataCollectorService: BlockDataCollectorService,
     private stakingModuleGuardService: StakingModuleGuardService,
     private guardianMessageService: GuardianMessageService,
     private guardianMetricsService: GuardianMetricsService,
 
     private providerService: ProviderService,
     private keysApiService: KeysApiService,
+    private signingKeysRegistryService: SigningKeysRegistryService,
+
+    private unvettingService: UnvettingService,
+
+    private stakingRouterService: StakingRouterService,
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -59,9 +71,15 @@ export class GuardianService implements OnModuleInit {
         const block = await this.repositoryService.initOrWaitCachedContracts();
         const blockHash = block.hash;
 
+        const stakingRouterModuleAddresses =
+          await this.stakingRouterService.getStakingModulesAddresses(blockHash);
+
         await Promise.all([
-          this.depositService.initialize(block.number),
+          this.depositService.initialize(),
           this.securityService.initialize({ blockHash }),
+          this.signingKeysRegistryService.initialize(
+            stakingRouterModuleAddresses,
+          ),
         ]);
 
         const chainId = await this.providerService.getChainId();
@@ -86,10 +104,6 @@ export class GuardianService implements OnModuleInit {
             `The KAPI version must be greater than or equal to ${MIN_KAPI_VERSION}`,
           );
         }
-
-        // The event cache is stored with an N block lag to avoid caching data from uncle blocks
-        // so we don't worry about blockHash here
-        await this.depositService.updateEventsCache();
 
         this.subscribeToModulesUpdates();
       } catch (error) {
@@ -124,110 +138,284 @@ export class GuardianService implements OnModuleInit {
     this.logger.log('New staking router state cycle start');
 
     try {
-      const { data: operatorsByModules, meta } =
-        await this.stakingRouterService.getOperatorsAndModules();
+      // Fetch the minimum required data fro Keys Api to make an early exit
+      const { data: stakingModules, elBlockSnapshot: firstRequestMeta } =
+        await this.keysApiService.getModules();
 
-      const {
-        elBlockSnapshot: { blockHash, blockNumber },
-      } = meta;
+      const { blockHash, blockNumber } = firstRequestMeta;
 
-      await this.repositoryService.initCachedContracts({ blockHash });
+      // Compare the block stored in memory from the previous iteration with the current block from the Keys API.
+      const isNewBlock = this.isNeedToProcessNewState({
+        blockHash,
+        blockNumber,
+      });
 
-      if (
-        !this.blockGuardService.isNeedToProcessNewState({
-          blockHash,
-          blockNumber,
-        })
-      ) {
-        this.logger.debug?.(
-          `The block has not changed since the last cycle. Exit`,
-          {
-            blockHash,
-            blockNumber,
-          },
-        );
-        return;
-      }
+      if (!isNewBlock) return;
 
-      const stakingModulesCount = operatorsByModules.length;
+      const stakingModulesCount = stakingModules.length;
 
       this.logger.log('Staking modules loaded', {
         modulesCount: stakingModulesCount,
       });
 
-      await this.depositService.handleNewBlock(blockNumber);
+      // fetch all lido keys
+      const { data: lidoKeys, meta: secondRequestMeta } =
+        await this.keysApiService.getKeys();
 
-      // TODO: e2e test 'node operator deposit frontrun' shows that it is possible to find event and not save in cache
-      const blockData = await this.blockGuardService.getCurrentBlockData({
-        blockHash,
-        blockNumber,
-      });
+      // check that there were no updates in Keys Api between two requests
+      this.keysApiService.verifyMetaDataConsistency(
+        firstRequestMeta.lastChangedBlockHash,
+        secondRequestMeta.elBlockSnapshot.lastChangedBlockHash,
+      );
 
-      this.logger.debug?.('Current block data loaded', {
-        guardianIndex: blockData.guardianIndex,
-        blockNumber: blockData.blockNumber,
-        blockHash: blockData.blockHash,
-      });
+      // contracts initialization
+      await this.repositoryService.initCachedContracts({ blockHash });
 
-      const stakingModulesData =
-        await this.stakingRouterService.getStakingModulesData({
-          data: operatorsByModules,
-          meta,
-        });
+      await this.depositService.handleNewBlock();
 
-      const modulesIdWithDuplicateKeys: number[] =
-        this.stakingModuleGuardService.getModulesIdsWithDuplicatedVettedUnusedKeys(
+      const { stakingModulesData, blockData } = await this.collectData(
+        stakingModules,
+        firstRequestMeta,
+        lidoKeys,
+      );
+
+      if (
+        blockData.securityVersion === 3 &&
+        !blockData.alreadyPausedDeposits &&
+        blockData.theftHappened
+      ) {
+        await this.stakingModuleGuardService.handlePauseV3(blockData);
+        return;
+      }
+
+      if (blockData.securityVersion !== 3 && blockData.theftHappened) {
+        await this.stakingModuleGuardService.handlePauseV2(
           stakingModulesData,
           blockData,
         );
+        return;
+      }
 
-      const stakingModulesWithoutDuplicates: StakingModuleData[] =
-        this.stakingModuleGuardService.excludeModulesWithDuplicatedKeys(
-          stakingModulesData,
-          modulesIdWithDuplicateKeys,
-        );
-
-      this.logger.log('Staking modules without duplicates', {
-        modulesCount: stakingModulesWithoutDuplicates.length,
-      });
-
-      await Promise.all(
-        stakingModulesData.map(async (stakingModuleData) => {
-          // stakingModulesWithoutDuplicates - modules without duplicates
-          // if found in this module it means it doesnt have duplicates
-
-          const noDuplicates = !!stakingModulesWithoutDuplicates.find(
-            (srmd) =>
-              srmd.stakingModuleId === stakingModuleData.stakingModuleId,
-          );
-
-          await this.stakingModuleGuardService.checkKeysIntersections(
-            stakingModuleData,
-            blockData,
-            noDuplicates,
-          );
-
-          this.guardianMetricsService.collectMetrics(
-            stakingModuleData,
-            blockData,
-          );
-        }),
+      // To avoid blocking the pause, run the following tasks asynchronously:
+      // updating the SigningKeyAdded events cache, checking keys, handling the unvetting of keys,
+      // and sending deposit messages to the queue.
+      this.handleKeys(stakingModulesData, blockData, lidoKeys).catch(
+        this.logger.error,
       );
 
       await this.guardianMessageService.pingMessageBroker(
         stakingModulesData.map(({ stakingModuleId }) => stakingModuleId),
         blockData,
       );
-
-      this.blockGuardService.setLastProcessedStateMeta({
-        blockHash,
-        blockNumber,
-      });
     } catch (error) {
       this.logger.error('Staking router state update error');
       this.logger.error(error);
-    } finally {
-      this.logger.log('New staking router state cycle end');
     }
+  }
+
+  private async collectData(
+    stakingModules: SRModule[],
+    meta: ELBlockSnapshot,
+    lidoKeys: RegistryKey[],
+  ) {
+    const { blockHash, blockNumber } = meta;
+
+    const [blockData, stakingModulesData] = await Promise.all([
+      this.blockDataCollectorService.getCurrentBlockData({
+        blockHash,
+        blockNumber,
+      }),
+      // Construct the Staking Module data array using information fetched from the Keys API,
+      // identifying vetted unused keys and checking the module pause status
+      this.stakingModuleDataCollectorService.collectStakingModuleData({
+        stakingModules,
+        meta,
+        lidoKeys,
+      }),
+    ]);
+
+    this.logger.debug?.('Current block data loaded', {
+      guardianIndex: blockData.guardianIndex,
+      blockNumber: blockNumber,
+      blockHash: blockHash,
+      securityVersion: blockData.securityVersion,
+    });
+
+    return { blockData, stakingModulesData };
+  }
+
+  /**
+   * This method check keys and if they are correct send deposit message in queue, another way send unvet transaction
+   */
+  @OneAtTime()
+  private async handleKeys(
+    stakingModulesData: StakingModuleData[],
+    blockData: BlockData,
+    lidoKeys: RegistryKey[],
+  ) {
+    // check lido keys
+    await this.checkKeys(stakingModulesData, blockData, lidoKeys);
+    // unvet keys if need
+    await this.handleUnvetting(stakingModulesData, blockData);
+    await this.handleDeposit(stakingModulesData, blockData);
+
+    const { blockHash, blockNumber } = blockData;
+    this.setLastProcessedStateMeta({
+      blockHash,
+      blockNumber,
+    });
+
+    this.logger.log('New staking router state cycle end');
+  }
+
+  private async checkKeys(
+    stakingModulesData: StakingModuleData[],
+    blockData: BlockData,
+    lidoKeys: RegistryKey[],
+  ) {
+    const stakingRouterModuleAddresses = stakingModulesData.map(
+      (stakingModule) => stakingModule.stakingModuleAddress,
+    );
+    // update cache if needs
+    await this.signingKeysRegistryService.handleNewBlock(
+      stakingRouterModuleAddresses,
+    );
+
+    // check keys on duplicates, attempts of front-run and check signatures
+    await this.stakingModuleDataCollectorService.checkKeys(
+      stakingModulesData,
+      lidoKeys,
+      blockData,
+    );
+  }
+
+  private async handleUnvetting(
+    stakingModulesData: StakingModuleData[],
+    blockData: BlockData,
+  ) {
+    if (blockData.securityVersion !== 3) {
+      return;
+    }
+
+    const firstInvalidModule = this.findFirstInvalidModule(stakingModulesData);
+
+    if (!firstInvalidModule) {
+      this.logger.log(
+        'Keys of all modules are correct. No need in unvetting.',
+        {
+          blockHash: blockData.blockHash,
+        },
+      );
+      return;
+    }
+
+    await this.unvettingService.handleUnvetting(firstInvalidModule, blockData);
+  }
+
+  private findFirstInvalidModule(
+    stakingModulesData: StakingModuleData[],
+  ): StakingModuleData | undefined {
+    return stakingModulesData.find((moduleData) =>
+      this.hasInvalidKeys(moduleData),
+    );
+  }
+
+  private hasInvalidKeys(moduleData: StakingModuleData): boolean {
+    const keys = moduleData.invalidKeys.concat(
+      moduleData.duplicatedKeys,
+      moduleData.frontRunKeys,
+    );
+    return keys.length > 0;
+  }
+
+  private async handleDeposit(
+    stakingModulesData: StakingModuleData[],
+    blockData: BlockData,
+  ) {
+    await Promise.all(
+      stakingModulesData.map(async (stakingModuleData) => {
+        this.guardianMetricsService.collectMetrics(
+          stakingModuleData,
+          blockData,
+        );
+
+        if (
+          this.ignoreDeposits(
+            stakingModuleData,
+            blockData.theftHappened,
+            blockData.alreadyPausedDeposits,
+            stakingModuleData.stakingModuleId,
+          )
+        ) {
+          return;
+        }
+
+        await this.stakingModuleGuardService.handleCorrectKeys(
+          stakingModuleData,
+          blockData,
+        );
+      }),
+    );
+  }
+
+  private ignoreDeposits(
+    stakingModuleData: StakingModuleData,
+    theftHappened: boolean,
+    alreadyPausedDeposits: boolean,
+    stakingModuleId: number,
+  ): boolean {
+    const keysForUnvetting = stakingModuleData.invalidKeys.concat(
+      stakingModuleData.frontRunKeys,
+      stakingModuleData.duplicatedKeys,
+    );
+
+    // if neither of this conditions is true, deposits are allowed for module
+    const ignoreDeposits =
+      keysForUnvetting.length > 0 ||
+      stakingModuleData.unresolvedDuplicatedKeys.length > 0 ||
+      alreadyPausedDeposits ||
+      theftHappened ||
+      stakingModuleData.isModuleDepositsPaused;
+
+    if (ignoreDeposits) {
+      this.logger.warn('Deposits are not available', {
+        keysForUnvetting: keysForUnvetting.length,
+        duplicates: stakingModuleData.unresolvedDuplicatedKeys.length,
+        alreadyPausedDeposits,
+        theftHappened,
+        isModuleDepositsPaused: stakingModuleData.isModuleDepositsPaused,
+        stakingModuleId,
+      });
+    }
+
+    return ignoreDeposits;
+  }
+
+  public isNeedToProcessNewState(newMeta: {
+    blockHash: string;
+    blockNumber: number;
+  }) {
+    const lastMeta = this.lastProcessedStateMeta;
+    if (!lastMeta) return true;
+    if (lastMeta.blockNumber > newMeta.blockNumber) {
+      this.logger.error('Keys API returns old state', { newMeta, lastMeta });
+      return false;
+    }
+    const isSameBlock = lastMeta.blockHash === newMeta.blockHash;
+
+    if (isSameBlock) {
+      this.logger.log(`The block has not changed since the last cycle. Exit`, {
+        newMeta,
+      });
+    }
+
+    return !isSameBlock;
+  }
+
+  private setLastProcessedStateMeta(newMeta: {
+    blockHash: string;
+    blockNumber: number;
+  }) {
+    this.lastProcessedStateMeta = newMeta;
   }
 }
