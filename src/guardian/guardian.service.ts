@@ -171,9 +171,15 @@ export class GuardianService implements OnModuleInit {
         modulesCount: stakingModulesCount,
       });
 
+      const endTimerKeysReq = this.jobDurationMetric
+        .labels({ jobName: 'keysReq' })
+        .startTimer();
+
       // fetch all lido keys
       const { data: lidoKeys, meta: secondRequestMeta } =
         await this.keysApiService.getKeys();
+
+      endTimerKeysReq();
 
       // check that there were no updates in Keys Api between two requests
       this.keysApiService.verifyMetaDataConsistency(

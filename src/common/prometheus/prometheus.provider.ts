@@ -120,7 +120,7 @@ export const PrometheusOperatorsKeysProvider = makeGaugeProvider({
 export const PrometheusKeysApiRequestsProvider = makeHistogramProvider({
   name: METRIC_KEYS_API_REQUEST_DURATION,
   help: 'Duration of data collection requests by keys-api',
-  buckets: [0.1, 0.3, 1, 3, 5, 10, 30, 100, 180, 300],
+  buckets: [0.1, 0.3, 1, 3, 5, 10, 30, 60, 100, 180, 300],
   labelNames: ['result', 'status'] as const,
 });
 
@@ -139,6 +139,6 @@ export const PrometheusInvalidKeysProvider = makeGaugeProvider({
 export const PrometheusJobDurationProvider = makeHistogramProvider({
   name: METRIC_JOB_DURATION,
   help: 'Job duration',
-  buckets: [0.1, 0.3, 1, 3, 5, 10, 30, 100, 180, 300],
+  buckets: [0.1, 0.3, 1, 3, 5, 10, 30, 60, 100, 180, 300],
   labelNames: ['jobName', 'stakingModuleId'] as const,
 });
