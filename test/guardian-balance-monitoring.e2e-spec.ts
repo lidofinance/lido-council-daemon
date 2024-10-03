@@ -93,8 +93,6 @@ describe('Guardian balance monitoring test', () => {
     expect(unvetSigningKeys).toBeCalledTimes(0);
     expect(sendUnvetMessage).toBeCalledTimes(1);
     expect(sendDepositMessage).toBeCalledTimes(0);
-
-    // at next iteration it should unvet keys of second module
   });
 
   test('should check unvetting will happen if guardian balance is sufficient', async () => {
@@ -110,8 +108,6 @@ describe('Guardian balance monitoring test', () => {
     expect(unvetSigningKeys).toBeCalledTimes(1);
     expect(sendUnvetMessage).toBeCalledTimes(1);
     expect(sendDepositMessage).toBeCalledTimes(0);
-
-    // at next iteration it should unvet keys of second module
   });
 
   // Helper functions

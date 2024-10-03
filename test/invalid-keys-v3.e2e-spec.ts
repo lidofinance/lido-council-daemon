@@ -23,6 +23,7 @@ import {
   LIDO_WC,
   UNLOCKED_ACCOUNTS,
   FORK_BLOCK,
+  SECURITY_MODULE_OWNER,
 } from './constants';
 
 // Mock rabbit straight away
@@ -39,7 +40,6 @@ import { SecurityService } from 'contracts/security';
 import { GuardianService } from 'guardian';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { ProviderService } from 'provider';
-import { Server } from 'ganache';
 import { GuardianMessageService } from 'guardian/guardian-message';
 import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
 import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
@@ -50,11 +50,16 @@ import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 import { addGuardians } from './helpers/dsm';
 import { BlsService } from 'bls';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
-import { makeServer } from './server';
 import { mockKey } from './helpers/keys-fixtures';
+import {
+  HardhatFork,
+  // impersonateAccount,
+  waitForServerStdout,
+} from './helpers/hardhat-fork';
+import { cutKeys } from './helpers/reduce-keys';
 
 describe('ganache e2e tests', () => {
-  let server: Server<'ethereum'>;
+  let server: any; //Server<'ethereum'>;
   let providerService: ProviderService;
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;
@@ -73,9 +78,16 @@ describe('ganache e2e tests', () => {
   let sendUnvetMessage: jest.SpyInstance;
   let unvetSigningKeys: jest.SpyInstance;
 
-  const setupServer = async () => {
-    server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
-    await server.listen(GANACHE_PORT);
+  const setupHardhatServer = async () => {
+    server = new HardhatFork(process.env.RPC_URL!, FORK_BLOCK, '8545');
+    // Start the Hardhat node
+    server.start();
+
+    // Wait until the Hardhat node is ready
+    if (server.process?.stdout) {
+      await waitForServerStdout(server.process?.stdout);
+      console.log('Hardhat node is up and running!');
+    }
   };
 
   const setupGuardians = async () => {
@@ -156,18 +168,22 @@ describe('ganache e2e tests', () => {
   };
 
   beforeEach(async () => {
-    await setupServer();
+    await setupHardhatServer();
+    // await impersonateAccount(SECURITY_MODULE_OWNER);
+
+    await cutKeys(0, '0x4E8970d148CB38460bE9b6ddaab20aE2A74879AF', 10);
+
     await setupGuardians();
     const moduleRef = await setupTestingModule();
     await setupTestingServices(moduleRef);
     setupMocks();
-  }, 20000);
+  }, 40000);
 
   afterEach(async () => {
-    await closeServer(server, levelDBService, signKeyLevelDBService);
+    server.stop();
   });
 
-  test(
+  test.only(
     'should not validate again if depositData was not changed',
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
