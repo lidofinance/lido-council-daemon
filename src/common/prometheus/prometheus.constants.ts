@@ -10,6 +10,11 @@ export const METRIC_RPC_REQUEST_ERRORS = `${METRICS_PREFIX}rpc_requests_errors`;
 
 export const METRIC_ACCOUNT_BALANCE = `${METRICS_PREFIX}account_balance`;
 
+export const METRIC_DATA_BUS_RPC_REQUEST_DURATION = `${METRICS_PREFIX}_data_bus_rpc_requests_duration_seconds`;
+export const METRIC_DATA_BUS_RPC_REQUEST_ERRORS = `${METRICS_PREFIX}_data_bus_rpc_requests_errors`;
+
+export const METRIC_DATA_BUS_ACCOUNT_BALANCE = `${METRICS_PREFIX}_data_bus_account_balance`;
+
 export const METRIC_BLOCK_DATA_REQUEST_DURATION = `${METRICS_PREFIX}block_data_requests_duration_seconds`;
 export const METRIC_BLOCK_DATA_REQUEST_ERRORS = `${METRICS_PREFIX}block_data_requests_errors`;
 

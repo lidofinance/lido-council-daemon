@@ -5,7 +5,7 @@ The Lido Council Daemon monitors deposit contract keys and compares them to Lido
 ## Table of Contents
 
 - [Environment Variables](#environment-variables)
-  - [RabbitMQ](#rabbitmq)
+  - [Data Bus Transports](#data-bus-transports)
   - [Wallet Private Key](#wallet-private-key)
   - [Keys-API Configuration](#keys-api-configuration)
 - [Example ENV Config File](#example-env-config-file)
@@ -19,10 +19,12 @@ The Lido Council Daemon monitors deposit contract keys and compares them to Lido
 
 ## Environment Variables
 
-Several environment variables must be set for the daemon to function properly. These variables include RabbitMQ settings, wallet private key, and Keys-API configuration.
+Several environment variables must be set for the daemon to function properly. These variables include Data Bus Transports settings, wallet private key, and Keys-API configuration.
 
-### RabbitMQ
+### Data Bus Transports
+You need to install one of the transports
 
+#### RabbitMQ
 ```env
 ...
 PUBSUB_SERVICE=rabbitmq
@@ -30,6 +32,16 @@ PUBSUB_SERVICE=rabbitmq
 RABBITMQ_URL=<rabbitmq url that supports ws>
 RABBITMQ_LOGIN=<rabbitmq login>
 RABBITMQ_PASSCODE=<rabbitmq password>
+...
+```
+
+#### EVM Chain transport
+```env
+...
+PUBSUB_SERVICE=evm-chain
+
+EVM_CHAIN_DATA_BUS_ADDRESS=<evm transport contract address>
+EVM_CHAIN_DATA_BUS_PROVIDER_URL=<evm chain node url>
 ...
 ```
 
