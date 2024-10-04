@@ -14,7 +14,7 @@ import {
   VerifiedDepositEventsCacheHeaders,
 } from '../interfaces';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
-import { METRIC_GET_DEPOSIT_EVENTS_LEVELDB_DURATION } from 'common/prometheus';
+import { METRIC_JOB_DURATION } from 'common/prometheus';
 import { Histogram } from 'prom-client';
 
 @Injectable()
@@ -22,8 +22,8 @@ export class DepositsRegistryStoreService {
   private db!: Level<string, string>;
   constructor(
     private providerService: ProviderService,
-    @InjectMetric(METRIC_GET_DEPOSIT_EVENTS_LEVELDB_DURATION)
-    private getDepositEventsLevelDBMetric: Histogram<string>,
+    @InjectMetric(METRIC_JOB_DURATION)
+    private jobDurationMetric: Histogram<string>,
     @Inject(DB_DIR) private cacheDir: string,
     @Inject(DB_LAYER_DIR) private cacheLayerDir: string,
     @Inject(DB_DEFAULT_VALUE)
@@ -76,7 +76,11 @@ export class DepositsRegistryStoreService {
     headers: VerifiedDepositEventsCacheHeaders;
     lastValidEvent?: VerifiedDepositEvent;
   }> {
-    const endTimer = this.getDepositEventsLevelDBMetric.startTimer();
+    const endTimer = this.jobDurationMetric
+      .labels({
+        jobName: 'getEventsCache_deposits',
+      })
+      .startTimer();
 
     try {
       const stream = this.db.iterator({ gte: 'deposit:', lte: 'deposit:\xFF' });

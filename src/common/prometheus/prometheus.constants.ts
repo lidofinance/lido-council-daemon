@@ -33,5 +33,3 @@ export const METRIC_DUPLICATED_KEYS_TOTAL = `${METRICS_PREFIX}duplicated_keys_to
 export const METRIC_INVALID_KEYS_TOTAL = `${METRICS_PREFIX}invalid_keys_total`;
 
 export const METRIC_JOB_DURATION = `${METRICS_PREFIX}handle_job_duration`;
-
-export const METRIC_GET_DEPOSIT_EVENTS_LEVELDB_DURATION = `${METRICS_PREFIX}get_deposit_events_leveldb_duration`;

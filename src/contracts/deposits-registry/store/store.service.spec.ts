@@ -5,6 +5,7 @@ import { LoggerModule } from 'common/logger';
 import { DepositsRegistryStoreModule } from './store.module';
 import { DepositsRegistryStoreService } from './store.service';
 import { cacheMock, eventMock1 } from './store.fixtures';
+import { PrometheusModule } from 'common/prometheus';
 
 const getEventsDepositCount = async (
   dbService: DepositsRegistryStoreService,
@@ -25,6 +26,7 @@ describe('dbService', () => {
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
+        PrometheusModule,
         ConfigModule.forRoot(),
         MockProviderModule.forRoot(),
         DepositsRegistryStoreModule.register(defaultCacheValue, 'leveldb-spec'),
