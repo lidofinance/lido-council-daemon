@@ -1,6 +1,7 @@
-import { network } from 'hardhat';
 import { solidityKeccak256 } from 'ethers/lib/utils';
 import { BigNumber } from 'ethers';
+import { JsonRpcBatchProvider } from '@ethersproject/providers';
+import { GANACHE_PORT } from 'provider';
 
 // Helper function to convert decimal number to 16-character hexadecimal string
 const to16 = (decimalNumber: number) => {
@@ -44,13 +45,15 @@ export const cutKeys = async (
   // Build replacement values for the keys and validators count
   const [keys, validators] = buildReplacer(keysCount);
 
+  const provider = new JsonRpcBatchProvider(`http://127.0.0.1:${GANACHE_PORT}`);
+
   // Send Hardhat RPC commands to modify the storage slots directly
-  await network.provider.send('hardhat_setStorageAt', [
+  await provider.send('hardhat_setStorageAt', [
     norAddress,
     nodeOperatorsSlot2,
     keys,
   ]);
-  await network.provider.send('hardhat_setStorageAt', [
+  await provider.send('hardhat_setStorageAt', [
     norAddress,
     nodeOperatorsSlot4,
     validators,

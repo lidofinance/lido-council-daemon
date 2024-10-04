@@ -30,13 +30,10 @@ export async function addGuardians(
   // Convert the ETH amount to wei
   const amountInWei = ethers.utils.parseEther('5');
 
-  const tx = await wallet.sendTransaction({
-    to: params.securityModuleOwner,
-    value: amountInWei,
-  });
-
-  // Wait for the transaction to be mined
-  await tx.wait();
+  await provider.send('hardhat_setBalance', [
+    params.securityModuleOwner,
+    ethers.utils.hexlify(amountInWei),
+  ]);
 
   const signer = provider.getSigner(params.securityModuleOwner);
 

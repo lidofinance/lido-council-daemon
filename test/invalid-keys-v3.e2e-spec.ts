@@ -51,12 +51,9 @@ import { addGuardians } from './helpers/dsm';
 import { BlsService } from 'bls';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
 import { mockKey } from './helpers/keys-fixtures';
-import {
-  HardhatFork,
-  impersonateAccount,
-  waitForServerStdout,
-} from './helpers/hardhat-fork';
+import { HardhatFork, waitForServerStdout } from './helpers/hardhat-fork';
 import { cutKeys } from './helpers/reduce-keys';
+import { JsonRpcBatchProvider } from '@ethersproject/providers';
 
 describe('ganache e2e tests', () => {
   let server: any; //Server<'ethereum'>;
@@ -86,7 +83,7 @@ describe('ganache e2e tests', () => {
     // Wait until the Hardhat node is ready
     if (server.process?.stdout) {
       await waitForServerStdout(server.process?.stdout);
-      console.log('Hardhat node is up and running!');
+      console.log('Hardhat node is up and running!!!!');
     }
   };
 
@@ -169,11 +166,16 @@ describe('ganache e2e tests', () => {
 
   beforeEach(async () => {
     await setupHardhatServer();
-    await impersonateAccount(SECURITY_MODULE_OWNER);
+    // TODO: read from contract
+    await cutKeys(0, '0x4E8970d148CB38460bE9b6ddaab20aE2A74879AF', 10);
 
-    // await cutKeys(0, '0x4E8970d148CB38460bE9b6ddaab20aE2A74879AF', 10);
+    const provider = new JsonRpcBatchProvider(
+      `http://127.0.0.1:${GANACHE_PORT}`,
+    );
 
+    await provider.send('hardhat_impersonateAccount', [SECURITY_MODULE_OWNER]);
     await setupGuardians();
+
     const moduleRef = await setupTestingModule();
     await setupTestingServices(moduleRef);
     setupMocks();
@@ -183,7 +185,7 @@ describe('ganache e2e tests', () => {
     server.stop();
   });
 
-  test.only(
+  test(
     'should not validate again if depositData was not changed',
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
@@ -317,242 +319,250 @@ describe('ganache e2e tests', () => {
     TESTS_TIMEOUT,
   );
 
-  test('should validate again if deposit data was changed', async () => {
-    const currentBlock = await providerService.provider.getBlock('latest');
+  test(
+    'should validate again if deposit data was changed',
+    async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
 
-    await levelDBService.setCachedEvents({
-      data: [],
-      headers: {
-        startBlock: currentBlock.number,
-        endBlock: currentBlock.number,
-      },
-    });
+      await levelDBService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+        },
+      });
 
-    await signingKeysRegistryService.setCachedEvents({
-      data: [],
-      headers: {
-        startBlock: currentBlock.number,
-        endBlock: currentBlock.number,
-        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
-      },
-    });
+      await signingKeysRegistryService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
+        },
+      });
 
-    const keyWithWrongSign = {
-      key: toHexString(pk),
-      // just some random sign
-      depositSignature:
-        '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
-      operatorIndex: 0,
-      used: false,
-      index: 0,
-      moduleAddress: NOP_REGISTRY,
-      vetted: true,
-    };
+      const keyWithWrongSign = {
+        key: toHexString(pk),
+        // just some random sign
+        depositSignature:
+          '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
+        operatorIndex: 0,
+        used: false,
+        index: 0,
+        moduleAddress: NOP_REGISTRY,
+        vetted: true,
+      };
 
-    const dvtKey = {
-      ...mockKey,
-      moduleAddress: SIMPLE_DVT,
-    };
+      const dvtKey = {
+        ...mockKey,
+        moduleAddress: SIMPLE_DVT,
+      };
 
-    const invalidKeys = [keyWithWrongSign, dvtKey];
+      const invalidKeys = [keyWithWrongSign, dvtKey];
 
-    const meta = mockMeta(currentBlock, currentBlock.hash);
-    // setup /v1/modules
-    const stakingModules = [mockedModuleCurated, mockedModuleDvt];
-    keysApiMockGetModules(keysApiService, stakingModules, meta);
-    // setup /v1/keys
-    keysApiMockGetAllKeys(keysApiService, invalidKeys, meta);
+      const meta = mockMeta(currentBlock, currentBlock.hash);
+      // setup /v1/modules
+      const stakingModules = [mockedModuleCurated, mockedModuleDvt];
+      keysApiMockGetModules(keysApiService, stakingModules, meta);
+      // setup /v1/keys
+      keysApiMockGetAllKeys(keysApiService, invalidKeys, meta);
 
-    const walletAddress = await getWalletAddress();
+      const walletAddress = await getWalletAddress();
 
-    await guardianService.handleNewBlock();
+      await guardianService.handleNewBlock();
 
-    await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-    const { signature: lidoSign } = signDeposit(pk, sk, LIDO_WC);
+      const { signature: lidoSign } = signDeposit(pk, sk, LIDO_WC);
 
-    expect(validateKeys).toBeCalledTimes(2);
-    expect(validateKeys).toHaveBeenNthCalledWith(
-      1,
-      expect.arrayContaining([
+      expect(validateKeys).toBeCalledTimes(2);
+      expect(validateKeys).toHaveBeenNthCalledWith(
+        1,
+        expect.arrayContaining([
+          expect.objectContaining({
+            key: toHexString(pk),
+            // just some random sign
+            depositSignature:
+              '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
+          }),
+        ]),
+      );
+      expect(validateKeys).toHaveBeenNthCalledWith(
+        2,
+        expect.arrayContaining([
+          expect.objectContaining({
+            key: mockKey.key,
+            depositSignature: mockKey.depositSignature,
+          }),
+        ]),
+      );
+      expect(sendUnvetMessage).toBeCalledTimes(1);
+      expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
-          key: toHexString(pk),
-          // just some random sign
-          depositSignature:
-            '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
+          blockNumber: currentBlock.number,
+          guardianAddress: walletAddress,
+          guardianIndex: 7,
+          stakingModuleId: 1,
+          operatorIds: '0x0000000000000000',
+          vettedKeysByOperator: '0x00000000000000000000000000000000',
         }),
-      ]),
-    );
-    expect(validateKeys).toHaveBeenNthCalledWith(
-      2,
-      expect.arrayContaining([
+      );
+      expect(unvetSigningKeys).toBeCalledTimes(1);
+      expect(sendDepositMessage).toBeCalledTimes(1);
+      expect(sendDepositMessage).toBeCalledWith(
         expect.objectContaining({
-          key: mockKey.key,
-          depositSignature: mockKey.depositSignature,
+          blockNumber: currentBlock.number,
+          guardianAddress: walletAddress,
+          guardianIndex: 7,
+          stakingModuleId: 2,
         }),
-      ]),
-    );
-    expect(sendUnvetMessage).toBeCalledTimes(1);
-    expect(sendUnvetMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        blockNumber: currentBlock.number,
-        guardianAddress: walletAddress,
-        guardianIndex: 7,
-        stakingModuleId: 1,
-        operatorIds: '0x0000000000000000',
-        vettedKeysByOperator: '0x00000000000000000000000000000000',
-      }),
-    );
-    expect(unvetSigningKeys).toBeCalledTimes(1);
-    expect(sendDepositMessage).toBeCalledTimes(1);
-    expect(sendDepositMessage).toBeCalledWith(
-      expect.objectContaining({
-        blockNumber: currentBlock.number,
-        guardianAddress: walletAddress,
-        guardianIndex: 7,
-        stakingModuleId: 2,
-      }),
-    );
-    expect(sendPauseMessage).toBeCalledTimes(0);
+      );
+      expect(sendPauseMessage).toBeCalledTimes(0);
 
-    const fixedKey = {
-      ...keyWithWrongSign,
-      depositSignature: toHexString(lidoSign),
-    };
+      const fixedKey = {
+        ...keyWithWrongSign,
+        depositSignature: toHexString(lidoSign),
+      };
 
-    const fixedKeys = [fixedKey, dvtKey];
+      const fixedKeys = [fixedKey, dvtKey];
 
-    await providerService.provider.send('evm_mine', []);
-    const newBlock = await providerService.provider.getBlock('latest');
-    const newMeta = mockMeta(newBlock, newBlock.hash);
-    // setup /v1/modules
-    keysApiMockGetModules(keysApiService, stakingModules, newMeta);
-    // setup /v1/keys
-    keysApiMockGetAllKeys(keysApiService, fixedKeys, newMeta);
+      await providerService.provider.send('evm_mine', []);
+      const newBlock = await providerService.provider.getBlock('latest');
+      const newMeta = mockMeta(newBlock, newBlock.hash);
+      // setup /v1/modules
+      keysApiMockGetModules(keysApiService, stakingModules, newMeta);
+      // setup /v1/keys
+      keysApiMockGetAllKeys(keysApiService, fixedKeys, newMeta);
 
-    validateKeys.mockClear();
-    sendDepositMessage.mockClear();
-    sendUnvetMessage.mockClear();
-    unvetSigningKeys.mockClear();
+      validateKeys.mockClear();
+      sendDepositMessage.mockClear();
+      sendUnvetMessage.mockClear();
+      unvetSigningKeys.mockClear();
 
-    await guardianService.handleNewBlock();
-    await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+      await guardianService.handleNewBlock();
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-    expect(validateKeys).toBeCalledTimes(2);
-    expect(validateKeys).toHaveBeenNthCalledWith(
-      1,
-      expect.arrayContaining([
+      expect(validateKeys).toBeCalledTimes(2);
+      expect(validateKeys).toHaveBeenNthCalledWith(
+        1,
+        expect.arrayContaining([
+          expect.objectContaining({
+            key: toHexString(pk),
+            depositSignature: toHexString(lidoSign),
+          }),
+        ]),
+      );
+      expect(validateKeys).toHaveBeenNthCalledWith(2, []);
+      expect(sendDepositMessage).toBeCalledTimes(2);
+      expect(sendDepositMessage).toHaveBeenNthCalledWith(
+        1,
         expect.objectContaining({
-          key: toHexString(pk),
-          depositSignature: toHexString(lidoSign),
+          blockNumber: newBlock.number,
+          guardianAddress: walletAddress,
+          guardianIndex: 7,
+          stakingModuleId: 1,
         }),
-      ]),
-    );
-    expect(validateKeys).toHaveBeenNthCalledWith(2, []);
-    expect(sendDepositMessage).toBeCalledTimes(2);
-    expect(sendDepositMessage).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        blockNumber: newBlock.number,
-        guardianAddress: walletAddress,
-        guardianIndex: 7,
-        stakingModuleId: 1,
-      }),
-    );
-    expect(sendDepositMessage).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        blockNumber: newBlock.number,
-        guardianAddress: walletAddress,
-        guardianIndex: 7,
-        stakingModuleId: 2,
-      }),
-    );
-
-    expect(sendPauseMessage).toBeCalledTimes(0);
-  });
-
-  test('adding not vetted invalid key will not set on soft pause module', async () => {
-    const currentBlock = await providerService.provider.getBlock('latest');
-
-    await levelDBService.setCachedEvents({
-      data: [],
-      headers: {
-        startBlock: currentBlock.number,
-        endBlock: currentBlock.number,
-      },
-    });
-
-    await signingKeysRegistryService.setCachedEvents({
-      data: [],
-      headers: {
-        startBlock: currentBlock.number,
-        endBlock: currentBlock.number,
-        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
-      },
-    });
-
-    const keyWithWrongSign = {
-      key: toHexString(pk),
-      // just some random sign
-      depositSignature:
-        '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
-      operatorIndex: 0,
-      used: false,
-      index: 0,
-      moduleAddress: NOP_REGISTRY,
-      vetted: false,
-    };
-
-    const dvtKey = {
-      ...mockKey,
-      moduleAddress: SIMPLE_DVT,
-    };
-
-    const keys = [keyWithWrongSign, dvtKey];
-
-    const meta = mockMeta(currentBlock, currentBlock.hash);
-    // setup /v1/modules
-    const stakingModules = [mockedModuleCurated, mockedModuleDvt];
-    keysApiMockGetModules(keysApiService, stakingModules, meta);
-    // setup /v1/keys
-    keysApiMockGetAllKeys(keysApiService, keys, meta);
-
-    const walletAddress = await getWalletAddress();
-
-    await guardianService.handleNewBlock();
-
-    await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
-
-    expect(validateKeys).toBeCalledTimes(2);
-    expect(validateKeys).toHaveBeenNthCalledWith(1, []);
-    expect(validateKeys).toHaveBeenNthCalledWith(
-      2,
-      expect.arrayContaining([
+      );
+      expect(sendDepositMessage).toHaveBeenNthCalledWith(
+        2,
         expect.objectContaining({
-          key: mockKey.key,
-          depositSignature: mockKey.depositSignature,
+          blockNumber: newBlock.number,
+          guardianAddress: walletAddress,
+          guardianIndex: 7,
+          stakingModuleId: 2,
         }),
-      ]),
-    );
-    expect(sendUnvetMessage).toBeCalledTimes(0);
-    expect(sendDepositMessage).toBeCalledTimes(2);
-    expect(sendDepositMessage).toBeCalledWith(
-      expect.objectContaining({
-        blockNumber: currentBlock.number,
-        guardianAddress: walletAddress,
-        guardianIndex: 7,
-        stakingModuleId: 1,
-      }),
-    );
-    expect(sendDepositMessage).toBeCalledWith(
-      expect.objectContaining({
-        blockNumber: currentBlock.number,
-        guardianAddress: walletAddress,
-        guardianIndex: 7,
-        stakingModuleId: 2,
-      }),
-    );
-    expect(sendPauseMessage).toBeCalledTimes(0);
-  });
+      );
+
+      expect(sendPauseMessage).toBeCalledTimes(0);
+    },
+    TESTS_TIMEOUT,
+  );
+
+  test(
+    'adding not vetted invalid key will not set on soft pause module',
+    async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
+
+      await levelDBService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+        },
+      });
+
+      await signingKeysRegistryService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
+        },
+      });
+
+      const keyWithWrongSign = {
+        key: toHexString(pk),
+        // just some random sign
+        depositSignature:
+          '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
+        operatorIndex: 0,
+        used: false,
+        index: 0,
+        moduleAddress: NOP_REGISTRY,
+        vetted: false,
+      };
+
+      const dvtKey = {
+        ...mockKey,
+        moduleAddress: SIMPLE_DVT,
+      };
+
+      const keys = [keyWithWrongSign, dvtKey];
+
+      const meta = mockMeta(currentBlock, currentBlock.hash);
+      // setup /v1/modules
+      const stakingModules = [mockedModuleCurated, mockedModuleDvt];
+      keysApiMockGetModules(keysApiService, stakingModules, meta);
+      // setup /v1/keys
+      keysApiMockGetAllKeys(keysApiService, keys, meta);
+
+      const walletAddress = await getWalletAddress();
+
+      await guardianService.handleNewBlock();
+
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+      expect(validateKeys).toBeCalledTimes(2);
+      expect(validateKeys).toHaveBeenNthCalledWith(1, []);
+      expect(validateKeys).toHaveBeenNthCalledWith(
+        2,
+        expect.arrayContaining([
+          expect.objectContaining({
+            key: mockKey.key,
+            depositSignature: mockKey.depositSignature,
+          }),
+        ]),
+      );
+      expect(sendUnvetMessage).toBeCalledTimes(0);
+      expect(sendDepositMessage).toBeCalledTimes(2);
+      expect(sendDepositMessage).toBeCalledWith(
+        expect.objectContaining({
+          blockNumber: currentBlock.number,
+          guardianAddress: walletAddress,
+          guardianIndex: 7,
+          stakingModuleId: 1,
+        }),
+      );
+      expect(sendDepositMessage).toBeCalledWith(
+        expect.objectContaining({
+          blockNumber: currentBlock.number,
+          guardianAddress: walletAddress,
+          guardianIndex: 7,
+          stakingModuleId: 2,
+        }),
+      );
+      expect(sendPauseMessage).toBeCalledTimes(0);
+    },
+    TESTS_TIMEOUT,
+  );
 });

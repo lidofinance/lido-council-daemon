@@ -1,12 +1,8 @@
+import { JsonRpcProvider } from '@ethersproject/providers';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import * as dotenv from 'dotenv';
-import { network } from 'hardhat';
 
 dotenv.config();
-
-export async function impersonateAccount(account) {
-  await network.provider.send('hardhat_impersonateAccount', [account]);
-}
 
 export class HardhatFork {
   private forkUrl: string;
@@ -31,7 +27,7 @@ export class HardhatFork {
       `npx`,
       ['hardhat', 'node', '--port', this.port, ...forkCommand.split(' ')],
       {
-        stdio: 'pipe', // or 'inherit' to show output in console
+        stdio: 'overlapped', // or 'inherit' to show output in console
       },
     );
   }
@@ -48,7 +44,7 @@ export async function waitForServerStdout(
   stream: NodeJS.ReadableStream,
 ): Promise<boolean> {
   return new Promise((resolve) => {
-    stream.on('data', (data: any) => {
+    stream.on('data', async (data: any) => {
       const output = data.toString();
       if (output.includes('Started HTTP and WebSocket JSON-RPC server at')) {
         console.log('Condition met: Hardhat node started');
