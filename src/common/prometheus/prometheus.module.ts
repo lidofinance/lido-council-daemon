@@ -20,6 +20,7 @@ import {
   PrometheusDataBusAccountBalanceProvider,
   PrometheusDataBusRPCRequestsHistogramProvider,
   PrometheusJobDurationProvider,
+  PrometheusGetDepositEventsLevel,
 } from './prometheus.provider';
 import { METRICS_PREFIX, METRICS_URL } from './prometheus.constants';
 
@@ -52,6 +53,7 @@ const providers = [
   PrometheusInvalidKeysProvider,
   PrometheusUnvetKeysCounterProvider,
   PrometheusJobDurationProvider,
+  PrometheusGetDepositEventsLevel,
 ];
 
 PrometheusModule.global = true;

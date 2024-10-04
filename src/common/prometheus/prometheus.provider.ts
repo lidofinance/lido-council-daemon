@@ -24,6 +24,7 @@ import {
   METRIC_DATA_BUS_RPC_REQUEST_DURATION,
   METRIC_DATA_BUS_RPC_REQUEST_ERRORS,
   METRIC_JOB_DURATION,
+  METRIC_GET_DEPOSIT_EVENTS_LEVELDB_DURATION,
 } from './prometheus.constants';
 
 export const PrometheusTransportMessageCounterProvider = makeCounterProvider({
@@ -141,4 +142,10 @@ export const PrometheusJobDurationProvider = makeHistogramProvider({
   help: 'Job duration',
   buckets: [0.1, 0.3, 1, 3, 5, 10, 30, 100, 180, 300],
   labelNames: ['jobName', 'stakingModuleId'] as const,
+});
+
+export const PrometheusGetDepositEventsLevel = makeHistogramProvider({
+  name: METRIC_GET_DEPOSIT_EVENTS_LEVELDB_DURATION,
+  help: 'Get deposit events leveldb duration',
+  buckets: [0.1, 0.3, 1, 3, 5, 10, 30, 100, 180, 300],
 });
