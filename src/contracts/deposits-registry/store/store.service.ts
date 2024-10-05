@@ -52,11 +52,20 @@ export class DepositsRegistryStoreService {
     await this.db.open();
   }
 
-  private async setupEventsCache() {
+  /**
+   * Initializes or updates the event cache by fetching events from the database.
+   * This method asynchronously sets the `this.cache` property with the event data obtained from the database.
+   */
+  private async setupEventsCache(): Promise<void> {
     this.cache = await this.getEventsFromDB();
   }
 
-  private getDefaultCachedValue() {
+  /**
+   * Returns a default value for the cache by deep cloning the predefined default cache value.
+   * This method uses JSON serialization to ensure a deep clone of `this.cacheDefaultValue`.
+   * @returns {VerifiedDepositEventsCache} A deep cloned copy of the default cache value.
+   */
+  private getDefaultCachedValue(): VerifiedDepositEventsCache {
     return JSON.parse(JSON.stringify(this.cacheDefaultValue));
   }
 
@@ -73,6 +82,14 @@ export class DepositsRegistryStoreService {
     return join(this.cacheDir, this.cacheLayerDir, networkDir);
   }
 
+  /**
+   * Asynchronously retrieves deposit events and headers from the database.
+   * Iterates through entries starting with 'deposit:' to collect data and fetches headers stored under 'header'.
+   * Handles errors by logging and returning default cache values.
+   *
+   * @returns {Promise<{data: VerifiedDepositEvent[], headers: VerifiedDepositEventsCacheHeaders}>} Cache data and headers.
+   * @public
+   */
   public async getEventsFromDB(): Promise<{
     data: VerifiedDepositEvent[];
     headers: VerifiedDepositEventsCacheHeaders;
@@ -108,12 +125,9 @@ export class DepositsRegistryStoreService {
   }
 
   /**
-   * Asynchronously retrieves deposit events and headers from the database.
-   * Iterates through entries starting with 'deposit:' to collect data and fetches headers stored under 'header'.
-   * Handles errors by logging and returning default cache values.
-   *
-   * @returns {Promise<{data: VerifiedDepositEvent[], headers: VerifiedDepositEventsCacheHeaders}>} Cache data and headers.
-   * @public
+   * Retrieves the current event cache.
+   * This method returns the cache of events which includes verified deposit events.
+   * @returns {VerifiedDepositEventsCache} The current event cache.
    */
   public getEventsCache(): VerifiedDepositEventsCache {
     return this.cache;
