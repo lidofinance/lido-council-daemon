@@ -38,7 +38,7 @@ export class DepositRegistryService {
 
   public async initialize() {
     await this.store.initialize();
-    const cachedEvents = await this.store.getEventsCache();
+    const cachedEvents = this.store.getEventsCache();
     await this.sanityChecker.initialize(cachedEvents);
 
     await this.updateEventsCache();
@@ -49,7 +49,7 @@ export class DepositRegistryService {
    * @returns event group
    */
   public async getCachedEvents(): Promise<VerifiedDepositEventsCache> {
-    const { headers, ...rest } = await this.store.getEventsCache();
+    const { headers, ...rest } = this.store.getEventsCache();
     const deploymentBlock = await this.fetcher.getDeploymentBlockByNetwork();
 
     return {
