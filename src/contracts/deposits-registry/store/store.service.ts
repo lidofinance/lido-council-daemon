@@ -156,6 +156,30 @@ export class DepositsRegistryStoreService {
     }
   }
 
+  private formDepositEventHeaderForDeletion(
+    lastValidEventBlockNumber?: number,
+  ) {
+    const { headers: headersFromCache } = this.getEventsCache();
+    const headers = { ...headersFromCache };
+
+    if (lastValidEventBlockNumber !== undefined) {
+      headers.endBlock = lastValidEventBlockNumber;
+    } else {
+      headers.endBlock = this.getDefaultCachedValue().headers.endBlock;
+    }
+
+    if (headers.endBlock < headers.startBlock) {
+      this.logger.warn('Deposit header is not valid', {
+        headers,
+        headersFromCache,
+        lastValidEventBlockNumber,
+      });
+      throw new Error('Deposit header is not valid');
+    }
+
+    return headers;
+  }
+
   /**
    * Validates and cleans up inconsistencies in the cached events.
    * This method iterates through the cached event data to check if the deposit counts
@@ -189,10 +213,9 @@ export class DepositsRegistryStoreService {
         nextEvent,
       });
 
-      const { headers } = this.getDefaultCachedValue();
-      if (lastValidEvent !== undefined) {
-        headers.endBlock = lastValidEvent.blockNumber;
-      }
+      const headers = this.formDepositEventHeaderForDeletion(
+        lastValidEvent?.blockNumber,
+      );
 
       await this.deleteDepositsGreaterThanOrEqualNBatch(
         lastValidEventIndex + 1,
@@ -212,10 +235,10 @@ export class DepositsRegistryStoreService {
 
     // Determine the starting index for deletion based on the last valid event's deposit count
     const fromIndex = lastValidEvent ? lastValidEvent.depositCount + 1 : 0;
-    const { headers } = this.getDefaultCachedValue();
-    if (lastValidEvent !== undefined) {
-      headers.endBlock = lastValidEvent.blockNumber;
-    }
+
+    const headers = this.formDepositEventHeaderForDeletion(
+      lastValidEvent?.blockNumber,
+    );
     // Delete all deposits from the determined index onwards
     await this.deleteDepositsGreaterThanOrEqualNBatch(fromIndex, headers);
   }
@@ -254,6 +277,13 @@ export class DepositsRegistryStoreService {
         type: 'put',
         key: 'headers',
         value: JSON.stringify(headers),
+      });
+      // delete the last valid event
+      // since it is possible that its depositCount is greater than depositCount
+      // event loaded after deletion
+      ops.push({
+        type: 'del',
+        key: 'last-valid-event',
       });
       await this.db.batch(ops);
     }
