@@ -287,6 +287,13 @@ export class DepositsRegistryStoreService {
       });
       await this.db.batch(ops);
     }
+
+    this.logger.log('Deposit events deleted', {
+      depositCount,
+      headers,
+      operationsCount: ops.length,
+    });
+
     await this.setupEventsCache();
   }
 
