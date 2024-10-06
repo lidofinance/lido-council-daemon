@@ -65,11 +65,13 @@ describe('dbService', () => {
     expect(resultCache).toEqual(expected);
   });
 
-  describe('deleteDepositsGreaterThanNBatch', () => {
+  describe('deleteDepositsGreaterThanOrEqualNBatch', () => {
     const testCases = [
-      { N: 10, deposits: [9, 10, 11, 12], expectedRemaining: [9, 10] },
-      { N: 5, deposits: [3, 4, 5, 6], expectedRemaining: [3, 4, 5] },
-      { N: 0, deposits: [0, 1, 2], expectedRemaining: [0] },
+      { N: 10, deposits: [9, 10, 11, 12], expectedRemaining: [9] },
+      { N: 5, deposits: [3, 4, 5, 6], expectedRemaining: [3, 4] },
+      { N: 0, deposits: [0, 1, 2], expectedRemaining: [] },
+      { N: 2, deposits: [0, 1], expectedRemaining: [0, 1] },
+      { N: 102, deposits: [0, 1], expectedRemaining: [0, 1] },
     ];
 
     it.each(testCases)(
@@ -87,7 +89,7 @@ describe('dbService', () => {
         expect(insertedDeposits).toEqual(expect.arrayContaining(deposits));
         expect(insertedDeposits.length).toBe(deposits.length);
 
-        await dbService.deleteDepositsGreaterThanNBatch(N);
+        await dbService.deleteDepositsGreaterThanOrEqualNBatch(N);
 
         const expectedDeposits = await getEventsDepositCount(dbService);
         expect(expectedDeposits).toEqual(
