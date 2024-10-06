@@ -163,6 +163,11 @@ export class DepositRegistryService {
       // Delete invalid cache only after full synchronization due to:
       // - we cannot check root at arbitrary times, only if the backlog is less than 120 blocks
       await this.store.clearFromLastValidEvent();
+      // after deleting invalid data
+      // it is necessary to restart the process
+      // further, at reinitialisation a new
+      // deposit tree and the work cycle will be resumed
+      process.exit(1);
     }
 
     this.logger.log('Deposit events cache is updated', {

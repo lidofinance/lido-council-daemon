@@ -204,24 +204,25 @@ export class DepositsRegistryStoreService {
       lastValidEventIndex = event.depositCount;
     }
 
+    const lastValidEvent = currentCache.data[lastValidEventIndex];
+
     if (!isCacheConsistent) {
-      const lastValidEvent = currentCache.data[lastValidEventIndex];
       const nextEvent = currentCache.data[lastValidEventIndex + 1];
 
       this.logger.warn('Deposit cache is inconsistent', {
         lastValidEvent,
         nextEvent,
       });
-
-      const headers = this.formDepositEventHeaderForDeletion(
-        lastValidEvent?.blockNumber,
-      );
-
-      await this.deleteDepositsGreaterThanOrEqualNBatch(
-        lastValidEventIndex + 1,
-        headers,
-      );
     }
+
+    const headers = this.formDepositEventHeaderForDeletion(
+      lastValidEvent?.blockNumber,
+    );
+
+    await this.deleteDepositsGreaterThanOrEqualNBatch(
+      lastValidEventIndex + 1,
+      headers,
+    );
   }
 
   /**
@@ -287,6 +288,13 @@ export class DepositsRegistryStoreService {
       });
       await this.db.batch(ops);
     }
+
+    this.logger.log('Deposit events deleted', {
+      depositCount,
+      headers,
+      operationsCount: ops.length,
+    });
+
     await this.setupEventsCache();
   }
 
