@@ -20,6 +20,7 @@ import { Histogram } from 'prom-client';
 @Injectable()
 export class DepositsRegistryStoreService {
   private db!: Level<string, string>;
+  private cache!: VerifiedDepositEventsCache;
   constructor(
     private providerService: ProviderService,
     @InjectMetric(METRIC_JOB_DURATION)
@@ -35,6 +36,7 @@ export class DepositsRegistryStoreService {
 
   public async initialize() {
     await this.setupLevel();
+    await this.setupEventsCache();
   }
 
   /**
@@ -48,6 +50,23 @@ export class DepositsRegistryStoreService {
       valueEncoding: 'json',
     });
     await this.db.open();
+  }
+
+  /**
+   * Initializes or updates the event cache by fetching events from the database.
+   * This method asynchronously sets the `this.cache` property with the event data obtained from the database.
+   */
+  private async setupEventsCache(): Promise<void> {
+    this.cache = await this.getEventsFromDB();
+  }
+
+  /**
+   * Returns a default value for the cache by deep cloning the predefined default cache value.
+   * This method uses JSON serialization to ensure a deep clone of `this.cacheDefaultValue`.
+   * @returns {VerifiedDepositEventsCache} A deep cloned copy of the default cache value.
+   */
+  private getDefaultCachedValue(): VerifiedDepositEventsCache {
+    return JSON.parse(JSON.stringify(this.cacheDefaultValue));
   }
 
   /**
@@ -71,14 +90,14 @@ export class DepositsRegistryStoreService {
    * @returns {Promise<{data: VerifiedDepositEvent[], headers: VerifiedDepositEventsCacheHeaders}>} Cache data and headers.
    * @public
    */
-  public async getEventsCache(): Promise<{
+  public async getEventsFromDB(): Promise<{
     data: VerifiedDepositEvent[];
     headers: VerifiedDepositEventsCacheHeaders;
     lastValidEvent?: VerifiedDepositEvent;
   }> {
     const endTimer = this.jobDurationMetric
       .labels({
-        jobName: 'getEventsCache_deposits',
+        jobName: 'getEventsCache_deposits_db',
       })
       .startTimer();
 
@@ -98,11 +117,20 @@ export class DepositsRegistryStoreService {
 
       return { data, headers, lastValidEvent };
     } catch (error: any) {
-      if (error.code === 'LEVEL_NOT_FOUND') return this.cacheDefaultValue;
+      if (error.code === 'LEVEL_NOT_FOUND') return this.getDefaultCachedValue();
       throw error;
     } finally {
       endTimer();
     }
+  }
+
+  /**
+   * Retrieves the current event cache.
+   * This method returns the cache of events which includes verified deposit events.
+   * @returns {VerifiedDepositEventsCache} The current event cache.
+   */
+  public getEventsCache(): VerifiedDepositEventsCache {
+    return this.cache;
   }
 
   /**
@@ -169,6 +197,7 @@ export class DepositsRegistryStoreService {
     // Execute the batch operation if there are any operations to perform
     if (ops.length > 0) {
       await this.db.batch(ops);
+      await this.setupEventsCache();
     }
   }
 
@@ -250,6 +279,9 @@ export class DepositsRegistryStoreService {
       value: JSON.stringify(records.headers),
     });
     await this.db.batch(ops);
+
+    this.cache.data = this.cache.data.concat(records.data);
+    this.cache.headers = { ...records.headers };
   }
 
   /**
@@ -261,6 +293,7 @@ export class DepositsRegistryStoreService {
    */
   public async insertLastValidEvent(event: VerifiedDepositEvent) {
     await this.db.put('last-valid-event', this.serializeDepositEvent(event));
+    this.cache.lastValidEvent = event;
   }
 
   /**
@@ -271,6 +304,7 @@ export class DepositsRegistryStoreService {
    */
   public async deleteCache(): Promise<void> {
     await this.db.clear();
+    this.cache = this.getDefaultCachedValue();
   }
 
   /**
@@ -296,5 +330,8 @@ export class DepositsRegistryStoreService {
         ...cachedEvents.headers,
       },
     });
+
+    this.cache.data = this.cache.data.concat(cachedEvents.data);
+    this.cache.headers = { ...cachedEvents.headers };
   }
 }

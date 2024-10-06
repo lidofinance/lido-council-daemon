@@ -10,8 +10,11 @@ import { PrometheusModule } from 'common/prometheus';
 const getEventsDepositCount = async (
   dbService: DepositsRegistryStoreService,
 ) => {
-  const result = await dbService.getEventsCache();
-  const expectedDeposits = result.data.map((event) => event.depositCount);
+  const resultCache = dbService.getEventsCache();
+  const resultDB = await dbService.getEventsFromDB();
+
+  expect(resultCache).toEqual(resultDB);
+  const expectedDeposits = resultCache.data.map((event) => event.depositCount);
   return expectedDeposits;
 };
 
@@ -46,7 +49,7 @@ describe('dbService', () => {
   });
 
   it('should return default cache', async () => {
-    const result = await dbService.getEventsCache();
+    const result = dbService.getEventsCache();
     expect(result).toEqual(defaultCacheValue);
   });
 
@@ -54,9 +57,12 @@ describe('dbService', () => {
     const expected = cacheMock;
 
     await dbService.insertEventsCacheBatch(expected);
-    const result = await dbService.getEventsCache();
 
-    expect(result).toEqual(expected);
+    const resultCache = await dbService.getEventsCache();
+    const resultDB = await dbService.getEventsFromDB();
+
+    expect(resultCache).toEqual(resultDB);
+    expect(resultCache).toEqual(expected);
   });
 
   describe('deleteDepositsGreaterThanNBatch', () => {
