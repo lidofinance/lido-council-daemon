@@ -10,6 +10,7 @@ import {
   VerifiedDepositEventsCache,
   VerifiedDepositedEventGroup,
   VerifiedDepositEvent,
+  VerifiedDepositEventGroup,
 } from './interfaces';
 import { RepositoryService } from 'contracts/repository';
 import { BlockTag } from 'provider';
@@ -92,6 +93,10 @@ export class DepositRegistryService {
 
     let lastIndexedEvent: VerifiedDepositEvent | undefined = undefined;
 
+    this.logger.log('Load new deposit events from blockchain', {
+      lastSavedEventInDB: initialCache.data[initialCache.data.length - 1],
+    });
+
     for (
       let block = firstNotCachedBlock;
       block <= finalizedBlockNumber;
@@ -108,10 +113,19 @@ export class DepositRegistryService {
         chunkToBlock,
       );
 
+      const sortedEvents = this.sortEventsByDepositCount(chunkEventGroup);
+
+      this.logger.log('Events from the blockchain have been received', {
+        firstEventFromFreshGroup: sortedEvents[0],
+        finalizedBlockNumber,
+        startBlock: chunkStartBlock,
+        endBlock: chunkToBlock,
+      });
+
       await this.sanityChecker.addEventGroupToIndex(
         chunkStartBlock,
         chunkToBlock,
-        chunkEventGroup.events,
+        sortedEvents,
       );
 
       // Even if the cache is not valid we can't help but write it down
@@ -123,13 +137,12 @@ export class DepositRegistryService {
           ...initialCache.headers,
           endBlock: chunkEventGroup.endBlock,
         },
-        data: chunkEventGroup.events,
+        data: sortedEvents,
       });
 
-      newEventsCount += chunkEventGroup.events.length;
+      newEventsCount += sortedEvents.length;
 
-      const lastEventFromGroup =
-        chunkEventGroup.events[chunkEventGroup.events.length - 1];
+      const lastEventFromGroup = sortedEvents[sortedEvents.length - 1];
 
       if (lastEventFromGroup) lastIndexedEvent = lastEventFromGroup;
 
@@ -244,6 +257,32 @@ export class DepositRegistryService {
       startBlock: cachedEvents.headers.startBlock,
       endBlock,
     };
+  }
+
+  // Log sorting errors based on depositCount
+  private logSortingErrors(chunkEventGroup: VerifiedDepositEventGroup): void {
+    const { events } = chunkEventGroup;
+    for (let i = 1; i < events.length; i++) {
+      if (events[i - 1].depositCount > events[i].depositCount) {
+        this.logger.warn(
+          `Incorrect order: element at position ${i - 1} (depositCount: ${
+            events[i - 1].depositCount
+          }) is greater than element at position ${i} (depositCount: ${
+            events[i].depositCount
+          })`,
+        );
+      }
+    }
+  }
+
+  // Sort events by depositCount from smallest to largest
+  private sortEventsByDepositCount(
+    chunkEventGroup: VerifiedDepositEventGroup,
+  ): VerifiedDepositEvent[] {
+    this.logSortingErrors(chunkEventGroup); // Log any pre-existing order errors
+    return chunkEventGroup.events.sort(
+      (a, b) => a.depositCount - b.depositCount,
+    );
   }
 
   /**
