@@ -46,7 +46,7 @@ export class DepositsRegistryStoreService {
     const currentCache = this.getEventsCache();
 
     let isCacheConsistent = true;
-    let lastValidEventIndex = 0;
+    let lastValidEventIndex = -1;
 
     for (const [expectedIndex, event] of currentCache.data.entries()) {
       const isIndexOrdered = event.depositCount === expectedIndex;
@@ -62,7 +62,9 @@ export class DepositsRegistryStoreService {
         lastValidEvent: currentCache.data[lastValidEventIndex],
         nextEvent: currentCache.data[lastValidEventIndex + 1],
       });
-      await this.deleteDepositsGreaterThanOrEqualNBatch(lastValidEventIndex);
+      await this.deleteDepositsGreaterThanOrEqualNBatch(
+        lastValidEventIndex + 1,
+      );
     }
   }
 
