@@ -256,8 +256,8 @@ export class DepositsRegistryStoreService {
         value: JSON.stringify(headers),
       });
       await this.db.batch(ops);
-      await this.setupEventsCache();
     }
+    await this.setupEventsCache();
   }
 
   /**

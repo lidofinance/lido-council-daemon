@@ -76,6 +76,14 @@ describe('dbService', () => {
         expectedRemaining: [0, 1, 2, 3],
       },
       {
+        deposits: [0, 1, 1, 2, 3],
+        expectedRemaining: [0, 1],
+      },
+      {
+        deposits: [0, 1, 0],
+        expectedRemaining: [0, 1],
+      },
+      {
         deposits: [1, 2, 3],
         expectedRemaining: [],
       },
