@@ -62,7 +62,7 @@ export class DepositsRegistryStoreService {
         lastValidEvent: currentCache.data[lastValidEventIndex],
         nextEvent: currentCache.data[lastValidEventIndex + 1],
       });
-      await this.deleteDepositsGreaterThanNBatch(lastValidEventIndex);
+      await this.deleteDepositsGreaterThanOrEqualNBatch(lastValidEventIndex);
     }
   }
 
@@ -183,17 +183,17 @@ export class DepositsRegistryStoreService {
   /**
    * Clears all deposit records from the database starting from the deposit count of the last valid event.
    * If no valid event is found, it will clear deposits greater than deposit count zero.
-   * This method leverages the `deleteDepositsGreaterThanNBatch` method for batch deletion.
+   * This method leverages the `deleteDepositsGreaterThanOrEqualNBatch` method for batch deletion.
    * @returns {Promise<void>} A promise that resolves when all appropriate deposits have been deleted.
    */
   public async clearFromLastValidEvent(): Promise<void> {
     const lastValidEvent = await this.getLastValidEvent();
 
     // Determine the starting index for deletion based on the last valid event's deposit count
-    const fromIndex = lastValidEvent ? lastValidEvent.depositCount : 0;
+    const fromIndex = lastValidEvent ? lastValidEvent.depositCount + 1 : 0;
 
     // Delete all deposits from the determined index onwards
-    await this.deleteDepositsGreaterThanNBatch(fromIndex);
+    await this.deleteDepositsGreaterThanOrEqualNBatch(fromIndex);
   }
 
   /**
@@ -201,14 +201,14 @@ export class DepositsRegistryStoreService {
    * @param {number} depositCount - The number above which deposit keys will be deleted.
    * @returns {Promise<void>} A promise that resolves when the operation is complete.
    */
-  public async deleteDepositsGreaterThanNBatch(
+  public async deleteDepositsGreaterThanOrEqualNBatch(
     depositCount: number,
   ): Promise<void> {
     // Generate the upper boundary key for deletion
     const upperBoundKey = this.generateDepositKey(depositCount);
 
     // Initialize the iterator starting from the upper boundary key
-    const stream = this.db.iterator({ gt: upperBoundKey, lte: 'deposit:\xFF' });
+    const stream = this.db.iterator({ gte: upperBoundKey, lt: 'deposit:\xFF' });
 
     // Initialize an array to hold batch operations
     const ops: { type: 'del'; key: string }[] = [];
