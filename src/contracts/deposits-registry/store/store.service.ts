@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { Level } from 'level';
 import { join } from 'path';
 import {
@@ -16,12 +16,14 @@ import {
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { METRIC_JOB_DURATION } from 'common/prometheus';
 import { Histogram } from 'prom-client';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 @Injectable()
 export class DepositsRegistryStoreService {
   private db!: Level<string, string>;
   private cache!: VerifiedDepositEventsCache;
   constructor(
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
     @InjectMetric(METRIC_JOB_DURATION)
     private jobDurationMetric: Histogram<string>,
@@ -37,6 +39,31 @@ export class DepositsRegistryStoreService {
   public async initialize() {
     await this.setupLevel();
     await this.setupEventsCache();
+    await this.validateAndCleanInconsistentCache();
+  }
+
+  public async validateAndCleanInconsistentCache() {
+    const currentCache = this.getEventsCache();
+
+    let isCacheConsistent = true;
+    let lastValidEventIndex = 0;
+
+    for (const [expectedIndex, event] of currentCache.data.entries()) {
+      const isIndexOrdered = event.depositCount === expectedIndex;
+      if (!isIndexOrdered) {
+        isCacheConsistent = false;
+        break;
+      }
+      lastValidEventIndex = event.depositCount;
+    }
+
+    if (!isCacheConsistent) {
+      this.logger.warn('Deposit cache is inconsistent', {
+        lastValidEvent: currentCache.data[lastValidEventIndex],
+        nextEvent: currentCache.data[lastValidEventIndex + 1],
+      });
+      await this.deleteDepositsGreaterThanNBatch(lastValidEventIndex);
+    }
   }
 
   /**
