@@ -65,6 +65,51 @@ describe('dbService', () => {
     expect(resultCache).toEqual(expected);
   });
 
+  describe('validateAndCleanInconsistentCache', () => {
+    const testCases = [
+      {
+        deposits: [0, 1, 3, 4],
+        expectedRemaining: [0, 1],
+      },
+      {
+        deposits: [0, 1, 2, 3],
+        expectedRemaining: [0, 1, 2, 3],
+      },
+      {
+        deposits: [0, 1, 1, 2, 3],
+        expectedRemaining: [0, 1],
+      },
+      {
+        deposits: [0, 1, 0],
+        expectedRemaining: [0, 1],
+      },
+      {
+        deposits: [1, 2, 3],
+        expectedRemaining: [],
+      },
+      {
+        deposits: [],
+        expectedRemaining: [],
+      },
+    ];
+
+    it.each(testCases)('%s', async ({ deposits, expectedRemaining }) => {
+      // Insert mock data into the cache
+      await dbService.insertEventsCacheBatch({
+        headers: { startBlock: 1, endBlock: 100 },
+        data: deposits.map((depositCount) => ({ ...eventMock1, depositCount })),
+      });
+
+      // Validate and clean cache
+      await dbService.validateAndCleanInconsistentCache();
+
+      // Retrieve remaining deposits and check consistency
+      const actualRemaining = await getEventsDepositCount(dbService);
+      expect(actualRemaining).toEqual(expectedRemaining);
+      expect(actualRemaining.length).toBe(expectedRemaining.length);
+    });
+  });
+
   describe('deleteDepositsGreaterThanOrEqualNBatch', () => {
     const testCases = [
       { N: 10, deposits: [9, 10, 11, 12], expectedRemaining: [9] },
@@ -89,7 +134,10 @@ describe('dbService', () => {
         expect(insertedDeposits).toEqual(expect.arrayContaining(deposits));
         expect(insertedDeposits.length).toBe(deposits.length);
 
-        await dbService.deleteDepositsGreaterThanOrEqualNBatch(N);
+        await dbService.deleteDepositsGreaterThanOrEqualNBatch(N, {
+          endBlock: 0,
+          startBlock: 0,
+        });
 
         const expectedDeposits = await getEventsDepositCount(dbService);
         expect(expectedDeposits).toEqual(

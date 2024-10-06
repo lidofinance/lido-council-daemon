@@ -42,32 +42,6 @@ export class DepositsRegistryStoreService {
     await this.validateAndCleanInconsistentCache();
   }
 
-  public async validateAndCleanInconsistentCache() {
-    const currentCache = this.getEventsCache();
-
-    let isCacheConsistent = true;
-    let lastValidEventIndex = -1;
-
-    for (const [expectedIndex, event] of currentCache.data.entries()) {
-      const isIndexOrdered = event.depositCount === expectedIndex;
-      if (!isIndexOrdered) {
-        isCacheConsistent = false;
-        break;
-      }
-      lastValidEventIndex = event.depositCount;
-    }
-
-    if (!isCacheConsistent) {
-      this.logger.warn('Deposit cache is inconsistent', {
-        lastValidEvent: currentCache.data[lastValidEventIndex],
-        nextEvent: currentCache.data[lastValidEventIndex + 1],
-      });
-      await this.deleteDepositsGreaterThanOrEqualNBatch(
-        lastValidEventIndex + 1,
-      );
-    }
-  }
-
   /**
    * Initializes LevelDB with JSON encoding at the cache directory path.
    *
@@ -182,6 +156,74 @@ export class DepositsRegistryStoreService {
     }
   }
 
+  private formDepositEventHeaderForDeletion(
+    lastValidEventBlockNumber?: number,
+  ) {
+    const { headers: headersFromCache } = this.getEventsCache();
+    const headers = { ...headersFromCache };
+
+    if (lastValidEventBlockNumber !== undefined) {
+      headers.endBlock = lastValidEventBlockNumber;
+    } else {
+      headers.endBlock = this.getDefaultCachedValue().headers.endBlock;
+    }
+
+    if (headers.endBlock < headers.startBlock) {
+      this.logger.warn('Deposit header is not valid', {
+        headers,
+        headersFromCache,
+        lastValidEventBlockNumber,
+      });
+      throw new Error('Deposit header is not valid');
+    }
+
+    return headers;
+  }
+
+  /**
+   * Validates and cleans up inconsistencies in the cached events.
+   * This method iterates through the cached event data to check if the deposit counts
+   * are in the expected sequential order starting from zero. If any inconsistency is found,
+   * it logs the inconsistency and truncates the cache from the first incorrect entry.
+   *
+   * @async
+   * @throws {Error} Throws an error if the cache deletion process fails.
+   */
+  public async validateAndCleanInconsistentCache() {
+    const currentCache = this.getEventsCache();
+
+    let isCacheConsistent = true;
+    let lastValidEventIndex = -1;
+
+    for (const [expectedIndex, event] of currentCache.data.entries()) {
+      const isIndexOrdered = event.depositCount === expectedIndex;
+      if (!isIndexOrdered) {
+        isCacheConsistent = false;
+        break;
+      }
+      lastValidEventIndex = event.depositCount;
+    }
+
+    if (!isCacheConsistent) {
+      const lastValidEvent = currentCache.data[lastValidEventIndex];
+      const nextEvent = currentCache.data[lastValidEventIndex + 1];
+
+      this.logger.warn('Deposit cache is inconsistent', {
+        lastValidEvent,
+        nextEvent,
+      });
+
+      const headers = this.formDepositEventHeaderForDeletion(
+        lastValidEvent?.blockNumber,
+      );
+
+      await this.deleteDepositsGreaterThanOrEqualNBatch(
+        lastValidEventIndex + 1,
+        headers,
+      );
+    }
+  }
+
   /**
    * Clears all deposit records from the database starting from the deposit count of the last valid event.
    * If no valid event is found, it will clear deposits greater than deposit count zero.
@@ -194,8 +236,11 @@ export class DepositsRegistryStoreService {
     // Determine the starting index for deletion based on the last valid event's deposit count
     const fromIndex = lastValidEvent ? lastValidEvent.depositCount + 1 : 0;
 
+    const headers = this.formDepositEventHeaderForDeletion(
+      lastValidEvent?.blockNumber,
+    );
     // Delete all deposits from the determined index onwards
-    await this.deleteDepositsGreaterThanOrEqualNBatch(fromIndex);
+    await this.deleteDepositsGreaterThanOrEqualNBatch(fromIndex, headers);
   }
 
   /**
@@ -205,15 +250,18 @@ export class DepositsRegistryStoreService {
    */
   public async deleteDepositsGreaterThanOrEqualNBatch(
     depositCount: number,
+    headers: VerifiedDepositEventsCacheHeaders,
   ): Promise<void> {
     // Generate the upper boundary key for deletion
     const upperBoundKey = this.generateDepositKey(depositCount);
-
     // Initialize the iterator starting from the upper boundary key
     const stream = this.db.iterator({ gte: upperBoundKey, lt: 'deposit:\xFF' });
 
     // Initialize an array to hold batch operations
-    const ops: { type: 'del'; key: string }[] = [];
+    const ops: (
+      | { type: 'del'; key: string }
+      | { type: 'put'; key: string; value: string }
+    )[] = [];
 
     // Populate the batch operations array with delete operations
     for await (const [key] of stream) {
@@ -225,9 +273,21 @@ export class DepositsRegistryStoreService {
 
     // Execute the batch operation if there are any operations to perform
     if (ops.length > 0) {
+      ops.push({
+        type: 'put',
+        key: 'headers',
+        value: JSON.stringify(headers),
+      });
+      // delete the last valid event
+      // since it is possible that its depositCount is greater than depositCount
+      // event loaded after deletion
+      ops.push({
+        type: 'del',
+        key: 'last-valid-event',
+      });
       await this.db.batch(ops);
-      await this.setupEventsCache();
     }
+    await this.setupEventsCache();
   }
 
   /**
