@@ -287,6 +287,8 @@ export class DepositsRegistryStoreService {
         key: 'last-valid-event',
       });
       await this.db.batch(ops);
+    } else {
+      await this.db.put('headers', JSON.stringify(headers));
     }
 
     this.logger.log('Deposit events deleted', {
