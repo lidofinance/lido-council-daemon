@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { Level } from 'level';
 import { join } from 'path';
 import {
@@ -16,11 +16,14 @@ import {
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { METRIC_JOB_DURATION } from 'common/prometheus';
 import { Histogram } from 'prom-client';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 @Injectable()
 export class DepositsRegistryStoreService {
   private db!: Level<string, string>;
+  private cache!: VerifiedDepositEventsCache;
   constructor(
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
     @InjectMetric(METRIC_JOB_DURATION)
     private jobDurationMetric: Histogram<string>,
@@ -35,6 +38,8 @@ export class DepositsRegistryStoreService {
 
   public async initialize() {
     await this.setupLevel();
+    await this.setupEventsCache();
+    await this.validateAndCleanInconsistentCache();
   }
 
   /**
@@ -48,6 +53,23 @@ export class DepositsRegistryStoreService {
       valueEncoding: 'json',
     });
     await this.db.open();
+  }
+
+  /**
+   * Initializes or updates the event cache by fetching events from the database.
+   * This method asynchronously sets the `this.cache` property with the event data obtained from the database.
+   */
+  private async setupEventsCache(): Promise<void> {
+    this.cache = await this.getEventsFromDB();
+  }
+
+  /**
+   * Returns a default value for the cache by deep cloning the predefined default cache value.
+   * This method uses JSON serialization to ensure a deep clone of `this.cacheDefaultValue`.
+   * @returns {VerifiedDepositEventsCache} A deep cloned copy of the default cache value.
+   */
+  private getDefaultCachedValue(): VerifiedDepositEventsCache {
+    return JSON.parse(JSON.stringify(this.cacheDefaultValue));
   }
 
   /**
@@ -71,14 +93,14 @@ export class DepositsRegistryStoreService {
    * @returns {Promise<{data: VerifiedDepositEvent[], headers: VerifiedDepositEventsCacheHeaders}>} Cache data and headers.
    * @public
    */
-  public async getEventsCache(): Promise<{
+  public async getEventsFromDB(): Promise<{
     data: VerifiedDepositEvent[];
     headers: VerifiedDepositEventsCacheHeaders;
     lastValidEvent?: VerifiedDepositEvent;
   }> {
     const endTimer = this.jobDurationMetric
       .labels({
-        jobName: 'getEventsCache_deposits',
+        jobName: 'getEventsCache_deposits_db',
       })
       .startTimer();
 
@@ -98,11 +120,20 @@ export class DepositsRegistryStoreService {
 
       return { data, headers, lastValidEvent };
     } catch (error: any) {
-      if (error.code === 'LEVEL_NOT_FOUND') return this.cacheDefaultValue;
+      if (error.code === 'LEVEL_NOT_FOUND') return this.getDefaultCachedValue();
       throw error;
     } finally {
       endTimer();
     }
+  }
+
+  /**
+   * Retrieves the current event cache.
+   * This method returns the cache of events which includes verified deposit events.
+   * @returns {VerifiedDepositEventsCache} The current event cache.
+   */
+  public getEventsCache(): VerifiedDepositEventsCache {
+    return this.cache;
   }
 
   /**
@@ -125,20 +156,92 @@ export class DepositsRegistryStoreService {
     }
   }
 
+  private formDepositEventHeaderForDeletion(
+    lastValidEventBlockNumber?: number,
+  ) {
+    const { headers: headersFromCache } = this.getEventsCache();
+    const headers = { ...headersFromCache };
+
+    if (lastValidEventBlockNumber !== undefined) {
+      headers.endBlock = lastValidEventBlockNumber;
+    } else {
+      headers.endBlock = this.getDefaultCachedValue().headers.endBlock;
+    }
+
+    if (headers.endBlock < headers.startBlock) {
+      this.logger.warn('Deposit header is not valid', {
+        headers,
+        headersFromCache,
+        lastValidEventBlockNumber,
+      });
+      throw new Error('Deposit header is not valid');
+    }
+
+    return headers;
+  }
+
+  /**
+   * Validates and cleans up inconsistencies in the cached events.
+   * This method iterates through the cached event data to check if the deposit counts
+   * are in the expected sequential order starting from zero. If any inconsistency is found,
+   * it logs the inconsistency and truncates the cache from the first incorrect entry.
+   *
+   * @async
+   * @throws {Error} Throws an error if the cache deletion process fails.
+   */
+  public async validateAndCleanInconsistentCache() {
+    const currentCache = this.getEventsCache();
+
+    let isCacheConsistent = true;
+    let lastValidEventIndex = -1;
+
+    for (const [expectedIndex, event] of currentCache.data.entries()) {
+      const isIndexOrdered = event.depositCount === expectedIndex;
+      if (!isIndexOrdered) {
+        isCacheConsistent = false;
+        break;
+      }
+      lastValidEventIndex = event.depositCount;
+    }
+
+    const lastValidEvent = currentCache.data[lastValidEventIndex];
+
+    if (!isCacheConsistent) {
+      const nextEvent = currentCache.data[lastValidEventIndex + 1];
+
+      this.logger.warn('Deposit cache is inconsistent', {
+        lastValidEvent,
+        nextEvent,
+      });
+    }
+
+    const headers = this.formDepositEventHeaderForDeletion(
+      lastValidEvent?.blockNumber,
+    );
+
+    await this.deleteDepositsGreaterThanOrEqualNBatch(
+      lastValidEventIndex + 1,
+      headers,
+    );
+  }
+
   /**
    * Clears all deposit records from the database starting from the deposit count of the last valid event.
    * If no valid event is found, it will clear deposits greater than deposit count zero.
-   * This method leverages the `deleteDepositsGreaterThanNBatch` method for batch deletion.
+   * This method leverages the `deleteDepositsGreaterThanOrEqualNBatch` method for batch deletion.
    * @returns {Promise<void>} A promise that resolves when all appropriate deposits have been deleted.
    */
   public async clearFromLastValidEvent(): Promise<void> {
     const lastValidEvent = await this.getLastValidEvent();
 
     // Determine the starting index for deletion based on the last valid event's deposit count
-    const fromIndex = lastValidEvent ? lastValidEvent.depositCount : 0;
+    const fromIndex = lastValidEvent ? lastValidEvent.depositCount + 1 : 0;
 
+    const headers = this.formDepositEventHeaderForDeletion(
+      lastValidEvent?.blockNumber,
+    );
     // Delete all deposits from the determined index onwards
-    await this.deleteDepositsGreaterThanNBatch(fromIndex);
+    await this.deleteDepositsGreaterThanOrEqualNBatch(fromIndex, headers);
   }
 
   /**
@@ -146,17 +249,20 @@ export class DepositsRegistryStoreService {
    * @param {number} depositCount - The number above which deposit keys will be deleted.
    * @returns {Promise<void>} A promise that resolves when the operation is complete.
    */
-  public async deleteDepositsGreaterThanNBatch(
+  public async deleteDepositsGreaterThanOrEqualNBatch(
     depositCount: number,
+    headers: VerifiedDepositEventsCacheHeaders,
   ): Promise<void> {
     // Generate the upper boundary key for deletion
     const upperBoundKey = this.generateDepositKey(depositCount);
-
     // Initialize the iterator starting from the upper boundary key
-    const stream = this.db.iterator({ gt: upperBoundKey, lte: 'deposit:\xFF' });
+    const stream = this.db.iterator({ gte: upperBoundKey, lt: 'deposit:\xFF' });
 
     // Initialize an array to hold batch operations
-    const ops: { type: 'del'; key: string }[] = [];
+    const ops: (
+      | { type: 'del'; key: string }
+      | { type: 'put'; key: string; value: string }
+    )[] = [];
 
     // Populate the batch operations array with delete operations
     for await (const [key] of stream) {
@@ -168,8 +274,30 @@ export class DepositsRegistryStoreService {
 
     // Execute the batch operation if there are any operations to perform
     if (ops.length > 0) {
+      ops.push({
+        type: 'put',
+        key: 'headers',
+        value: JSON.stringify(headers),
+      });
+      // delete the last valid event
+      // since it is possible that its depositCount is greater than depositCount
+      // event loaded after deletion
+      ops.push({
+        type: 'del',
+        key: 'last-valid-event',
+      });
       await this.db.batch(ops);
+    } else {
+      await this.db.put('headers', JSON.stringify(headers));
     }
+
+    this.logger.log('Deposit events deleted', {
+      depositCount,
+      headers,
+      operationsCount: ops.length,
+    });
+
+    await this.setupEventsCache();
   }
 
   /**
@@ -250,6 +378,9 @@ export class DepositsRegistryStoreService {
       value: JSON.stringify(records.headers),
     });
     await this.db.batch(ops);
+
+    this.cache.data = this.cache.data.concat(records.data);
+    this.cache.headers = { ...records.headers };
   }
 
   /**
@@ -261,6 +392,7 @@ export class DepositsRegistryStoreService {
    */
   public async insertLastValidEvent(event: VerifiedDepositEvent) {
     await this.db.put('last-valid-event', this.serializeDepositEvent(event));
+    this.cache.lastValidEvent = event;
   }
 
   /**
@@ -271,6 +403,7 @@ export class DepositsRegistryStoreService {
    */
   public async deleteCache(): Promise<void> {
     await this.db.clear();
+    this.cache = this.getDefaultCachedValue();
   }
 
   /**
@@ -296,5 +429,8 @@ export class DepositsRegistryStoreService {
         ...cachedEvents.headers,
       },
     });
+
+    this.cache.data = this.cache.data.concat(cachedEvents.data);
+    this.cache.headers = { ...cachedEvents.headers };
   }
 }
