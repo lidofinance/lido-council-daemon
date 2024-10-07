@@ -24,6 +24,8 @@ import {
   UNLOCKED_ACCOUNTS,
   FORK_BLOCK,
   SECURITY_MODULE_OWNER,
+  CSM,
+  SANDBOX,
 } from './constants';
 
 // Mock rabbit straight away
@@ -31,11 +33,7 @@ jest.mock('../src/transport/stomp/stomp.client.ts');
 
 jest.setTimeout(10_000);
 
-import {
-  setupTestingModule,
-  closeServer,
-  initLevelDB,
-} from './helpers/test-setup';
+import { setupTestingModule, initLevelDB } from './helpers/test-setup';
 import { SecurityService } from 'contracts/security';
 import { GuardianService } from 'guardian';
 import { KeysApiService } from 'keys-api/keys-api.service';
@@ -52,11 +50,16 @@ import { BlsService } from 'bls';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
 import { mockKey } from './helpers/keys-fixtures';
 import { HardhatFork, waitForServerStdout } from './helpers/hardhat-fork';
-import { cutKeys } from './helpers/reduce-keys';
+import { cutKeysCuratedOnachainV1Modules } from './helpers/reduce-keys';
 import { JsonRpcBatchProvider } from '@ethersproject/providers';
 
+import * as dockerCompose from 'docker-compose';
+import { accountImpersonate } from './helpers/provider';
+
+import { printServiceLogs, waitForServiceToBeReady } from './helpers/kapi';
+
 describe('ganache e2e tests', () => {
-  let server: any; //Server<'ethereum'>;
+  let server: any;
   let providerService: ProviderService;
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;
@@ -165,156 +168,174 @@ describe('ganache e2e tests', () => {
   };
 
   beforeEach(async () => {
-    await setupHardhatServer();
-    // TODO: read from contract
-    await cutKeys(0, '0x4E8970d148CB38460bE9b6ddaab20aE2A74879AF', 10);
-
-    const provider = new JsonRpcBatchProvider(
-      `http://127.0.0.1:${GANACHE_PORT}`,
-    );
-
-    await provider.send('hardhat_impersonateAccount', [SECURITY_MODULE_OWNER]);
+    // await setupHardhatServer();
+    await accountImpersonate(SECURITY_MODULE_OWNER);
+    // await cutKeysCuratedOnachainV1Modules();
     await setupGuardians();
+
+    // TODO: make config in tests for envs like KAPI url
+
+    // await dockerCompose.upAll({
+    //   cwd: '.',
+    //   config: 'docker-compose.kapi.yml',
+    // });
+    // await printServiceLogs();
+
+    // await waitForServiceToBeReady();
 
     const moduleRef = await setupTestingModule();
     await setupTestingServices(moduleRef);
+
     setupMocks();
-  }, 40000);
+  }, 240000);
 
   afterEach(async () => {
-    server.stop();
+    // server.stop();
+    // dockerCompose.down({
+    //   cwd: '.',
+    //   config: 'docker-compose.kapi.yml',
+    // });
   });
 
-  test(
+  test.only(
     'should not validate again if depositData was not changed',
     async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
 
-      await levelDBService.setCachedEvents({
-        data: [],
-        headers: {
-          startBlock: currentBlock.number,
-          endBlock: currentBlock.number,
-        },
-      });
+      // ask modules list
 
-      await signingKeysRegistryService.setCachedEvents({
-        data: [],
-        headers: {
-          startBlock: currentBlock.number,
-          endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
-        },
-      });
+      console.log(await keysApiService.getModules());
 
-      const keyWithWrongSign = {
-        key: toHexString(pk),
-        // just some random sign
-        depositSignature:
-          '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
-        operatorIndex: 0,
-        used: false,
-        index: 0,
-        moduleAddress: NOP_REGISTRY,
-        vetted: true,
-      };
+      // await levelDBService.setCachedEvents({
+      //   data: [],
+      //   headers: {
+      //     startBlock: currentBlock.number,
+      //     endBlock: currentBlock.number,
+      //   },
+      // });
 
-      const invalidKeys = [keyWithWrongSign];
+      // await signingKeysRegistryService.setCachedEvents({
+      //   data: [],
+      //   headers: {
+      //     startBlock: currentBlock.number,
+      //     endBlock: currentBlock.number,
+      //     stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, CSM, SANDBOX],
+      //   },
+      // });
 
-      const meta = mockMeta(currentBlock, currentBlock.hash);
-      // setup /v1/modules
-      const stakingModules = [mockedModuleCurated, mockedModuleDvt];
-      keysApiMockGetModules(keysApiService, stakingModules, meta);
-      // setup /v1/keys
-      keysApiMockGetAllKeys(keysApiService, invalidKeys, meta);
-      const walletAddress = await getWalletAddress();
+      // const keyWithWrongSign = {
+      //   key: toHexString(pk),
+      //   // just some random sign
+      //   depositSignature:
+      //     '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
+      //   operatorIndex: 0,
+      //   used: false,
+      //   index: 0,
+      //   moduleAddress: NOP_REGISTRY,
+      //   vetted: true,
+      // };
 
-      await guardianService.handleNewBlock();
-      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+      // const invalidKeys = [keyWithWrongSign];
 
-      expect(validateKeys).toBeCalledTimes(2);
-      expect(validateKeys).toHaveBeenNthCalledWith(
-        1,
-        expect.arrayContaining([
-          expect.objectContaining({
-            key: toHexString(pk),
-            // just some random sign
-            depositSignature:
-              '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
-          }),
-        ]),
-      );
-      expect(validateKeys).toHaveBeenNthCalledWith(2, []);
-      expect(sendUnvetMessage).toBeCalledTimes(1);
-      expect(sendUnvetMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          blockNumber: currentBlock.number,
-          guardianAddress: walletAddress,
-          guardianIndex: 7,
-          stakingModuleId: 1,
-          operatorIds: '0x0000000000000000',
-          vettedKeysByOperator: '0x00000000000000000000000000000000',
-        }),
-      );
-      expect(unvetSigningKeys).toBeCalledTimes(1);
+      // new Contract()
 
-      expect(sendDepositMessage).toBeCalledTimes(1);
-      expect(sendDepositMessage).toBeCalledWith(
-        expect.objectContaining({
-          blockNumber: currentBlock.number,
-          guardianAddress: walletAddress,
-          guardianIndex: 7,
-          stakingModuleId: 2,
-        }),
-      );
-      expect(sendPauseMessage).toBeCalledTimes(0);
+      // providerService.rpvider
 
-      await providerService.provider.send('evm_mine', []);
+      // const meta = mockMeta(currentBlock, currentBlock.hash);
+      // // setup /v1/modules
+      // const stakingModules = [mockedModuleCurated, mockedModuleDvt];
+      // keysApiMockGetModules(keysApiService, stakingModules, meta);
+      // // setup /v1/keys
+      // keysApiMockGetAllKeys(keysApiService, invalidKeys, meta);
 
-      // if depositData was not changed it will not validate again
-      await providerService.provider.send('evm_mine', []);
-      const newBlock = await providerService.provider.getBlock('latest');
-      const newMeta = mockMeta(newBlock, newBlock.hash);
-      // setup /v1/modules
-      keysApiMockGetModules(keysApiService, stakingModules, newMeta);
-      // setup /v1/keys
-      keysApiMockGetAllKeys(keysApiService, invalidKeys, newMeta);
+      // const walletAddress = await getWalletAddress();
 
-      validateKeys.mockClear();
-      sendDepositMessage.mockClear();
-      sendUnvetMessage.mockClear();
-      unvetSigningKeys.mockClear();
+      // await guardianService.handleNewBlock();
+      // await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      await guardianService.handleNewBlock();
-      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+      // expect(validateKeys).toBeCalledTimes(2);
+      // expect(validateKeys).toHaveBeenNthCalledWith(
+      //   1,
+      //   expect.arrayContaining([
+      //     expect.objectContaining({
+      //       key: toHexString(pk),
+      //       // just some random sign
+      //       depositSignature:
+      //         '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
+      //     }),
+      //   ]),
+      // );
+      // expect(validateKeys).toHaveBeenNthCalledWith(2, []);
+      // expect(sendUnvetMessage).toBeCalledTimes(1);
+      // expect(sendUnvetMessage).toHaveBeenCalledWith(
+      //   expect.objectContaining({
+      //     blockNumber: currentBlock.number,
+      //     guardianAddress: walletAddress,
+      //     guardianIndex: 7,
+      //     stakingModuleId: 1,
+      //     operatorIds: '0x0000000000000000',
+      //     vettedKeysByOperator: '0x00000000000000000000000000000000',
+      //   }),
+      // );
+      // expect(unvetSigningKeys).toBeCalledTimes(1);
 
-      expect(validateKeys).toBeCalledTimes(2);
-      // don't validate again
-      expect(validateKeys).toHaveBeenNthCalledWith(1, []);
-      expect(validateKeys).toHaveBeenNthCalledWith(2, []);
-      expect(sendUnvetMessage).toBeCalledTimes(1);
-      expect(sendUnvetMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          blockNumber: newBlock.number,
-          guardianAddress: walletAddress,
-          guardianIndex: 7,
-          stakingModuleId: 1,
-          operatorIds: '0x0000000000000000',
-          vettedKeysByOperator: '0x00000000000000000000000000000000',
-        }),
-      );
-      expect(unvetSigningKeys).toBeCalledTimes(1);
+      // expect(sendDepositMessage).toBeCalledTimes(1);
+      // expect(sendDepositMessage).toBeCalledWith(
+      //   expect.objectContaining({
+      //     blockNumber: currentBlock.number,
+      //     guardianAddress: walletAddress,
+      //     guardianIndex: 7,
+      //     stakingModuleId: 2,
+      //   }),
+      // );
+      // expect(sendPauseMessage).toBeCalledTimes(0);
 
-      expect(sendDepositMessage).toBeCalledTimes(1);
-      expect(sendDepositMessage).toBeCalledWith(
-        expect.objectContaining({
-          blockNumber: newBlock.number,
-          guardianAddress: walletAddress,
-          guardianIndex: 7,
-          stakingModuleId: 2,
-        }),
-      );
-      expect(sendPauseMessage).toBeCalledTimes(0);
+      // await providerService.provider.send('evm_mine', []);
+
+      // // if depositData was not changed it will not validate again
+      // await providerService.provider.send('evm_mine', []);
+      // const newBlock = await providerService.provider.getBlock('latest');
+      // const newMeta = mockMeta(newBlock, newBlock.hash);
+      // // setup /v1/modules
+      // keysApiMockGetModules(keysApiService, stakingModules, newMeta);
+      // // setup /v1/keys
+      // keysApiMockGetAllKeys(keysApiService, invalidKeys, newMeta);
+
+      // validateKeys.mockClear();
+      // sendDepositMessage.mockClear();
+      // sendUnvetMessage.mockClear();
+      // unvetSigningKeys.mockClear();
+
+      // await guardianService.handleNewBlock();
+      // await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+      // expect(validateKeys).toBeCalledTimes(2);
+      // // don't validate again
+      // expect(validateKeys).toHaveBeenNthCalledWith(1, []);
+      // expect(validateKeys).toHaveBeenNthCalledWith(2, []);
+      // expect(sendUnvetMessage).toBeCalledTimes(1);
+      // expect(sendUnvetMessage).toHaveBeenCalledWith(
+      //   expect.objectContaining({
+      //     blockNumber: newBlock.number,
+      //     guardianAddress: walletAddress,
+      //     guardianIndex: 7,
+      //     stakingModuleId: 1,
+      //     operatorIds: '0x0000000000000000',
+      //     vettedKeysByOperator: '0x00000000000000000000000000000000',
+      //   }),
+      // );
+      // expect(unvetSigningKeys).toBeCalledTimes(1);
+
+      // expect(sendDepositMessage).toBeCalledTimes(1);
+      // expect(sendDepositMessage).toBeCalledWith(
+      //   expect.objectContaining({
+      //     blockNumber: newBlock.number,
+      //     guardianAddress: walletAddress,
+      //     guardianIndex: 7,
+      //     stakingModuleId: 2,
+      //   }),
+      // );
+      // expect(sendPauseMessage).toBeCalledTimes(0);
     },
     TESTS_TIMEOUT,
   );

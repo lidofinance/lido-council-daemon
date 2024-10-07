@@ -1,4 +1,3 @@
-import { JsonRpcProvider } from '@ethersproject/providers';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import * as dotenv from 'dotenv';
 

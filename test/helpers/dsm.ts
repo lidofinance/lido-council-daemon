@@ -2,16 +2,10 @@ import { ethers } from 'ethers';
 import {
   SECURITY_MODULE,
   SECURITY_MODULE_OWNER,
-  GANACHE_PORT,
   NO_PRIVKEY_MESSAGE,
 } from '../constants';
 import { SecurityAbi__factory } from 'generated';
-
-function createProvider() {
-  return new ethers.providers.JsonRpcProvider(
-    `http://127.0.0.1:${GANACHE_PORT}`,
-  );
-}
+import { testSetupProvider } from './provider';
 
 function createWallet(provider: ethers.providers.JsonRpcProvider) {
   if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
@@ -24,18 +18,18 @@ export async function addGuardians(
     securityModuleOwner: SECURITY_MODULE_OWNER,
   },
 ) {
-  const provider = createProvider();
-  const wallet = createWallet(provider);
+  // const provider = createProvider();
+  const wallet = createWallet(testSetupProvider);
 
   // Convert the ETH amount to wei
   const amountInWei = ethers.utils.parseEther('5');
 
-  await provider.send('hardhat_setBalance', [
+  await testSetupProvider.send('hardhat_setBalance', [
     params.securityModuleOwner,
     ethers.utils.hexlify(amountInWei),
   ]);
 
-  const signer = provider.getSigner(params.securityModuleOwner);
+  const signer = testSetupProvider.getSigner(params.securityModuleOwner);
 
   const securityContract = SecurityAbi__factory.connect(
     params.securityModule,
@@ -45,13 +39,12 @@ export async function addGuardians(
 }
 
 export async function setGuardianBalance(eth: string) {
-  const provider = createProvider();
-  const wallet = createWallet(provider);
+  const wallet = createWallet(testSetupProvider);
 
   // Convert the ETH amount to wei
   const amountInWei = ethers.utils.parseEther(eth);
 
-  await provider.send('evm_setAccountBalance', [
+  await testSetupProvider.send('hardhat_setBalance', [
     wallet.address,
     ethers.utils.hexlify(amountInWei),
   ]);

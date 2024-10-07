@@ -1,7 +1,13 @@
 import { solidityKeccak256 } from 'ethers/lib/utils';
 import { BigNumber } from 'ethers';
-import { JsonRpcBatchProvider } from '@ethersproject/providers';
-import { GANACHE_PORT } from 'provider';
+import { StakingRouter } from './sr.contract';
+// import { CURATED_ONCHAIN_V1_TYPE } from 'contracts/repository';
+import { testSetupProvider } from './provider';
+import { CuratedOnchainV1 } from './nor.contract';
+import { FORK_BLOCK } from '../constants';
+
+export const CURATED_ONCHAIN_V1_TYPE = 'curated-onchain-v1';
+export const COMMUNITY_ONCHAIN_V1_TYPE = 'community-onchain-v1';
 
 // Helper function to convert decimal number to 16-character hexadecimal string
 const to16 = (decimalNumber: number) => {
@@ -45,36 +51,40 @@ export const cutKeys = async (
   // Build replacement values for the keys and validators count
   const [keys, validators] = buildReplacer(keysCount);
 
-  const provider = new JsonRpcBatchProvider(`http://127.0.0.1:${GANACHE_PORT}`);
-
   // Send Hardhat RPC commands to modify the storage slots directly
-  await provider.send('hardhat_setStorageAt', [
+  await testSetupProvider.send('hardhat_setStorageAt', [
     norAddress,
     nodeOperatorsSlot2,
     keys,
   ]);
-  await provider.send('hardhat_setStorageAt', [
+  await testSetupProvider.send('hardhat_setStorageAt', [
     norAddress,
     nodeOperatorsSlot4,
     validators,
   ]);
 
-  console.log(`Keys updated for Node Operator ID ${noId} at ${norAddress}`);
+  // console.log(`Keys updated for Node Operator ID ${noId} at ${norAddress}`);
 };
 
-// Run the script from the command line
-// const main = async () => {
-//   const noId = 0; // Example Node Operator ID
-//   const norAddress = '0x595F64Ddc3856a3b5Ff4f4CC1d1fb4B46cFd2bAC'; // Replace with your contract address
-//   const keysCount = 10; // Example keys count, you can change this
+export const cutKeysCuratedOnachainV1Modules = async () => {
+  // get sr modules
+  const sr = new StakingRouter();
+  // get modules list
+  const srModulesAddresses = sr.getStakingModulesAddresses(
+    CURATED_ONCHAIN_V1_TYPE,
+  );
 
-//   console.log('Starting cutKeys operation...');
-//   await cutKeys(noId, norAddress, keysCount);
+  // in cycle remove keys of all modules
 
-//   console.log('cutKeys operation completed.');
-// };
+  for (const srModuleAddress of srModulesAddresses) {
+    // ask operators number
+    const contract = new CuratedOnchainV1(srModuleAddress);
+    const operatorsCount = await contract.getOperatorsCount(FORK_BLOCK);
 
-// main().catch((error) => {
-//   console.error('Error executing script:', error);
-//   process.exit(1);
-// });
+    for (let index = 0; index < operatorsCount; index++) {
+      // Perform asynchronous operation inside the loop
+      await cutKeys(index, srModuleAddress, 2);
+      console.log('Cut keys', { index, srModuleAddress });
+    }
+  }
+};

@@ -14,7 +14,7 @@ const main = async () => {
   // Start the Hardhat node and await it to finish starting up
   await hardhatFork.start();
 
-  console.log('out: ', hardhatFork.process?.stdout);
+  // console.log('out: ', hardhatFork.process?.stdout);
 
   if (hardhatFork.process?.stdout) {
     const isServerReady = await waitForServerStdout(hardhatFork.process.stdout);
@@ -28,7 +28,7 @@ const main = async () => {
   // Perform tests or interactions...
 
   // Stop the Hardhat node when done
-  hardhatFork.stop();
+  // hardhatFork.stop();
 };
 
 main().catch((err) => {
