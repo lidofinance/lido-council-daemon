@@ -55,24 +55,11 @@ export async function setGuardianBalance(eth: string) {
 
 export async function deposit(depositsCount: number, moduleId: number) {
   await accountImpersonate(DSM);
-  await setBalance(DSM, 2);
+  await setBalance(DSM, 3);
 
   const signer = testSetupProvider.getSigner(DSM);
 
   const lido = LidoAbi__factory.connect(LIDO, signer);
 
-  await lido.deposit(depositsCount, moduleId, '0x');
+  await lido.deposit(depositsCount, moduleId, new Uint8Array());
 }
-
-// lido
-//   .command('deposit')
-//   .description('deposit buffered ether (works only if DSM is set to EOA)')
-//   .argument('<deposits>', 'max deposits count')
-//   .argument('<module-id>', 'staking module id')
-//   .action(async (maxDepositCount, moduleId) => {
-//     await contractCallTxWithConfirm(lidoContract, 'deposit', [
-//       maxDepositCount,
-//       moduleId,
-//       '0x',
-//     ]);
-//   });

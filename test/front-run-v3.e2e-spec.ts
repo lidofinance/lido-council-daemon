@@ -550,119 +550,130 @@ describe('ganache e2e tests', () => {
     });
   });
 
-  // describe.only('historical front-run', () => {
-  //   let snapshotId: number;
+  describe.only('historical front-run', () => {
+    let snapshotId: number;
 
-  //   beforeAll(async () => {
-  //     snapshotId = await testSetupProvider.send('evm_snapshot', []);
-  //     // start only if /modules return 200
-  //     await waitForServiceToBeReady();
+    beforeAll(async () => {
+      snapshotId = await testSetupProvider.send('evm_snapshot', []);
+      // start only if /modules return 200
+      await waitForServiceToBeReady();
 
-  //     await accountImpersonate(SECURITY_MODULE_OWNER);
-  //     await setupGuardians();
+      await accountImpersonate(SECURITY_MODULE_OWNER);
+      await setupGuardians();
 
-  //     const moduleRef = await setupTestingModule();
-  //     await setupTestingServices(moduleRef);
+      const moduleRef = await setupTestingModule();
+      await setupTestingServices(moduleRef);
 
-  //     setupMocks();
-  //   }, 10000);
+      setupMocks();
+    }, 40_000);
 
-  //   afterAll(async () => {
-  //     // we need to revert after each test because unvetting change only vettedAmount and will not delete key
-  //     await testSetupProvider.send('evm_revert', [snapshotId]);
-  //     // clear db
-  //     // KAPI see that db is empty and update state
-  //     await truncateTables();
-  //   });
+    afterAll(async () => {
+      // we need to revert after each test because unvetting change only vettedAmount and will not delete key
+      await testSetupProvider.send('evm_revert', [snapshotId]);
+      // clear db
+      // KAPI see that db is empty and update state
+      await truncateTables();
 
-  //   test('add unused unvetted key', async () => {
-  //     const currentBlock = await providerService.provider.getBlock('latest');
-  //     const nor = new CuratedOnchainV1(NOP_REGISTRY);
-  //     const { signature } = signDeposit(pk, sk, LIDO_WC);
-  //     await nor.addSigningKey(0, 1, toHexString(pk), toHexString(signature));
+      await levelDBService.deleteCache();
+      await signKeyLevelDBService.deleteCache();
+      await levelDBService.close();
+      await signKeyLevelDBService.close();
+    }, 30_000);
 
-  //     await waitForNewerBlock(currentBlock.number);
-  //   }, 20000);
+    test('add unused unvetted key', async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
+      const nor = new CuratedOnchainV1(NOP_REGISTRY);
+      const { signature } = signDeposit(pk, sk, LIDO_WC);
+      await nor.addSigningKey(0, 1, toHexString(pk), toHexString(signature));
 
-  //   test('Increase staking limit', async () => {
-  //     const currentBlock = await providerService.provider.getBlock('latest');
+      await waitForNewerBlock(currentBlock.number);
+    }, 20000);
 
-  //     // keys total amount was 3, added key with wrong sign, now it is 4 keys
-  //     // increase limit to 4
-  //     const nor = new CuratedOnchainV1(NOP_REGISTRY);
-  //     await nor.setStakingLimit(0, 4);
-  //     await waitForNewerBlock(currentBlock.number);
-  //   }, 20000);
+    test('Increase staking limit', async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
 
-  //   test('make deposit', async () => {
-  //     await deposit(1, 1);
-  //   }, 20000);
+      // keys total amount was 3, added key with wrong sign, now it is 4 keys
+      // increase limit to 4
+      const nor = new CuratedOnchainV1(NOP_REGISTRY);
+      await nor.setStakingLimit(0, 4);
+      await waitForNewerBlock(currentBlock.number);
+    }, 20000);
 
-  //   test('Set cache to current block', async () => {
-  //     const currentBlock = await providerService.provider.getBlock('latest');
+    test('make deposit', async () => {
+      await deposit(100, 1);
+    }, 20000);
 
-  //     const { signature: lidoSign } = signDeposit(pk, sk);
-  //     const { signature: theftDepositSign } = signDeposit(pk, sk, BAD_WC);
+    test('Set cache to current block', async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
 
-  //     await levelDBService.setCachedEvents({
-  //       data: [
-  //         {
-  //           valid: true,
-  //           pubkey: toHexString(pk),
-  //           amount: '32000000000',
-  //           wc: BAD_WC,
-  //           signature: toHexString(theftDepositSign),
-  //           tx: '0x122',
-  //           blockHash: '0x123456',
-  //           blockNumber: currentBlock.number - 1,
-  //           logIndex: 1,
-  //           depositCount: 1,
-  //           depositDataRoot: new Uint8Array(),
-  //           index: '',
-  //         },
-  //         {
-  //           valid: true,
-  //           pubkey: toHexString(pk),
-  //           amount: '32000000000',
-  //           wc: LIDO_WC,
-  //           signature: toHexString(lidoSign),
-  //           tx: '0x123',
-  //           blockHash: currentBlock.hash,
-  //           blockNumber: currentBlock.number,
-  //           logIndex: 1,
-  //           depositCount: 2,
-  //           depositDataRoot: new Uint8Array(),
-  //           index: '',
-  //         },
-  //       ],
-  //       headers: {
-  //         startBlock: currentBlock.number - 2,
-  //         endBlock: currentBlock.number,
-  //       },
-  //     });
+      const { signature: lidoSign } = signDeposit(pk, sk);
+      const { signature: theftDepositSign } = signDeposit(pk, sk, BAD_WC);
 
-  //     await signingKeysRegistryService.setCachedEvents({
-  //       data: [],
-  //       headers: {
-  //         startBlock: currentBlock.number,
-  //         endBlock: currentBlock.number,
-  //         stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, CSM, SANDBOX],
-  //       },
-  //     });
-  //   });
+      await levelDBService.setCachedEvents({
+        data: [
+          {
+            valid: true,
+            pubkey: toHexString(pk),
+            amount: '32000000000',
+            wc: BAD_WC,
+            signature: toHexString(theftDepositSign),
+            tx: '0x122',
+            blockHash: '0x123456',
+            blockNumber: currentBlock.number - 1,
+            logIndex: 1,
+            depositCount: 1,
+            depositDataRoot: new Uint8Array(),
+            index: '',
+          },
+          {
+            valid: true,
+            pubkey: toHexString(pk),
+            amount: '32000000000',
+            wc: LIDO_WC,
+            signature: toHexString(lidoSign),
+            tx: '0x123',
+            blockHash: currentBlock.hash,
+            blockNumber: currentBlock.number,
+            logIndex: 1,
+            depositCount: 2,
+            depositDataRoot: new Uint8Array(),
+            index: '',
+          },
+        ],
+        headers: {
+          startBlock: currentBlock.number - 10,
+          endBlock: currentBlock.number,
+        },
+      });
 
-  //   test('pause happen', async () => {
-  //     expect(sendPauseMessage).toBeCalledTimes(0);
+      await signingKeysRegistryService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number - 10,
+          endBlock: currentBlock.number,
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, CSM, SANDBOX],
+        },
+      });
+    });
 
-  //     const securityContract = SecurityAbi__factory.connect(
-  //       SECURITY_MODULE,
-  //       providerService.provider,
-  //     );
+    test('Run council daemon', async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
+      await guardianService.handleNewBlock();
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+    }, 15_000);
 
-  //     const isOnPause = await securityContract.isDepositsPaused();
-  //     expect(isOnPause).toBe(true);
-  //   });
-  // });
+    test('Pause happen', async () => {
+      expect(sendPauseMessage).toBeCalledTimes(0);
+
+      const securityContract = SecurityAbi__factory.connect(
+        SECURITY_MODULE,
+        providerService.provider,
+      );
+
+      const isOnPause = await securityContract.isDepositsPaused();
+      expect(isOnPause).toBe(true);
+    });
+  });
 });
 
 // TODO: historical front-run
