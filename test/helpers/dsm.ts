@@ -57,9 +57,32 @@ export async function deposit(depositsCount: number, moduleId: number) {
   await accountImpersonate(DSM);
   await setBalance(DSM, 3);
 
+  await transferEther(LIDO, '100');
+
   const signer = testSetupProvider.getSigner(DSM);
 
   const lido = LidoAbi__factory.connect(LIDO, signer);
 
-  await lido.deposit(depositsCount, moduleId, new Uint8Array());
+  const n = await lido.getDepositableEther();
+  console.log('buffered eth = ', Number(n));
+
+  const tx = await lido.deposit(depositsCount, moduleId, new Uint8Array());
+
+  await tx.wait();
+}
+
+export async function transferEther(recipientAddress: string, amount: string) {
+  if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
+  const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
+  const signer = testSetupProvider.getSigner(wallet.address);
+  await setBalance(wallet.address, 320);
+
+  const tx = {
+    to: recipientAddress,
+    value: ethers.utils.parseEther(amount),
+  };
+
+  const transactionResponse = await signer.sendTransaction(tx);
+
+  await transactionResponse.wait();
 }

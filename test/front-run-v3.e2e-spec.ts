@@ -603,9 +603,15 @@ describe('ganache e2e tests', () => {
       const currentBlock = await providerService.provider.getBlock('latest');
       await deposit(100, 1);
       await waitForNewerBlock(currentBlock.number);
-
-      // TODO: check keys i s used
     }, 20000);
+
+    test('Check staking limit for sdvt operator before unvetting', async () => {
+      const nor = new CuratedOnchainV1(NOP_REGISTRY);
+      const op = await nor.getOperator(0, false);
+      expect(Number(op.totalVettedValidators)).toEqual(4);
+      expect(Number(op.totalAddedValidators)).toEqual(4);
+      expect(Number(op.totalDepositedValidators)).toEqual(4);
+    }, 5_000);
 
     test('Set cache to current block', async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
@@ -657,14 +663,16 @@ describe('ganache e2e tests', () => {
           stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, CSM, SANDBOX],
         },
       });
-    }, 20000);
+    }, 5_000);
 
     test('Run council daemon', async () => {
-      await providerService.provider.send('evm_mine', []);
-      // const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await providerService.provider.getBlock('latest');
+      console.log('current block!! = ', currentBlock.number);
+      await waitForNewerBlock(currentBlock.number);
+
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
-    }, 15_000);
+    }, 80_000);
 
     test('Pause happen', async () => {
       // expect(sendPauseMessage).toBeCalledTimes(1);
@@ -680,5 +688,4 @@ describe('ganache e2e tests', () => {
   });
 });
 
-// TODO: historical front-run
 // TODO: guardian balance
