@@ -1,4 +1,9 @@
-import { solidityKeccak256 } from 'ethers/lib/utils';
+import {
+  solidityKeccak256,
+  hexlify,
+  zeroPad,
+  hexZeroPad,
+} from 'ethers/lib/utils';
 import { BigNumber } from 'ethers';
 import { StakingRouter } from './sr.contract';
 // import { CURATED_ONCHAIN_V1_TYPE } from 'contracts/repository';
@@ -24,6 +29,30 @@ const buildReplacer = (keysCount: number) => {
     `0x${to16(keysCount)}${to16(keysCount)}0000000000000000${to16(keysCount)}`,
     `0x0000000000000000${to16(keysCount)}00000000000000000000000000000000`,
   ];
+};
+
+export const updateNodeOperatorsCount = async (
+  contractAddress: string,
+  newCount: number,
+) => {
+  console.log('updateNodeOperatorsCount');
+
+  const slotValue = await testSetupProvider.getStorageAt(contractAddress, 9);
+  console.log('Current value in slot:', slotValue);
+
+  const slotIndex = 9;
+
+  const newOperatorsCount = hexZeroPad(hexlify(newCount), 8);
+
+  const unchangedPart = slotValue.slice(18);
+
+  const newStorageValue = newOperatorsCount + unchangedPart;
+
+  await testSetupProvider.send('hardhat_setStorageAt', [
+    contractAddress,
+    hexZeroPad(hexlify(slotIndex), 32),
+    newStorageValue,
+  ]);
 };
 
 // Function to update the keys count in storage (cut keys)
@@ -57,11 +86,11 @@ export const cutKeys = async (
     nodeOperatorsSlot2,
     keys,
   ]);
-  await testSetupProvider.send('hardhat_setStorageAt', [
-    norAddress,
-    nodeOperatorsSlot4,
-    validators,
-  ]);
+  // await testSetupProvider.send('hardhat_setStorageAt', [
+  //   norAddress,
+  //   nodeOperatorsSlot4,
+  //   validators,
+  // ]);
 
   // console.log(`Keys updated for Node Operator ID ${noId} at ${norAddress}`);
 };
@@ -74,8 +103,14 @@ export const cutKeysCuratedOnachainV1Modules = async () => {
     CURATED_ONCHAIN_V1_TYPE,
   );
 
+  const CSM = '0x4562c3e63c2e586cD1651B958C22F88135aCAd4f';
+
+  await updateNodeOperatorsCount(CSM, 3);
+
   // in cycle remove keys of all modules
 
+  // TODO: reduce curated and sdvt operators to make update faster
+  // now it is still not fast enough for e2e
   for (const srModuleAddress of srModulesAddresses) {
     // ask operators number
     const contract = new CuratedOnchainV1(srModuleAddress);
@@ -83,7 +118,7 @@ export const cutKeysCuratedOnachainV1Modules = async () => {
 
     for (let index = 0; index < operatorsCount; index++) {
       // Perform asynchronous operation inside the loop
-      await cutKeys(index, srModuleAddress, 2);
+      await cutKeys(index, srModuleAddress, 3);
       console.log('Cut keys', { index, srModuleAddress });
     }
   }

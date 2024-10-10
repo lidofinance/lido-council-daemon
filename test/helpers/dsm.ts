@@ -4,8 +4,11 @@ import {
   SECURITY_MODULE_OWNER,
   NO_PRIVKEY_MESSAGE,
 } from '../constants';
-import { SecurityAbi__factory } from 'generated';
-import { testSetupProvider } from './provider';
+import { LidoAbi__factory, SecurityAbi__factory } from 'generated';
+import { accountImpersonate, setBalance, testSetupProvider } from './provider';
+
+const DSM = '0x808DE3b26Be9438F12E9B45528955EA94C17f217';
+const LIDO = '0x3b03f75Ec541Ca11a223bB58621A3146246E1644';
 
 function createWallet(provider: ethers.providers.JsonRpcProvider) {
   if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
@@ -49,3 +52,27 @@ export async function setGuardianBalance(eth: string) {
     ethers.utils.hexlify(amountInWei),
   ]);
 }
+
+export async function deposit(depositsCount: number, moduleId: number) {
+  await accountImpersonate(DSM);
+  await setBalance(DSM, 2);
+
+  const signer = testSetupProvider.getSigner(DSM);
+
+  const lido = LidoAbi__factory.connect(LIDO, signer);
+
+  await lido.deposit(depositsCount, moduleId, '0x');
+}
+
+// lido
+//   .command('deposit')
+//   .description('deposit buffered ether (works only if DSM is set to EOA)')
+//   .argument('<deposits>', 'max deposits count')
+//   .argument('<module-id>', 'staking module id')
+//   .action(async (maxDepositCount, moduleId) => {
+//     await contractCallTxWithConfirm(lidoContract, 'deposit', [
+//       maxDepositCount,
+//       moduleId,
+//       '0x',
+//     ]);
+//   });

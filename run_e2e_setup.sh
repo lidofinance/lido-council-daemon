@@ -18,7 +18,7 @@ echo "Key cutting completed. Starting e2e_keys_api..."
 docker compose -f docker-compose.e2e-v3.yml up -d e2e_keys_api
 
 echo "Waiting for e2e_keys_api to be ready..."
-until [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/v1/status)" == "200" ]; do
+until [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/v1/modules)" == "200" ]; do
   echo "e2e_keys_api is not ready yet. Retrying..."
   sleep 5
 done

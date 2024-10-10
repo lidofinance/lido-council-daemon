@@ -2,7 +2,7 @@ import { HardhatUserConfig } from 'hardhat/config';
 import * as dotenv from 'dotenv';
 dotenv.config();
 // for v3 version
-export const FORK_BLOCK = 1894357;
+export const FORK_BLOCK = 2038357;
 
 // TODO: add check that RPC_URL is for holesky
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
