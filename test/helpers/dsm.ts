@@ -8,7 +8,7 @@ import { LidoAbi__factory, SecurityAbi__factory } from 'generated';
 import { accountImpersonate, setBalance, testSetupProvider } from './provider';
 
 const DSM = '0x808DE3b26Be9438F12E9B45528955EA94C17f217';
-const LIDO = '0x3b03f75Ec541Ca11a223bB58621A3146246E1644';
+const LIDO = '0x3F1c547b21f65e10480dE3ad8E19fAAC46C95034';
 
 function createWallet(provider: ethers.providers.JsonRpcProvider) {
   if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
