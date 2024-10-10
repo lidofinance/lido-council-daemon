@@ -134,9 +134,6 @@ describe('ganache e2e tests', () => {
     // sign validation
     validateKeys = jest.spyOn(keyValidator, 'validateKeys');
 
-    // mock unvetting method of contract
-    // as we dont use real keys api and work with fixtures of operators and keys
-    // we cant make real unvetting
     unvetSigningKeys = jest.spyOn(securityService, 'unvetSigningKeys');
   };
 

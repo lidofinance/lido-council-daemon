@@ -40,7 +40,11 @@ import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sani
 import { BlsService } from 'bls';
 import { getWalletAddress, makeDeposit, signDeposit } from './helpers/deposit';
 import { CuratedOnchainV1 } from './helpers/nor.contract';
-import { waitForNewerBlock, waitForServiceToBeReady } from './helpers/kapi';
+import {
+  waitForNewerBlock,
+  waitForNewerOrEqBlock,
+  waitForServiceToBeReady,
+} from './helpers/kapi';
 import {
   // closeClient,
   // ensureClientConnection,
@@ -133,13 +137,10 @@ describe('ganache e2e tests', () => {
       .spyOn(depositIntegrityCheckerService, 'checkFinalizedRoot')
       .mockImplementation(() => Promise.resolve(true));
 
-    // mock unvetting method of contract
-    // as we dont use real keys api and work with fixtures of operators and keys
-    // we cant make real unvetting
     unvetSigningKeys = jest.spyOn(securityService, 'unvetSigningKeys');
   };
 
-  describe('front-run attempt', () => {
+  describe('Front-run attempt', () => {
     let snapshotId: number;
 
     beforeAll(async () => {
@@ -286,7 +287,7 @@ describe('ganache e2e tests', () => {
     });
   });
 
-  describe('failed 1eth deposit attack to stop deposits', () => {
+  describe('Failed 1eth deposit attack to stop deposits', () => {
     let snapshotId: number;
 
     beforeAll(async () => {
@@ -409,7 +410,7 @@ describe('ganache e2e tests', () => {
     });
   });
 
-  describe('failed 1eth deposit attack to stop deposits with a wrong signature and wc', () => {
+  describe('Failed 1eth deposit attack to stop deposits with a wrong signature and wc', () => {
     let snapshotId: number;
 
     beforeAll(async () => {
@@ -505,7 +506,7 @@ describe('ganache e2e tests', () => {
       const nor = new CuratedOnchainV1(NOP_REGISTRY);
       const op = await nor.getOperator(0, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
-    });
+    }, 10_00);
 
     test(
       'no unvetting will happen',
@@ -550,7 +551,7 @@ describe('ganache e2e tests', () => {
     });
   });
 
-  describe.only('historical front-run', () => {
+  describe('Historical front-run', () => {
     let snapshotId: number;
 
     beforeAll(async () => {
@@ -606,12 +607,24 @@ describe('ganache e2e tests', () => {
     }, 20000);
 
     test('Check staking limit for sdvt operator before unvetting', async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
       const nor = new CuratedOnchainV1(NOP_REGISTRY);
       const op = await nor.getOperator(0, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
       expect(Number(op.totalAddedValidators)).toEqual(4);
       expect(Number(op.totalDepositedValidators)).toEqual(4);
-    }, 5_000);
+
+      await waitForNewerOrEqBlock(currentBlock.number);
+    }, 10_000);
+
+    test('Check key in kapi', async () => {
+      const {
+        data: { keys },
+      } = await keysApiService.getModuleKeys(1, 0);
+      expect(keys.length).toBe(4);
+      const lastKeys = keys.find(({ index }) => index === 3);
+      expect(lastKeys?.used).toBe(true);
+    });
 
     test('Set cache to current block', async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
@@ -651,7 +664,7 @@ describe('ganache e2e tests', () => {
         ],
         headers: {
           startBlock: currentBlock.number - 10,
-          endBlock: currentBlock.number - 1,
+          endBlock: currentBlock.number,
         },
       });
 
@@ -659,24 +672,18 @@ describe('ganache e2e tests', () => {
         data: [],
         headers: {
           startBlock: currentBlock.number - 10,
-          endBlock: currentBlock.number - 1,
+          endBlock: currentBlock.number,
           stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, CSM, SANDBOX],
         },
       });
     }, 5_000);
 
     test('Run council daemon', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
-      console.log('current block!! = ', currentBlock.number);
-      await waitForNewerBlock(currentBlock.number);
-
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
     }, 80_000);
 
     test('Pause happen', async () => {
-      // expect(sendPauseMessage).toBeCalledTimes(1);
-
       const securityContract = SecurityAbi__factory.connect(
         SECURITY_MODULE,
         providerService.provider,
@@ -684,6 +691,8 @@ describe('ganache e2e tests', () => {
 
       const isOnPause = await securityContract.isDepositsPaused();
       expect(isOnPause).toBe(true);
+
+      expect(sendPauseMessage).toBeCalledTimes(1);
     });
   });
 });
