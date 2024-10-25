@@ -8,7 +8,6 @@ import {
   pk,
   NOP_REGISTRY,
   SIMPLE_DVT,
-  FORK_BLOCK,
   SECURITY_MODULE_OWNER,
   CSM,
   SANDBOX,
@@ -16,8 +15,6 @@ import {
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
-
-jest.setTimeout(10_000);
 
 import { setupTestingModule, initLevelDB } from './helpers/test-setup';
 import { SecurityService } from 'contracts/security';
@@ -29,24 +26,19 @@ import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store'
 import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
 import { KeyValidatorInterface } from '@lido-nestjs/key-validation';
 
-import { getWalletAddress, signDeposit } from './helpers/deposit';
+import { getWalletAddress } from './helpers/deposit';
 import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 import { addGuardians } from './helpers/dsm';
 import { BlsService } from 'bls';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
-import { mockKey } from './helpers/keys-fixtures';
-import { cutKeysCuratedOnachainV1Modules } from './helpers/reduce-keys';
-import { JsonRpcBatchProvider } from '@ethersproject/providers';
-
-import * as dockerCompose from 'docker-compose';
 import { accountImpersonate, testSetupProvider } from './helpers/provider';
-
 import { waitForNewerBlock, waitForServiceToBeReady } from './helpers/kapi';
 import { CuratedOnchainV1 } from './helpers/nor.contract';
 import { truncateTables } from './helpers/pg';
+import { JsonRpcProvider } from '@ethersproject/providers';
+import { FORK_URL } from './helpers/constants';
 
 describe('ganache e2e tests', () => {
-  let server: any;
   let providerService: ProviderService;
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;
@@ -60,7 +52,6 @@ describe('ganache e2e tests', () => {
 
   // mocks
   let sendDepositMessage: jest.SpyInstance;
-  let sendPauseMessage: jest.SpyInstance;
   let validateKeys: jest.SpyInstance;
   let sendUnvetMessage: jest.SpyInstance;
   let unvetSigningKeys: jest.SpyInstance;
@@ -113,9 +104,6 @@ describe('ganache e2e tests', () => {
     jest
       .spyOn(guardianMessageService, 'pingMessageBroker')
       .mockImplementation(() => Promise.resolve());
-    sendPauseMessage = jest
-      .spyOn(guardianMessageService, 'sendPauseMessageV2')
-      .mockImplementation(() => Promise.resolve());
     sendUnvetMessage = jest
       .spyOn(guardianMessageService, 'sendUnvetMessage')
       .mockImplementation(() => Promise.resolve());
@@ -152,7 +140,7 @@ describe('ganache e2e tests', () => {
       await setupTestingServices(moduleRef);
 
       setupMocks();
-    }, 10000);
+    }, 20_000);
 
     afterAll(async () => {
       // we need to revert after each test because unvetting change only vettedAmount and will not delete key
@@ -165,7 +153,7 @@ describe('ganache e2e tests', () => {
       await signKeyLevelDBService.deleteCache();
       await levelDBService.close();
       await signKeyLevelDBService.close();
-    });
+    }, 60_000);
 
     test('Set cache to current block', async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
@@ -273,5 +261,3 @@ describe('ganache e2e tests', () => {
     });
   });
 });
-
-// TODO: maybe move here guardian balance check

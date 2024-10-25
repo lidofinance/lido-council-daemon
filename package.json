@@ -85,7 +85,7 @@
     "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-prettier": "^3.4.0",
     "ganache": "7.9.0",
-    "hardhat": "2.22.5",
+    "hardhat": "^2.22.14",
     "jest": "^27.0.6",
     "pg": "^8.13.0",
     "prettier": "^2.3.2",

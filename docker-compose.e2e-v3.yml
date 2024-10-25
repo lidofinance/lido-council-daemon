@@ -42,7 +42,6 @@ services:
   e2e_keys_api:
     container_name: e2e_keys_api
     image: lidofinance/lido-keys-api:staging
-    command: ["yarn", "start:dev"]
     platform: linux/amd64
     environment:
       - NODE_ENV=production
@@ -53,7 +52,7 @@ services:
       - DB_PASSWORD=postgres
       - PROVIDERS_URLS=http://hardhat_node:8545
       - VALIDATOR_REGISTRY_ENABLE=false
-      - CHAIN_ID=17000
+      - CHAIN_ID=${CHAIN_ID}
       - CL_API_URLS=""
     depends_on:
       e2e_pgdb:
