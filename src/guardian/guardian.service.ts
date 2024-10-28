@@ -177,8 +177,9 @@ export class GuardianService implements OnModuleInit {
         .startTimer();
 
       // fetch all lido keys
-      const { data: lidoKeys, meta: secondRequestMeta } =
-        await this.keysApiService.getKeys(firstRequestMeta);
+      const { data: lidoKeys } = await this.keysApiService.getKeys(
+        firstRequestMeta,
+      );
 
       endTimerKeysReq();
 
