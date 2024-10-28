@@ -39,6 +39,7 @@ import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { METRIC_JOB_DURATION } from 'common/prometheus';
 import { Histogram } from 'prom-client';
+import { DeepReadonly } from 'common/ts-utils';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -181,12 +182,6 @@ export class GuardianService implements OnModuleInit {
 
       endTimerKeysReq();
 
-      // check that there were no updates in Keys Api between two requests
-      this.keysApiService.verifyMetaDataConsistency(
-        firstRequestMeta.lastChangedBlockHash,
-        secondRequestMeta.elBlockSnapshot.lastChangedBlockHash,
-      );
-
       // contracts initialization
       await this.repositoryService.initCachedContracts({ blockHash });
 
@@ -230,7 +225,7 @@ export class GuardianService implements OnModuleInit {
   private async collectData(
     stakingModules: SRModule[],
     meta: ELBlockSnapshot,
-    lidoKeys: RegistryKey[],
+    lidoKeys: DeepReadonly<RegistryKey[]>,
   ) {
     const { blockHash, blockNumber } = meta;
 
@@ -265,7 +260,7 @@ export class GuardianService implements OnModuleInit {
   private async handleKeys(
     stakingModulesData: StakingModuleData[],
     blockData: BlockData,
-    lidoKeys: RegistryKey[],
+    lidoKeys: DeepReadonly<RegistryKey[]>,
   ) {
     // check lido keys
     await this.checkKeys(stakingModulesData, blockData, lidoKeys);
@@ -299,7 +294,7 @@ export class GuardianService implements OnModuleInit {
   private async checkKeys(
     stakingModulesData: StakingModuleData[],
     blockData: BlockData,
-    lidoKeys: RegistryKey[],
+    lidoKeys: DeepReadonly<RegistryKey[]>,
   ) {
     const stakingRouterModuleAddresses = stakingModulesData.map(
       (stakingModule) => stakingModule.stakingModuleAddress,

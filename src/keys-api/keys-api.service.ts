@@ -9,10 +9,11 @@ import { GroupedByModuleOperatorListResponse } from './interfaces/GroupedByModul
 import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
 import { SRModuleListResponse } from './interfaces/SRModuleListResponse';
 import { ELBlockSnapshot } from './interfaces/ELBlockSnapshot';
+import { DeepReadonly } from 'common/ts-utils';
 
 @Injectable()
 export class KeysApiService {
-  private cachedKeys?: KeyListResponse;
+  private cachedKeys?: DeepReadonly<KeyListResponse>;
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) protected logger: LoggerService,
     protected readonly config: Configuration,
@@ -131,6 +132,7 @@ export class KeysApiService {
       newELBlockSnapshot: result.meta.elBlockSnapshot,
     });
 
+    // check that there were no updates in Keys Api between two requests
     this.verifyMetaDataConsistency(
       elBlockSnapshot.lastChangedBlockHash,
       result.meta.elBlockSnapshot.lastChangedBlockHash,
