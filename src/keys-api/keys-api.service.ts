@@ -122,12 +122,12 @@ export class KeysApiService {
   private async updateCachedKeys(elBlockSnapshot: ELBlockSnapshot) {
     this.logger.log('Updating keys from KeysAPI', {
       elBlockSnapshot,
-      previousELBlockSnapshot: this.cachedKeys?.meta.elBlockSnapshot,
+      cachedELBlockSnapshot: this.cachedKeys?.meta.elBlockSnapshot,
     });
 
     const result = await this.fetch<KeyListResponse>(`/v1/keys`);
 
-    this.logger.log('Keys successfully updated from KeysAPI', {
+    this.logger.log('Keys successfully updated in cache from KeysAPI', {
       elBlockSnapshot,
       newELBlockSnapshot: result.meta.elBlockSnapshot,
     });
