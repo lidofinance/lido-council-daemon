@@ -14,7 +14,7 @@ export async function truncateTables() {
   try {
     // Truncate tables
     await client.query(
-      `TRUNCATE registry_key, registry_operator, registry_operator, el_meta_entity, sr_module_entity`,
+      `TRUNCATE registry_key, registry_operator, el_meta_entity, sr_module_entity`,
     );
     console.log('All tables truncated successfully');
   } catch (error) {
