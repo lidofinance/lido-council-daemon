@@ -13,6 +13,8 @@ import { DeepReadonly } from 'common/ts-utils';
 
 @Injectable()
 export class KeysApiService {
+  // Do not use this value in a straightforward manner
+  // It can be used in parallel at the moment in `getKeys`
   private cachedKeys?: DeepReadonly<KeyListResponse>;
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) protected logger: LoggerService,
@@ -125,6 +127,9 @@ export class KeysApiService {
       cachedELBlockSnapshot: this.cachedKeys?.meta.elBlockSnapshot,
     });
 
+    // delete old cache to optimize memory performance
+    this.cachedKeys = undefined;
+
     const result = await this.fetch<KeyListResponse>(`/v1/keys`);
 
     this.logger.log('Keys successfully updated in cache from KeysAPI', {
@@ -139,6 +144,7 @@ export class KeysApiService {
     );
 
     this.cachedKeys = result;
+    // return exactly `result` because this function can be used in parallel
     return result;
   }
 
