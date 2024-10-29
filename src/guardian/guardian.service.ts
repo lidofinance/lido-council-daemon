@@ -211,9 +211,9 @@ export class GuardianService implements OnModuleInit {
         return;
       }
 
-      // To avoid blocking the pause, run the following tasks asynchronously:
-      // updating the SigningKeyAdded events cache, checking keys, handling the unvetting of keys,
-      // and sending deposit messages to the queue.
+      // To avoid blocking the pause due to a potentially lengthy SigningKeyAdded
+      // events cache update, which can occur when the modules list changes:
+      // run key checks and send deposit messages to the queue without waiting.
       this.handleKeys(stakingModulesData, blockData, lidoKeys)
         .catch(this.logger.error)
         .finally(() => endTimer());
