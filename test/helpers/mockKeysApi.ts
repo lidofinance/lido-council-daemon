@@ -73,18 +73,3 @@ export const keysApiMockGetAllKeys = (
     },
   }));
 };
-
-export const mockedKeysApiFind = (
-  keysApiService: KeysApiService,
-  keys: RegistryKey[],
-  meta: ELBlockSnapshot,
-) => {
-  jest
-    .spyOn(keysApiService, 'getKeysByPubkeys')
-    .mockImplementation(async () => ({
-      data: keys,
-      meta: {
-        elBlockSnapshot: meta,
-      },
-    }));
-};

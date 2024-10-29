@@ -1,5 +1,5 @@
 import { fromHexString } from '@chainsafe/ssz';
-import { LIDO_WC, NO_PRIVKEY_MESSAGE } from '../constants';
+import { NO_PRIVKEY_MESSAGE } from '../constants';
 import { computeRoot } from './computeDomain';
 import { DepositData } from 'bls/bls.containers';
 import { ethers } from 'ethers';

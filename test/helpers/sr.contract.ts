@@ -14,6 +14,7 @@ dotenv.config();
 export function getLocator() {
   const locatorAddress = process.env.LOCATOR_DEVNET_ADDRESS;
   if (!locatorAddress) {
+    // TODO: custom error
     throw Error();
   }
   const locator = new Contract(locatorAddress, locatorAbi, testSetupProvider);

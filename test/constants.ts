@@ -41,9 +41,7 @@ export const BAD_WC =
 export const CHAIN_ID = CHAINS.Holesky;
 
 export const FORK_BLOCK = 1894357;
-export const FORK_BLOCK_V2 = 1817726;
 export const UNLOCKED_ACCOUNTS = [SECURITY_MODULE_OWNER];
-export const UNLOCKED_ACCOUNTS_V2 = [SECURITY_MODULE_OWNER_V2];
 export const GANACHE_PORT = 8545;
 
 // BLS key for the validator

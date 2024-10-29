@@ -11,15 +11,6 @@ export const mockKey = {
   vetted: true,
 };
 
-export const mockKeyEvent = {
-  operatorIndex: 0,
-  key: '0xa92daac72ad30458120e2a186400a673a4663768f118806c986ee045667c5599a608da5ea44354df124e6ac8d4ea9570',
-  moduleAddress: NOP_REGISTRY,
-  logIndex: 0,
-  blockNumber: FORK_BLOCK - 1,
-  blockHash: '0x1',
-};
-
 export const mockKey2 = {
   key: '0x859eba194d2169faaedef29d7e3c28c954ec4790f050c9a53cb8a825700aa6cb388ffff041c69e8e4974ca716d4528fa',
   depositSignature:

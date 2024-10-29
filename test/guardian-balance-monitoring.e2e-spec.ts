@@ -1,61 +1,58 @@
-// Mocking and Setup
-jest.mock('../src/transport/stomp/stomp.client.ts');
-jest.setTimeout(10_000);
-
-// External Libraries
-import { Server } from 'ganache';
-
-// Helper Functions and Mocks
-import {
-  keysApiMockGetAllKeys,
-  keysApiMockGetModules,
-  mockedModuleCurated,
-  mockedModuleDvt,
-  mockMeta,
-} from './helpers';
-
-import {
-  setupTestingModule,
-  closeServer,
-  initLevelDB,
-} from './helpers/test-setup';
-
-import { makeServer } from './server';
+// Global Helpers
+import { toHexString } from '@chainsafe/ssz';
 
 // Constants
 import {
+  TESTS_TIMEOUT,
   SLEEP_FOR_RESULT,
-  CHAIN_ID,
-  GANACHE_PORT,
+  pk,
   NOP_REGISTRY,
-  SIMPLE_DVT,
-  UNLOCKED_ACCOUNTS,
-  FORK_BLOCK,
+  NO_PRIVKEY_MESSAGE,
 } from './constants';
 
-// Contract and Service Imports
+// Mock rabbit straight away
+jest.mock('../src/transport/stomp/stomp.client.ts');
+
+import { setupTestingModule, initLevelDB } from './helpers/test-setup';
 import { SecurityService } from 'contracts/security';
 import { GuardianService } from 'guardian';
-import { KeysApiService } from 'keys-api/keys-api.service';
 import { ProviderService } from 'provider';
 import { GuardianMessageService } from 'guardian/guardian-message';
 import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
 import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
+import { KeyValidatorInterface } from '@lido-nestjs/key-validation';
+
+import { getWalletAddress } from './helpers/deposit';
 import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
+import {
+  addGuardians,
+  getGuardians,
+  getLidoWC,
+  getSecurityContract,
+  getSecurityOwner,
+} from './helpers/dsm';
 import { BlsService } from 'bls';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
-
-// Test Data
-import { mockKey, mockKey2 } from './helpers/keys-fixtures';
-import { addGuardians, setGuardianBalance } from './helpers/dsm';
-import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
+import {
+  accountImpersonate,
+  setBalance,
+  testSetupProvider,
+} from './helpers/provider';
+import {
+  waitForNewerBlock,
+  waitForNewerOrEqBlock,
+  waitForServiceToBeReady,
+} from './helpers/kapi';
+import { CuratedOnchainV1 } from './helpers/nor.contract';
+import { truncateTables } from './helpers/pg';
+import { packNodeOperatorIds } from 'guardian/unvetting/bytes';
+import { getStakingModules } from './helpers/sr.contract';
 import { ethers } from 'ethers';
 
-describe('Guardian balance monitoring test', () => {
-  let server: Server<'ethereum'>;
+describe('Guardian balance ', () => {
   let providerService: ProviderService;
-  let keysApiService: KeysApiService;
   let guardianService: GuardianService;
+  let keyValidator: KeyValidatorInterface;
   let levelDBService: DepositsRegistryStoreService;
   let signKeyLevelDBService: SignKeyLevelDBService;
   let guardianMessageService: GuardianMessageService;
@@ -65,172 +62,45 @@ describe('Guardian balance monitoring test', () => {
 
   // mocks
   let sendDepositMessage: jest.SpyInstance;
+  let validateKeys: jest.SpyInstance;
   let sendUnvetMessage: jest.SpyInstance;
   let unvetSigningKeys: jest.SpyInstance;
 
-  beforeEach(async () => {
-    await setupServer();
-    await setupGuardians();
-    const moduleRef = await setupTestingModule();
-    await setupTestingServices(moduleRef);
-    setupMocks();
-  }, 20000);
-
-  afterEach(async () => {
-    await closeServer(server, levelDBService, signKeyLevelDBService);
-  });
-
-  test('should check unvetting will not happen if guardian balance lower critical threshold', async () => {
-    await setBalance('0.2');
-
-    const currentBlock = await providerService.getBlock();
-    await setupDefaultCache(currentBlock.number);
-    setupKAPIWithInvalidSignProblem(currentBlock);
-
-    await guardianService.handleNewBlock();
-    await waitForProcessing();
-
-    expect(unvetSigningKeys).toBeCalledTimes(0);
-    expect(sendUnvetMessage).toBeCalledTimes(1);
-    expect(sendDepositMessage).toBeCalledTimes(0);
-  });
-
-  test('should check unvetting will happen if guardian balance is sufficient', async () => {
-    await setBalance('1');
-
-    const currentBlock = await providerService.getBlock();
-    await setupDefaultCache(currentBlock.number);
-    setupKAPIWithInvalidSignProblem(currentBlock);
-
-    await guardianService.handleNewBlock();
-    await waitForProcessing();
-
-    expect(unvetSigningKeys).toBeCalledTimes(1);
-    expect(sendUnvetMessage).toBeCalledTimes(1);
-    expect(sendDepositMessage).toBeCalledTimes(0);
-  });
-
-  // Helper functions
-
-  async function setBalance(eth: string) {
-    await setGuardianBalance(eth);
-    await waitForProcessing();
-  }
-
-  const setupDefaultCache = async (blockNumber) => {
-    await levelDBService.setCachedEvents({
-      data: [],
-      headers: {
-        startBlock: blockNumber,
-        endBlock: blockNumber,
-      },
-    });
-
-    await signingKeysRegistryService.setCachedEvents({
-      data: [],
-      headers: {
-        startBlock: blockNumber,
-        endBlock: blockNumber,
-        stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
-      },
-    });
-  };
-
-  const setupKAPIWithInvalidSignProblem = (block: ethers.providers.Block) => {
-    // keys fixtures
-    const norKeyWithWrongSign: RegistryKey = {
-      ...mockKey,
-      depositSignature:
-        '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e',
-      vetted: true,
-    };
-    const dvtKey: RegistryKey = {
-      ...mockKey2,
-      index: 1,
-      used: false,
-      operatorIndex: 0,
-      moduleAddress: SIMPLE_DVT,
-      vetted: true,
-    };
-    const dvtKey2 = { ...dvtKey, index: 2 };
-
-    // setup elBlockSnapshot
-    const meta = mockMeta(block, block.hash);
-
-    // setup /v1/modules
-    const stakingModules = [mockedModuleCurated, mockedModuleDvt];
-    keysApiMockGetModules(keysApiService, stakingModules, meta);
-
-    // setup /v1/keys
-    const keys = [norKeyWithWrongSign, dvtKey, dvtKey2];
-    keysApiMockGetAllKeys(keysApiService, keys, meta);
-  };
-
-  async function waitForProcessing() {
-    await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
-  }
-
-  const setupServer = async () => {
-    server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
-    await server.listen(GANACHE_PORT);
-  };
-
-  const setupGuardians = async () => {
-    await addGuardians();
-  };
-
   const setupTestingServices = async (moduleRef) => {
-    await initializeLevelDBServices(moduleRef);
-    initializeDepositServices(moduleRef);
-    await initializeBlsService(moduleRef);
-    initializeKeyEventServices(moduleRef);
-    initializeProviders(moduleRef);
-    initializeMessagingServices(moduleRef);
-    initializeGuardianService(moduleRef);
-  };
-
-  const initializeLevelDBServices = async (moduleRef) => {
+    // leveldb service
     levelDBService = moduleRef.get(DepositsRegistryStoreService);
     signKeyLevelDBService = moduleRef.get(SignKeyLevelDBService);
-    await initLevelDB(levelDBService, signKeyLevelDBService);
-  };
 
-  const initializeDepositServices = (moduleRef) => {
+    await initLevelDB(levelDBService, signKeyLevelDBService);
+
+    // deposit events related services
     depositIntegrityCheckerService = moduleRef.get(
       DepositIntegrityCheckerService,
     );
-  };
 
-  const initializeKeyEventServices = (moduleRef) => {
-    signingKeysRegistryService = moduleRef.get(SigningKeysRegistryService);
-  };
-
-  const initializeProviders = (moduleRef) => {
-    providerService = moduleRef.get(ProviderService);
-    securityService = moduleRef.get(SecurityService);
-    keysApiService = moduleRef.get(KeysApiService);
-  };
-
-  const initializeMessagingServices = (moduleRef) => {
-    guardianMessageService = moduleRef.get(GuardianMessageService);
-  };
-
-  const initializeBlsService = async (moduleRef) => {
     const blsService = moduleRef.get(BlsService);
     await blsService.onModuleInit();
-  };
 
-  const initializeGuardianService = (moduleRef) => {
+    // keys events service
+    signingKeysRegistryService = moduleRef.get(SigningKeysRegistryService);
+
+    providerService = moduleRef.get(ProviderService);
+
+    // dsm methods and council sign services
+    securityService = moduleRef.get(SecurityService);
+
+    // rabbitmq message sending methods
+    guardianMessageService = moduleRef.get(GuardianMessageService);
+
+    // main service that check keys and make decision
     guardianService = moduleRef.get(GuardianService);
+
+    // sign validation
+    keyValidator = moduleRef.get(KeyValidatorInterface);
   };
 
   const setupMocks = () => {
-    mockBrokerMessages();
-    mockDepositCacheMethods();
-    mockUnvettingMethod();
-  };
-
-  const mockBrokerMessages = () => {
+    // broker messages
     sendDepositMessage = jest
       .spyOn(guardianMessageService, 'sendDepositMessage')
       .mockImplementation(() => Promise.resolve());
@@ -240,9 +110,8 @@ describe('Guardian balance monitoring test', () => {
     sendUnvetMessage = jest
       .spyOn(guardianMessageService, 'sendUnvetMessage')
       .mockImplementation(() => Promise.resolve());
-  };
 
-  const mockDepositCacheMethods = () => {
+    // deposit cache mocks
     jest
       .spyOn(depositIntegrityCheckerService, 'putEventsToTree')
       .mockImplementation(() => Promise.resolve());
@@ -252,11 +121,198 @@ describe('Guardian balance monitoring test', () => {
     jest
       .spyOn(depositIntegrityCheckerService, 'checkFinalizedRoot')
       .mockImplementation(() => Promise.resolve(true));
+
+    // sign validation
+    validateKeys = jest.spyOn(keyValidator, 'validateKeys');
+
+    unvetSigningKeys = jest.spyOn(securityService, 'unvetSigningKeys');
   };
 
-  const mockUnvettingMethod = () => {
-    unvetSigningKeys = jest
-      .spyOn(securityService, 'unvetSigningKeys')
-      .mockImplementation(() => Promise.resolve(null as any));
-  };
+  describe('Unvetting will not happen if guardian balance lower critical threshold', () => {
+    let snapshotId: number;
+    let stakingModulesAddresses: string[];
+    let curatedModuleAddress: string;
+    let stakingModulesCount: number;
+    let firstOperator: any;
+    let nor: CuratedOnchainV1;
+    let frontrunPK: Uint8Array = pk;
+    let guardianIndex: number;
+    let securityModuleAddress: string;
+    let guardianAddress: string;
+
+    beforeAll(async () => {
+      snapshotId = await testSetupProvider.send('evm_snapshot', []);
+      // start only if /modules return 200
+      await waitForServiceToBeReady();
+
+      const securityModule = await getSecurityContract();
+      const securityModuleOwner = await getSecurityOwner();
+      await accountImpersonate(securityModuleOwner);
+      const oldGuardians = await getGuardians();
+      securityModuleAddress = securityModule.address;
+      await addGuardians({
+        securityModule: securityModuleAddress,
+        securityModuleOwner,
+      });
+
+      const newGuardians = await getGuardians();
+      // TODO: read from contract
+      guardianIndex = newGuardians.length - 1;
+      expect(newGuardians.length).toEqual(oldGuardians.length + 1);
+
+      const moduleRef = await setupTestingModule();
+      await setupTestingServices(moduleRef);
+
+      setupMocks();
+
+      const srModules = await getStakingModules();
+      stakingModulesAddresses = srModules.map(
+        (stakingModule) => stakingModule.stakingModuleAddress,
+      );
+
+      curatedModuleAddress = srModules.find(
+        (srModule) => srModule.id === 1,
+      ).stakingModuleAddress;
+      stakingModulesCount = stakingModulesAddresses.length;
+
+      // get two different active operators
+      nor = new CuratedOnchainV1(curatedModuleAddress);
+      const activeOperators = await nor.getActiveOperators();
+      firstOperator = activeOperators[0];
+      // set guardian balance smaller than the critical value
+      if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
+      const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
+      guardianAddress = wallet.address;
+    }, 40_000);
+
+    afterAll(async () => {
+      // we need to revert after each test because unvetting change only vettedAmount and will not delete key
+      await testSetupProvider.send('evm_revert', [snapshotId]);
+      // clear db
+      // KAPI see that db is empty and update state
+      await truncateTables();
+
+      await levelDBService.deleteCache();
+      await signKeyLevelDBService.deleteCache();
+      await levelDBService.close();
+      await signKeyLevelDBService.close();
+    }, 60_000);
+
+    test('Set cache to current block', async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
+
+      await levelDBService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+        },
+      });
+
+      await signingKeysRegistryService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          stakingModulesAddresses,
+        },
+      });
+    });
+
+    test('Add key with broken signature', async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
+      const randomSign =
+        '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e';
+
+      await nor.addSigningKey(
+        firstOperator.index,
+        1,
+        toHexString(frontrunPK),
+        randomSign,
+        firstOperator.rewardAddress,
+      );
+      await waitForNewerBlock(currentBlock.number);
+    }, 20000);
+
+    test('Unvetted key will not set module on soft pause', async () => {
+      await guardianService.handleNewBlock();
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+      // 4 - number of modules
+      expect(validateKeys).toBeCalledTimes(stakingModulesCount);
+      expect(sendUnvetMessage).toBeCalledTimes(0);
+      expect(sendDepositMessage).toBeCalledTimes(stakingModulesCount);
+    }, 20000);
+
+    test('Increase staking limit', async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
+
+      // keys total amount was 3, added key with wrong sign, now it is 4 keys
+      // increase limit to 4
+      await nor.setStakingLimit(firstOperator.index, 4);
+      await waitForNewerBlock(currentBlock.number);
+    }, 20000);
+
+    test('Check staking limit for operator before unvetting', async () => {
+      const op = await nor.getOperator(firstOperator.index, false);
+      expect(Number(op.totalVettedValidators)).toEqual(4);
+    });
+
+    test(
+      'Unvetting transaction will not be sent due to law account balance',
+      async () => {
+        await setBalance(guardianAddress, 0.2);
+        await guardianService.handleNewBlock();
+        await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+        expect(validateKeys).toBeCalledTimes(2 * stakingModulesCount);
+        expect(sendUnvetMessage).toBeCalledTimes(1);
+        expect(unvetSigningKeys).toBeCalledTimes(0);
+      },
+      TESTS_TIMEOUT,
+    );
+
+    test('After increase account balance, unvetting transaction will be sent', async () => {
+      await testSetupProvider.send('evm_mine', []);
+      const currentBlock = await providerService.provider.getBlock('latest');
+      await waitForNewerOrEqBlock(currentBlock.number);
+
+      await setBalance(guardianAddress, 1);
+      await guardianService.handleNewBlock();
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+      expect(validateKeys).toBeCalledTimes(3 * stakingModulesCount);
+      expect(sendUnvetMessage).toBeCalledTimes(2);
+      expect(sendUnvetMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blockNumber: currentBlock.number,
+          guardianAddress: guardianAddress,
+          guardianIndex,
+          stakingModuleId: 1,
+          operatorIds: packNodeOperatorIds([firstOperator.index]),
+          vettedKeysByOperator: '0x00000000000000000000000000000003',
+        }),
+      );
+
+      expect(unvetSigningKeys).toBeCalledTimes(1);
+      expect(unvetSigningKeys).toHaveBeenCalledWith(
+        expect.anything(),
+        currentBlock.number,
+        expect.anything(),
+        1,
+        packNodeOperatorIds([firstOperator.index]),
+        '0x00000000000000000000000000000003',
+        expect.any(Object),
+      );
+    }, 40000);
+
+    test('No deposits for module', async () => {
+      expect(sendDepositMessage).toBeCalledTimes(3 * stakingModulesCount - 2);
+    });
+
+    test('Check staking limit for operator after unvetting', async () => {
+      const op = await nor.getOperator(firstOperator.index, false);
+      expect(Number(op.totalVettedValidators)).toEqual(3);
+    });
+  });
 });

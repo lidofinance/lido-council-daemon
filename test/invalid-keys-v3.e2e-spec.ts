@@ -7,10 +7,7 @@ import {
   SLEEP_FOR_RESULT,
   pk,
   NOP_REGISTRY,
-  SIMPLE_DVT,
-  SECURITY_MODULE_OWNER,
-  CSM,
-  SANDBOX,
+  NO_PRIVKEY_MESSAGE,
 } from './constants';
 
 // Mock rabbit straight away
@@ -19,7 +16,6 @@ jest.mock('../src/transport/stomp/stomp.client.ts');
 import { setupTestingModule, initLevelDB } from './helpers/test-setup';
 import { SecurityService } from 'contracts/security';
 import { GuardianService } from 'guardian';
-import { KeysApiService } from 'keys-api/keys-api.service';
 import { ProviderService } from 'provider';
 import { GuardianMessageService } from 'guardian/guardian-message';
 import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
@@ -28,19 +24,33 @@ import { KeyValidatorInterface } from '@lido-nestjs/key-validation';
 
 import { getWalletAddress } from './helpers/deposit';
 import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
-import { addGuardians } from './helpers/dsm';
+import {
+  addGuardians,
+  getGuardians,
+  getLidoWC,
+  getSecurityContract,
+  getSecurityOwner,
+} from './helpers/dsm';
 import { BlsService } from 'bls';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
-import { accountImpersonate, testSetupProvider } from './helpers/provider';
-import { waitForNewerBlock, waitForServiceToBeReady } from './helpers/kapi';
+import {
+  accountImpersonate,
+  setBalance,
+  testSetupProvider,
+} from './helpers/provider';
+import {
+  waitForNewerBlock,
+  waitForNewerOrEqBlock,
+  waitForServiceToBeReady,
+} from './helpers/kapi';
 import { CuratedOnchainV1 } from './helpers/nor.contract';
 import { truncateTables } from './helpers/pg';
-import { JsonRpcProvider } from '@ethersproject/providers';
-import { FORK_URL } from './helpers/constants';
+import { packNodeOperatorIds } from 'guardian/unvetting/bytes';
+import { getStakingModules } from './helpers/sr.contract';
+import { ethers } from 'ethers';
 
-describe('ganache e2e tests', () => {
+describe('Signature validation e2e test', () => {
   let providerService: ProviderService;
-  let keysApiService: KeysApiService;
   let guardianService: GuardianService;
   let keyValidator: KeyValidatorInterface;
   let levelDBService: DepositsRegistryStoreService;
@@ -55,10 +65,6 @@ describe('ganache e2e tests', () => {
   let validateKeys: jest.SpyInstance;
   let sendUnvetMessage: jest.SpyInstance;
   let unvetSigningKeys: jest.SpyInstance;
-
-  const setupGuardians = async () => {
-    await addGuardians();
-  };
 
   const setupTestingServices = async (moduleRef) => {
     // leveldb service
@@ -82,9 +88,6 @@ describe('ganache e2e tests', () => {
 
     // dsm methods and council sign services
     securityService = moduleRef.get(SecurityService);
-
-    // keys api servies
-    keysApiService = moduleRef.get(KeysApiService);
 
     // rabbitmq message sending methods
     guardianMessageService = moduleRef.get(GuardianMessageService);
@@ -125,22 +128,60 @@ describe('ganache e2e tests', () => {
     unvetSigningKeys = jest.spyOn(securityService, 'unvetSigningKeys');
   };
 
-  describe('should unvet key', () => {
+  describe('Signature validation', () => {
     let snapshotId: number;
+    let stakingModulesAddresses: string[];
+    let curatedModuleAddress: string;
+    let stakingModulesCount: number;
+    let firstOperator: any;
+    let nor: CuratedOnchainV1;
+    let frontrunPK: Uint8Array = pk;
+    let guardianIndex: number;
+    let lidoWC: string;
+    let securityModuleAddress: string;
 
     beforeAll(async () => {
       snapshotId = await testSetupProvider.send('evm_snapshot', []);
-      // start only if /status return 200
+      // start only if /modules return 200
       await waitForServiceToBeReady();
 
-      await accountImpersonate(SECURITY_MODULE_OWNER);
-      await setupGuardians();
+      const securityModule = await getSecurityContract();
+      const securityModuleOwner = await getSecurityOwner();
+      await accountImpersonate(securityModuleOwner);
+      const oldGuardians = await getGuardians();
+      securityModuleAddress = securityModule.address;
+      await addGuardians({
+        securityModule: securityModuleAddress,
+        securityModuleOwner,
+      });
+
+      const newGuardians = await getGuardians();
+      // TODO: read from contract
+      guardianIndex = newGuardians.length - 1;
+      expect(newGuardians.length).toEqual(oldGuardians.length + 1);
 
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);
 
       setupMocks();
-    }, 20_000);
+
+      const srModules = await getStakingModules();
+      stakingModulesAddresses = srModules.map(
+        (stakingModule) => stakingModule.stakingModuleAddress,
+      );
+
+      curatedModuleAddress = srModules.find(
+        (srModule) => srModule.id === 1,
+      ).stakingModuleAddress;
+      stakingModulesCount = stakingModulesAddresses.length;
+
+      // get two different active operators
+      nor = new CuratedOnchainV1(curatedModuleAddress);
+      const activeOperators = await nor.getActiveOperators();
+      firstOperator = activeOperators[0];
+      // create duplicate
+      lidoWC = await getLidoWC();
+    }, 40_000);
 
     afterAll(async () => {
       // we need to revert after each test because unvetting change only vettedAmount and will not delete key
@@ -171,19 +212,23 @@ describe('ganache e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, CSM, SANDBOX],
+          stakingModulesAddresses,
         },
       });
     });
 
     test('Add key with broken signature', async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
-      // TODO: read from locator
-      const nor = new CuratedOnchainV1(NOP_REGISTRY);
       const randomSign =
         '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e';
 
-      await nor.addSigningKey(0, 1, toHexString(pk), randomSign);
+      await nor.addSigningKey(
+        firstOperator.index,
+        1,
+        toHexString(frontrunPK),
+        randomSign,
+        firstOperator.rewardAddress,
+      );
       await waitForNewerBlock(currentBlock.number);
     }, 20000);
 
@@ -192,9 +237,9 @@ describe('ganache e2e tests', () => {
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       // 4 - number of modules
-      expect(validateKeys).toBeCalledTimes(4);
+      expect(validateKeys).toBeCalledTimes(stakingModulesCount);
       expect(sendUnvetMessage).toBeCalledTimes(0);
-      expect(sendDepositMessage).toBeCalledTimes(4);
+      expect(sendDepositMessage).toBeCalledTimes(stakingModulesCount);
     }, 20000);
 
     test('Increase staking limit', async () => {
@@ -202,14 +247,12 @@ describe('ganache e2e tests', () => {
 
       // keys total amount was 3, added key with wrong sign, now it is 4 keys
       // increase limit to 4
-      const nor = new CuratedOnchainV1(NOP_REGISTRY);
-      await nor.setStakingLimit(0, 4);
+      await nor.setStakingLimit(firstOperator.index, 4);
       await waitForNewerBlock(currentBlock.number);
     }, 20000);
 
-    test('Check staking limit for sdvt operator before unvetting', async () => {
-      const nor = new CuratedOnchainV1(NOP_REGISTRY);
-      const op = await nor.getOperator(0, false);
+    test('Check staking limit for operator before unvetting', async () => {
+      const op = await nor.getOperator(firstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
     });
 
@@ -223,15 +266,15 @@ describe('ganache e2e tests', () => {
         const walletAddress = await getWalletAddress();
 
         // 4 - number of modules
-        expect(validateKeys).toBeCalledTimes(8);
+        expect(validateKeys).toBeCalledTimes(2 * stakingModulesCount);
         expect(sendUnvetMessage).toBeCalledTimes(1);
         expect(sendUnvetMessage).toHaveBeenCalledWith(
           expect.objectContaining({
             blockNumber: currentBlock.number,
             guardianAddress: walletAddress,
-            guardianIndex: 7,
+            guardianIndex,
             stakingModuleId: 1,
-            operatorIds: '0x0000000000000000',
+            operatorIds: packNodeOperatorIds([firstOperator.index]),
             vettedKeysByOperator: '0x00000000000000000000000000000003',
           }),
         );
@@ -242,7 +285,7 @@ describe('ganache e2e tests', () => {
           currentBlock.number,
           expect.anything(),
           1,
-          '0x0000000000000000',
+          packNodeOperatorIds([firstOperator.index]),
           '0x00000000000000000000000000000003',
           expect.any(Object),
         );
@@ -251,12 +294,11 @@ describe('ganache e2e tests', () => {
     );
 
     test('No deposits for module', async () => {
-      expect(sendDepositMessage).toBeCalledTimes(7);
+      expect(sendDepositMessage).toBeCalledTimes(2 * stakingModulesCount - 1);
     });
 
-    test('Check staking limit for sdvt operator after unvetting', async () => {
-      const nor = new CuratedOnchainV1(NOP_REGISTRY);
-      const op = await nor.getOperator(0, false);
+    test('Check staking limit for operator after unvetting', async () => {
+      const op = await nor.getOperator(firstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(3);
     });
   });

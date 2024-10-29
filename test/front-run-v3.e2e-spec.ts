@@ -4,20 +4,7 @@ import { toHexString } from '@chainsafe/ssz';
 // Helpers
 
 // Constants
-import {
-  TESTS_TIMEOUT,
-  SLEEP_FOR_RESULT,
-  LIDO_WC,
-  BAD_WC,
-  sk,
-  pk,
-  NOP_REGISTRY,
-  SIMPLE_DVT,
-  SECURITY_MODULE,
-  SANDBOX,
-  CSM,
-  SECURITY_MODULE_OWNER,
-} from './constants';
+import { TESTS_TIMEOUT, SLEEP_FOR_RESULT, BAD_WC, sk, pk } from './constants';
 
 // Contract Factories
 import { SecurityAbi__factory } from '../src/generated';
@@ -26,11 +13,9 @@ import { SecurityAbi__factory } from '../src/generated';
 
 // App modules and services
 import { setupTestingModule, initLevelDB } from './helpers/test-setup';
-import { SecurityService } from 'contracts/security';
 import { GuardianService } from 'guardian';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { ProviderService } from 'provider';
-import { Server } from 'ganache';
 import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
 import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
 import { GuardianMessageService } from 'guardian/guardian-message';
@@ -52,11 +37,7 @@ import {
   waitForNewerOrEqBlock,
   waitForServiceToBeReady,
 } from './helpers/kapi';
-import {
-  // closeClient,
-  // ensureClientConnection,
-  truncateTables,
-} from './helpers/pg';
+import { truncateTables } from './helpers/pg';
 import { accountImpersonate, testSetupProvider } from './helpers/provider';
 import { SecretKey } from '@chainsafe/blst';
 import { getStakingModules } from './helpers/sr.contract';
@@ -64,14 +45,12 @@ import { packNodeOperatorIds } from 'guardian/unvetting/bytes';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
-
 jest.setTimeout(10_000);
 
-describe('front-run e2e tests', () => {
+describe('Front-run e2e tests', () => {
   let providerService: ProviderService;
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;
-  let securityService: SecurityService;
   let levelDBService: DepositsRegistryStoreService;
   let signKeyLevelDBService: SignKeyLevelDBService;
   let guardianMessageService: GuardianMessageService;
@@ -82,11 +61,6 @@ describe('front-run e2e tests', () => {
   let sendDepositMessage: jest.SpyInstance;
   let sendPauseMessage: jest.SpyInstance;
   let sendUnvetMessage: jest.SpyInstance;
-  let unvetSigningKeys: jest.SpyInstance;
-
-  const setupGuardians = async () => {
-    await addGuardians();
-  };
 
   const setupTestingServices = async (moduleRef) => {
     // leveldb service
@@ -107,9 +81,6 @@ describe('front-run e2e tests', () => {
     signingKeysRegistryService = moduleRef.get(SigningKeysRegistryService);
 
     providerService = moduleRef.get(ProviderService);
-
-    // dsm methods and council sign services
-    securityService = moduleRef.get(SecurityService);
 
     // keys api servies
     keysApiService = moduleRef.get(KeysApiService);
@@ -146,8 +117,6 @@ describe('front-run e2e tests', () => {
     jest
       .spyOn(depositIntegrityCheckerService, 'checkFinalizedRoot')
       .mockImplementation(() => Promise.resolve(true));
-
-    unvetSigningKeys = jest.spyOn(securityService, 'unvetSigningKeys');
   };
 
   describe('Front-run attempt', () => {
@@ -204,11 +173,6 @@ describe('front-run e2e tests', () => {
         (srModule) => srModule.id === 1,
       ).stakingModuleAddress;
       stakingModulesCount = stakingModulesAddresses.length;
-
-      console.log('Stats:', {
-        curatedModuleAddress,
-        stakingModulesAddresses,
-      });
 
       // get two different active operators
       nor = new CuratedOnchainV1(curatedModuleAddress);
@@ -332,6 +296,8 @@ describe('front-run e2e tests', () => {
             guardianAddress: walletAddress,
             guardianIndex,
             stakingModuleId: 1,
+            // TODO: get rid of use function here
+            // write value, as function can have error
             operatorIds: packNodeOperatorIds([firstOperator.index]),
             vettedKeysByOperator: '0x00000000000000000000000000000003',
           }),
@@ -359,15 +325,15 @@ describe('front-run e2e tests', () => {
     });
   });
 
-  describe.only('Failed 1eth deposit attack to stop deposits', () => {
+  describe('Failed 1eth deposit attack to stop deposits', () => {
     let snapshotId: number;
     let stakingModulesAddresses: string[];
     let curatedModuleAddress: string;
     let stakingModulesCount: number;
     let firstOperator: any;
     let nor: CuratedOnchainV1;
-    let duplicatePK: Uint8Array = pk;
-    let duplicateSK: SecretKey = sk;
+    let frontrunPK: Uint8Array = pk;
+    let frontrunSK: SecretKey = sk;
     let lidoDepositSignature: Uint8Array;
     let guardianIndex: number;
     let lidoWC: string;
@@ -414,11 +380,6 @@ describe('front-run e2e tests', () => {
       ).stakingModuleAddress;
       stakingModulesCount = stakingModulesAddresses.length;
 
-      console.log('Stats:', {
-        curatedModuleAddress,
-        stakingModulesAddresses,
-      });
-
       // get two different active operators
       nor = new CuratedOnchainV1(curatedModuleAddress);
       const activeOperators = await nor.getActiveOperators();
@@ -426,8 +387,8 @@ describe('front-run e2e tests', () => {
       // create duplicate
       lidoWC = await getLidoWC();
       const { signature, depositData } = await signDeposit(
-        duplicatePK,
-        duplicateSK,
+        frontrunPK,
+        frontrunSK,
         lidoWC,
       );
       lidoDepositSignature = signature;
@@ -463,16 +424,20 @@ describe('front-run e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, CSM, SANDBOX],
+          stakingModulesAddresses,
         },
       });
     });
 
     test('add unused unvetted key', async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
-      const nor = new CuratedOnchainV1(NOP_REGISTRY);
-      const { signature } = await signDeposit(pk, sk, LIDO_WC);
-      await nor.addSigningKey(0, 1, toHexString(pk), toHexString(signature));
+      await nor.addSigningKey(
+        firstOperator.index,
+        1,
+        toHexString(frontrunPK),
+        toHexString(lidoDepositSignature),
+        firstOperator.rewardAddress,
+      );
 
       await waitForNewerBlock(currentBlock.number);
     }, 30_000);
@@ -481,9 +446,9 @@ describe('front-run e2e tests', () => {
       const currentBlock = await providerService.provider.getBlock('latest');
       // Attempt to front run
       const { depositData: goodDepositData } = await signDeposit(
-        pk,
-        sk,
-        LIDO_WC,
+        frontrunPK,
+        frontrunSK,
+        lidoWC,
         1000000000,
       );
       await makeDeposit(goodDepositData, providerService, 1);
@@ -495,28 +460,24 @@ describe('front-run e2e tests', () => {
 
       // keys total amount was 3, added key with wrong sign, now it is 4 keys
       // increase limit to 4
-      const nor = new CuratedOnchainV1(NOP_REGISTRY);
-      await nor.setStakingLimit(0, 4);
+      await nor.setStakingLimit(firstOperator.index, 4);
       await waitForNewerBlock(currentBlock.number);
     }, 30_000);
 
     test('Check staking limit for sdvt operator before unvetting', async () => {
-      const nor = new CuratedOnchainV1(NOP_REGISTRY);
-      const op = await nor.getOperator(0, false);
+      const op = await nor.getOperator(firstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
     });
 
     test(
       'no unvetting will happen',
       async () => {
-        const currentBlock = await providerService.provider.getBlock('latest');
         await guardianService.handleNewBlock();
         await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-        const walletAddress = await getWalletAddress();
-
         expect(sendUnvetMessage).toBeCalledTimes(0);
-        expect(sendDepositMessage).toBeCalledTimes(4);
+        // deposits work for every module
+        expect(sendDepositMessage).toBeCalledTimes(stakingModulesCount);
       },
       TESTS_TIMEOUT,
     );
@@ -525,7 +486,7 @@ describe('front-run e2e tests', () => {
       expect(sendPauseMessage).toBeCalledTimes(0);
 
       const securityContract = SecurityAbi__factory.connect(
-        SECURITY_MODULE,
+        securityModuleAddress,
         providerService.provider,
       );
 
@@ -534,27 +495,79 @@ describe('front-run e2e tests', () => {
     });
 
     test('Check staking limit for sdvt operator after unvetting', async () => {
-      const nor = new CuratedOnchainV1(NOP_REGISTRY);
-      const op = await nor.getOperator(0, false);
+      const op = await nor.getOperator(firstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
     });
   });
 
   describe('Failed 1eth deposit attack to stop deposits with a wrong signature and wc', () => {
     let snapshotId: number;
+    let stakingModulesAddresses: string[];
+    let curatedModuleAddress: string;
+    let stakingModulesCount: number;
+    let firstOperator: any;
+    let nor: CuratedOnchainV1;
+    let frontrunPK: Uint8Array = pk;
+    let frontrunSK: SecretKey = sk;
+    let lidoDepositSignature: Uint8Array;
+    let guardianIndex: number;
+    let lidoWC: string;
+    let lidoDepositData: {
+      signature: Uint8Array;
+      pubkey: Uint8Array;
+      withdrawalCredentials: Uint8Array;
+      amount: number;
+    };
+    let securityModuleAddress: string;
 
     beforeAll(async () => {
       snapshotId = await testSetupProvider.send('evm_snapshot', []);
       // start only if /modules return 200
       await waitForServiceToBeReady();
 
-      await accountImpersonate(SECURITY_MODULE_OWNER);
-      await setupGuardians();
+      const securityModule = await getSecurityContract();
+      const securityModuleOwner = await getSecurityOwner();
+      await accountImpersonate(securityModuleOwner);
+      const oldGuardians = await getGuardians();
+      securityModuleAddress = securityModule.address;
+      await addGuardians({
+        securityModule: securityModuleAddress,
+        securityModuleOwner,
+      });
+
+      const newGuardians = await getGuardians();
+      // TODO: read from contract
+      guardianIndex = newGuardians.length - 1;
+      expect(newGuardians.length).toEqual(oldGuardians.length + 1);
 
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);
 
       setupMocks();
+
+      const srModules = await getStakingModules();
+      stakingModulesAddresses = srModules.map(
+        (stakingModule) => stakingModule.stakingModuleAddress,
+      );
+
+      curatedModuleAddress = srModules.find(
+        (srModule) => srModule.id === 1,
+      ).stakingModuleAddress;
+      stakingModulesCount = stakingModulesAddresses.length;
+
+      // get two different active operators
+      nor = new CuratedOnchainV1(curatedModuleAddress);
+      const activeOperators = await nor.getActiveOperators();
+      firstOperator = activeOperators[0];
+      // create duplicate
+      lidoWC = await getLidoWC();
+      const { signature, depositData } = await signDeposit(
+        frontrunPK,
+        frontrunSK,
+        lidoWC,
+      );
+      lidoDepositSignature = signature;
+      lidoDepositData = depositData;
     }, 40_000);
 
     afterAll(async () => {
@@ -586,32 +599,33 @@ describe('front-run e2e tests', () => {
         headers: {
           startBlock: currentBlock.number,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, CSM, SANDBOX],
+          stakingModulesAddresses,
         },
       });
     });
 
     test('add unused unvetted key', async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
-      const nor = new CuratedOnchainV1(NOP_REGISTRY);
-      const { signature } = await signDeposit(pk, sk, LIDO_WC);
-      await nor.addSigningKey(0, 1, toHexString(pk), toHexString(signature));
+      await nor.addSigningKey(
+        firstOperator.index,
+        1,
+        toHexString(frontrunPK),
+        toHexString(lidoDepositSignature),
+        firstOperator.rewardAddress,
+      );
 
       await waitForNewerBlock(currentBlock.number);
     }, 30_000);
 
     test('Make invalid deposit with non-lido wc', async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
-      // Attempt to front run
-      const { depositData: goodDepositData } = await signDeposit(
-        pk,
-        sk,
-        LIDO_WC,
-        1000000000,
-      );
-      await makeDeposit(goodDepositData, providerService, 1);
 
-      const { signature: weirdSign } = await signDeposit(pk, sk, BAD_WC, 0);
+      const { signature: weirdSign } = await signDeposit(
+        frontrunPK,
+        frontrunSK,
+        BAD_WC,
+        0,
+      );
       const { depositData } = await signDeposit(pk, sk, BAD_WC, 1000000000);
       await makeDeposit(
         { ...depositData, signature: weirdSign },
@@ -627,14 +641,12 @@ describe('front-run e2e tests', () => {
 
       // keys total amount was 3, added key with wrong sign, now it is 4 keys
       // increase limit to 4
-      const nor = new CuratedOnchainV1(NOP_REGISTRY);
-      await nor.setStakingLimit(0, 4);
+      await nor.setStakingLimit(firstOperator.index, 4);
       await waitForNewerBlock(currentBlock.number);
     }, 30_000);
 
     test('Check staking limit for sdvt operator before unvetting', async () => {
-      const nor = new CuratedOnchainV1(NOP_REGISTRY);
-      const op = await nor.getOperator(0, false);
+      const op = await nor.getOperator(firstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
     }, 10_00);
 
@@ -645,7 +657,6 @@ describe('front-run e2e tests', () => {
         await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
         expect(sendUnvetMessage).toBeCalledTimes(0);
-        expect(sendDepositMessage).toBeCalledTimes(4);
       },
       TESTS_TIMEOUT,
     );
@@ -654,7 +665,7 @@ describe('front-run e2e tests', () => {
       expect(sendPauseMessage).toBeCalledTimes(0);
 
       const securityContract = SecurityAbi__factory.connect(
-        SECURITY_MODULE,
+        securityModuleAddress,
         providerService.provider,
       );
 
@@ -663,39 +674,71 @@ describe('front-run e2e tests', () => {
     }, 30_000);
 
     test('deposits still work', async () => {
-      expect(sendPauseMessage).toBeCalledTimes(0);
-
-      const securityContract = SecurityAbi__factory.connect(
-        SECURITY_MODULE,
-        providerService.provider,
-      );
-
-      const isOnPause = await securityContract.isDepositsPaused();
-      expect(isOnPause).toBe(false);
+      expect(sendDepositMessage).toBeCalledTimes(stakingModulesCount);
     }, 30_000);
 
     test('Check staking limit for sdvt operator before unvetting', async () => {
-      const nor = new CuratedOnchainV1(NOP_REGISTRY);
-      const op = await nor.getOperator(0, false);
+      const op = await nor.getOperator(firstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
     });
   });
 
   describe('Historical front-run', () => {
     let snapshotId: number;
+    let stakingModulesAddresses: string[];
+    let curatedModuleAddress: string;
+    let firstOperator: any;
+    let nor: CuratedOnchainV1;
+    let frontrunPK: Uint8Array = pk;
+    let frontrunSK: SecretKey = sk;
+    let lidoDepositSignature: Uint8Array;
+    let lidoWC: string;
+    let securityModuleAddress: string;
 
     beforeAll(async () => {
       snapshotId = await testSetupProvider.send('evm_snapshot', []);
       // start only if /modules return 200
       await waitForServiceToBeReady();
 
-      await accountImpersonate(SECURITY_MODULE_OWNER);
-      await setupGuardians();
+      const securityModule = await getSecurityContract();
+      const securityModuleOwner = await getSecurityOwner();
+      await accountImpersonate(securityModuleOwner);
+      const oldGuardians = await getGuardians();
+      securityModuleAddress = securityModule.address;
+      await addGuardians({
+        securityModule: securityModuleAddress,
+        securityModuleOwner,
+      });
+
+      const newGuardians = await getGuardians();
+      expect(newGuardians.length).toEqual(oldGuardians.length + 1);
 
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);
 
       setupMocks();
+
+      const srModules = await getStakingModules();
+      stakingModulesAddresses = srModules.map(
+        (stakingModule) => stakingModule.stakingModuleAddress,
+      );
+
+      curatedModuleAddress = srModules.find(
+        (srModule) => srModule.id === 1,
+      ).stakingModuleAddress;
+
+      // get two different active operators
+      nor = new CuratedOnchainV1(curatedModuleAddress);
+      const activeOperators = await nor.getActiveOperators();
+      firstOperator = activeOperators[0];
+      // create duplicate
+      lidoWC = await getLidoWC();
+      const { signature, depositData } = await signDeposit(
+        frontrunPK,
+        frontrunSK,
+        lidoWC,
+      );
+      lidoDepositSignature = signature;
     }, 40_000);
 
     afterAll(async () => {
@@ -713,9 +756,13 @@ describe('front-run e2e tests', () => {
 
     test('add unused unvetted key', async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
-      const nor = new CuratedOnchainV1(NOP_REGISTRY);
-      const { signature } = await signDeposit(pk, sk, LIDO_WC);
-      await nor.addSigningKey(0, 1, toHexString(pk), toHexString(signature));
+      await nor.addSigningKey(
+        firstOperator.index,
+        1,
+        toHexString(frontrunPK),
+        toHexString(lidoDepositSignature),
+        firstOperator.rewardAddress,
+      );
 
       await waitForNewerBlock(currentBlock.number);
     }, 20000);
@@ -725,21 +772,19 @@ describe('front-run e2e tests', () => {
 
       // keys total amount was 3, added key with wrong sign, now it is 4 keys
       // increase limit to 4
-      const nor = new CuratedOnchainV1(NOP_REGISTRY);
-      await nor.setStakingLimit(0, 4);
+      await nor.setStakingLimit(firstOperator.index, 4);
       await waitForNewerBlock(currentBlock.number);
     }, 20000);
 
-    test('make deposit', async () => {
+    test('deposit lido key', async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
-      await deposit(100, 1);
+      await deposit(1);
       await waitForNewerBlock(currentBlock.number);
     }, 20000);
 
-    test('Check staking limit for sdvt operator before unvetting', async () => {
+    test('Check staking limit for operator that key was deposited', async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
-      const nor = new CuratedOnchainV1(NOP_REGISTRY);
-      const op = await nor.getOperator(0, false);
+      const op = await nor.getOperator(firstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
       expect(Number(op.totalAddedValidators)).toEqual(4);
       expect(Number(op.totalDepositedValidators)).toEqual(4);
@@ -747,10 +792,10 @@ describe('front-run e2e tests', () => {
       await waitForNewerOrEqBlock(currentBlock.number);
     }, 20_000);
 
-    test('Check key in kapi', async () => {
+    test('Check kapi see new used key', async () => {
       const {
         data: { keys },
-      } = await keysApiService.getModuleKeys(1, 0);
+      } = await keysApiService.getModuleKeys(1, firstOperator.index);
       expect(keys.length).toBe(4);
       const lastKeys = keys.find(({ index }) => index === 3);
       expect(lastKeys?.used).toBe(true);
@@ -758,14 +803,22 @@ describe('front-run e2e tests', () => {
 
     test('Set cache to current block', async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
-      const { signature: lidoSign } = await signDeposit(pk, sk);
-      const { signature: theftDepositSign } = await signDeposit(pk, sk, BAD_WC);
+      const { signature: lidoSign } = await signDeposit(
+        frontrunPK,
+        frontrunSK,
+        lidoWC,
+      );
+      const { signature: theftDepositSign } = await signDeposit(
+        frontrunPK,
+        frontrunSK,
+        BAD_WC,
+      );
 
       await levelDBService.setCachedEvents({
         data: [
           {
             valid: true,
-            pubkey: toHexString(pk),
+            pubkey: toHexString(frontrunPK),
             amount: '32000000000',
             wc: BAD_WC,
             signature: toHexString(theftDepositSign),
@@ -779,9 +832,9 @@ describe('front-run e2e tests', () => {
           },
           {
             valid: true,
-            pubkey: toHexString(pk),
+            pubkey: toHexString(frontrunPK),
             amount: '32000000000',
-            wc: LIDO_WC,
+            wc: lidoWC,
             signature: toHexString(lidoSign),
             tx: '0x123',
             blockHash: currentBlock.hash,
@@ -803,7 +856,7 @@ describe('front-run e2e tests', () => {
         headers: {
           startBlock: currentBlock.number - 10,
           endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, CSM, SANDBOX],
+          stakingModulesAddresses,
         },
       });
     }, 5_000);
@@ -815,16 +868,17 @@ describe('front-run e2e tests', () => {
 
     test('Pause happen', async () => {
       const securityContract = SecurityAbi__factory.connect(
-        SECURITY_MODULE,
+        securityModuleAddress,
         providerService.provider,
       );
 
       const isOnPause = await securityContract.isDepositsPaused();
       expect(isOnPause).toBe(true);
-
       expect(sendPauseMessage).toBeCalledTimes(1);
+    });
+
+    test('Deposits does not work for whole list of modules', () => {
+      expect(sendDepositMessage).toBeCalledTimes(0);
     });
   });
 });
-
-// TODO: guardian balance

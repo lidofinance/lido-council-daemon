@@ -1,28 +1,5 @@
 // Constants
-import {
-  TESTS_TIMEOUT,
-  SLEEP_FOR_RESULT,
-  STAKING_ROUTER,
-  GANACHE_PORT,
-  NOP_REGISTRY,
-  SIMPLE_DVT,
-  UNLOCKED_ACCOUNTS,
-  SECURITY_MODULE_OWNER,
-  CSM,
-  SANDBOX,
-  pk,
-  sk,
-  LIDO_WC,
-} from './constants';
-
-// Contract Factories
-import { StakingRouterAbi__factory } from '../src/generated';
-
-// Mock rabbit straight away
-jest.mock('../src/transport/stomp/stomp.client.ts');
-
-jest.setTimeout(10_000);
-
+import { SLEEP_FOR_RESULT, pk, sk } from './constants';
 import { setupTestingModule, initLevelDB } from './helpers/test-setup';
 import { getWalletAddress, signDeposit } from './helpers/deposit';
 import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
@@ -31,7 +8,6 @@ import { ProviderService } from 'provider';
 import { GuardianService } from 'guardian';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { SecurityService } from 'contracts/security';
-import { Server } from 'ganache';
 import { GuardianMessageService } from 'guardian/guardian-message';
 import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
 import {
@@ -43,28 +19,19 @@ import {
 } from './helpers/dsm';
 import { BlsService } from 'bls';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
-import {
-  accountImpersonate,
-  setBalance,
-  testSetupProvider,
-} from './helpers/provider';
+import { accountImpersonate, testSetupProvider } from './helpers/provider';
 import { waitForNewerBlock, waitForServiceToBeReady } from './helpers/kapi';
 import { truncateTables } from './helpers/pg';
-import {
-  ADD_KEY_ACCOUNT_NODE_OP_ONE,
-  ADD_KEY_ACCOUNT_NODE_OP_ZERO,
-  ADD_KEY_ACCOUNT_NODE_OP_ZERO_SDVT,
-  CuratedOnchainV1,
-} from './helpers/nor.contract';
+import { CuratedOnchainV1 } from './helpers/nor.contract';
 import { toHexString } from 'contracts/deposits-registry/crypto';
-import { EVM_SCRIPT_EXECUTOR } from './helpers/easy-tack';
 import { getStakingModules } from './helpers/sr.contract';
-import { Contract } from '@ethersproject/contracts';
 import { SecretKey } from '@chainsafe/blst';
 import { packNodeOperatorIds } from 'guardian/unvetting/bytes';
 
-describe('Deposits in case of duplicates', () => {
-  let server: Server<'ethereum'>;
+jest.mock('../src/transport/stomp/stomp.client.ts');
+jest.setTimeout(10_000);
+
+describe('Duplicates e2e tests', () => {
   let providerService: ProviderService;
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;
@@ -80,12 +47,7 @@ describe('Deposits in case of duplicates', () => {
   // methods mocks
   let sendDepositMessage: jest.SpyInstance;
   let sendUnvetMessage: jest.SpyInstance;
-  let sendPauseMessage: jest.SpyInstance;
   let unvetSigningKeys: jest.SpyInstance;
-
-  const setupGuardians = async () => {
-    await addGuardians();
-  };
 
   const setupMocks = () => {
     // broker messages
@@ -94,9 +56,6 @@ describe('Deposits in case of duplicates', () => {
       .mockImplementation(() => Promise.resolve());
     jest
       .spyOn(guardianMessageService, 'pingMessageBroker')
-      .mockImplementation(() => Promise.resolve());
-    sendPauseMessage = jest
-      .spyOn(guardianMessageService, 'sendPauseMessageV3')
       .mockImplementation(() => Promise.resolve());
     sendUnvetMessage = jest
       .spyOn(guardianMessageService, 'sendUnvetMessage')
@@ -959,221 +918,271 @@ describe('Deposits in case of duplicates', () => {
     });
   });
 
-  // describe('Unvetting in two modules', () => {
-  //   let snapshotId: number;
+  describe('Unvetting in two modules', () => {
+    let snapshotId: number;
+    let stakingModulesAddresses: string[];
+    let curatedModuleAddress: string;
+    let sdvtModuleAddress: string;
+    let stakingModulesCount: number;
+    let firstOperator: any;
+    let secondOperator: any;
+    let nor: CuratedOnchainV1;
+    let sdvt: CuratedOnchainV1;
+    let duplicatePK: Uint8Array = pk;
+    let duplicateSK: SecretKey = sk;
+    let duplicateDepositSignature: Uint8Array;
+    let guardianIndex: number;
+    let lidoWC: string;
 
-  //   beforeAll(async () => {
-  //     snapshotId = await testSetupProvider.send('evm_snapshot', []);
-  //     // start only if /modules return 200
-  //     await waitForServiceToBeReady();
+    beforeAll(async () => {
+      snapshotId = await testSetupProvider.send('evm_snapshot', []);
+      // start only if /modules return 200
+      await waitForServiceToBeReady();
 
-  //     await accountImpersonate(SECURITY_MODULE_OWNER);
-  //     await setupGuardians();
+      const securityModule = await getSecurityContract();
+      const securityModuleOwner = await getSecurityOwner();
+      await accountImpersonate(securityModuleOwner);
+      const oldGuardians = await getGuardians();
+      await addGuardians({
+        securityModule: securityModule.address,
+        securityModuleOwner,
+      });
+      const newGuardians = await getGuardians();
+      // TODO: read from contract
+      guardianIndex = newGuardians.length - 1;
+      expect(newGuardians.length).toEqual(oldGuardians.length + 1);
 
-  //     const moduleRef = await setupTestingModule();
-  //     await setupTestingServices(moduleRef);
+      const moduleRef = await setupTestingModule();
+      await setupTestingServices(moduleRef);
 
-  //     setupMocks();
-  //   }, 40_000);
+      setupMocks();
 
-  //   afterAll(async () => {
-  //     // we need to revert after each test because unvetting change only vettedAmount and will not delete key
-  //     await testSetupProvider.send('evm_revert', [snapshotId]);
-  //     // clear db
-  //     // KAPI see that db is empty and update state
-  //     await truncateTables();
+      const srModules = await getStakingModules();
+      stakingModulesAddresses = srModules.map(
+        (stakingModule) => stakingModule.stakingModuleAddress,
+      );
 
-  //     await levelDBService.deleteCache();
-  //     await signKeyLevelDBService.deleteCache();
-  //     await levelDBService.close();
-  //     await signKeyLevelDBService.close();
-  //   }, 30_000);
+      curatedModuleAddress = srModules.find(
+        (srModule) => srModule.id === 1,
+      ).stakingModuleAddress;
+      stakingModulesCount = stakingModulesAddresses.length;
 
-  //   test('Set cache to current block', async () => {
-  //     const currentBlock = await providerService.provider.getBlock('latest');
+      sdvtModuleAddress = srModules.find(
+        (srModule) => srModule.id === 2,
+      ).stakingModuleAddress;
 
-  //     await levelDBService.setCachedEvents({
-  //       data: [],
-  //       headers: {
-  //         startBlock: currentBlock.number,
-  //         endBlock: currentBlock.number,
-  //       },
-  //     });
+      // get two different active operators
+      nor = new CuratedOnchainV1(curatedModuleAddress);
+      sdvt = new CuratedOnchainV1(sdvtModuleAddress);
+      const activeOperators = await nor.getActiveOperators();
+      const sdvtActiveOperators = await sdvt.getActiveOperators();
+      firstOperator = activeOperators[0];
+      secondOperator = sdvtActiveOperators[0];
 
-  //     await signingKeysRegistryService.setCachedEvents({
-  //       data: [],
-  //       headers: {
-  //         startBlock: currentBlock.number,
-  //         endBlock: currentBlock.number,
-  //         stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT, CSM, SANDBOX],
-  //       },
-  //     });
-  //   });
+      // create duplicate
+      lidoWC = await getLidoWC();
+      const { signature } = await signDeposit(duplicatePK, duplicateSK, lidoWC);
+      duplicateDepositSignature = signature;
+    }, 40_000);
 
-  //   test('add unused unvetted key to op = 0 of nor contract', async () => {
-  //     const currentBlock = await providerService.provider.getBlock('latest');
-  //     const nor = new CuratedOnchainV1(NOP_REGISTRY);
-  //     const { signature } = await signDeposit(pk, sk, LIDO_WC);
+    afterAll(async () => {
+      // we need to revert after each test because unvetting change only vettedAmount and will not delete key
+      await testSetupProvider.send('evm_revert', [snapshotId]);
+      // clear db
+      // KAPI see that db is empty and update state
+      await truncateTables();
 
-  //     // add two keys
-  //     // key with smaller index will be considered across one operator as original
-  //     await nor.addSigningKey(0, 1, toHexString(pk), toHexString(signature));
-  //     await nor.addSigningKey(0, 1, toHexString(pk), toHexString(signature));
+      await levelDBService.deleteCache();
+      await signKeyLevelDBService.deleteCache();
+      await levelDBService.close();
+      await signKeyLevelDBService.close();
+    }, 30_000);
 
-  //     await waitForNewerBlock(currentBlock.number);
-  //   }, 30_000);
+    test('Set cache to current block', async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
 
-  //   test('add duplicate key to op = 0 of SDVT contract', async () => {
-  //     const currentBlock = await providerService.provider.getBlock('latest');
-  //     const nor = new CuratedOnchainV1(SIMPLE_DVT);
-  //     const { signature } = await signDeposit(pk, sk, LIDO_WC);
+      await levelDBService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+        },
+      });
 
-  //     await nor.addSigningKey(
-  //       0,
-  //       1,
-  //       toHexString(pk),
-  //       toHexString(signature),
-  //       ADD_KEY_ACCOUNT_NODE_OP_ZERO_SDVT,
-  //     );
+      await signingKeysRegistryService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          stakingModulesAddresses,
+        },
+      });
+    });
 
-  //     await waitForNewerBlock(currentBlock.number);
-  //   }, 15_000);
+    test('add unused unvetted key to op = 0 of nor contract', async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
+      const { signature } = await signDeposit(pk, sk, lidoWC);
 
-  //   test('no unvetting', async () => {
-  //     await guardianService.handleNewBlock();
-  //     await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+      // add two keys
+      // key with smaller index will be considered across one operator as original
+      await nor.addSigningKey(
+        firstOperator.index,
+        1,
+        toHexString(duplicatePK),
+        toHexString(duplicateDepositSignature),
+        firstOperator.rewardAddress,
+      );
+      await nor.addSigningKey(
+        firstOperator.index,
+        1,
+        toHexString(duplicatePK),
+        toHexString(duplicateDepositSignature),
+        firstOperator.rewardAddress,
+      );
 
-  //     expect(sendUnvetMessage).toBeCalledTimes(0);
-  //   });
+      await waitForNewerBlock(currentBlock.number);
+    }, 30_000);
 
-  //   test('deposits work', async () => {
-  //     expect(sendDepositMessage).toBeCalledTimes(4);
-  //   });
+    test('add duplicate key to op = 0 of SDVT contract', async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
 
-  //   test('increase staking limit for op = 0', async () => {
-  //     const currentBlock = await providerService.provider.getBlock('latest');
+      await sdvt.addSigningKey(
+        secondOperator.index,
+        1,
+        toHexString(duplicatePK),
+        toHexString(duplicateDepositSignature),
+        secondOperator.rewardAddress,
+      );
 
-  //     // keys total amount was 3, added key with wrong sign, now it is 4 keys
-  //     // increase limit to 4
-  //     const nor = new CuratedOnchainV1(NOP_REGISTRY);
-  //     await nor.setStakingLimit(0, 5);
-  //     await waitForNewerBlock(currentBlock.number);
-  //   }, 20_000);
+      await waitForNewerBlock(currentBlock.number);
+    }, 15_000);
 
-  //   test('increase staking limit for op = 0 of SDVT contract', async () => {
-  //     const currentBlock = await providerService.provider.getBlock('latest');
-  //     // keys total amount was 3, added key with wrong sign, now it is 4 keys
-  //     // increase limit to 4
-  //     const nor = new CuratedOnchainV1(SIMPLE_DVT);
-  //     await nor.setStakingLimit(0, 4);
-  //     await waitForNewerBlock(currentBlock.number);
-  //   }, 20_000);
+    test('no unvetting', async () => {
+      await guardianService.handleNewBlock();
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-  //   test('Check staking limit for nor operator before unvetting', async () => {
-  //     const nor = new CuratedOnchainV1(NOP_REGISTRY);
-  //     const op = await nor.getOperator(0, false);
-  //     expect(Number(op.totalVettedValidators)).toEqual(5);
-  //   });
+      expect(sendUnvetMessage).toBeCalledTimes(0);
+    });
 
-  //   test('Check staking limit for sdvt operator before unvetting', async () => {
-  //     const nor = new CuratedOnchainV1(SIMPLE_DVT);
-  //     const op = await nor.getOperator(0, false);
-  //     expect(Number(op.totalVettedValidators)).toEqual(4);
-  //   });
+    test('deposits work', async () => {
+      expect(sendDepositMessage).toBeCalledTimes(stakingModulesCount);
+    });
 
-  //   test('unvetting happen in first module', async () => {
-  //     const currentBlock = await providerService.provider.getBlock('latest');
-  //     await guardianService.handleNewBlock();
-  //     await waitForNewerBlock(currentBlock.number);
+    test('increase staking limit for op = 0 of NOR contract', async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
 
-  //     const walletAddress = await getWalletAddress();
+      // keys total amount was 3, added key with wrong sign, now it is 4 keys
+      // increase limit to 4
+      await nor.setStakingLimit(firstOperator.index, 5);
+      await waitForNewerBlock(currentBlock.number);
+    }, 20_000);
 
-  //     // unvetting for second module
-  //     expect(sendUnvetMessage).toBeCalledTimes(1);
-  //     expect(sendUnvetMessage).toHaveBeenCalledWith(
-  //       expect.objectContaining({
-  //         blockNumber: currentBlock.number,
-  //         guardianAddress: walletAddress,
-  //         guardianIndex: 7,
-  //         stakingModuleId: 1,
-  //         operatorIds: '0x0000000000000000',
-  //         vettedKeysByOperator: '0x00000000000000000000000000000004',
-  //       }),
-  //     );
+    test('increase staking limit for op = 0 of SDVT contract', async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
+      // keys total amount was 3, added key with wrong sign, now it is 4 keys
+      // increase limit to 4
+      await sdvt.setStakingLimit(firstOperator.index, 4);
+      await waitForNewerBlock(currentBlock.number);
+    }, 20_000);
 
-  //     expect(unvetSigningKeys).toBeCalledTimes(1);
-  //     expect(unvetSigningKeys).toHaveBeenCalledWith(
-  //       expect.anything(),
-  //       currentBlock.number,
-  //       expect.anything(),
-  //       1,
-  //       '0x0000000000000000',
-  //       '0x00000000000000000000000000000004',
-  //       expect.any(Object),
-  //     );
-  //   }, 30_000);
+    test('Check staking limit for nor operator before unvetting', async () => {
+      const op = await nor.getOperator(firstOperator.index, false);
+      expect(Number(op.totalVettedValidators)).toEqual(5);
+    });
 
-  //   test('no deposits for module for both modules', async () => {
-  //     //  4 prev + 2  (csm and sandbox)
-  //     expect(sendDepositMessage).toBeCalledTimes(6);
-  //   });
+    test('Check staking limit for sdvt operator before unvetting', async () => {
+      const op = await sdvt.getOperator(firstOperator.index, false);
+      expect(Number(op.totalVettedValidators)).toEqual(4);
+    });
 
-  //   test('Check staking limit for nor operator after unvetting', async () => {
-  //     const nor = new CuratedOnchainV1(NOP_REGISTRY);
-  //     const op = await nor.getOperator(0, false);
-  //     expect(Number(op.totalVettedValidators)).toEqual(4);
-  //   });
+    test('unvetting happen in first module', async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
+      await guardianService.handleNewBlock();
+      await waitForNewerBlock(currentBlock.number);
 
-  //   test('Unveting for sdvt didnt happen, staking limit the same', async () => {
-  //     const nor = new CuratedOnchainV1(SIMPLE_DVT);
-  //     const op = await nor.getOperator(0, false);
-  //     expect(Number(op.totalVettedValidators)).toEqual(4);
-  //   });
+      const walletAddress = await getWalletAddress();
 
-  //   test('Unvetting happen in second module', async () => {
-  //     const currentBlock = await providerService.provider.getBlock('latest');
-  //     await guardianService.handleNewBlock();
-  //     await waitForNewerBlock(currentBlock.number);
+      // unvetting for second module
+      expect(sendUnvetMessage).toBeCalledTimes(1);
+      expect(sendUnvetMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blockNumber: currentBlock.number,
+          guardianAddress: walletAddress,
+          guardianIndex,
+          stakingModuleId: 1,
+          operatorIds: packNodeOperatorIds([firstOperator.index]),
+          vettedKeysByOperator: '0x00000000000000000000000000000004',
+        }),
+      );
 
-  //     const walletAddress = await getWalletAddress();
+      expect(unvetSigningKeys).toBeCalledTimes(1);
+      expect(unvetSigningKeys).toHaveBeenCalledWith(
+        expect.anything(),
+        currentBlock.number,
+        expect.anything(),
+        1,
+        packNodeOperatorIds([firstOperator.index]),
+        '0x00000000000000000000000000000004',
+        expect.any(Object),
+      );
+    }, 30_000);
 
-  //     // unvetting for second module
-  //     // it is already second unvetting during test
-  //     expect(sendUnvetMessage).toBeCalledTimes(2);
-  //     expect(sendUnvetMessage).toHaveBeenCalledWith(
-  //       expect.objectContaining({
-  //         blockNumber: currentBlock.number,
-  //         guardianAddress: walletAddress,
-  //         guardianIndex: 7,
-  //         stakingModuleId: 2,
-  //         operatorIds: '0x0000000000000000',
-  //         vettedKeysByOperator: '0x00000000000000000000000000000003',
-  //       }),
-  //     );
+    test('no deposits for module for both modules', async () => {
+      expect(sendDepositMessage).toBeCalledTimes(2 * stakingModulesCount - 2);
+    });
 
-  //     expect(unvetSigningKeys).toBeCalledTimes(2);
-  //     expect(unvetSigningKeys).toHaveBeenCalledWith(
-  //       expect.anything(),
-  //       currentBlock.number,
-  //       expect.anything(),
-  //       2,
-  //       '0x0000000000000000',
-  //       '0x00000000000000000000000000000003',
-  //       expect.any(Object),
-  //     );
-  //   }, 30_000);
+    test('Check staking limit for nor operator after unvetting', async () => {
+      const op = await nor.getOperator(firstOperator.index, false);
+      expect(Number(op.totalVettedValidators)).toEqual(4);
+    });
 
-  //   test('Staking limit for sdvt after unvetting', async () => {
-  //     const nor = new CuratedOnchainV1(SIMPLE_DVT);
-  //     const op = await nor.getOperator(0, false);
-  //     expect(Number(op.totalVettedValidators)).toEqual(3);
-  //   });
+    test('Unveting for sdvt didnt happen, staking limit the same', async () => {
+      const op = await sdvt.getOperator(firstOperator.index, false);
+      expect(Number(op.totalVettedValidators)).toEqual(4);
+    });
 
-  //   test('Deposits again work for first module, but not for second', async () => {
-  //     // 6 prev + 3 new (curated, csm and sandbox)
-  //     expect(sendDepositMessage).toBeCalledTimes(9);
-  //   });
-  // });
+    test('Unvetting happen in second module', async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
+      await guardianService.handleNewBlock();
+      await waitForNewerBlock(currentBlock.number);
 
-  // TODO: add duplicated key at the same block
+      const walletAddress = await getWalletAddress();
+
+      // unvetting for second module
+      // it is already second unvetting during test
+      expect(sendUnvetMessage).toBeCalledTimes(2);
+      expect(sendUnvetMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blockNumber: currentBlock.number,
+          guardianAddress: walletAddress,
+          guardianIndex,
+          stakingModuleId: 2,
+          operatorIds: packNodeOperatorIds([secondOperator.index]),
+          vettedKeysByOperator: '0x00000000000000000000000000000003',
+        }),
+      );
+
+      expect(unvetSigningKeys).toBeCalledTimes(2);
+      expect(unvetSigningKeys).toHaveBeenCalledWith(
+        expect.anything(),
+        currentBlock.number,
+        expect.anything(),
+        2,
+        packNodeOperatorIds([secondOperator.index]),
+        '0x00000000000000000000000000000003',
+        expect.any(Object),
+      );
+    }, 30_000);
+
+    test('Staking limit for sdvt after unvetting', async () => {
+      const op = await sdvt.getOperator(firstOperator.index, false);
+      expect(Number(op.totalVettedValidators)).toEqual(3);
+    });
+
+    test('Deposits again work for first module, but not for second', async () => {
+      expect(sendDepositMessage).toBeCalledTimes(
+        3 * stakingModulesCount - 2 - 1,
+      );
+    });
+  });
 });
