@@ -8,9 +8,14 @@ import { Configuration } from 'common/config';
 import { GroupedByModuleOperatorListResponse } from './interfaces/GroupedByModuleOperatorListResponse';
 import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
 import { SRModuleListResponse } from './interfaces/SRModuleListResponse';
+import { ELBlockSnapshot } from './interfaces/ELBlockSnapshot';
+import { DeepReadonly } from 'common/ts-utils';
 
 @Injectable()
 export class KeysApiService {
+  // Do not use this value in a straightforward manner
+  // It can be used in parallel at the moment in `getKeys`
+  private cachedKeys?: DeepReadonly<KeyListResponse>;
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) protected logger: LoggerService,
     protected readonly config: Configuration,
@@ -85,10 +90,65 @@ export class KeysApiService {
   }
 
   /**
-   * The /v1/keys endpoint returns full list of keys
+   * Retrieves keys, using cache if valid.
+   * @param elBlockSnapshot ELBlockSnapshot with the current block hash for cache validation.
+   * @returns Cached or newly fetched keys.
    */
-  public async getKeys() {
-    const result = await this.fetch<KeyListResponse>(`/v1/keys`);
+  public async getKeys(
+    elBlockSnapshot: ELBlockSnapshot,
+  ): Promise<DeepReadonly<KeyListResponse>> {
+    if (!this.cachedKeys) {
+      return this.updateCachedKeys(elBlockSnapshot);
+    }
+
+    const { lastChangedBlockHash: cachedHash } =
+      this.cachedKeys.meta.elBlockSnapshot;
+    const { lastChangedBlockHash: currentHash } = elBlockSnapshot;
+
+    if (cachedHash !== currentHash) {
+      return this.updateCachedKeys(elBlockSnapshot);
+    }
+
+    this.logger.debug?.(
+      'Keys are obtained from cache, no data update required',
+      {
+        elBlockSnapshot,
+        cachedELBlockSnapshot: this.cachedKeys.meta.elBlockSnapshot,
+      },
+    );
+    return this.cachedKeys;
+  }
+
+  /**
+   * Fetches new keys from the /v1/keys endpoint and updates cache.
+   * @returns The newly fetched keys.
+   */
+  private async updateCachedKeys(
+    elBlockSnapshot: ELBlockSnapshot,
+  ): Promise<DeepReadonly<KeyListResponse>> {
+    this.logger.log('Updating keys from KeysAPI', {
+      elBlockSnapshot,
+      cachedELBlockSnapshot: this.cachedKeys?.meta.elBlockSnapshot,
+    });
+
+    // delete old cache to optimize memory performance
+    this.cachedKeys = undefined;
+
+    const result = await this.fetch<DeepReadonly<KeyListResponse>>(`/v1/keys`);
+
+    this.logger.log('Keys successfully updated in cache from KeysAPI', {
+      elBlockSnapshot,
+      newELBlockSnapshot: result.meta.elBlockSnapshot,
+    });
+
+    // check that there were no updates in Keys Api between two requests
+    this.verifyMetaDataConsistency(
+      elBlockSnapshot.lastChangedBlockHash,
+      result.meta.elBlockSnapshot.lastChangedBlockHash,
+    );
+
+    this.cachedKeys = result;
+    // return exactly `result` because this function can be used in parallel
     return result;
   }
 
