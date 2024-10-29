@@ -94,7 +94,9 @@ export class KeysApiService {
    * @param elBlockSnapshot ELBlockSnapshot with the current block hash for cache validation.
    * @returns Cached or newly fetched keys.
    */
-  public async getKeys(elBlockSnapshot: ELBlockSnapshot) {
+  public async getKeys(
+    elBlockSnapshot: ELBlockSnapshot,
+  ): Promise<DeepReadonly<KeyListResponse>> {
     if (!this.cachedKeys) {
       return this.updateCachedKeys(elBlockSnapshot);
     }
@@ -121,7 +123,9 @@ export class KeysApiService {
    * Fetches new keys from the /v1/keys endpoint and updates cache.
    * @returns The newly fetched keys.
    */
-  private async updateCachedKeys(elBlockSnapshot: ELBlockSnapshot) {
+  private async updateCachedKeys(
+    elBlockSnapshot: ELBlockSnapshot,
+  ): Promise<DeepReadonly<KeyListResponse>> {
     this.logger.log('Updating keys from KeysAPI', {
       elBlockSnapshot,
       cachedELBlockSnapshot: this.cachedKeys?.meta.elBlockSnapshot,
@@ -130,7 +134,7 @@ export class KeysApiService {
     // delete old cache to optimize memory performance
     this.cachedKeys = undefined;
 
-    const result = await this.fetch<KeyListResponse>(`/v1/keys`);
+    const result = await this.fetch<DeepReadonly<KeyListResponse>>(`/v1/keys`);
 
     this.logger.log('Keys successfully updated in cache from KeysAPI', {
       elBlockSnapshot,
