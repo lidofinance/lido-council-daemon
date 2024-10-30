@@ -4,9 +4,9 @@ dotenv.config();
 
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 const RPC_URL = process.env.FORK_URL!;
-console.log(RPC_URL);
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 const secretKey = process.env.WALLET_PRIVATE_KEY!;
+const CHAIN_ID = process.env.CHAIN_ID!;
 
 const config: HardhatUserConfig = {
   networks: {
@@ -14,7 +14,7 @@ const config: HardhatUserConfig = {
       forking: {
         url: RPC_URL,
       },
-      chainId: 1, // 17000
+      chainId: Number(CHAIN_ID),
       accounts: [
         {
           privateKey: secretKey,

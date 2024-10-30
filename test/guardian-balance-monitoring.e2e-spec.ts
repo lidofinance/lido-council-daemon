@@ -6,7 +6,6 @@ import {
   TESTS_TIMEOUT,
   SLEEP_FOR_RESULT,
   pk,
-  NOP_REGISTRY,
   NO_PRIVKEY_MESSAGE,
 } from './constants';
 

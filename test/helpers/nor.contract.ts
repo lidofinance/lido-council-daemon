@@ -3,19 +3,6 @@ import { curatedAbi } from './curated.abi';
 import { EVM_SCRIPT_EXECUTOR } from './easy-tack';
 import { accountImpersonate, setBalance, testSetupProvider } from './provider';
 
-// TODO: remove after stop using
-// use ADD_KEY_ACCOUNT_NODE_OP_ZERO for 0 nor op
-// reward address of 0 operator
-const ADD_KEY_ACCOUNT = '0x6D725DAe055287f913661ee0b79dE6B21F12A459';
-
-export const ADD_KEY_ACCOUNT_NODE_OP_ZERO = ADD_KEY_ACCOUNT;
-
-export const ADD_KEY_ACCOUNT_NODE_OP_ONE =
-  '0x39ceC2b3ba293CC15f15a3876dB8D356a1670789';
-
-export const ADD_KEY_ACCOUNT_NODE_OP_ZERO_SDVT =
-  '0x16FF967Cb189457a8A19Fae833DAE0e429742b00';
-
 export class CuratedOnchainV1 {
   // short version of contract abi
 
@@ -40,8 +27,7 @@ export class CuratedOnchainV1 {
     _keysCount: number,
     _publicKeys: string,
     _signatures: string,
-    // TODO: get rid of it
-    signer_account: string = ADD_KEY_ACCOUNT,
+    signer_account: string,
   ): Promise<void> {
     //impersonate account that can add node operator
     await accountImpersonate(signer_account);

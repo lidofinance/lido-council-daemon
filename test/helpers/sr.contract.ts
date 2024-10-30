@@ -17,16 +17,15 @@ export function getLocator() {
     // TODO: custom error
     throw Error();
   }
-  const locator = new Contract(locatorAddress, locatorAbi, testSetupProvider);
-
-  return locator;
+  return new Contract(locatorAddress, locatorAbi, testSetupProvider);
 }
 
 // TODO: use method from council main code
 export async function getStakingModules() {
-  const locator = getLocator();
+  const locator = await getLocator();
   const stakingRouterAddress = await locator.stakingRouter();
 
+  // TODO: read from council
   const stakingRouter = new Contract(
     stakingRouterAddress,
     stakingRouterAbi,

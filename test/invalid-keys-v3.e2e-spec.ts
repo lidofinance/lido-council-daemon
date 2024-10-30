@@ -2,13 +2,7 @@
 import { toHexString } from '@chainsafe/ssz';
 
 // Constants
-import {
-  TESTS_TIMEOUT,
-  SLEEP_FOR_RESULT,
-  pk,
-  NOP_REGISTRY,
-  NO_PRIVKEY_MESSAGE,
-} from './constants';
+import { TESTS_TIMEOUT, SLEEP_FOR_RESULT, pk } from './constants';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');

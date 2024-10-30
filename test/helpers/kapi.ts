@@ -23,6 +23,7 @@ export async function waitForNewerOrEqBlock(block: number) {
   let isServiceReady = false;
   while (!isServiceReady) {
     try {
+      // TODO: write url in the constant
       const response = await axios.get('http://localhost:3000/v1/status');
       if (response.data['elBlockSnapshot']['blockNumber'] >= block) {
         console.log(

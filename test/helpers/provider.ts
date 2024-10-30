@@ -19,7 +19,7 @@ export const setBalance = async (account: string, eth: number) => {
   ]);
 };
 
-// async function getChainId() {
-//   const network = await testSetupProvider.getNetwork();
-//   return network.chainId;
-// }
+export async function getChainId() {
+  const network = await testSetupProvider.getNetwork();
+  return network.chainId;
+}

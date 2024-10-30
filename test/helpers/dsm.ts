@@ -3,7 +3,6 @@ import {
   SECURITY_MODULE,
   SECURITY_MODULE_OWNER,
   NO_PRIVKEY_MESSAGE,
-  SLEEP_FOR_RESULT,
 } from '../constants';
 import { LidoAbi__factory, SecurityAbi__factory } from 'generated';
 import { accountImpersonate, setBalance, testSetupProvider } from './provider';
@@ -11,17 +10,14 @@ import { getLocator } from './sr.contract';
 import { Contract } from '@ethersproject/contracts';
 import { wqAbi } from './wq.abi';
 
-// TODO: read from locator
-const LIDO = '0x3F1c547b21f65e10480dE3ad8E19fAAC46C95034';
-
 function createWallet(provider: ethers.providers.JsonRpcProvider) {
   if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
   return new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
 }
 
 export async function getSecurityContract() {
-  const locator = getLocator();
-  const dsm = await locator.depositSecurityModule();
+  const locator = await getLocator();
+  const dsm = locator.depositSecurityModule();
   const abi = [
     {
       inputs: [],
@@ -51,6 +47,7 @@ export async function getSecurityContract() {
     },
   ];
 
+  // TODO: use from council
   return new Contract(dsm, abi, testSetupProvider);
 }
 
@@ -76,12 +73,9 @@ export async function getLidoWC() {
     },
   ];
 
+  // TODO: use from council
   const contract = new Contract(lido, abi, testSetupProvider);
-  const wc = await contract.getWithdrawalCredentials();
-
-  console.log('wc=', wc);
-
-  return wc;
+  return await contract.getWithdrawalCredentials();
 }
 
 export async function getGuardians() {
@@ -94,13 +88,10 @@ export async function getGuardians() {
   return await securityContract.getGuardians();
 }
 
-export async function addGuardians(
-  params = {
-    securityModule: SECURITY_MODULE,
-    securityModuleOwner: SECURITY_MODULE_OWNER,
-  },
-) {
-  console.log('params=', params);
+export async function addGuardians(params: {
+  securityModuleOwner: string;
+  securityModuleAddress: string;
+}) {
   // const provider = createProvider();
   const wallet = createWallet(testSetupProvider);
 
@@ -115,7 +106,7 @@ export async function addGuardians(
   const signer = testSetupProvider.getSigner(params.securityModuleOwner);
 
   const securityContract = SecurityAbi__factory.connect(
-    params.securityModule,
+    params.securityModuleAddress,
     signer,
   );
   await securityContract.functions.addGuardian(wallet.address, 1);
