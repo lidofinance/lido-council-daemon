@@ -31,10 +31,10 @@ export const setupTestingModule = async () => {
 
   const loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
-  // jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
-  // jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
-  // jest.spyOn(loggerService, 'debug').mockImplementation(() => undefined);
-  // jest.spyOn(loggerService, 'error').mockImplementation(() => undefined);
+  jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
+  jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
+  jest.spyOn(loggerService, 'debug').mockImplementation(() => undefined);
+  jest.spyOn(loggerService, 'error').mockImplementation(() => undefined);
 
   return moduleRef;
 };

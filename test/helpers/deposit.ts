@@ -1,24 +1,28 @@
 import { fromHexString } from '@chainsafe/ssz';
-import { DEPOSIT_CONTRACT, LIDO_WC, NO_PRIVKEY_MESSAGE } from '../constants';
+import { NO_PRIVKEY_MESSAGE } from '../constants';
 import { computeRoot } from './computeDomain';
 import { DepositData } from 'bls/bls.containers';
 import { ethers } from 'ethers';
 import { ProviderService } from 'provider';
 import { DepositAbi__factory } from 'generated';
 import { SecretKey } from '@chainsafe/blst';
+import { getSecurityContract } from './dsm';
 
-export function signDeposit(
+export async function signDeposit(
   pk: Uint8Array,
   sk: SecretKey,
-  wc = LIDO_WC,
+  wc: string,
   amountGwei = 32000000000,
-): { depositData: any; signature: Uint8Array } {
+): Promise<{
+  depositData: any;
+  signature: Uint8Array;
+}> {
   const depositMessage = {
     pubkey: pk,
     withdrawalCredentials: fromHexString(wc),
     amount: amountGwei,
   };
-  const signingRoot = computeRoot(depositMessage);
+  const signingRoot = await computeRoot(depositMessage);
   const sign = sk.sign(signingRoot).toBytes();
 
   const depositData = {
@@ -41,7 +45,15 @@ export async function makeDeposit(
 
   // Make a deposit
   const signer = wallet.connect(providerService.provider);
-  const depositContract = DepositAbi__factory.connect(DEPOSIT_CONTRACT, signer);
+  const dsm = await getSecurityContract();
+  const depositContractAddress = await dsm.DEPOSIT_CONTRACT();
+
+  console.log(depositContractAddress);
+
+  const depositContract = DepositAbi__factory.connect(
+    depositContractAddress,
+    signer,
+  );
 
   await depositContract.deposit(
     depositData.pubkey,

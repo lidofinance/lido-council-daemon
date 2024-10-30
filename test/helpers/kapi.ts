@@ -13,7 +13,7 @@ export async function waitForNewerBlock(block: number) {
       }
     } catch (err) {
       console.log('Service not ready yet, waiting...');
-      await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 1 second
+      await new Promise((resolve) => setTimeout(resolve, 5000));
     }
   }
 }
@@ -23,6 +23,7 @@ export async function waitForNewerOrEqBlock(block: number) {
   let isServiceReady = false;
   while (!isServiceReady) {
     try {
+      // TODO: write url in the constant
       const response = await axios.get('http://localhost:3000/v1/status');
       if (response.data['elBlockSnapshot']['blockNumber'] >= block) {
         console.log(
@@ -32,7 +33,7 @@ export async function waitForNewerOrEqBlock(block: number) {
       }
     } catch (err) {
       console.log('Service not ready yet, waiting...');
-      await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 1 second
+      await new Promise((resolve) => setTimeout(resolve, 5000));
     }
   }
 }
@@ -47,7 +48,7 @@ export async function waitForServiceToBeReady(): Promise<void> {
       }
     } catch (err) {
       console.log('Service not ready yet, waiting...');
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
+      await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 1 second
     }
   }
 }

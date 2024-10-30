@@ -18,3 +18,8 @@ export const setBalance = async (account: string, eth: number) => {
     ethers.utils.hexlify(amountInWei),
   ]);
 };
+
+export async function getChainId() {
+  const network = await testSetupProvider.getNetwork();
+  return network.chainId;
+}

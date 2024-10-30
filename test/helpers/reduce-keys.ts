@@ -1,10 +1,12 @@
 import { solidityKeccak256, hexlify, hexZeroPad } from 'ethers/lib/utils';
 import { BigNumber } from 'ethers';
-import { StakingRouter } from './sr.contract';
+import { getStakingModules, getType } from './sr.contract';
 import { testSetupProvider } from './provider';
 
 export const CURATED_ONCHAIN_V1_TYPE = 'curated-onchain-v1';
 export const COMMUNITY_ONCHAIN_V1_TYPE = 'community-onchain-v1';
+const OPERATORS_COUNT = 3;
+const KEYS_COUNT = 3;
 
 // curated-onchain-v1 operator and keys reducing methods
 
@@ -96,7 +98,6 @@ export const cutCuratedTypeModuleState = async (
   }
 };
 
-// TODO: use community-onchain-v1 type in name
 export const cutCommunityTypeModuleNodeOperators = async (
   contractAddress: string,
   newCount: number,
@@ -146,23 +147,28 @@ export const cutCommunityTypeModuleNodeOperatorsWithMask = async (
   ]);
 };
 
-export const cutKeysCuratedOnachainV1Modules = async () => {
+export const cutModulesKeys = async () => {
   // get sr modules
-  const sr = new StakingRouter();
-  // get modules list
-  const srModulesAddresses = sr.getStakingModulesAddresses(
-    CURATED_ONCHAIN_V1_TYPE,
-  );
+  const stakingModules = await getStakingModules();
 
-  const CSM = '0x4562c3e63c2e586cD1651B958C22F88135aCAd4f';
+  console.log(stakingModules);
 
-  await cutCommunityTypeModuleNodeOperators(CSM, 3);
+  for (const stakingModule of stakingModules) {
+    const type = await getType(stakingModule.stakingModuleAddress);
+    if (type === CURATED_ONCHAIN_V1_TYPE) {
+      await cutCuratedTypeModuleState(
+        stakingModule.stakingModuleAddress,
+        OPERATORS_COUNT,
+        KEYS_COUNT,
+      );
+      continue;
+    }
 
-  // in cycle remove keys of all modules
-
-  // TODO: reduce curated and sdvt operators to make update faster
-  // now it is still not fast enough for e2e
-  for (const srModuleAddress of srModulesAddresses) {
-    await cutCuratedTypeModuleState(srModuleAddress, 3, 3);
+    if (type === COMMUNITY_ONCHAIN_V1_TYPE) {
+      await cutCommunityTypeModuleNodeOperators(
+        stakingModule.stakingModuleAddress,
+        OPERATORS_COUNT,
+      );
+    }
   }
 };

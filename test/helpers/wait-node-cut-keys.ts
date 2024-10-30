@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { cutKeysCuratedOnachainV1Modules } from './reduce-keys';
+import { cutModulesKeys } from './reduce-keys';
 // Функция для проверки доступности Hardhat по HTTP
 async function isHardhatNodeReady(): Promise<boolean> {
   try {
@@ -33,7 +33,7 @@ async function main() {
     }
 
     console.log('Hardhat node is ready. Starting key cutting process...');
-    await cutKeysCuratedOnachainV1Modules();
+    await cutModulesKeys();
     console.log('Key cutting completed.');
     process.exit(0);
   } catch (error) {
