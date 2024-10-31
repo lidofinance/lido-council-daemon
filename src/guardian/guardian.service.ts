@@ -7,12 +7,11 @@ import {
 import { compare } from 'compare-versions';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { SchedulerRegistry } from '@nestjs/schedule';
-import { CronJob } from 'cron';
 import { DepositRegistryService } from 'contracts/deposits-registry';
 import { SecurityService } from 'contracts/security';
 import { RepositoryService } from 'contracts/repository';
 import {
-  GUARDIAN_DEPOSIT_JOB_DURATION,
+  GUARDIAN_DEPOSIT_JOB_DURATION_MS,
   GUARDIAN_DEPOSIT_JOB_NAME,
 } from './guardian.constants';
 import { OneAtTime } from 'common/decorators';
@@ -127,17 +126,14 @@ export class GuardianService implements OnModuleInit {
    * Subscribes to the staking router modules updates
    */
   public subscribeToModulesUpdates() {
-    const cron = new CronJob(GUARDIAN_DEPOSIT_JOB_DURATION, () => {
-      this.handleNewBlock().catch((error) => {
-        this.logger.error(error);
-      });
-    });
+    const interval = setInterval(
+      () => this.handleNewBlock().catch((error) => this.logger.error(error)),
+      GUARDIAN_DEPOSIT_JOB_DURATION_MS,
+    );
+
+    this.schedulerRegistry.addInterval(GUARDIAN_DEPOSIT_JOB_NAME, interval);
 
     this.logger.log('GuardianService subscribed to Ethereum events');
-
-    cron.start();
-
-    this.schedulerRegistry.addCronJob(GUARDIAN_DEPOSIT_JOB_NAME, cron);
   }
 
   /**
@@ -145,7 +141,7 @@ export class GuardianService implements OnModuleInit {
    */
   @OneAtTime()
   public async handleNewBlock(): Promise<void> {
-    this.logger.log('New staking router state cycle start');
+    this.logger.log('Beginning of the processing of the new Guardian cycle');
 
     try {
       const endTimer = this.jobDurationMetric
@@ -216,10 +212,15 @@ export class GuardianService implements OnModuleInit {
       // run key checks and send deposit messages to the queue without waiting.
       this.handleKeys(stakingModulesData, blockData, lidoKeys)
         .catch(this.logger.error)
-        .finally(() => endTimer());
+        .finally(() => {
+          this.logger.log('End of unvetting and deposits processing by Guardian');
+          endTimer()
+        });
     } catch (error) {
-      this.logger.error('Staking router state update error');
+      this.logger.error('Guardian cycle processing error');
       this.logger.error(error);
+    } finally {
+      this.logger.log('End of pause processing by Guardian');
     }
   }
 
@@ -288,8 +289,6 @@ export class GuardianService implements OnModuleInit {
       blockHash,
       blockNumber,
     });
-
-    this.logger.log('New staking router state cycle end');
   }
 
   private async checkKeys(
