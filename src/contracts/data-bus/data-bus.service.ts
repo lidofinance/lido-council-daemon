@@ -53,7 +53,7 @@ export class DataBusService {
 
     const dataBusClient = new DataBusClient(this.dataBusAddress, this.wallet);
     this.dsmMessageSender = new DSMMessageSender(dataBusClient);
-    await this.monitorGuardianBalance();
+    await this.monitorGuardianDataBusBalance();
     this.subscribeToEVMChainUpdates();
   }
 
@@ -64,7 +64,7 @@ export class DataBusService {
     const provider = this.provider;
     provider.on('block', async (blockNumber) => {
       if (blockNumber % DATA_BUS_BALANCE_UPDATE_BLOCK_RATE !== 0) return;
-      await this.monitorGuardianBalance().catch((error) =>
+      await this.monitorGuardianDataBusBalance().catch((error) =>
         this.logger.error(error),
       );
     });
@@ -77,7 +77,7 @@ export class DataBusService {
    * Updates the account balance metric.
    */
   @OneAtTime()
-  public async monitorGuardianBalance() {
+  public async monitorGuardianDataBusBalance() {
     const balanceWei = await this.getAccountBalance();
     const balanceETH = formatEther(balanceWei);
     const { chainId } = await this.provider.getNetwork();
