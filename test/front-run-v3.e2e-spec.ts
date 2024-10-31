@@ -150,7 +150,7 @@ describe('Front-run e2e tests', () => {
       const oldGuardians = await getGuardians();
       securityModuleAddress = securityModule.address;
       await addGuardians({
-        securityModule: securityModuleAddress,
+        securityModuleAddress,
         securityModuleOwner,
       });
 

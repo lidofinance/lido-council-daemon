@@ -131,7 +131,7 @@ describe('Duplicates e2e tests', () => {
       await accountImpersonate(securityModuleOwner);
       const oldGuardians = await getGuardians();
       await addGuardians({
-        securityModule: securityModule.address,
+        securityModuleAddress: securityModule.address,
         securityModuleOwner,
       });
       const newGuardians = await getGuardians();

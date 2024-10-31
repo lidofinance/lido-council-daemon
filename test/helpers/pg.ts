@@ -8,7 +8,6 @@ const pool = new Pool({
   database: 'node_operator_keys_service_db',
 });
 
-// Function to truncate all tables using the pool
 export async function truncateTables() {
   const client = await pool.connect();
   try {
@@ -21,7 +20,7 @@ export async function truncateTables() {
     console.error('Error truncating tables:', error);
   } finally {
     try {
-      await client.release(); // Release the client back to the pool
+      await client.release();
     } catch {
       console.log('release err');
     }

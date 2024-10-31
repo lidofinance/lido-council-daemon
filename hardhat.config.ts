@@ -7,6 +7,7 @@ const RPC_URL = process.env.FORK_URL!;
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 const secretKey = process.env.WALLET_PRIVATE_KEY!;
 const CHAIN_ID = process.env.CHAIN_ID!;
+// TODO: read chain from RPC_URL
 
 const config: HardhatUserConfig = {
   networks: {

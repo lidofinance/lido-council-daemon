@@ -39,32 +39,11 @@ export const setupTestingModule = async () => {
   return moduleRef;
 };
 
+// TODO: move to tests
 export const initLevelDB = async (
   levelDBService: DepositsRegistryStoreService,
   signKeyLevelDBService: SignKeyLevelDBService,
 ) => {
   await levelDBService.initialize();
   await signKeyLevelDBService.initialize();
-};
-
-export const closeServer = async (
-  server,
-  levelDBService: DepositsRegistryStoreService,
-  signKeyLevelDBService: SignKeyLevelDBService,
-) => {
-  await server.close();
-  await levelDBService.deleteCache();
-  await signKeyLevelDBService.deleteCache();
-  await levelDBService.close();
-  await signKeyLevelDBService.close();
-};
-
-export const closeLevelDB = async (
-  levelDBService: DepositsRegistryStoreService,
-  signKeyLevelDBService: SignKeyLevelDBService,
-) => {
-  await levelDBService.deleteCache();
-  await signKeyLevelDBService.deleteCache();
-  await levelDBService.close();
-  await signKeyLevelDBService.close();
 };

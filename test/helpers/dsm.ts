@@ -1,9 +1,5 @@
 import { ethers } from 'ethers';
-import {
-  SECURITY_MODULE,
-  SECURITY_MODULE_OWNER,
-  NO_PRIVKEY_MESSAGE,
-} from '../constants';
+import { NO_PRIVKEY_MESSAGE } from '../constants';
 import { LidoAbi__factory, SecurityAbi__factory } from 'generated';
 import { accountImpersonate, setBalance, testSetupProvider } from './provider';
 import { getLocator } from './sr.contract';
@@ -15,6 +11,7 @@ function createWallet(provider: ethers.providers.JsonRpcProvider) {
   return new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
 }
 
+// return with owner sign owner
 export async function getSecurityContract() {
   const locator = await getLocator();
   const dsm = locator.depositSecurityModule();
@@ -79,20 +76,20 @@ export async function getLidoWC() {
 }
 
 export async function getGuardians() {
-  const dsm = await getSecurityContract();
-  const securityContract = SecurityAbi__factory.connect(
-    dsm.address,
-    testSetupProvider,
-  );
+  const contract = await getSecurityContract();
+  return await contract.getGuardians();
+}
 
-  return await securityContract.getGuardians();
+export async function isDepositsPaused() {
+  const contract = await getSecurityContract();
+  return await contract.isDepositsPaused();
 }
 
 export async function addGuardians(params: {
   securityModuleOwner: string;
   securityModuleAddress: string;
 }) {
-  // const provider = createProvider();
+  await accountImpersonate(params.securityModuleOwner);
   const wallet = createWallet(testSetupProvider);
 
   // Convert the ETH amount to wei

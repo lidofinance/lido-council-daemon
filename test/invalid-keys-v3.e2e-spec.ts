@@ -41,7 +41,6 @@ import { CuratedOnchainV1 } from './helpers/nor.contract';
 import { truncateTables } from './helpers/pg';
 import { packNodeOperatorIds } from 'guardian/unvetting/bytes';
 import { getStakingModules } from './helpers/sr.contract';
-import { ethers } from 'ethers';
 
 describe('Signature validation e2e test', () => {
   let providerService: ProviderService;
@@ -132,20 +131,22 @@ describe('Signature validation e2e test', () => {
     let frontrunPK: Uint8Array = pk;
     let guardianIndex: number;
     let lidoWC: string;
-    let securityModuleAddress: string;
 
     beforeAll(async () => {
       snapshotId = await testSetupProvider.send('evm_snapshot', []);
       // start only if /modules return 200
       await waitForServiceToBeReady();
 
+      // TODO: delete
       const securityModule = await getSecurityContract();
       const securityModuleOwner = await getSecurityOwner();
+
+      // can remove
       await accountImpersonate(securityModuleOwner);
       const oldGuardians = await getGuardians();
-      securityModuleAddress = securityModule.address;
+      const securityModuleAddress = securityModule.address;
       await addGuardians({
-        securityModule: securityModuleAddress,
+        securityModuleAddress,
         securityModuleOwner,
       });
 

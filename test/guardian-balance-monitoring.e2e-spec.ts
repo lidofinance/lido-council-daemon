@@ -21,12 +21,10 @@ import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store'
 import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
 import { KeyValidatorInterface } from '@lido-nestjs/key-validation';
 
-import { getWalletAddress } from './helpers/deposit';
 import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 import {
   addGuardians,
   getGuardians,
-  getLidoWC,
   getSecurityContract,
   getSecurityOwner,
 } from './helpers/dsm';
@@ -150,7 +148,7 @@ describe('Guardian balance ', () => {
       const oldGuardians = await getGuardians();
       securityModuleAddress = securityModule.address;
       await addGuardians({
-        securityModule: securityModuleAddress,
+        securityModuleAddress,
         securityModuleOwner,
       });
 
