@@ -7,12 +7,11 @@ import {
 import { compare } from 'compare-versions';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { SchedulerRegistry } from '@nestjs/schedule';
-import { CronJob } from 'cron';
 import { DepositRegistryService } from 'contracts/deposits-registry';
 import { SecurityService } from 'contracts/security';
 import { RepositoryService } from 'contracts/repository';
 import {
-  GUARDIAN_DEPOSIT_JOB_DURATION,
+  GUARDIAN_DEPOSIT_JOB_DURATION_MS,
   GUARDIAN_DEPOSIT_JOB_NAME,
 } from './guardian.constants';
 import { OneAtTime } from 'common/decorators';
@@ -39,6 +38,7 @@ import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { METRIC_JOB_DURATION } from 'common/prometheus';
 import { Histogram } from 'prom-client';
+import { DeepReadonly } from 'common/ts-utils';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -126,17 +126,14 @@ export class GuardianService implements OnModuleInit {
    * Subscribes to the staking router modules updates
    */
   public subscribeToModulesUpdates() {
-    const cron = new CronJob(GUARDIAN_DEPOSIT_JOB_DURATION, () => {
-      this.handleNewBlock().catch((error) => {
-        this.logger.error(error);
-      });
-    });
+    const interval = setInterval(
+      () => this.handleNewBlock().catch((error) => this.logger.error(error)),
+      GUARDIAN_DEPOSIT_JOB_DURATION_MS,
+    );
+
+    this.schedulerRegistry.addInterval(GUARDIAN_DEPOSIT_JOB_NAME, interval);
 
     this.logger.log('GuardianService subscribed to Ethereum events');
-
-    cron.start();
-
-    this.schedulerRegistry.addCronJob(GUARDIAN_DEPOSIT_JOB_NAME, cron);
   }
 
   /**
@@ -144,7 +141,7 @@ export class GuardianService implements OnModuleInit {
    */
   @OneAtTime()
   public async handleNewBlock(): Promise<void> {
-    this.logger.log('New staking router state cycle start');
+    this.logger.log('Beginning of the processing of the new Guardian cycle');
 
     try {
       const endTimer = this.jobDurationMetric
@@ -176,16 +173,11 @@ export class GuardianService implements OnModuleInit {
         .startTimer();
 
       // fetch all lido keys
-      const { data: lidoKeys, meta: secondRequestMeta } =
-        await this.keysApiService.getKeys();
+      const { data: lidoKeys } = await this.keysApiService.getKeys(
+        firstRequestMeta,
+      );
 
       endTimerKeysReq();
-
-      // check that there were no updates in Keys Api between two requests
-      this.keysApiService.verifyMetaDataConsistency(
-        firstRequestMeta.lastChangedBlockHash,
-        secondRequestMeta.elBlockSnapshot.lastChangedBlockHash,
-      );
 
       // contracts initialization
       await this.repositoryService.initCachedContracts({ blockHash });
@@ -215,22 +207,27 @@ export class GuardianService implements OnModuleInit {
         return;
       }
 
-      // To avoid blocking the pause, run the following tasks asynchronously:
-      // updating the SigningKeyAdded events cache, checking keys, handling the unvetting of keys,
-      // and sending deposit messages to the queue.
+      // To avoid blocking the pause due to a potentially lengthy SigningKeyAdded
+      // events cache update, which can occur when the modules list changes:
+      // run key checks and send deposit messages to the queue without waiting.
       this.handleKeys(stakingModulesData, blockData, lidoKeys)
         .catch(this.logger.error)
-        .finally(() => endTimer());
+        .finally(() => {
+          this.logger.log('End of unvetting and deposits processing by Guardian');
+          endTimer()
+        });
     } catch (error) {
-      this.logger.error('Staking router state update error');
+      this.logger.error('Guardian cycle processing error');
       this.logger.error(error);
+    } finally {
+      this.logger.log('End of pause processing by Guardian');
     }
   }
 
   private async collectData(
     stakingModules: SRModule[],
     meta: ELBlockSnapshot,
-    lidoKeys: RegistryKey[],
+    lidoKeys: DeepReadonly<RegistryKey[]>,
   ) {
     const { blockHash, blockNumber } = meta;
 
@@ -265,7 +262,7 @@ export class GuardianService implements OnModuleInit {
   private async handleKeys(
     stakingModulesData: StakingModuleData[],
     blockData: BlockData,
-    lidoKeys: RegistryKey[],
+    lidoKeys: DeepReadonly<RegistryKey[]>,
   ) {
     // check lido keys
     await this.checkKeys(stakingModulesData, blockData, lidoKeys);
@@ -292,14 +289,12 @@ export class GuardianService implements OnModuleInit {
       blockHash,
       blockNumber,
     });
-
-    this.logger.log('New staking router state cycle end');
   }
 
   private async checkKeys(
     stakingModulesData: StakingModuleData[],
     blockData: BlockData,
-    lidoKeys: RegistryKey[],
+    lidoKeys: DeepReadonly<RegistryKey[]>,
   ) {
     const stakingRouterModuleAddresses = stakingModulesData.map(
       (stakingModule) => stakingModule.stakingModuleAddress,

@@ -11,11 +11,12 @@ import { ELBlockSnapshot } from 'keys-api/interfaces/ELBlockSnapshot';
 import { METRIC_JOB_DURATION } from 'common/prometheus';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { Histogram } from 'prom-client';
+import { DeepReadonly } from 'common/ts-utils';
 
 type State = {
   stakingModules: SRModule[];
   meta: ELBlockSnapshot;
-  lidoKeys: RegistryKey[];
+  lidoKeys: DeepReadonly<RegistryKey[]>;
 };
 
 @Injectable()
@@ -71,7 +72,7 @@ export class StakingModuleDataCollectorService {
    */
   public async checkKeys(
     stakingModulesData: StakingModuleData[],
-    lidoKeys: RegistryKey[],
+    lidoKeys: DeepReadonly<RegistryKey[]>,
     blockData: BlockData,
   ): Promise<void> {
     const endTimerDuplicates = this.jobDurationMetric
@@ -203,7 +204,7 @@ export class StakingModuleDataCollectorService {
 
   private getModuleVettedUnusedKeys(
     stakingModuleAddress: string,
-    lidoKeys: RegistryKey[],
+    lidoKeys: DeepReadonly<RegistryKey[]>,
   ) {
     const vettedUnusedKeys = lidoKeys.filter(
       (key) =>

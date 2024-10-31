@@ -1,4 +1,5 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
+import { DeepReadonly } from 'common/ts-utils';
 import {
   SigningKeyEvent,
   SigningKeyEventsGroupWithStakingModules,
@@ -37,7 +38,7 @@ export class KeysDuplicationCheckerService {
    *   - `unresolved`: An array of `RegistryKey` objects for which no corresponding events were found.
    */
   public async getDuplicatedKeys(
-    keys: RegistryKey[],
+    keys: DeepReadonly<RegistryKey[]>,
     blockData: BlockData,
   ): Promise<{ duplicates: RegistryKey[]; unresolved: RegistryKey[] }> {
     if (keys.length === 0) {
@@ -79,7 +80,9 @@ export class KeysDuplicationCheckerService {
    * @returns An array of tuples where each tuple contains a pubkey string and an array of
    *          `RegistryKey` objects that share that pubkey. Only keys with duplicates are included.
    */
-  public getDuplicateKeyGroups(keys: RegistryKey[]): [string, RegistryKey[]][] {
+  public getDuplicateKeyGroups(
+    keys: DeepReadonly<RegistryKey[]>,
+  ): [string, RegistryKey[]][] {
     const keyMap = keys.reduce((acc, key) => {
       const duplicateKeys = acc.get(key.key) || [];
       duplicateKeys.push(key);
