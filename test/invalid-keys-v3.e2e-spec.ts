@@ -2,7 +2,7 @@
 import { toHexString } from '@chainsafe/ssz';
 
 // Constants
-import { TESTS_TIMEOUT, SLEEP_FOR_RESULT, pk } from './constants';
+import { SLEEP_FOR_RESULT, pk } from './constants';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -27,20 +27,20 @@ import {
 } from './helpers/dsm';
 import { BlsService } from 'bls';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
-import {
-  accountImpersonate,
-  setBalance,
-  testSetupProvider,
-} from './helpers/provider';
-import {
-  waitForNewerBlock,
-  waitForNewerOrEqBlock,
-  waitForServiceToBeReady,
-} from './helpers/kapi';
+import { accountImpersonate, testSetupProvider } from './helpers/provider';
+import { waitForNewerBlock, waitForServiceToBeReady } from './helpers/kapi';
 import { CuratedOnchainV1 } from './helpers/nor.contract';
 import { truncateTables } from './helpers/pg';
 import { packNodeOperatorIds } from 'guardian/unvetting/bytes';
 import { getStakingModules } from './helpers/sr.contract';
+import { HardhatServer } from './helpers/hardhat-server';
+import {
+  setupContainers,
+  startContainerIfNotRunning,
+} from './helpers/docker-containers/utils';
+import { cutModulesKeys } from './helpers/reduce-keys';
+
+jest.setTimeout(40_000);
 
 describe('Signature validation e2e test', () => {
   let providerService: ProviderService;
@@ -121,75 +121,102 @@ describe('Signature validation e2e test', () => {
     unvetSigningKeys = jest.spyOn(securityService, 'unvetSigningKeys');
   };
 
+  let stakingModulesAddresses: string[];
+  let curatedModuleAddress: string;
+  let stakingModulesCount: number;
+  let firstOperator: any;
+  let nor: CuratedOnchainV1;
+  let frontrunPK: Uint8Array = pk;
+  let guardianIndex: number;
+  let lidoWC: string;
+
+  let postgresContainer;
+  let keysApiContainer;
+  let hardhatServer: HardhatServer;
+
+  beforeAll(async () => {
+    const { kapi, psql } = await setupContainers();
+    keysApiContainer = kapi;
+    postgresContainer = psql;
+
+    await startContainerIfNotRunning(postgresContainer);
+
+    // TODO: check running status container is not enough, add helthcheck
+
+    hardhatServer = new HardhatServer();
+    await hardhatServer.start();
+
+    console.log('Hardhat node is ready. Starting key cutting process...');
+    await cutModulesKeys();
+
+    await startContainerIfNotRunning(keysApiContainer);
+
+    await waitForServiceToBeReady();
+
+    // TODO: delete
+    const securityModule = await getSecurityContract();
+    const securityModuleOwner = await getSecurityOwner();
+
+    // can remove
+    await accountImpersonate(securityModuleOwner);
+    const oldGuardians = await getGuardians();
+    const securityModuleAddress = securityModule.address;
+    await addGuardians({
+      securityModuleAddress,
+      securityModuleOwner,
+    });
+
+    const newGuardians = await getGuardians();
+    // TODO: read from contract
+    guardianIndex = newGuardians.length - 1;
+    expect(newGuardians.length).toEqual(oldGuardians.length + 1);
+
+    const srModules = await getStakingModules();
+    stakingModulesAddresses = srModules.map(
+      (stakingModule) => stakingModule.stakingModuleAddress,
+    );
+
+    curatedModuleAddress = srModules.find(
+      (srModule) => srModule.id === 1,
+    ).stakingModuleAddress;
+    stakingModulesCount = stakingModulesAddresses.length;
+
+    // get two different active operators
+    nor = new CuratedOnchainV1(curatedModuleAddress);
+    const activeOperators = await nor.getActiveOperators();
+    firstOperator = activeOperators[0];
+    // create duplicate
+    lidoWC = await getLidoWC();
+  }, 120_000);
+
+  afterAll(async () => {
+    await keysApiContainer.stop();
+    await hardhatServer.stop();
+    await postgresContainer.stop();
+  });
+
   describe('Signature validation', () => {
     let snapshotId: number;
-    let stakingModulesAddresses: string[];
-    let curatedModuleAddress: string;
-    let stakingModulesCount: number;
-    let firstOperator: any;
-    let nor: CuratedOnchainV1;
-    let frontrunPK: Uint8Array = pk;
-    let guardianIndex: number;
-    let lidoWC: string;
 
     beforeAll(async () => {
       snapshotId = await testSetupProvider.send('evm_snapshot', []);
-      // start only if /modules return 200
       await waitForServiceToBeReady();
-
-      // TODO: delete
-      const securityModule = await getSecurityContract();
-      const securityModuleOwner = await getSecurityOwner();
-
-      // can remove
-      await accountImpersonate(securityModuleOwner);
-      const oldGuardians = await getGuardians();
-      const securityModuleAddress = securityModule.address;
-      await addGuardians({
-        securityModuleAddress,
-        securityModuleOwner,
-      });
-
-      const newGuardians = await getGuardians();
-      // TODO: read from contract
-      guardianIndex = newGuardians.length - 1;
-      expect(newGuardians.length).toEqual(oldGuardians.length + 1);
 
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);
-
       setupMocks();
-
-      const srModules = await getStakingModules();
-      stakingModulesAddresses = srModules.map(
-        (stakingModule) => stakingModule.stakingModuleAddress,
-      );
-
-      curatedModuleAddress = srModules.find(
-        (srModule) => srModule.id === 1,
-      ).stakingModuleAddress;
-      stakingModulesCount = stakingModulesAddresses.length;
-
-      // get two different active operators
-      nor = new CuratedOnchainV1(curatedModuleAddress);
-      const activeOperators = await nor.getActiveOperators();
-      firstOperator = activeOperators[0];
-      // create duplicate
-      lidoWC = await getLidoWC();
-    }, 40_000);
+    }, 50_000);
 
     afterAll(async () => {
-      // we need to revert after each test because unvetting change only vettedAmount and will not delete key
+      jest.clearAllMocks();
       await testSetupProvider.send('evm_revert', [snapshotId]);
-      // clear db
-      // KAPI see that db is empty and update state
       await truncateTables();
 
       await levelDBService.deleteCache();
       await signKeyLevelDBService.deleteCache();
       await levelDBService.close();
       await signKeyLevelDBService.close();
-    }, 60_000);
+    });
 
     test('Set cache to current block', async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
@@ -225,17 +252,18 @@ describe('Signature validation e2e test', () => {
         firstOperator.rewardAddress,
       );
       await waitForNewerBlock(currentBlock.number);
-    }, 20000);
+    });
 
     test('Unvetted key will not set module on soft pause', async () => {
       await guardianService.handleNewBlock();
+
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       // 4 - number of modules
       expect(validateKeys).toBeCalledTimes(stakingModulesCount);
       expect(sendUnvetMessage).toBeCalledTimes(0);
       expect(sendDepositMessage).toBeCalledTimes(stakingModulesCount);
-    }, 20000);
+    });
 
     test('Increase staking limit', async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
@@ -244,49 +272,45 @@ describe('Signature validation e2e test', () => {
       // increase limit to 4
       await nor.setStakingLimit(firstOperator.index, 4);
       await waitForNewerBlock(currentBlock.number);
-    }, 20000);
+    });
 
     test('Check staking limit for operator before unvetting', async () => {
       const op = await nor.getOperator(firstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
     });
 
-    test(
-      'Unvetting',
-      async () => {
-        const currentBlock = await providerService.provider.getBlock('latest');
-        await guardianService.handleNewBlock();
-        await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+    test('Unvetting', async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
+      await guardianService.handleNewBlock();
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-        const walletAddress = await getWalletAddress();
+      const walletAddress = await getWalletAddress();
 
-        // 4 - number of modules
-        expect(validateKeys).toBeCalledTimes(2 * stakingModulesCount);
-        expect(sendUnvetMessage).toBeCalledTimes(1);
-        expect(sendUnvetMessage).toHaveBeenCalledWith(
-          expect.objectContaining({
-            blockNumber: currentBlock.number,
-            guardianAddress: walletAddress,
-            guardianIndex,
-            stakingModuleId: 1,
-            operatorIds: packNodeOperatorIds([firstOperator.index]),
-            vettedKeysByOperator: '0x00000000000000000000000000000003',
-          }),
-        );
+      // 4 - number of modules
+      expect(validateKeys).toBeCalledTimes(2 * stakingModulesCount);
+      expect(sendUnvetMessage).toBeCalledTimes(1);
+      expect(sendUnvetMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blockNumber: currentBlock.number,
+          guardianAddress: walletAddress,
+          guardianIndex,
+          stakingModuleId: 1,
+          operatorIds: packNodeOperatorIds([firstOperator.index]),
+          vettedKeysByOperator: '0x00000000000000000000000000000003',
+        }),
+      );
 
-        expect(unvetSigningKeys).toBeCalledTimes(1);
-        expect(unvetSigningKeys).toHaveBeenCalledWith(
-          expect.anything(),
-          currentBlock.number,
-          expect.anything(),
-          1,
-          packNodeOperatorIds([firstOperator.index]),
-          '0x00000000000000000000000000000003',
-          expect.any(Object),
-        );
-      },
-      TESTS_TIMEOUT,
-    );
+      expect(unvetSigningKeys).toBeCalledTimes(1);
+      expect(unvetSigningKeys).toHaveBeenCalledWith(
+        expect.anything(),
+        currentBlock.number,
+        expect.anything(),
+        1,
+        packNodeOperatorIds([firstOperator.index]),
+        '0x00000000000000000000000000000003',
+        expect.any(Object),
+      );
+    });
 
     test('No deposits for module', async () => {
       expect(sendDepositMessage).toBeCalledTimes(2 * stakingModulesCount - 1);

@@ -44,11 +44,12 @@ export async function waitForServiceToBeReady(): Promise<void> {
     try {
       const response = await axios.get('http://localhost:3000/v1/modules');
       if (response.status === 200) {
+        console.log('Kapi service is ready');
         isServiceReady = true;
       }
     } catch (err) {
       console.log('Service not ready yet, waiting...');
-      await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 1 second
+      await new Promise((resolve) => setTimeout(resolve, 5000));
     }
   }
 }

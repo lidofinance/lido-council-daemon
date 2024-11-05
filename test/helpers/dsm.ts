@@ -5,6 +5,8 @@ import { accountImpersonate, setBalance, testSetupProvider } from './provider';
 import { getLocator } from './sr.contract';
 import { Contract } from '@ethersproject/contracts';
 import { wqAbi } from './wq.abi';
+import { EVM_SCRIPT_EXECUTOR } from './easy-tack';
+import { VOTING } from '../voting';
 
 function createWallet(provider: ethers.providers.JsonRpcProvider) {
   if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
@@ -14,38 +16,9 @@ function createWallet(provider: ethers.providers.JsonRpcProvider) {
 // return with owner sign owner
 export async function getSecurityContract() {
   const locator = await getLocator();
-  const dsm = locator.depositSecurityModule();
-  const abi = [
-    {
-      inputs: [],
-      name: 'getOwner',
-      outputs: [
-        {
-          internalType: 'address',
-          name: '',
-          type: 'address',
-        },
-      ],
-      stateMutability: 'view',
-      type: 'function',
-    },
-    {
-      inputs: [],
-      name: 'DEPOSIT_CONTRACT',
-      outputs: [
-        {
-          internalType: 'contract IDepositContract',
-          name: '',
-          type: 'address',
-        },
-      ],
-      stateMutability: 'view',
-      type: 'function',
-    },
-  ];
+  const dsm = await locator.depositSecurityModule();
 
-  // TODO: use from council
-  return new Contract(dsm, abi, testSetupProvider);
+  return SecurityAbi__factory.connect(dsm, testSetupProvider);
 }
 
 export async function getSecurityOwner() {
@@ -126,9 +99,14 @@ export async function deposit(moduleId: number) {
   const dsm = await locator.depositSecurityModule();
   const lidoAddress = await locator.lido();
   const withdrawalQueueAddress = await locator.withdrawalQueue();
+  const network = await testSetupProvider.getNetwork();
+  const CHAIN_ID = network.chainId;
+  const voting = VOTING[CHAIN_ID];
 
   await accountImpersonate(dsm);
+  await accountImpersonate(voting);
   await setBalance(dsm, 100);
+  await setBalance(voting, 100);
 
   const signer = testSetupProvider.getSigner(dsm);
 
@@ -139,8 +117,30 @@ export async function deposit(moduleId: number) {
     testSetupProvider,
   );
 
+  const votingSigner = testSetupProvider.getSigner(voting);
+
+  const lidoVotingSigner = LidoAbi__factory.connect(lidoAddress, votingSigner);
+
+  await lidoVotingSigner.setStakingLimit(
+    ethers.utils.parseEther('120000'), // _maxStakeLimit
+    ethers.utils.parseEther('120000'), // _stakeLimitIncreasePerBlock
+  );
+
+  // const stakingLimitInfo = await lido.getStakeLimitFullInfo();
+  // console.log(
+  //   'currentStakeLimit =',
+  //   Number(stakingLimitInfo.currentStakeLimit),
+  // );
+  // console.log('maxStakeLimit =', Number(stakingLimitInfo.maxStakeLimit));
+
+  // lets increase staking
+
   const unfinalizedStETHWei = await withdrawalQueue.unfinalizedStETH();
   const depositableEtherWei = await lido.getBufferedEther();
+
+  console.log({ unfinalizedStETHWei, depositableEtherWei });
+
+  // queue for deposit
 
   // If amount negative, this value show how much eth we need to satisfy withdrawals
   // If possitive, it is the value we can use for deposits
