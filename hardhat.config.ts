@@ -3,7 +3,7 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-const RPC_URL = process.env.FORK_URL!;
+const RPC_URL = process.env.RPC_URL!;
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 const secretKey = process.env.WALLET_PRIVATE_KEY!;
 const CHAIN_ID = process.env.CHAIN_ID!;
