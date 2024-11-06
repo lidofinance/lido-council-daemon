@@ -192,7 +192,6 @@ export class StakingModuleDataCollectorService {
         !key.used && key.vetted && key.moduleAddress === stakingModuleAddress,
     );
 
-    console.log({ vettedUnusedKeys, stakingModuleAddress });
     return vettedUnusedKeys;
   }
 }
