@@ -7,7 +7,7 @@ import {
   FORK_BLOCK,
   GANACHE_PORT,
   UNLOCKED_ACCOUNTS,
-} from '../../../test/constants';
+} from './utils/constants';
 import { makeServer } from '../../../test/server';
 import { DataBusClient } from './data-bus.client';
 import {
