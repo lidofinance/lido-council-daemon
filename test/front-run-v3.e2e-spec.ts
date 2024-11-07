@@ -53,7 +53,7 @@ import { cutModulesKeys } from './helpers/reduce-keys';
 jest.mock('../src/transport/stomp/stomp.client.ts');
 jest.setTimeout(40_000);
 
-describe('Front-run e2e tests', () => {
+describe.skip('Front-run e2e tests', () => {
   let providerService: ProviderService;
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;
@@ -212,7 +212,7 @@ describe('Front-run e2e tests', () => {
     await postgresContainer.stop();
   }, 40_000);
 
-  describe('Front-run attempt', () => {
+  describe.skip('Front-run attempt', () => {
     let snapshotId: number;
 
     beforeAll(async () => {

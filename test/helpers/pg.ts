@@ -3,7 +3,8 @@ import { Client } from 'pg';
 export async function truncateTables() {
   const client = new Client({
     host: 'localhost',
-    port: 5433,
+    // TODO: get rid of constant
+    port: 5432,
     user: 'postgres',
     password: 'postgres',
     database: 'node_operator_keys_service_db',

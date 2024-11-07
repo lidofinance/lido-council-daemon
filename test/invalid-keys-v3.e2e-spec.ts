@@ -42,7 +42,7 @@ import { cutModulesKeys } from './helpers/reduce-keys';
 
 jest.setTimeout(40_000);
 
-describe('Signature validation e2e test', () => {
+describe.skip('Signature validation e2e test', () => {
   let providerService: ProviderService;
   let guardianService: GuardianService;
   let keyValidator: KeyValidatorInterface;

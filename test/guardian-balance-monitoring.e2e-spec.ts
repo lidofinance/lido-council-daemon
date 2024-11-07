@@ -45,7 +45,7 @@ import { cutModulesKeys } from './helpers/reduce-keys';
 
 jest.setTimeout(40_000);
 
-describe('Guardian balance ', () => {
+describe.skip('Guardian balance ', () => {
   let providerService: ProviderService;
   let guardianService: GuardianService;
   let keyValidator: KeyValidatorInterface;

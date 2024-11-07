@@ -111,8 +111,9 @@ async function pullAndCreatePsqlContainer(docker: Docker, networkName: string) {
     HostConfig: {
       Binds: [`${pgdataPath}:/var/lib/postgresql/data:rw`],
       // TODO: use config
-      PortBindings: { '5432/tcp': [{ HostPort: '5433' }] },
-      NetworkMode: networkName,
+      PortBindings: { '5432/tcp': [{ HostPort: '5432' }] },
+      // NetworkMode: networkName,
+      NetworkMode: 'host',
     },
   });
 
@@ -154,7 +155,7 @@ async function pullAndCreateKapiContainer(docker: Docker, networkName: string) {
     ExposedPorts: { '3000/tcp': {} },
     HostConfig: {
       PortBindings: { '3000/tcp': [{ HostPort: '3000' }] },
-      NetworkMode: networkName,
+      NetworkMode: 'host',
     },
   });
 

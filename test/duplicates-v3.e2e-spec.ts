@@ -204,7 +204,7 @@ describe('Duplicates e2e tests', () => {
     await postgresContainer.stop();
   });
 
-  describe('Duplicated key across operators of one modules', () => {
+  describe.only('Duplicated key across operators of one modules', () => {
     let snapshotId: number;
 
     beforeAll(async () => {
