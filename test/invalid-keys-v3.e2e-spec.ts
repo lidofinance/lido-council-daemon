@@ -126,10 +126,8 @@ describe('Signature validation e2e test', () => {
   let stakingModulesCount: number;
   let firstOperator: any;
   let nor: CuratedOnchainV1;
-  let frontrunPK: Uint8Array = pk;
+  const frontrunPK: Uint8Array = pk;
   let guardianIndex: number;
-  let lidoWC: string;
-
   let postgresContainer;
   let keysApiContainer;
   let hardhatServer: HardhatServer;
@@ -186,7 +184,7 @@ describe('Signature validation e2e test', () => {
     const activeOperators = await nor.getActiveOperators();
     firstOperator = activeOperators[0];
     // create duplicate
-    lidoWC = await getLidoWC();
+    await getLidoWC();
   }, 120_000);
 
   afterAll(async () => {

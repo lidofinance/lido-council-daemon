@@ -129,7 +129,7 @@ describe('Guardian balance ', () => {
   let stakingModulesCount: number;
   let firstOperator: any;
   let nor: CuratedOnchainV1;
-  let frontrunPK: Uint8Array = pk;
+  const frontrunPK: Uint8Array = pk;
   let guardianIndex: number;
   let securityModuleAddress: string;
   let guardianAddress: string;
@@ -296,8 +296,6 @@ describe('Guardian balance ', () => {
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
       console.log('Finished!');
     }, 100_000);
-
-    test('Do smth to update kapi lastChangedBlockHash', async () => {});
 
     test('Add key with broken signature to make kapi update state', async () => {
       const currentBlock = await providerService.provider.getBlock('latest');

@@ -130,8 +130,8 @@ describe('Front-run e2e tests', () => {
   let stakingModulesCount: number;
   let firstOperator: any;
   let nor: CuratedOnchainV1;
-  let frontrunPK: Uint8Array = pk;
-  let frontrunSK: SecretKey = sk;
+  const frontrunPK: Uint8Array = pk;
+  const frontrunSK: SecretKey = sk;
   let lidoDepositSignature: Uint8Array;
   let guardianIndex: number;
   let lidoWC: string;

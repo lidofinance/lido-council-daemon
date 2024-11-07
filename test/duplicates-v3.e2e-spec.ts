@@ -123,8 +123,8 @@ describe('Duplicates e2e tests', () => {
   let sdvtOperator: any;
   let nor: CuratedOnchainV1;
   let sdvt: CuratedOnchainV1;
-  let duplicatePK: Uint8Array = pk;
-  let duplicateSK: SecretKey = sk;
+  const duplicatePK: Uint8Array = pk;
+  const duplicateSK: SecretKey = sk;
   let duplicateDepositSignature: Uint8Array;
   let guardianIndex: number;
   let lidoWC: string;
