@@ -20,6 +20,10 @@ jobs:
         run: yarn test
       - name: Run e2e transports
         run: docker compose -f docker-compose.test.yml up -d
+      - name: Pull kapi
+        run: docker pull lidofinance/lido-keys-api:staging
+      - name: Pull psql
+        run: docker pull postgres:14-alpine
       - name: Run e2e tests
         run: yarn test:e2e
         env:
