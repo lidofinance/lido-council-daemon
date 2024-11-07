@@ -204,7 +204,7 @@ describe('Front-run e2e tests', () => {
     );
     lidoDepositSignature = signature;
     lidoDepositData = depositData;
-  }, 120_000);
+  }, 360_000);
 
   afterAll(async () => {
     await keysApiContainer.stop();

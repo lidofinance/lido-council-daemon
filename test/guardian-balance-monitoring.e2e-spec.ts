@@ -189,7 +189,7 @@ describe('Guardian balance ', () => {
     if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
     const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
     guardianAddress = wallet.address;
-  }, 120_000);
+  }, 360_000);
 
   afterAll(async () => {
     await keysApiContainer.stop();
