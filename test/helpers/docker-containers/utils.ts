@@ -191,7 +191,7 @@ async function createNetwork(docker: Docker, name) {
 export async function setupContainers() {
   const docker = new Docker();
 
-  await createNetwork(docker, 'e2e_network');
+  // await createNetwork(docker, 'e2e_network');
 
   // Create PostgreSQL and KAPI containers on the same network
   const psqlContainer = await pullAndCreatePsqlContainer(docker, 'e2e_network');
