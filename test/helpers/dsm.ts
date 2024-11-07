@@ -5,8 +5,7 @@ import { accountImpersonate, setBalance, testSetupProvider } from './provider';
 import { getLocator } from './sr.contract';
 import { Contract } from '@ethersproject/contracts';
 import { wqAbi } from './wq.abi';
-import { EVM_SCRIPT_EXECUTOR } from './easy-tack';
-import { VOTING } from '../voting';
+import { VOTING } from './voting';
 
 function createWallet(provider: ethers.providers.JsonRpcProvider) {
   if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
@@ -137,10 +136,6 @@ export async function deposit(moduleId: number) {
 
   const unfinalizedStETHWei = await withdrawalQueue.unfinalizedStETH();
   const depositableEtherWei = await lido.getBufferedEther();
-
-  console.log({ unfinalizedStETHWei, depositableEtherWei });
-
-  // queue for deposit
 
   // If amount negative, this value show how much eth we need to satisfy withdrawals
   // If possitive, it is the value we can use for deposits

@@ -7,12 +7,12 @@ export async function waitForNewerBlock(block: number) {
       const response = await axios.get('http://localhost:3000/v1/status');
       if (response.data['elBlockSnapshot']['blockNumber'] > block) {
         console.log(
-          `Service is ready! Got Block newer than ${block}, got ${response.data['elBlockSnapshot']['blockNumber']} `,
+          `KAPI is ready! Got Block newer than ${block}, got ${response.data['elBlockSnapshot']['blockNumber']} `,
         );
         isServiceReady = true;
       }
     } catch (err) {
-      console.log('Service not ready yet, waiting...');
+      // console.log('Service not ready yet, waiting...');
       await new Promise((resolve) => setTimeout(resolve, 5000));
     }
   }
@@ -27,12 +27,12 @@ export async function waitForNewerOrEqBlock(block: number) {
       const response = await axios.get('http://localhost:3000/v1/status');
       if (response.data['elBlockSnapshot']['blockNumber'] >= block) {
         console.log(
-          `Service is ready! Got Block newer than ${block}, got ${response.data['elBlockSnapshot']['blockNumber']} `,
+          `KAPI is ready! Got Block newer than ${block}, got ${response.data['elBlockSnapshot']['blockNumber']} `,
         );
         isServiceReady = true;
       }
     } catch (err) {
-      console.log('Service not ready yet, waiting...');
+      // console.log('Service not ready yet, waiting...');
       await new Promise((resolve) => setTimeout(resolve, 5000));
     }
   }
@@ -44,11 +44,11 @@ export async function waitForServiceToBeReady(): Promise<void> {
     try {
       const response = await axios.get('http://localhost:3000/v1/modules');
       if (response.status === 200) {
-        console.log('Kapi service is ready');
+        console.log('Kapi is ready');
         isServiceReady = true;
       }
     } catch (err) {
-      console.log('Service not ready yet, waiting...');
+      // console.log('Service not ready yet, waiting...');
       await new Promise((resolve) => setTimeout(resolve, 5000));
     }
   }

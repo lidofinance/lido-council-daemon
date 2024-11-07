@@ -75,8 +75,6 @@ export class StakingModuleDataCollectorService {
         blockData,
       );
 
-    console.log('duplicates=', duplicates);
-
     await Promise.all(
       stakingModulesData.map(async (stakingModuleData) => {
         // identify keys that were front-run withing vetted unused keys

@@ -151,8 +151,6 @@ export const cutModulesKeys = async () => {
   // get sr modules
   const stakingModules = await getStakingModules();
 
-  console.log(stakingModules);
-
   for (const stakingModule of stakingModules) {
     const type = await getType(stakingModule.stakingModuleAddress);
     if (type === CURATED_ONCHAIN_V1_TYPE) {

@@ -48,8 +48,6 @@ export async function makeDeposit(
   const dsm = await getSecurityContract();
   const depositContractAddress = await dsm.DEPOSIT_CONTRACT();
 
-  console.log(depositContractAddress);
-
   const depositContract = DepositAbi__factory.connect(
     depositContractAddress,
     signer,
