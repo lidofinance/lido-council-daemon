@@ -48,7 +48,7 @@ export async function waitForServiceToBeReady(): Promise<void> {
         isServiceReady = true;
       }
     } catch (err) {
-      // console.log('Service not ready yet, waiting...');
+      console.log('Service not ready yet, waiting...', err);
       await new Promise((resolve) => setTimeout(resolve, 5000));
     }
   }
