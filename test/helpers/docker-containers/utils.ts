@@ -144,7 +144,7 @@ async function pullAndCreateKapiContainer(docker: Docker, networkName: string) {
       'NODE_ENV=production',
       'DB_NAME=node_operator_keys_service_db',
       'DB_PORT=5432',
-      'DB_HOST=e2e_pgdb',
+      'DB_HOST=http://127.0.0.1:5432',
       'DB_USER=postgres',
       'DB_PASSWORD=postgres',
       'PROVIDERS_URLS=http://127.0.0.1:8545',
