@@ -140,6 +140,14 @@ describe('Duplicates e2e tests', () => {
 
     await startContainerIfNotRunning(postgresContainer);
 
+    const psqlStream = await postgresContainer.attach({
+      stream: true,
+      stdout: true,
+      stderr: true,
+    });
+
+    psqlStream.pipe(process.stdout);
+
     // TODO: check running status container is not enough, add helthcheck
 
     hardhatServer = new HardhatServer();
@@ -149,6 +157,14 @@ describe('Duplicates e2e tests', () => {
     await cutModulesKeys();
 
     await startContainerIfNotRunning(keysApiContainer);
+
+    const stream = await keysApiContainer.attach({
+      stream: true,
+      stdout: true,
+      stderr: true,
+    });
+
+    stream.pipe(process.stdout);
 
     // TODO: clarify name
     await waitForServiceToBeReady();
@@ -196,7 +212,7 @@ describe('Duplicates e2e tests', () => {
     lidoWC = await getLidoWC();
     const { signature } = await signDeposit(duplicatePK, duplicateSK, lidoWC);
     duplicateDepositSignature = signature;
-  }, 360_000);
+  }, 120_000);
 
   afterAll(async () => {
     await keysApiContainer.stop();
