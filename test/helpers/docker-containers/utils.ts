@@ -156,6 +156,7 @@ async function pullAndCreateKapiContainer(docker: Docker, networkName: string) {
       PortBindings: { '3000/tcp': [{ HostPort: '3000' }] },
       NetworkMode: networkName,
     },
+    ExtraHosts: ['host.docker.internal:host-gateway'],
   });
 
   console.log('Container e2e_keys_api created');
