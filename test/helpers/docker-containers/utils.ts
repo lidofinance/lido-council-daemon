@@ -107,12 +107,9 @@ async function pullAndCreatePsqlContainer(docker: Docker, networkName: string) {
       'POSTGRES_USER=postgres',
       'POSTGRES_PASSWORD=postgres',
     ],
-    ExposedPorts: { '5432/tcp': {} },
     HostConfig: {
       Binds: [`${pgdataPath}:/var/lib/postgresql/data:rw`],
-      // TODO: use config
-      PortBindings: { '5432/tcp': [{ HostPort: '5432' }] },
-      NetworkMode: networkName,
+      NetworkMode: 'host',
     },
   });
 
@@ -143,20 +140,17 @@ async function pullAndCreateKapiContainer(docker: Docker, networkName: string) {
       'NODE_ENV=production',
       'DB_NAME=node_operator_keys_service_db',
       'DB_PORT=5432',
-      'DB_HOST=e2e_pgdb',
+      'DB_HOST=127.0.0.1',
       'DB_USER=postgres',
       'DB_PASSWORD=postgres',
-      'PROVIDERS_URLS=http://host.docker.internal:8545',
+      'PROVIDERS_URLS=http://127.0.0.1:8545',
       'VALIDATOR_REGISTRY_ENABLE=false',
       `CHAIN_ID=17000`,
       'CL_API_URLS=',
     ],
-    ExposedPorts: { '3000/tcp': {} },
     HostConfig: {
-      PortBindings: { '3000/tcp': [{ HostPort: '3000' }] },
-      NetworkMode: networkName,
+      NetworkMode: 'host',
     },
-    ExtraHosts: ['host.docker.internal:host-gateway'],
   });
 
   console.log('Container e2e_keys_api created');
