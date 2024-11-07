@@ -88,7 +88,7 @@ export async function getContainer(docker: Docker, name: string) {
  */
 async function pullAndCreatePsqlContainer(docker: Docker, networkName: string) {
   const platform = process.env.DOCKER_PLATFORM;
-  const pgdataPath = path.resolve(`./.volumes/pgdata-${process.env.CHAIN_ID}/`);
+  const pgdataPath = path.resolve(`./.volumes/pgdata-17000/`);
 
   await pullImage(docker, PSQL_IMAGE, platform);
 
@@ -149,7 +149,7 @@ async function pullAndCreateKapiContainer(docker: Docker, networkName: string) {
       'DB_PASSWORD=postgres',
       'PROVIDERS_URLS=http://127.0.0.1:8545',
       'VALIDATOR_REGISTRY_ENABLE=false',
-      `CHAIN_ID=${process.env.CHAIN_ID || ''}`,
+      `CHAIN_ID=17000`,
       'CL_API_URLS=',
     ],
     ExposedPorts: { '3000/tcp': {} },
