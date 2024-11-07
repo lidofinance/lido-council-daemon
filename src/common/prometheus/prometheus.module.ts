@@ -16,6 +16,10 @@ import {
   PrometheusDuplicatedKeysProvider,
   PrometheusInvalidKeysProvider,
   PrometheusUnvetKeysCounterProvider,
+  PrometheusDataBusRPCErrorsCounterProvider,
+  PrometheusDataBusAccountBalanceProvider,
+  PrometheusDataBusRPCRequestsHistogramProvider,
+  PrometheusJobDurationProvider,
 } from './prometheus.provider';
 import { METRICS_PREFIX, METRICS_URL } from './prometheus.constants';
 
@@ -33,6 +37,9 @@ const providers = [
   PrometheusRPCRequestsHistogramProvider,
   PrometheusRPCErrorsCounterProvider,
   PrometheusAccountBalanceProvider,
+  PrometheusDataBusRPCRequestsHistogramProvider,
+  PrometheusDataBusRPCErrorsCounterProvider,
+  PrometheusDataBusAccountBalanceProvider,
   PrometheusBlockDataRequestsProvider,
   PrometheusBlockDataErrorsCounterProvider,
   PrometheusBuildInfoGaugeProvider,
@@ -44,6 +51,7 @@ const providers = [
   PrometheusDuplicatedKeysProvider,
   PrometheusInvalidKeysProvider,
   PrometheusUnvetKeysCounterProvider,
+  PrometheusJobDurationProvider,
 ];
 
 PrometheusModule.global = true;

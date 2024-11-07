@@ -42,6 +42,7 @@ export interface MessagePauseV2 extends MessageRequiredFields {
 
 export interface MessagePauseV3 extends MessageRequiredFields {
   blockNumber: number;
+  blockHash: string;
   signature: Signature;
 }
 

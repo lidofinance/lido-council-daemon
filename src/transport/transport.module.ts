@@ -13,12 +13,14 @@ import { WalletModule, WalletService } from '../wallet';
 import StompClient from './stomp/stomp.client';
 
 import StompTransport from './stomp/stomp.transport';
+import { DataBusTransport } from './data-bus/data-bus.transport';
+import { DataBusModule, DataBusService } from 'contracts/data-bus';
 
 export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
 
 @Module({
   exports: [TransportInterface],
-  imports: [WalletModule],
+  imports: [WalletModule, DataBusModule.register()],
   providers: [
     {
       provide: TransportInterface,
@@ -26,6 +28,7 @@ export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
         config: Configuration,
         logger: LoggerService,
         walletService: WalletService,
+        dataBusService: DataBusService,
       ) => {
         if (config.PUBSUB_SERVICE == 'kafka') {
           const kafka = new Kafka({
@@ -71,9 +74,18 @@ export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
           });
 
           return transport;
+        } else if (config.PUBSUB_SERVICE == 'evm-chain') {
+          const dataBus = new DataBusTransport(logger, dataBusService);
+          await dataBus.initialize();
+          return dataBus;
         }
       },
-      inject: [Configuration, WINSTON_MODULE_NEST_PROVIDER, WalletService],
+      inject: [
+        Configuration,
+        WINSTON_MODULE_NEST_PROVIDER,
+        WalletService,
+        DataBusService,
+      ],
     },
   ],
 })

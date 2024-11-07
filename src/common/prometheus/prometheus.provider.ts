@@ -20,6 +20,10 @@ import {
   METRIC_DUPLICATED_KEYS_TOTAL,
   METRIC_INVALID_KEYS_TOTAL,
   METRIC_UNVET_ATTEMPTS,
+  METRIC_DATA_BUS_ACCOUNT_BALANCE,
+  METRIC_DATA_BUS_RPC_REQUEST_DURATION,
+  METRIC_DATA_BUS_RPC_REQUEST_ERRORS,
+  METRIC_JOB_DURATION,
 } from './prometheus.constants';
 
 export const PrometheusTransportMessageCounterProvider = makeCounterProvider({
@@ -47,6 +51,24 @@ export const PrometheusRPCRequestsHistogramProvider = makeHistogramProvider({
 export const PrometheusRPCErrorsCounterProvider = makeCounterProvider({
   name: METRIC_RPC_REQUEST_ERRORS,
   help: 'Number of RPC requests errors',
+});
+
+export const PrometheusDataBusAccountBalanceProvider = makeGaugeProvider({
+  name: METRIC_DATA_BUS_ACCOUNT_BALANCE,
+  help: 'DataBus guardian account balance',
+  labelNames: ['chainId'] as const,
+});
+
+export const PrometheusDataBusRPCRequestsHistogramProvider =
+  makeHistogramProvider({
+    name: METRIC_DATA_BUS_RPC_REQUEST_DURATION,
+    help: 'DataBus RPC request duration',
+    buckets: [0.1, 0.2, 0.3, 0.6, 1, 1.5, 2, 5],
+  });
+
+export const PrometheusDataBusRPCErrorsCounterProvider = makeCounterProvider({
+  name: METRIC_DATA_BUS_RPC_REQUEST_ERRORS,
+  help: 'Number of DataBus RPC requests errors',
 });
 
 export const PrometheusAccountBalanceProvider = makeGaugeProvider({
@@ -98,7 +120,7 @@ export const PrometheusOperatorsKeysProvider = makeGaugeProvider({
 export const PrometheusKeysApiRequestsProvider = makeHistogramProvider({
   name: METRIC_KEYS_API_REQUEST_DURATION,
   help: 'Duration of data collection requests by keys-api',
-  buckets: [0.1, 0.2, 0.3, 0.6, 1, 1.5, 2, 5],
+  buckets: [0.1, 0.3, 1, 3, 5, 10, 30, 60, 100, 180, 300],
   labelNames: ['result', 'status'] as const,
 });
 
@@ -112,4 +134,11 @@ export const PrometheusInvalidKeysProvider = makeGaugeProvider({
   name: METRIC_INVALID_KEYS_TOTAL,
   help: 'Number of invalid keys',
   labelNames: ['stakingModuleId'] as const,
+});
+
+export const PrometheusJobDurationProvider = makeHistogramProvider({
+  name: METRIC_JOB_DURATION,
+  help: 'Job duration',
+  buckets: [0.1, 0.3, 1, 3, 5, 10, 30, 60, 100, 180, 300],
+  labelNames: ['jobName', 'stakingModuleId'] as const,
 });
