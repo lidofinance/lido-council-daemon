@@ -42,7 +42,7 @@ export async function waitForServiceToBeReady(): Promise<void> {
   let isServiceReady = false;
   while (!isServiceReady) {
     try {
-      const response = await axios.get('http://localhost:3000/v1/modules');
+      const response = await axios.get('http://127.0.0.1:3000/v1/modules');
       if (response.status === 200) {
         console.log('Kapi is ready');
         isServiceReady = true;
