@@ -51,9 +51,9 @@ import { cutModulesKeys } from './helpers/reduce-keys';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
-jest.setTimeout(40_000);
+jest.setTimeout(100_000);
 
-describe.skip('Front-run e2e tests', () => {
+describe('Front-run e2e tests', () => {
   let providerService: ProviderService;
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;
@@ -212,7 +212,7 @@ describe.skip('Front-run e2e tests', () => {
     await postgresContainer.stop();
   }, 40_000);
 
-  describe.skip('Front-run attempt', () => {
+  describe'Front-run attempt', () => {
     let snapshotId: number;
 
     beforeAll(async () => {
