@@ -1,5 +1,6 @@
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import * as net from 'net';
+import { exec } from 'child_process';
 
 export class HardhatServer {
   private hardhatProcess: ChildProcessWithoutNullStreams | null = null;
@@ -67,6 +68,8 @@ export class HardhatServer {
 
         const stillRunning = this.hardhatProcess && !this.hardhatProcess.killed;
 
+        await this.forceKillPortOnLinux(8545);
+
         if (stillRunning) {
           console.warn('Hardhat process did not terminate as expected.');
         } else {
@@ -107,6 +110,29 @@ export class HardhatServer {
         client.end();
         resolve();
       });
+    });
+  }
+
+  // Additional method to force-kill any process on a specific port (Linux-only)
+  private async forceKillPortOnLinux(port: number): Promise<void> {
+    if (process.platform !== 'linux') return;
+
+    return new Promise((resolve) => {
+      exec(
+        `lsof -i :${port} | awk 'NR!=1 {print $2}' | xargs kill -9`,
+        (error, stdout, stderr) => {
+          if (error) {
+            console.warn(
+              `Failed to force-kill processes on port ${port}: ${error}`,
+            );
+          } else if (stderr) {
+            console.warn(`Standard error from force-kill command: ${stderr}`);
+          } else {
+            console.log(`Successfully force-killed processes on port ${port}`);
+          }
+          resolve();
+        },
+      );
     });
   }
 }
