@@ -212,7 +212,7 @@ describe('Front-run e2e tests', () => {
     await postgresContainer.stop();
   }, 40_000);
 
-  describe'Front-run attempt', () => {
+  describe('Front-run attempt', () => {
     let snapshotId: number;
 
     beforeAll(async () => {
