@@ -1,4 +1,5 @@
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
+import net from 'net';
 
 export class HardhatServer {
   private hardhatProcess: ChildProcessWithoutNullStreams | null = null;
@@ -6,6 +7,7 @@ export class HardhatServer {
 
   // Method to start Hardhat and wait until it's ready
   public async start() {
+    await this.checkPort(8545);
     return new Promise<void>((resolve, reject) => {
       this.hardhatProcess = spawn('npx', [
         'hardhat',
@@ -69,6 +71,8 @@ export class HardhatServer {
           console.warn('Hardhat process did not terminate as expected.');
         } else {
           console.log('Hardhat process killed successfully.');
+
+          await this.checkPort(8545);
         }
       } catch (error) {
         console.error(
@@ -79,5 +83,34 @@ export class HardhatServer {
     } else {
       console.log('No Hardhat process to stop.');
     }
+  }
+
+  async checkPort(port: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const client = new net.Socket();
+
+      client.connect({ port }, () => {
+        console.log(`Port ${port} is open and accessible.`);
+        client.end();
+        resolve();
+      });
+
+      client.on('error', (err) => {
+        console.error(`Failed to connect to port ${port}:`, err);
+        reject(
+          new Error(
+            `Port ${port} is not accessible. Hardhat process may not have started correctly.`,
+          ),
+        );
+      });
+
+      client.on('timeout', () => {
+        console.warn(
+          `Timeout while checking port ${port}. Assuming it's closed.`,
+        );
+        client.end();
+        resolve();
+      });
+    });
   }
 }
