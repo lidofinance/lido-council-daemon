@@ -59,7 +59,7 @@ export class HardhatServer {
     if (this.hardhatProcess) {
       try {
         // Attempt to kill the process
-        this.hardhatProcess.kill();
+        this.hardhatProcess.kill('SIGTERM');
 
         await new Promise((resolve) => setTimeout(resolve, 100));
 
