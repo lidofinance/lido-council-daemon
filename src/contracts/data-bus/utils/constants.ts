@@ -1,3 +1,5 @@
+// TODO: get rid of constants
+// read from contract with use of helpers in test/
 export const SECURITY_MODULE_OWNER =
   '0xE92329EC7ddB11D25e25b3c21eeBf11f15eB325d';
 export const CHAIN_ID = 17000;

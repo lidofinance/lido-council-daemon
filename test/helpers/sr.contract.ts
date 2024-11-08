@@ -12,7 +12,7 @@ export const COMMUNITY_ONCHAIN_V1_TYPE = 'community-onchain-v1';
 dotenv.config();
 
 export function getLocator() {
-  const locatorAddress = '0x28FAB2059C713A7F9D8c86Db49f9bb0e96Af1ef8'; // process.env.LOCATOR_DEVNET_ADDRESS;
+  const locatorAddress = process.env.LOCATOR_DEVNET_ADDRESS;
   if (!locatorAddress) {
     // TODO: custom error
     throw Error();
