@@ -13,7 +13,7 @@ export async function waitForNewerBlock(block: number) {
       }
     } catch (err) {
       // console.log('Service not ready yet, waiting...');
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+      await new Promise((resolve) => setTimeout(resolve, 10_000));
     }
   }
 }
@@ -33,7 +33,7 @@ export async function waitForNewerOrEqBlock(block: number) {
       }
     } catch (err) {
       // console.log('Service not ready yet, waiting...');
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+      await new Promise((resolve) => setTimeout(resolve, 10_000));
     }
   }
 }
@@ -49,7 +49,7 @@ export async function waitForServiceToBeReady(): Promise<void> {
       }
     } catch (err: any) {
       console.log('Service not ready yet, waiting...', err.message);
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+      await new Promise((resolve) => setTimeout(resolve, 10_000));
     }
   }
 }

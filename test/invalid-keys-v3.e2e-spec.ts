@@ -40,9 +40,9 @@ import {
 } from './helpers/docker-containers/utils';
 import { cutModulesKeys } from './helpers/reduce-keys';
 
-jest.setTimeout(40_000);
+jest.setTimeout(100_000);
 
-describe.skip('Signature validation e2e test', () => {
+describe('Signature validation e2e test', () => {
   let providerService: ProviderService;
   let guardianService: GuardianService;
   let keyValidator: KeyValidatorInterface;
@@ -185,7 +185,7 @@ describe.skip('Signature validation e2e test', () => {
     firstOperator = activeOperators[0];
     // create duplicate
     await getLidoWC();
-  }, 360_000);
+  }, 120_000);
 
   afterAll(async () => {
     await keysApiContainer.stop();
