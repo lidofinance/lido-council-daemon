@@ -4,7 +4,7 @@ export async function waitForNewerBlock(block: number) {
   let isServiceReady = false;
   while (!isServiceReady) {
     try {
-      const response = await axios.get('http://localhost:3000/v1/status');
+      const response = await axios.get('http://127.0.0.1:3000/v1/status');
       if (response.data['elBlockSnapshot']['blockNumber'] > block) {
         console.log(
           `KAPI is ready! Got Block newer than ${block}, got ${response.data['elBlockSnapshot']['blockNumber']} `,
@@ -24,7 +24,7 @@ export async function waitForNewerOrEqBlock(block: number) {
   while (!isServiceReady) {
     try {
       // TODO: write url in the constant
-      const response = await axios.get('http://localhost:3000/v1/status');
+      const response = await axios.get('http://127.0.0.1:3000/v1/status');
       if (response.data['elBlockSnapshot']['blockNumber'] >= block) {
         console.log(
           `KAPI is ready! Got Block newer than ${block}, got ${response.data['elBlockSnapshot']['blockNumber']} `,

@@ -29,3 +29,5 @@ jobs:
         env:
           RPC_URL: ${{ secrets.RPC_URL }}
           WALLET_PRIVATE_KEY: ${{ secrets.WALLET_PRIVATE_KEY }}
+          KEYS_API_URL: http://127.0.0.1:3000
+          CHAIN_ID: 17000
