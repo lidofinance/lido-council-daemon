@@ -35,7 +35,7 @@ import {
 import { cutModulesKeys } from './helpers/reduce-keys';
 
 jest.mock('../src/transport/stomp/stomp.client.ts');
-jest.setTimeout(80_000);
+jest.setTimeout(100_000);
 
 describe('Duplicates e2e tests', () => {
   let providerService: ProviderService;
@@ -158,13 +158,13 @@ describe('Duplicates e2e tests', () => {
 
     await startContainerIfNotRunning(keysApiContainer);
 
-    // const stream = await keysApiContainer.attach({
-    //   stream: true,
-    //   stdout: true,
-    //   stderr: true,
-    // });
+    const stream = await keysApiContainer.attach({
+      stream: true,
+      stdout: true,
+      stderr: true,
+    });
 
-    // stream.pipe(process.stdout);
+    stream.pipe(process.stdout);
 
     // TODO: clarify name
     await waitForServiceToBeReady();
@@ -212,7 +212,7 @@ describe('Duplicates e2e tests', () => {
     lidoWC = await getLidoWC();
     const { signature } = await signDeposit(duplicatePK, duplicateSK, lidoWC);
     duplicateDepositSignature = signature;
-  }, 180_000);
+  }, 200_000);
 
   afterAll(async () => {
     await keysApiContainer.stop();

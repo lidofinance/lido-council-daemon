@@ -47,8 +47,8 @@ export async function waitForServiceToBeReady(): Promise<void> {
         console.log('Kapi is ready');
         isServiceReady = true;
       }
-    } catch (err) {
-      console.log('Service not ready yet, waiting...', err);
+    } catch (err: any) {
+      console.log('Service not ready yet, waiting...', err.message);
       await new Promise((resolve) => setTimeout(resolve, 5000));
     }
   }
