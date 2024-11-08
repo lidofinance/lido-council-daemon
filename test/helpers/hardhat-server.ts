@@ -1,5 +1,5 @@
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
-import net from 'net';
+import * as net from 'net';
 
 export class HardhatServer {
   private hardhatProcess: ChildProcessWithoutNullStreams | null = null;
@@ -87,24 +87,20 @@ export class HardhatServer {
 
   async checkPort(port: number): Promise<void> {
     return new Promise((resolve, reject) => {
-      const client = new net.Socket();
-
-      client.connect({ port }, () => {
-        console.log(`Port ${port} is open and accessible.`);
+      const client = net.createConnection({ port }, () => {
+        console.warn(
+          `Port ${port} is still open. Process may not have terminated correctly.`,
+        );
         client.end();
+        reject(new Error(`Port ${port} is still in use.`));
+      });
+
+      client.on('error', () => {
+        console.log(`Port ${port} is closed as expected.`);
         resolve();
       });
 
-      client.on('error', (err) => {
-        console.error(`Failed to connect to port ${port}:`, err);
-        reject(
-          new Error(
-            `Port ${port} is not accessible. Hardhat process may not have started correctly.`,
-          ),
-        );
-      });
-
-      client.on('timeout', () => {
+      client.setTimeout(1000, () => {
         console.warn(
           `Timeout while checking port ${port}. Assuming it's closed.`,
         );
