@@ -38,7 +38,7 @@ export async function waitForNewerOrEqBlock(block: number) {
   }
 }
 
-export async function waitForServiceToBeReady(): Promise<void> {
+export async function waitKAPIUpdateModulesKeys(): Promise<void> {
   let isServiceReady = false;
   while (!isServiceReady) {
     try {

@@ -29,21 +29,7 @@ export async function getSecurityOwner() {
 export async function getLidoWC() {
   const locator = getLocator();
   const lido = await locator.lido();
-
-  const abi = [
-    {
-      constant: true,
-      inputs: [],
-      name: 'getWithdrawalCredentials',
-      outputs: [{ name: '', type: 'bytes32' }],
-      payable: false,
-      stateMutability: 'view',
-      type: 'function',
-    },
-  ];
-
-  // TODO: use from council
-  const contract = new Contract(lido, abi, testSetupProvider);
+  const contract = LidoAbi__factory.connect(lido, testSetupProvider);
   return await contract.getWithdrawalCredentials();
 }
 
@@ -65,12 +51,14 @@ export async function addGuardians(params: {
   const wallet = createWallet(testSetupProvider);
 
   // Convert the ETH amount to wei
-  const amountInWei = ethers.utils.parseEther('5');
+  // const amountInWei = ethers.utils.parseEther('5');
 
-  await testSetupProvider.send('hardhat_setBalance', [
-    params.securityModuleOwner,
-    ethers.utils.hexlify(amountInWei),
-  ]);
+  // await testSetupProvider.send('hardhat_setBalance', [
+  //   params.securityModuleOwner,
+  //   ethers.utils.hexlify(amountInWei),
+  // ]);
+
+  await setBalance(params.securityModuleOwner, 5);
 
   const signer = testSetupProvider.getSigner(params.securityModuleOwner);
 
@@ -85,12 +73,14 @@ export async function setGuardianBalance(eth: string) {
   const wallet = createWallet(testSetupProvider);
 
   // Convert the ETH amount to wei
-  const amountInWei = ethers.utils.parseEther(eth);
+  // const amountInWei = ethers.utils.parseEther(eth);
 
-  await testSetupProvider.send('hardhat_setBalance', [
-    wallet.address,
-    ethers.utils.hexlify(amountInWei),
-  ]);
+  // await testSetupProvider.send('hardhat_setBalance', [
+  //   wallet.address,
+  //   ethers.utils.hexlify(amountInWei),
+  // ]);
+
+  await setBalance(wallet.address, Number(eth));
 }
 
 export async function deposit(moduleId: number) {
@@ -124,15 +114,6 @@ export async function deposit(moduleId: number) {
     ethers.utils.parseEther('120000'), // _maxStakeLimit
     ethers.utils.parseEther('120000'), // _stakeLimitIncreasePerBlock
   );
-
-  // const stakingLimitInfo = await lido.getStakeLimitFullInfo();
-  // console.log(
-  //   'currentStakeLimit =',
-  //   Number(stakingLimitInfo.currentStakeLimit),
-  // );
-  // console.log('maxStakeLimit =', Number(stakingLimitInfo.maxStakeLimit));
-
-  // lets increase staking
 
   const unfinalizedStETHWei = await withdrawalQueue.unfinalizedStETH();
   const depositableEtherWei = await lido.getBufferedEther();

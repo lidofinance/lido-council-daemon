@@ -30,11 +30,11 @@ import {
   setBalance,
   testSetupProvider,
 } from './helpers/provider';
-import { waitForNewerBlock, waitForServiceToBeReady } from './helpers/kapi';
+import { waitForNewerBlock, waitKAPIUpdateModulesKeys } from './helpers/kapi';
 import { CuratedOnchainV1 } from './helpers/nor.contract';
 import { truncateTables } from './helpers/pg';
 import { packNodeOperatorIds } from 'guardian/unvetting/bytes';
-import { getStakingModules } from './helpers/sr.contract';
+import { getStakingModulesInfo } from './helpers/sr.contract';
 import { ethers } from 'ethers';
 import {
   setupContainers,
@@ -145,7 +145,6 @@ describe('Guardian balance ', () => {
 
     await startContainerIfNotRunning(postgresContainer);
 
-    // TODO: check running status container is not enough, add helthcheck
     hardhatServer = new HardhatServer();
     await hardhatServer.start();
 
@@ -154,7 +153,7 @@ describe('Guardian balance ', () => {
 
     await startContainerIfNotRunning(keysApiContainer);
 
-    await waitForServiceToBeReady();
+    await waitKAPIUpdateModulesKeys();
 
     const securityModule = await getSecurityContract();
     const securityModuleOwner = await getSecurityOwner();
@@ -171,14 +170,9 @@ describe('Guardian balance ', () => {
     guardianIndex = newGuardians.length - 1;
     expect(newGuardians.length).toEqual(oldGuardians.length + 1);
 
-    const srModules = await getStakingModules();
-    stakingModulesAddresses = srModules.map(
-      (stakingModule) => stakingModule.stakingModuleAddress,
-    );
+    ({ stakingModulesAddresses, curatedModuleAddress } =
+      await getStakingModulesInfo());
 
-    curatedModuleAddress = srModules.find(
-      (srModule) => srModule.id === 1,
-    ).stakingModuleAddress;
     stakingModulesCount = stakingModulesAddresses.length;
 
     // get two different active operators
@@ -202,7 +196,7 @@ describe('Guardian balance ', () => {
 
     beforeAll(async () => {
       snapshotId = await testSetupProvider.send('evm_snapshot', []);
-      await waitForServiceToBeReady();
+      await waitKAPIUpdateModulesKeys();
 
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);
@@ -212,10 +206,7 @@ describe('Guardian balance ', () => {
     afterAll(async () => {
       jest.clearAllMocks();
       await testSetupProvider.send('evm_revert', [snapshotId]);
-      // await keysApiContainer.stop();
-      // await hardhatServer.stop();
       await truncateTables();
-      // await postgresContainer.stop();
 
       await levelDBService.deleteCache();
       await signKeyLevelDBService.deleteCache();
@@ -302,7 +293,6 @@ describe('Guardian balance ', () => {
       const randomSign =
         '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e';
 
-      // TODO: fix pk name
       await nor.addSigningKey(
         firstOperator.index,
         1,

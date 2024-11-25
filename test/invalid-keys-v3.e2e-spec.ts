@@ -28,11 +28,11 @@ import {
 import { BlsService } from 'bls';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
 import { accountImpersonate, testSetupProvider } from './helpers/provider';
-import { waitForNewerBlock, waitForServiceToBeReady } from './helpers/kapi';
+import { waitForNewerBlock, waitKAPIUpdateModulesKeys } from './helpers/kapi';
 import { CuratedOnchainV1 } from './helpers/nor.contract';
 import { truncateTables } from './helpers/pg';
 import { packNodeOperatorIds } from 'guardian/unvetting/bytes';
-import { getStakingModules } from './helpers/sr.contract';
+import { getStakingModulesInfo } from './helpers/sr.contract';
 import { HardhatServer } from './helpers/hardhat-server';
 import {
   setupContainers,
@@ -138,9 +138,6 @@ describe('Signature validation e2e test', () => {
     postgresContainer = psql;
 
     await startContainerIfNotRunning(postgresContainer);
-
-    // TODO: check running status container is not enough, add helthcheck
-
     hardhatServer = new HardhatServer();
     await hardhatServer.start();
 
@@ -149,9 +146,8 @@ describe('Signature validation e2e test', () => {
 
     await startContainerIfNotRunning(keysApiContainer);
 
-    await waitForServiceToBeReady();
+    await waitKAPIUpdateModulesKeys();
 
-    // TODO: delete
     const securityModule = await getSecurityContract();
     const securityModuleOwner = await getSecurityOwner();
 
@@ -169,14 +165,8 @@ describe('Signature validation e2e test', () => {
     guardianIndex = newGuardians.length - 1;
     expect(newGuardians.length).toEqual(oldGuardians.length + 1);
 
-    const srModules = await getStakingModules();
-    stakingModulesAddresses = srModules.map(
-      (stakingModule) => stakingModule.stakingModuleAddress,
-    );
-
-    curatedModuleAddress = srModules.find(
-      (srModule) => srModule.id === 1,
-    ).stakingModuleAddress;
+    ({ stakingModulesAddresses, curatedModuleAddress } =
+      await getStakingModulesInfo());
     stakingModulesCount = stakingModulesAddresses.length;
 
     // get two different active operators
@@ -198,7 +188,7 @@ describe('Signature validation e2e test', () => {
 
     beforeAll(async () => {
       snapshotId = await testSetupProvider.send('evm_snapshot', []);
-      await waitForServiceToBeReady();
+      await waitKAPIUpdateModulesKeys();
 
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);

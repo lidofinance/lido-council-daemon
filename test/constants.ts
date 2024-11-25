@@ -12,7 +12,8 @@ export const SLEEP_FOR_RESULT = 3_000;
 export const BAD_WC =
   '0x010000000000000000000000b9d7934878b5fb9610b3fe8a5e441e8fad7e291f';
 
-export const GANACHE_PORT = 8545;
+export const TEST_SERVER_PORT = 8545;
+export const TEST_SERVER_URL = 'http://127.0.0.1:8545';
 
 // BLS key for the validator
 export const BLS_PRIV_KEY =

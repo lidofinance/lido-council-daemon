@@ -7,16 +7,16 @@ import { RepositoryModule } from 'contracts/repository';
 import { SecurityModule } from 'contracts/security';
 import { GuardianModule } from 'guardian';
 import { KeysApiModule } from 'keys-api/keys-api.module';
-import { GanacheProviderModule } from 'provider';
 import { WalletModule } from 'wallet';
 import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
 import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { TestProviderModule } from 'provider';
 
 export const setupTestingModule = async () => {
   const moduleRef = await Test.createTestingModule({
     imports: [
-      GanacheProviderModule.forRoot(),
+      TestProviderModule.forRoot(),
       ConfigModule.forRoot(),
       PrometheusModule,
       LoggerModule,
@@ -39,7 +39,6 @@ export const setupTestingModule = async () => {
   return moduleRef;
 };
 
-// TODO: move to tests
 export const initLevelDB = async (
   levelDBService: DepositsRegistryStoreService,
   signKeyLevelDBService: SignKeyLevelDBService,

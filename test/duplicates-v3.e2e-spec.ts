@@ -20,11 +20,11 @@ import {
 import { BlsService } from 'bls';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
 import { accountImpersonate, testSetupProvider } from './helpers/provider';
-import { waitForNewerBlock, waitForServiceToBeReady } from './helpers/kapi';
+import { waitForNewerBlock, waitKAPIUpdateModulesKeys } from './helpers/kapi';
 import { truncateTables } from './helpers/pg';
 import { CuratedOnchainV1 } from './helpers/nor.contract';
 import { toHexString } from 'contracts/deposits-registry/crypto';
-import { getStakingModules } from './helpers/sr.contract';
+import { getStakingModulesInfo } from './helpers/sr.contract';
 import { SecretKey } from '@chainsafe/blst';
 import { packNodeOperatorIds } from 'guardian/unvetting/bytes';
 import { HardhatServer } from './helpers/hardhat-server';
@@ -118,8 +118,8 @@ describe('Duplicates e2e tests', () => {
   let curatedModuleAddress: string;
   let sdvtModuleAddress: string;
   let stakingModulesCount: number;
-  let firstOperator: any;
-  let secondOperator: any;
+  let curatedFirstOperator: any;
+  let curatedSecondOperator: any;
   let sdvtOperator: any;
   let nor: CuratedOnchainV1;
   let sdvt: CuratedOnchainV1;
@@ -148,16 +148,7 @@ describe('Duplicates e2e tests', () => {
 
     await startContainerIfNotRunning(keysApiContainer);
 
-    const stream = await keysApiContainer.attach({
-      stream: true,
-      stdout: true,
-      stderr: true,
-    });
-
-    stream.pipe(process.stdout);
-
-    // TODO: clarify name
-    await waitForServiceToBeReady();
+    await waitKAPIUpdateModulesKeys();
 
     const securityModule = await getSecurityContract();
     const securityModuleOwner = await getSecurityOwner();
@@ -168,22 +159,12 @@ describe('Duplicates e2e tests', () => {
       securityModuleOwner,
     });
     const newGuardians = await getGuardians();
-    // TODO: read from contract
+    // TODO: read from contract by address
     guardianIndex = newGuardians.length - 1;
     expect(newGuardians.length).toEqual(oldGuardians.length + 1);
 
-    const srModules = await getStakingModules();
-    stakingModulesAddresses = srModules.map(
-      (stakingModule) => stakingModule.stakingModuleAddress,
-    );
-
-    curatedModuleAddress = srModules.find(
-      (srModule) => srModule.id === 1,
-    ).stakingModuleAddress;
-
-    sdvtModuleAddress = srModules.find(
-      (srModule) => srModule.id === 2,
-    ).stakingModuleAddress;
+    ({ stakingModulesAddresses, curatedModuleAddress, sdvtModuleAddress } =
+      await getStakingModulesInfo());
 
     stakingModulesCount = stakingModulesAddresses.length;
 
@@ -191,11 +172,10 @@ describe('Duplicates e2e tests', () => {
     nor = new CuratedOnchainV1(curatedModuleAddress);
     sdvt = new CuratedOnchainV1(sdvtModuleAddress);
 
-    const activeOperators = await nor.getActiveOperators();
+    const curatedActiveOperators = await nor.getActiveOperators();
     const sdvtActiveOperators = await sdvt.getActiveOperators();
-    // TODO: rename to nor first and second operators
-    firstOperator = activeOperators[0];
-    secondOperator = activeOperators[1];
+    curatedFirstOperator = curatedActiveOperators[0];
+    curatedSecondOperator = curatedActiveOperators[1];
     sdvtOperator = sdvtActiveOperators[0];
 
     // create duplicate
@@ -215,7 +195,7 @@ describe('Duplicates e2e tests', () => {
 
     beforeAll(async () => {
       snapshotId = await testSetupProvider.send('evm_snapshot', []);
-      await waitForServiceToBeReady();
+      await waitKAPIUpdateModulesKeys();
 
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);
@@ -225,10 +205,7 @@ describe('Duplicates e2e tests', () => {
     afterAll(async () => {
       jest.clearAllMocks();
       await testSetupProvider.send('evm_revert', [snapshotId]);
-      // await keysApiContainer.stop();
-      // await hardhatServer.stop();
       await truncateTables();
-      // await postgresContainer.stop();
 
       await levelDBService.deleteCache();
       await signKeyLevelDBService.deleteCache();
@@ -262,11 +239,11 @@ describe('Duplicates e2e tests', () => {
       const currentBlock = await providerService.provider.getBlock('latest');
 
       await nor.addSigningKey(
-        firstOperator.index,
+        curatedFirstOperator.index,
         1,
         toHexString(duplicatePK),
         toHexString(duplicateDepositSignature),
-        firstOperator.rewardAddress,
+        curatedFirstOperator.rewardAddress,
       );
 
       await waitForNewerBlock(currentBlock.number);
@@ -276,11 +253,11 @@ describe('Duplicates e2e tests', () => {
       const currentBlock = await providerService.provider.getBlock('latest');
 
       await nor.addSigningKey(
-        secondOperator.index,
+        curatedSecondOperator.index,
         1,
         toHexString(duplicatePK),
         toHexString(duplicateDepositSignature),
-        secondOperator.rewardAddress,
+        curatedSecondOperator.rewardAddress,
       );
 
       await waitForNewerBlock(currentBlock.number);
@@ -302,9 +279,8 @@ describe('Duplicates e2e tests', () => {
 
       // keys total amount was 3, added key with wrong sign, now it is 4 keys
       // increase limit to 4
-      // TODO: maybe move to constant staking limit
       // as modules have the same amount of keys
-      await nor.setStakingLimit(firstOperator.index, 4);
+      await nor.setStakingLimit(curatedFirstOperator.index, 4);
       await waitForNewerBlock(currentBlock.number);
     });
 
@@ -325,17 +301,17 @@ describe('Duplicates e2e tests', () => {
       const currentBlock = await providerService.provider.getBlock('latest');
       // keys total amount was 3, added key with wrong sign, now it is 4 keys
       // increase limit to 4
-      await nor.setStakingLimit(secondOperator.index, 4);
+      await nor.setStakingLimit(curatedSecondOperator.index, 4);
       await waitForNewerBlock(currentBlock.number);
     });
 
     test('Check staking limit for nor operator before unvetting', async () => {
-      const op = await nor.getOperator(firstOperator.index, false);
+      const op = await nor.getOperator(curatedFirstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
     });
 
     test('Check staking limit for sdvt operator before unvetting', async () => {
-      const op = await nor.getOperator(secondOperator.index, false);
+      const op = await nor.getOperator(curatedSecondOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
     });
 
@@ -354,7 +330,7 @@ describe('Duplicates e2e tests', () => {
           guardianAddress: walletAddress,
           guardianIndex: guardianIndex,
           stakingModuleId: 1,
-          operatorIds: packNodeOperatorIds([secondOperator.index]),
+          operatorIds: packNodeOperatorIds([curatedSecondOperator.index]),
           vettedKeysByOperator: '0x00000000000000000000000000000003',
         }),
       );
@@ -365,7 +341,7 @@ describe('Duplicates e2e tests', () => {
         currentBlock.number,
         expect.anything(),
         1,
-        packNodeOperatorIds([secondOperator.index]),
+        packNodeOperatorIds([curatedSecondOperator.index]),
         '0x00000000000000000000000000000003',
         expect.any(Object),
       );
@@ -379,12 +355,12 @@ describe('Duplicates e2e tests', () => {
     });
 
     test('Check staking limit for nor operator after unvetting', async () => {
-      const op = await nor.getOperator(firstOperator.index, false);
+      const op = await nor.getOperator(curatedFirstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
     });
 
     test('Check staking limit for sdvt operator after unvetting', async () => {
-      const op = await nor.getOperator(secondOperator.index, false);
+      const op = await nor.getOperator(curatedSecondOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(3);
     });
   });
@@ -394,7 +370,7 @@ describe('Duplicates e2e tests', () => {
 
     beforeAll(async () => {
       snapshotId = await testSetupProvider.send('evm_snapshot', []);
-      await waitForServiceToBeReady();
+      await waitKAPIUpdateModulesKeys();
 
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);
@@ -435,8 +411,8 @@ describe('Duplicates e2e tests', () => {
 
     test('Add unused unvetted key for the first operator of the first module', async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
-      // TODO: create new key instead
-      // it is important to fix this todo to run on new chain tests
+      // TODO: better to create new key, deposit it and than create duplicaate on it
+      // as 0 key of operator is not necessary should be deposited
       const {
         data: { keys },
       } = await keysApiService.getModuleKeys(1, 0);
@@ -445,11 +421,11 @@ describe('Duplicates e2e tests', () => {
       const depositSignature = keys[0].depositSignature;
 
       await nor.addSigningKey(
-        firstOperator.index,
+        curatedFirstOperator.index,
         1,
         publicKey,
         depositSignature,
-        firstOperator.rewardAddress,
+        curatedFirstOperator.rewardAddress,
       );
 
       await waitForNewerBlock(currentBlock.number);
@@ -471,12 +447,12 @@ describe('Duplicates e2e tests', () => {
 
       // keys total amount was 3, added key with wrong sign, now it is 4 keys
       // increase limit to 4
-      await nor.setStakingLimit(firstOperator.index, 4);
+      await nor.setStakingLimit(curatedFirstOperator.index, 4);
       await waitForNewerBlock(currentBlock.number);
     });
 
     test('Check staking limit for nor operator', async () => {
-      const op = await nor.getOperator(firstOperator.index, false);
+      const op = await nor.getOperator(curatedFirstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
     });
 
@@ -494,7 +470,7 @@ describe('Duplicates e2e tests', () => {
           guardianAddress: walletAddress,
           guardianIndex: guardianIndex,
           stakingModuleId: 1,
-          operatorIds: packNodeOperatorIds([firstOperator.index]),
+          operatorIds: packNodeOperatorIds([curatedFirstOperator.index]),
           vettedKeysByOperator: '0x00000000000000000000000000000003',
         }),
       );
@@ -505,19 +481,18 @@ describe('Duplicates e2e tests', () => {
         currentBlock.number,
         expect.anything(),
         1,
-        packNodeOperatorIds([firstOperator.index]),
+        packNodeOperatorIds([curatedFirstOperator.index]),
         '0x00000000000000000000000000000003',
         expect.any(Object),
       );
     });
 
     test('no deposits for module', async () => {
-      // 8 prev + 3 new
       expect(sendDepositMessage).toBeCalledTimes(2 * stakingModulesCount - 1);
     });
 
     test('Check staking limit for nor operator after unvetting', async () => {
-      const op = await nor.getOperator(firstOperator.index, false);
+      const op = await nor.getOperator(curatedFirstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(3);
     });
   });
@@ -527,7 +502,7 @@ describe('Duplicates e2e tests', () => {
 
     beforeAll(async () => {
       snapshotId = await testSetupProvider.send('evm_snapshot', []);
-      await waitForServiceToBeReady();
+      await waitKAPIUpdateModulesKeys();
 
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);
@@ -537,10 +512,7 @@ describe('Duplicates e2e tests', () => {
     afterAll(async () => {
       jest.clearAllMocks();
       await testSetupProvider.send('evm_revert', [snapshotId]);
-      // await keysApiContainer.stop();
-      // await hardhatServer.stop();
       await truncateTables();
-      // await postgresContainer.stop();
 
       await levelDBService.deleteCache();
       await signKeyLevelDBService.deleteCache();
@@ -573,19 +545,19 @@ describe('Duplicates e2e tests', () => {
       const currentBlock = await providerService.provider.getBlock('latest');
 
       await nor.addSigningKey(
-        firstOperator.index,
+        curatedFirstOperator.index,
         1,
         toHexString(duplicatePK),
         toHexString(duplicateDepositSignature),
-        firstOperator.rewardAddress,
+        curatedFirstOperator.rewardAddress,
       );
 
       await nor.addSigningKey(
-        firstOperator.index,
+        curatedFirstOperator.index,
         1,
         toHexString(duplicatePK),
         toHexString(duplicateDepositSignature),
-        firstOperator.rewardAddress,
+        curatedFirstOperator.rewardAddress,
       );
 
       await waitForNewerBlock(currentBlock.number);
@@ -606,12 +578,12 @@ describe('Duplicates e2e tests', () => {
       const currentBlock = await providerService.provider.getBlock('latest');
       // keys total amount was 3, added key with wrong sign, now it is 4 keys
       // increase limit to 5
-      await nor.setStakingLimit(firstOperator.index, 5);
+      await nor.setStakingLimit(curatedFirstOperator.index, 5);
       await waitForNewerBlock(currentBlock.number);
     });
 
     test('Check staking limit for nor operator after unvetting', async () => {
-      const op = await nor.getOperator(firstOperator.index, false);
+      const op = await nor.getOperator(curatedFirstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(5);
     });
 
@@ -631,7 +603,7 @@ describe('Duplicates e2e tests', () => {
           guardianAddress: walletAddress,
           guardianIndex: guardianIndex,
           stakingModuleId: 1,
-          operatorIds: packNodeOperatorIds([firstOperator.index]),
+          operatorIds: packNodeOperatorIds([curatedFirstOperator.index]),
           vettedKeysByOperator: '0x00000000000000000000000000000004',
         }),
       );
@@ -641,19 +613,18 @@ describe('Duplicates e2e tests', () => {
         currentBlock.number,
         expect.anything(),
         1,
-        packNodeOperatorIds([firstOperator.index]),
+        packNodeOperatorIds([curatedFirstOperator.index]),
         '0x00000000000000000000000000000004',
         expect.any(Object),
       );
     });
 
     test('No deposits for module', async () => {
-      // 4 prev + 3 new
       expect(sendDepositMessage).toBeCalledTimes(2 * stakingModulesCount - 1);
     });
 
     test('Check staking limit for nor operator after unvetting', async () => {
-      const op = await nor.getOperator(firstOperator.index, false);
+      const op = await nor.getOperator(curatedFirstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
     });
   });
@@ -663,7 +634,7 @@ describe('Duplicates e2e tests', () => {
 
     beforeAll(async () => {
       snapshotId = await testSetupProvider.send('evm_snapshot', []);
-      await waitForServiceToBeReady();
+      await waitKAPIUpdateModulesKeys();
 
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);
@@ -673,10 +644,7 @@ describe('Duplicates e2e tests', () => {
     afterAll(async () => {
       jest.clearAllMocks();
       await testSetupProvider.send('evm_revert', [snapshotId]);
-      // await keysApiContainer.stop();
-      // await hardhatServer.stop();
       await truncateTables();
-      // await postgresContainer.stop();
 
       await levelDBService.deleteCache();
       await signKeyLevelDBService.deleteCache();
@@ -708,11 +676,11 @@ describe('Duplicates e2e tests', () => {
     test('add unused unvetted key to the first operator of the NOR contract', async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
       await nor.addSigningKey(
-        firstOperator.index,
+        curatedFirstOperator.index,
         1,
         toHexString(duplicatePK),
         toHexString(duplicateDepositSignature),
-        firstOperator.rewardAddress,
+        curatedFirstOperator.rewardAddress,
       );
 
       await waitForNewerBlock(currentBlock.number);
@@ -748,7 +716,7 @@ describe('Duplicates e2e tests', () => {
 
       // keys total amount was 3, added key with wrong sign, now it is 4 keys
       // increase limit to 4
-      await nor.setStakingLimit(firstOperator.index, 4);
+      await nor.setStakingLimit(curatedFirstOperator.index, 4);
       await waitForNewerBlock(currentBlock.number);
     });
 
@@ -761,7 +729,6 @@ describe('Duplicates e2e tests', () => {
     });
 
     test('deposits work', async () => {
-      // 4 prev + 4 new
       expect(sendDepositMessage).toBeCalledTimes(2 * stakingModulesCount);
     });
 
@@ -774,7 +741,7 @@ describe('Duplicates e2e tests', () => {
     });
 
     test('Check staking limit for nor operator before unvetting', async () => {
-      const op = await nor.getOperator(firstOperator.index, false);
+      const op = await nor.getOperator(curatedFirstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
     });
 
@@ -816,12 +783,11 @@ describe('Duplicates e2e tests', () => {
     });
 
     test('no deposits for module', async () => {
-      // 8 prev + 3 new
       expect(sendDepositMessage).toBeCalledTimes(3 * stakingModulesCount - 1);
     });
 
     test('Check staking limit for nor operator after unvetting', async () => {
-      const op = await nor.getOperator(firstOperator.index, false);
+      const op = await nor.getOperator(curatedFirstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
     });
 
@@ -836,7 +802,7 @@ describe('Duplicates e2e tests', () => {
 
     beforeAll(async () => {
       snapshotId = await testSetupProvider.send('evm_snapshot', []);
-      await waitForServiceToBeReady();
+      await waitKAPIUpdateModulesKeys();
 
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);
@@ -846,11 +812,7 @@ describe('Duplicates e2e tests', () => {
     afterAll(async () => {
       jest.clearAllMocks();
       await testSetupProvider.send('evm_revert', [snapshotId]);
-      // await keysApiContainer.stop();
-      // await hardhatServer.stop();
       await truncateTables();
-      // await postgresContainer.stop();
-
       await levelDBService.deleteCache();
       await signKeyLevelDBService.deleteCache();
       await levelDBService.close();
@@ -884,18 +846,18 @@ describe('Duplicates e2e tests', () => {
       // add two keys
       // key with smaller index will be considered across one operator as original
       await nor.addSigningKey(
-        firstOperator.index,
+        curatedFirstOperator.index,
         1,
         toHexString(duplicatePK),
         toHexString(duplicateDepositSignature),
-        firstOperator.rewardAddress,
+        curatedFirstOperator.rewardAddress,
       );
       await nor.addSigningKey(
-        firstOperator.index,
+        curatedFirstOperator.index,
         1,
         toHexString(duplicatePK),
         toHexString(duplicateDepositSignature),
-        firstOperator.rewardAddress,
+        curatedFirstOperator.rewardAddress,
       );
 
       await waitForNewerBlock(currentBlock.number);
@@ -931,7 +893,7 @@ describe('Duplicates e2e tests', () => {
 
       // keys total amount was 3, added key with wrong sign, now it is 4 keys
       // increase limit to 4
-      await nor.setStakingLimit(firstOperator.index, 5);
+      await nor.setStakingLimit(curatedFirstOperator.index, 5);
       await waitForNewerBlock(currentBlock.number);
     });
 
@@ -944,7 +906,7 @@ describe('Duplicates e2e tests', () => {
     });
 
     test('Check staking limit for nor operator before unvetting', async () => {
-      const op = await nor.getOperator(firstOperator.index, false);
+      const op = await nor.getOperator(curatedFirstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(5);
     });
 
@@ -968,7 +930,7 @@ describe('Duplicates e2e tests', () => {
           guardianAddress: walletAddress,
           guardianIndex,
           stakingModuleId: 1,
-          operatorIds: packNodeOperatorIds([firstOperator.index]),
+          operatorIds: packNodeOperatorIds([curatedFirstOperator.index]),
           vettedKeysByOperator: '0x00000000000000000000000000000004',
         }),
       );
@@ -979,7 +941,7 @@ describe('Duplicates e2e tests', () => {
         currentBlock.number,
         expect.anything(),
         1,
-        packNodeOperatorIds([firstOperator.index]),
+        packNodeOperatorIds([curatedFirstOperator.index]),
         '0x00000000000000000000000000000004',
         expect.any(Object),
       );
@@ -990,7 +952,7 @@ describe('Duplicates e2e tests', () => {
     });
 
     test('Check staking limit for nor operator after unvetting', async () => {
-      const op = await nor.getOperator(firstOperator.index, false);
+      const op = await nor.getOperator(curatedFirstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
     });
 

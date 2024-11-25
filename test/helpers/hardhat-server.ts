@@ -1,5 +1,4 @@
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
-// import * as net from 'net';
 import { exec } from 'child_process';
 
 export class HardhatServer {
@@ -29,7 +28,6 @@ export class HardhatServer {
       // Listen for stdout to detect when Hardhat is ready
       this.hardhatProcess.stdout.on('data', (data) => {
         const output = data.toString();
-        // console.log(`Hardhat stdout: ${output}`);
 
         // Check for the Hardhat ready message
         if (output.includes('Started HTTP and WebSocket JSON-RPC server')) {
@@ -61,17 +59,7 @@ export class HardhatServer {
   public async stop() {
     if (this.hardhatProcess) {
       try {
-        // const stillRunning = this.hardhatProcess && !this.hardhatProcess.killed;
-
         await this.forceKillPort(this.hardhatProcess, 8545);
-
-        // if (stillRunning) {
-        //   console.warn('Hardhat process did not terminate as expected.');
-        // } else {
-        //   console.log('Hardhat process killed successfully.');
-
-        //   await this.checkPort(8545);
-        // }
       } catch (error) {
         console.error(
           'Error occurred while stopping the Hardhat process:',
@@ -82,31 +70,6 @@ export class HardhatServer {
       console.log('No Hardhat process to stop.');
     }
   }
-
-  // async checkPort(port: number): Promise<void> {
-  //   return new Promise((resolve, reject) => {
-  //     const client = net.createConnection({ port }, () => {
-  //       console.warn(
-  //         `Port ${port} is still open. Process may not have terminated correctly.`,
-  //       );
-  //       client.end();
-  //       reject(new Error(`Port ${port} is still in use.`));
-  //     });
-
-  //     client.on('error', () => {
-  //       console.log(`Port ${port} is closed as expected.`);
-  //       resolve();
-  //     });
-
-  //     client.setTimeout(1000, () => {
-  //       console.warn(
-  //         `Timeout while checking port ${port}. Assuming it's closed.`,
-  //       );
-  //       client.end();
-  //       resolve();
-  //     });
-  //   });
-  // }
 
   // Additional method to force-kill any process on a specific port (Linux-only)
   private async forceKillPort(hardhatProcess, port: number): Promise<void> {

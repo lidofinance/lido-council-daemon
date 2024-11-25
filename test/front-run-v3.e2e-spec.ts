@@ -35,12 +35,12 @@ import { CuratedOnchainV1 } from './helpers/nor.contract';
 import {
   waitForNewerBlock,
   waitForNewerOrEqBlock,
-  waitForServiceToBeReady,
+  waitKAPIUpdateModulesKeys,
 } from './helpers/kapi';
 import { truncateTables } from './helpers/pg';
 import { accountImpersonate, testSetupProvider } from './helpers/provider';
 import { SecretKey } from '@chainsafe/blst';
-import { getStakingModules } from './helpers/sr.contract';
+import { getStakingModulesInfo } from './helpers/sr.contract';
 import { packNodeOperatorIds } from 'guardian/unvetting/bytes';
 import {
   setupContainers,
@@ -154,8 +154,6 @@ describe('Front-run e2e tests', () => {
 
     await startContainerIfNotRunning(postgresContainer);
 
-    // TODO: check running status container is not enough, add helthcheck
-
     hardhatServer = new HardhatServer();
     await hardhatServer.start();
 
@@ -164,7 +162,7 @@ describe('Front-run e2e tests', () => {
 
     await startContainerIfNotRunning(keysApiContainer);
 
-    await waitForServiceToBeReady();
+    await waitKAPIUpdateModulesKeys();
 
     const securityModule = await getSecurityContract();
     const securityModuleOwner = await getSecurityOwner();
@@ -181,14 +179,8 @@ describe('Front-run e2e tests', () => {
     guardianIndex = newGuardians.length - 1;
     expect(newGuardians.length).toEqual(oldGuardians.length + 1);
 
-    const srModules = await getStakingModules();
-    stakingModulesAddresses = srModules.map(
-      (stakingModule) => stakingModule.stakingModuleAddress,
-    );
-
-    curatedModuleAddress = srModules.find(
-      (srModule) => srModule.id === 1,
-    ).stakingModuleAddress;
+    ({ stakingModulesAddresses, curatedModuleAddress } =
+      await getStakingModulesInfo());
     stakingModulesCount = stakingModulesAddresses.length;
 
     // get two different active operators
@@ -217,7 +209,7 @@ describe('Front-run e2e tests', () => {
 
     beforeAll(async () => {
       snapshotId = await testSetupProvider.send('evm_snapshot', []);
-      await waitForServiceToBeReady();
+      await waitKAPIUpdateModulesKeys();
 
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);
@@ -227,10 +219,7 @@ describe('Front-run e2e tests', () => {
     afterAll(async () => {
       jest.clearAllMocks();
       await testSetupProvider.send('evm_revert', [snapshotId]);
-      // await keysApiContainer.stop();
-      // await hardhatServer.stop();
       await truncateTables();
-      // await postgresContainer.stop();
 
       await levelDBService.deleteCache();
       await signKeyLevelDBService.deleteCache();
@@ -360,7 +349,7 @@ describe('Front-run e2e tests', () => {
 
     beforeAll(async () => {
       snapshotId = await testSetupProvider.send('evm_snapshot', []);
-      await waitForServiceToBeReady();
+      await waitKAPIUpdateModulesKeys();
 
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);
@@ -471,7 +460,7 @@ describe('Front-run e2e tests', () => {
 
     beforeAll(async () => {
       snapshotId = await testSetupProvider.send('evm_snapshot', []);
-      await waitForServiceToBeReady();
+      await waitKAPIUpdateModulesKeys();
 
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);
@@ -590,7 +579,7 @@ describe('Front-run e2e tests', () => {
 
     beforeAll(async () => {
       snapshotId = await testSetupProvider.send('evm_snapshot', []);
-      await waitForServiceToBeReady();
+      await waitKAPIUpdateModulesKeys();
 
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);
