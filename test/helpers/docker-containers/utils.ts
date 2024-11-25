@@ -4,11 +4,15 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
+const POSTGRES_PORT = process.env.POSTGRES_PORT || '5432';
 const KAPI_IMAGE = 'lidofinance/lido-keys-api:staging';
 const PSQL_IMAGE = 'postgres:14-alpine';
+const PSQL_CONTAINER = 'e2e_pgdb';
+const KAPI_CONTAINER = 'e2e_keys_api';
+const NETWORK_NAME = 'e2e_network';
 
 /**
- * Pull image if didnt find locally
+ * Pull image if didn't find locally
  */
 async function pullImage(docker: Docker, imageName: string, platform?: string) {
   // Parse name to find image name and tag
@@ -42,9 +46,8 @@ async function createImage(
 ) {
   const imageRef = `${options.fromImage}:${options.tag}`;
   try {
-    const stream = await docker.pull(imageRef, {
-      platform: options.platform,
-    });
+    const opts = options.platform ? { platform: options.platform } : {};
+    const stream = await docker.pull(imageRef, opts);
 
     return await new Promise((resolve, reject) => {
       docker.modem.followProgress(stream, (err, res) => {
@@ -86,32 +89,43 @@ export async function getContainer(docker: Docker, name: string) {
 /**
  * Pull and create psql container
  */
-async function pullAndCreatePsqlContainer(docker: Docker, networkName: string) {
+async function pullAndCreatePsqlContainer(docker: Docker) {
   const platform = process.env.DOCKER_PLATFORM;
   const CHAIN_ID = process.env.CHAIN_ID;
   const pgdataPath = path.resolve(`./.volumes/pgdata-${CHAIN_ID}/`);
 
   await pullImage(docker, PSQL_IMAGE, platform);
 
-  const alreadyCreatedContainer = await getContainer(docker, 'e2e_pgdb');
+  const alreadyCreatedContainer = await getContainer(docker, PSQL_CONTAINER);
 
   if (alreadyCreatedContainer) {
     return alreadyCreatedContainer;
   }
 
+  const hostConfig =
+    process.platform === 'linux'
+      ? {
+          Binds: [`${pgdataPath}:/var/lib/postgresql/data:rw`],
+          NetworkMode: 'host',
+        }
+      : {
+          Binds: [`${pgdataPath}:/var/lib/postgresql/data:rw`],
+          PortBindings: {
+            '5432/tcp': [{ HostPort: POSTGRES_PORT }],
+          },
+          NetworkMode: NETWORK_NAME,
+        };
+
   // Create and configure the PostgreSQL container
   const container = await docker.createContainer({
     Image: PSQL_IMAGE,
-    name: 'e2e_pgdb',
+    name: PSQL_CONTAINER,
     Env: [
       'POSTGRES_DB=node_operator_keys_service_db',
       'POSTGRES_USER=postgres',
       'POSTGRES_PASSWORD=postgres',
     ],
-    HostConfig: {
-      Binds: [`${pgdataPath}:/var/lib/postgresql/data:rw`],
-      NetworkMode: 'host',
-    },
+    HostConfig: hostConfig,
   });
 
   console.log('Container e2e_pgdb created');
@@ -122,12 +136,12 @@ async function pullAndCreatePsqlContainer(docker: Docker, networkName: string) {
 /**
  * Pull and create keys api container
  */
-async function pullAndCreateKapiContainer(docker: Docker, networkName: string) {
+async function pullAndCreateKapiContainer(docker: Docker) {
   const platform = process.env.DOCKER_PLATFORM;
 
   await pullImage(docker, KAPI_IMAGE, platform);
 
-  const alreadyCreatedContainer = await getContainer(docker, 'e2e_keys_api');
+  const alreadyCreatedContainer = await getContainer(docker, KAPI_CONTAINER);
 
   if (alreadyCreatedContainer) {
     return alreadyCreatedContainer;
@@ -135,10 +149,19 @@ async function pullAndCreateKapiContainer(docker: Docker, networkName: string) {
 
   const CHAIN_ID = process.env.CHAIN_ID;
 
+  const hostConfig =
+    process.platform === 'linux'
+      ? {
+          NetworkMode: 'host',
+        }
+      : {
+          NetworkMode: NETWORK_NAME,
+        };
+
   // Create and configure the PostgreSQL container
   const container = await docker.createContainer({
     Image: KAPI_IMAGE,
-    name: 'e2e_keys_api',
+    name: KAPI_CONTAINER,
     Env: [
       'NODE_ENV=production',
       'DB_NAME=node_operator_keys_service_db',
@@ -151,9 +174,7 @@ async function pullAndCreateKapiContainer(docker: Docker, networkName: string) {
       `CHAIN_ID=${CHAIN_ID}`,
       'CL_API_URLS=',
     ],
-    HostConfig: {
-      NetworkMode: 'host',
-    },
+    HostConfig: hostConfig,
   });
 
   console.log('Container e2e_keys_api created');
@@ -193,12 +214,13 @@ async function createNetwork(docker: Docker, name) {
  */
 export async function setupContainers() {
   const docker = new Docker();
-
-  // await createNetwork(docker, 'e2e_network');
+  if (process.platform !== 'linux') {
+    await createNetwork(docker, NETWORK_NAME);
+  }
 
   // Create PostgreSQL and KAPI containers on the same network
-  const psqlContainer = await pullAndCreatePsqlContainer(docker, 'e2e_network');
-  const kapiContainer = await pullAndCreateKapiContainer(docker, 'e2e_network');
+  const psqlContainer = await pullAndCreatePsqlContainer(docker);
+  const kapiContainer = await pullAndCreateKapiContainer(docker);
 
   return {
     kapi: kapiContainer,

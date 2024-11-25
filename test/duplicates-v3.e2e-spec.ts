@@ -140,16 +140,6 @@ describe('Duplicates e2e tests', () => {
 
     await startContainerIfNotRunning(postgresContainer);
 
-    // const psqlStream = await postgresContainer.attach({
-    //   stream: true,
-    //   stdout: true,
-    //   stderr: true,
-    // });
-
-    // psqlStream.pipe(process.stdout);
-
-    // TODO: check running status container is not enough, add helthcheck
-
     hardhatServer = new HardhatServer();
     await hardhatServer.start();
 

@@ -114,39 +114,6 @@ export const cutCommunityTypeModuleNodeOperators = async (
   ]);
 };
 
-export const cutCommunityTypeModuleNodeOperatorsWithMask = async (
-  contractAddress: string,
-  newCount: number,
-) => {
-  // Get the current slot value (256 bits or 32 bytes)
-  const slotValue = await testSetupProvider.getStorageAt(contractAddress, 9);
-
-  // Convert slotValue from hex string to BigNumber for bitwise operations
-  const currentSlot = BigNumber.from(slotValue);
-
-  // Define a mask to clear the upper 64 bits where `_nodeOperatorsCount` is stored.
-  // The mask will look like 0x0000000000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-  const mask = BigNumber.from(
-    '0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000',
-  );
-
-  // Clear the upper 64 bits of the slot value using the mask (AND operation)
-  const clearedSlot = currentSlot.and(mask);
-
-  // Convert newCount to 64-bit hex and shift it to the upper 64-bit position
-  const newOperatorsCount = BigNumber.from(newCount).shl(192); // Shift left by 192 bits
-
-  // Combine the cleared slot value and the new `_nodeOperatorsCount` (OR operation)
-  const newStorageValue = clearedSlot.or(newOperatorsCount);
-
-  // Update the slot with the new value
-  await testSetupProvider.send('hardhat_setStorageAt', [
-    contractAddress,
-    hexZeroPad(hexlify(9), 32), // Slot index 9, padded to 32 bytes
-    hexZeroPad(newStorageValue.toHexString(), 32), // New storage value padded to 32 bytes
-  ]);
-};
-
 export const cutModulesKeys = async () => {
   // get sr modules
   const stakingModules = await getStakingModules();

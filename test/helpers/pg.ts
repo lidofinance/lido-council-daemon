@@ -1,10 +1,14 @@
 import { Client } from 'pg';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+const POSTGRES_PORT = process.env.POSTGRES_PORT || 5432;
 
 export async function truncateTables() {
   const client = new Client({
     host: 'localhost',
-    // TODO: get rid of constant
-    port: 5432,
+    port: POSTGRES_PORT,
     user: 'postgres',
     password: 'postgres',
     database: 'node_operator_keys_service_db',
