@@ -50,14 +50,6 @@ export async function addGuardians(params: {
   await accountImpersonate(params.securityModuleOwner);
   const wallet = createWallet(testSetupProvider);
 
-  // Convert the ETH amount to wei
-  // const amountInWei = ethers.utils.parseEther('5');
-
-  // await testSetupProvider.send('hardhat_setBalance', [
-  //   params.securityModuleOwner,
-  //   ethers.utils.hexlify(amountInWei),
-  // ]);
-
   await setBalance(params.securityModuleOwner, 5);
 
   const signer = testSetupProvider.getSigner(params.securityModuleOwner);
@@ -71,14 +63,6 @@ export async function addGuardians(params: {
 
 export async function setGuardianBalance(eth: string) {
   const wallet = createWallet(testSetupProvider);
-
-  // Convert the ETH amount to wei
-  // const amountInWei = ethers.utils.parseEther(eth);
-
-  // await testSetupProvider.send('hardhat_setBalance', [
-  //   wallet.address,
-  //   ethers.utils.hexlify(amountInWei),
-  // ]);
 
   await setBalance(wallet.address, Number(eth));
 }
