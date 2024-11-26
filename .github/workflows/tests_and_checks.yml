@@ -21,6 +21,7 @@ jobs:
         env:
           RPC_URL: ${{ secrets.RPC_URL }}
           CHAIN_ID: 17000
+          LOCATOR_DEVNET_ADDRESS: "0x28FAB2059C713A7F9D8c86Db49f9bb0e96Af1ef8"
 
   e2e_tests:
     name: E2E Tests
