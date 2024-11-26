@@ -18,6 +18,9 @@ jobs:
         run: yarn lint
       - name: Run tests
         run: yarn test
+        env:
+          RPC_URL: ${{ secrets.RPC_URL }}
+          CHAIN_ID: 17000
 
   e2e_tests:
     name: E2E Tests
