@@ -4,7 +4,7 @@ import { TEST_SERVER_URL } from '../constants';
 
 export const testSetupProvider = new JsonRpcProvider(TEST_SERVER_URL);
 
-export const accountImpersonate = async (account): Promise<void> => {
+export const accountImpersonate = async (account: string): Promise<void> => {
   testSetupProvider.send('hardhat_impersonateAccount', [account]);
 };
 
