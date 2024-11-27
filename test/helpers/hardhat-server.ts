@@ -7,7 +7,6 @@ export class HardhatServer {
 
   // Method to start Hardhat and wait until it's ready
   public async start() {
-    // await this.checkPort(8545);
     return new Promise<void>((resolve, reject) => {
       this.hardhatProcess = spawn('npx', [
         'hardhat',
@@ -28,7 +27,7 @@ export class HardhatServer {
       // Listen for stdout to detect when Hardhat is ready
       this.hardhatProcess.stdout.on('data', (data) => {
         const output = data.toString();
-        // console.log(`Hardhat stdout: ${output}`);
+        console.log(`Hardhat stdout: ${output}`);
 
         // Check for the Hardhat ready message
         if (output.includes('Started HTTP and WebSocket JSON-RPC server')) {

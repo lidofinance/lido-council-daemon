@@ -109,13 +109,15 @@ describe('DataBus', () => {
 
   beforeEach(async () => {
     await setupServer();
+
+    console.log('hardhat started');
     dsmOwnerAddress = await getSecurityOwner();
     await accountImpersonate(dsmOwnerAddress);
     await setBalance(dsmOwnerAddress, 100);
 
     // Set up Ganache provider (ensure Ganache is running on port 8545)
     provider = new ethers.providers.JsonRpcProvider(
-      'http://localhost:' + GANACHE_PORT,
+      'http://127.0.0.1:' + GANACHE_PORT,
     );
     variants = getVariants(await provider.getBlock('latest'));
 
