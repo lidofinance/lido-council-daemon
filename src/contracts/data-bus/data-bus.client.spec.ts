@@ -1,7 +1,7 @@
 import { Block } from '@ethersproject/providers';
 import { ethers } from 'ethers';
 import { formatBytes32String } from 'ethers/lib/utils';
-import { GANACHE_PORT } from './utils/constants';
+import { TEST_SERVER_PORT } from './utils/constants';
 import { DataBusClient } from './data-bus.client';
 import {
   MessageDepositV1,
@@ -115,7 +115,7 @@ describe('DataBus', () => {
 
     // Set up Ganache provider (ensure Ganache is running on port 8545)
     provider = new ethers.providers.JsonRpcProvider(
-      'http://127.0.0.1:' + GANACHE_PORT,
+      'http://127.0.0.1:' + TEST_SERVER_PORT,
     );
     variants = getVariants(await provider.getBlock('latest'));
 
