@@ -109,8 +109,6 @@ describe('DataBus', () => {
 
   beforeEach(async () => {
     await setupServer();
-
-    console.log('hardhat started');
     dsmOwnerAddress = await getSecurityOwner();
     await accountImpersonate(dsmOwnerAddress);
     await setBalance(dsmOwnerAddress, 100);

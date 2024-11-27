@@ -1,1 +1,1 @@
-export const GANACHE_PORT = 8545;
+export const TEST_SERVER_PORT = 8545;
