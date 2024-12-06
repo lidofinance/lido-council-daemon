@@ -155,8 +155,38 @@ async function pullAndCreateKapiContainer(docker: Docker) {
           NetworkMode: 'host',
         }
       : {
+          PortBindings: { '3000/tcp': [{ HostPort: '3000' }] },
           NetworkMode: NETWORK_NAME,
         };
+
+  const HARDHAT_URL =
+    process.platform === 'linux'
+      ? 'http://127.0.0.1:8545'
+      : 'http://host.docker.internal:8545';
+
+  const DB_HOST = process.platform === 'linux' ? '127.0.0.1' : PSQL_CONTAINER;
+
+  const exposedHosts =
+    process.platform === 'linux' ? {} : { ExposedPorts: { '3000/tcp': {} } };
+
+  console.log({
+    Image: KAPI_IMAGE,
+    name: KAPI_CONTAINER,
+    Env: [
+      'NODE_ENV=production',
+      'DB_NAME=node_operator_keys_service_db',
+      'DB_PORT=5432',
+      `DB_HOST=${DB_HOST}`,
+      'DB_USER=postgres',
+      'DB_PASSWORD=postgres',
+      `PROVIDERS_URLS=${HARDHAT_URL}`,
+      'VALIDATOR_REGISTRY_ENABLE=false',
+      `CHAIN_ID=${CHAIN_ID}`,
+      'CL_API_URLS=',
+    ],
+    ...exposedHosts,
+    HostConfig: hostConfig,
+  });
 
   // Create and configure the PostgreSQL container
   const container = await docker.createContainer({
@@ -166,14 +196,15 @@ async function pullAndCreateKapiContainer(docker: Docker) {
       'NODE_ENV=production',
       'DB_NAME=node_operator_keys_service_db',
       'DB_PORT=5432',
-      'DB_HOST=127.0.0.1',
+      `DB_HOST=${DB_HOST}`,
       'DB_USER=postgres',
       'DB_PASSWORD=postgres',
-      'PROVIDERS_URLS=http://127.0.0.1:8545',
+      `PROVIDERS_URLS=${HARDHAT_URL}`,
       'VALIDATOR_REGISTRY_ENABLE=false',
       `CHAIN_ID=${CHAIN_ID}`,
       'CL_API_URLS=',
     ],
+    ...exposedHosts,
     HostConfig: hostConfig,
   });
 
