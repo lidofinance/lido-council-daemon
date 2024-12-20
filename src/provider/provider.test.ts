@@ -4,12 +4,12 @@ import { Configuration } from 'common/config';
 import { RpcBatchProvider, RpcProvider } from './interfaces';
 import { ProviderService } from './provider.service';
 
-export const GANACHE_PORT = 8545;
-export const GANACHE_URL = `http://127.0.0.1:${GANACHE_PORT}`;
+export const TEST_SERVER_PORT = 8545;
+export const TEST_SERVER_URL = `http://127.0.0.1:${TEST_SERVER_PORT}`;
 
 const getProviderFactory = () => {
   return async (): Promise<RpcProvider> => {
-    class FormatterGanache extends Formatter {
+    class FormatterTest extends Formatter {
       blockTag(blockTag: any): any {
         if (typeof blockTag === 'object' && blockTag != null) {
           return 'latest';
@@ -24,25 +24,25 @@ const getProviderFactory = () => {
 
       static getFormatter(): Formatter {
         if (this._formatter == null) {
-          this._formatter = new FormatterGanache();
+          this._formatter = new FormatterTest();
         }
         return this._formatter;
       }
 
       clone() {
-        return new Provider(GANACHE_URL);
+        return new Provider(TEST_SERVER_URL);
       }
     }
 
-    return new Provider(GANACHE_URL);
+    return new Provider(TEST_SERVER_URL);
   };
 };
 
 @Module({})
-export class GanacheProviderModule {
+export class TestProviderModule {
   static forRoot(): DynamicModule {
     return {
-      module: GanacheProviderModule,
+      module: TestProviderModule,
       global: true,
       providers: [
         ProviderService,
