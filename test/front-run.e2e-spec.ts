@@ -3,9 +3,9 @@ import { toHexString } from '@chainsafe/ssz';
 
 // Helpers
 import {
+  mockedKeysApiFind,
   keysApiMockGetAllKeys,
   keysApiMockGetModules,
-  mockedKeysApiFind,
   mockedModuleCurated,
   mockedModuleDvt,
   mockMeta,
@@ -15,22 +15,23 @@ import {
 import {
   TESTS_TIMEOUT,
   SLEEP_FOR_RESULT,
+  STAKING_ROUTER,
   LIDO_WC,
   BAD_WC,
   CHAIN_ID,
-  FORK_BLOCK,
   GANACHE_PORT,
   sk,
   pk,
   NOP_REGISTRY,
   SIMPLE_DVT,
-  UNLOCKED_ACCOUNTS,
-  SECURITY_MODULE,
-  NO_PRIVKEY_MESSAGE,
+  SECURITY_MODULE_V2,
+  UNLOCKED_ACCOUNTS_V2,
+  FORK_BLOCK_V2,
+  SECURITY_MODULE_OWNER_V2,
 } from './constants';
 
 // Contract Factories
-import { SecurityAbi__factory } from '../src/generated';
+import { StakingRouterAbi__factory } from './../src/generated';
 
 // BLS helpers
 
@@ -40,7 +41,6 @@ import {
   closeServer,
   initLevelDB,
 } from './helpers/test-setup';
-import { SecurityService } from 'contracts/security';
 import { GuardianService } from 'guardian';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { ProviderService } from 'provider';
@@ -55,7 +55,6 @@ import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sani
 import { BlsService } from 'bls';
 import { makeDeposit, signDeposit } from './helpers/deposit';
 import { mockKey, mockKey2 } from './helpers/keys-fixtures';
-import { ethers } from 'ethers';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -67,26 +66,24 @@ describe('ganache e2e tests', () => {
   let providerService: ProviderService;
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;
-  let securityService: SecurityService;
+  let sendDepositMessage: jest.SpyInstance;
+  let sendPauseMessage: jest.SpyInstance;
   let levelDBService: DepositsRegistryStoreService;
   let signKeyLevelDBService: SignKeyLevelDBService;
   let guardianMessageService: GuardianMessageService;
   let signingKeysRegistryService: SigningKeysRegistryService;
   let depositIntegrityCheckerService: DepositIntegrityCheckerService;
 
-  // method mocks
-  let sendDepositMessage: jest.SpyInstance;
-  let sendPauseMessage: jest.SpyInstance;
-  let sendUnvetMessage: jest.SpyInstance;
-  let unvetSigningKeys: jest.SpyInstance;
-
   const setupServer = async () => {
-    server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS);
+    server = makeServer(FORK_BLOCK_V2, CHAIN_ID, UNLOCKED_ACCOUNTS_V2);
     await server.listen(GANACHE_PORT);
   };
 
   const setupGuardians = async () => {
-    await addGuardians();
+    await addGuardians({
+      securityModule: SECURITY_MODULE_V2,
+      securityModuleOwner: SECURITY_MODULE_OWNER_V2,
+    });
   };
 
   const setupTestingServices = async (moduleRef) => {
@@ -108,10 +105,6 @@ describe('ganache e2e tests', () => {
     signingKeysRegistryService = moduleRef.get(SigningKeysRegistryService);
 
     providerService = moduleRef.get(ProviderService);
-
-    // dsm methods and council sign services
-    securityService = moduleRef.get(SecurityService);
-
     // keys api servies
     keysApiService = moduleRef.get(KeysApiService);
 
@@ -131,10 +124,7 @@ describe('ganache e2e tests', () => {
       .spyOn(guardianMessageService, 'pingMessageBroker')
       .mockImplementation(() => Promise.resolve());
     sendPauseMessage = jest
-      .spyOn(guardianMessageService, 'sendPauseMessageV3')
-      .mockImplementation(() => Promise.resolve());
-    sendUnvetMessage = jest
-      .spyOn(guardianMessageService, 'sendUnvetMessage')
+      .spyOn(guardianMessageService, 'sendPauseMessageV2')
       .mockImplementation(() => Promise.resolve());
 
     // deposit cache mocks
@@ -147,13 +137,6 @@ describe('ganache e2e tests', () => {
     jest
       .spyOn(depositIntegrityCheckerService, 'checkFinalizedRoot')
       .mockImplementation(() => Promise.resolve(true));
-
-    // mock unvetting method of contract
-    // as we dont use real keys api and work with fixtures of operators and keys
-    // we cant make real unvetting
-    unvetSigningKeys = jest
-      .spyOn(securityService, 'unvetSigningKeys')
-      .mockImplementation(() => Promise.resolve(null as any));
   };
 
   beforeEach(async () => {
@@ -176,14 +159,13 @@ describe('ganache e2e tests', () => {
       const { signature } = signDeposit(pk, sk, LIDO_WC);
 
       // Keys api mock
-      // all keys in keys api on current block state
       const keys = [
         {
           key: toHexString(pk),
           depositSignature: toHexString(signature),
           operatorIndex: 0,
           used: false,
-          index: 1,
+          index: 0,
           moduleAddress: NOP_REGISTRY,
           vetted: true,
         },
@@ -221,7 +203,6 @@ describe('ganache e2e tests', () => {
 
       // Mock Keys API again on new block
       const newBlock = await providerService.provider.getBlock('latest');
-
       // setup elBlockSnapshot
       const meta = mockMeta(newBlock, newBlock.hash);
       // setup /v1/modules
@@ -236,18 +217,6 @@ describe('ganache e2e tests', () => {
 
       // soft pause for 1 module, sign deposit for 2
       expect(sendPauseMessage).toBeCalledTimes(0);
-      expect(sendUnvetMessage).toBeCalledTimes(1);
-      expect(sendUnvetMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          blockNumber: newBlock.number,
-          guardianAddress: wallet.address,
-          guardianIndex: 7,
-          stakingModuleId: 1,
-          operatorIds: '0x0000000000000000',
-          vettedKeysByOperator: '0x00000000000000000000000000000001',
-        }),
-      );
-      expect(unvetSigningKeys).toBeCalledTimes(1);
       expect(sendDepositMessage).toBeCalledTimes(1);
       expect(sendDepositMessage).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -326,19 +295,18 @@ describe('ganache e2e tests', () => {
       // Run a cycle and wait for possible changes
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
-
-      const securityContract = SecurityAbi__factory.connect(
-        SECURITY_MODULE,
+      // Check if on pause now
+      const routerContract = StakingRouterAbi__factory.connect(
+        STAKING_ROUTER,
         providerService.provider,
       );
 
-      const isOnPause = await securityContract.isDepositsPaused();
-
+      const isOnPause = await routerContract.getStakingModuleIsDepositsPaused(
+        1,
+      );
       expect(isOnPause).toBe(false);
       expect(sendPauseMessage).toBeCalledTimes(0);
       expect(sendDepositMessage).toBeCalledTimes(2);
-      expect(sendUnvetMessage).toBeCalledTimes(0);
-      expect(unvetSigningKeys).toBeCalledTimes(0);
     },
     TESTS_TIMEOUT,
   );
@@ -403,8 +371,6 @@ describe('ganache e2e tests', () => {
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
       expect(sendPauseMessage).toBeCalledTimes(0);
       expect(sendDepositMessage).toBeCalledTimes(2);
-      expect(sendUnvetMessage).toBeCalledTimes(0);
-      expect(unvetSigningKeys).toBeCalledTimes(0);
     },
     TESTS_TIMEOUT,
   );
@@ -445,7 +411,7 @@ describe('ganache e2e tests', () => {
           key: toHexString(pk),
           depositSignature: toHexString(goodSign),
           operatorIndex: 0,
-          used: false,
+          used: true,
           index: 0,
           moduleAddress: NOP_REGISTRY,
           vetted: true,
@@ -463,6 +429,7 @@ describe('ganache e2e tests', () => {
       keysApiMockGetAllKeys(keysApiService, keys, meta);
 
       // Check if the service is ok and ready to go
+      // the same scenario as "failed 1eth deposit attack to stop deposits"
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
@@ -478,13 +445,26 @@ describe('ganache e2e tests', () => {
       expect(sendDepositMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: newBlock.number,
+
           guardianAddress: wallet.address,
           guardianIndex: 7,
           stakingModuleId: 2,
         }),
       );
-      expect(sendUnvetMessage).toBeCalledTimes(0);
-      expect(unvetSigningKeys).toBeCalledTimes(0);
+
+      // Check if on pause now
+      const routerContract = StakingRouterAbi__factory.connect(
+        STAKING_ROUTER,
+        providerService.provider,
+      );
+      const isOnPause = await routerContract.getStakingModuleIsDepositsPaused(
+        1,
+      );
+      expect(isOnPause).toBe(false);
+      const isOnPause2 = await routerContract.getStakingModuleIsDepositsPaused(
+        2,
+      );
+      expect(isOnPause2).toBe(false);
     },
     TESTS_TIMEOUT,
   );
@@ -501,8 +481,9 @@ describe('ganache e2e tests', () => {
         },
       });
 
-      // Mock Keys API
       const keys = [mockKey];
+
+      // Mock Keys API
       // setup elBlockSnapshot
       const meta = mockMeta(currentBlock, currentBlock.hash);
       // setup /v1/modules
@@ -518,213 +499,6 @@ describe('ganache e2e tests', () => {
 
       expect(sendDepositMessage).toBeCalledTimes(0);
       expect(sendPauseMessage).toBeCalledTimes(0);
-      expect(sendUnvetMessage).toBeCalledTimes(0);
-      expect(unvetSigningKeys).toBeCalledTimes(0);
-    },
-    TESTS_TIMEOUT,
-  );
-
-  test(
-    'historical front-run',
-    async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
-
-      const { signature: lidoSign } = signDeposit(pk, sk);
-      const { signature: theftDepositSign } = signDeposit(pk, sk, BAD_WC);
-
-      const keys = [
-        {
-          key: toHexString(pk),
-          depositSignature: toHexString(lidoSign),
-          operatorIndex: 0,
-          used: true,
-          index: 0,
-          moduleAddress: NOP_REGISTRY,
-          vetted: true,
-        },
-      ];
-
-      // setup elBlockSnapshot
-      const meta = mockMeta(currentBlock, currentBlock.hash);
-      // setup /v1/modules
-      const stakingModules = [mockedModuleCurated, mockedModuleDvt];
-      keysApiMockGetModules(keysApiService, stakingModules, meta);
-      // setup /v1/keys
-      keysApiMockGetAllKeys(keysApiService, keys, meta);
-      mockedKeysApiFind(keysApiService, keys, meta);
-
-      await levelDBService.setCachedEvents({
-        data: [
-          {
-            valid: true,
-            pubkey: toHexString(pk),
-            amount: '32000000000',
-            wc: BAD_WC,
-            signature: toHexString(theftDepositSign),
-            tx: '0x122',
-            blockHash: '0x123456',
-            blockNumber: currentBlock.number - 1,
-            logIndex: 1,
-            depositCount: 1,
-            depositDataRoot: new Uint8Array(),
-            index: '',
-          },
-          {
-            valid: true,
-            pubkey: toHexString(pk),
-            amount: '32000000000',
-            wc: LIDO_WC,
-            signature: toHexString(lidoSign),
-            tx: '0x123',
-            blockHash: currentBlock.hash,
-            blockNumber: currentBlock.number,
-            logIndex: 1,
-            depositCount: 2,
-            depositDataRoot: new Uint8Array(),
-            index: '',
-          },
-        ],
-        headers: {
-          startBlock: currentBlock.number - 2,
-          endBlock: currentBlock.number,
-        },
-      });
-
-      await guardianService.handleNewBlock();
-
-      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
-
-      expect(sendPauseMessage).toBeCalledTimes(1);
-      expect(sendDepositMessage).toBeCalledTimes(0);
-      expect(sendUnvetMessage).toBeCalledTimes(0);
-      expect(unvetSigningKeys).toBeCalledTimes(0);
-
-      const securityContract = SecurityAbi__factory.connect(
-        SECURITY_MODULE,
-        providerService.provider,
-      );
-
-      const isOnPause = await securityContract.isDepositsPaused();
-      expect(isOnPause).toBe(true);
-    },
-    TESTS_TIMEOUT,
-  );
-
-  test(
-    'should not trigger pause for front-run attempt with non-Lido WC and Lido WC deposits when key is unused',
-    async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
-
-      await signingKeysRegistryService.setCachedEvents({
-        data: [],
-        headers: {
-          startBlock: currentBlock.number,
-          endBlock: currentBlock.number,
-          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
-        },
-      });
-
-      const { signature: lidoSign } = signDeposit(pk, sk);
-      const { signature: theftDepositSign } = signDeposit(pk, sk, BAD_WC);
-
-      if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
-      const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
-
-      const keys = [
-        {
-          key: toHexString(pk),
-          depositSignature: toHexString(lidoSign),
-          operatorIndex: 0,
-          used: false,
-          index: 0,
-          moduleAddress: NOP_REGISTRY,
-          vetted: true,
-        },
-      ];
-
-      // setup elBlockSnapshot
-      const meta = mockMeta(currentBlock, currentBlock.hash);
-      // setup /v1/modules
-      const stakingModules = [mockedModuleCurated, mockedModuleDvt];
-      keysApiMockGetModules(keysApiService, stakingModules, meta);
-      // setup /v1/keys
-      keysApiMockGetAllKeys(keysApiService, keys, meta);
-      mockedKeysApiFind(keysApiService, keys, meta);
-
-      await levelDBService.setCachedEvents({
-        data: [
-          {
-            valid: true,
-            pubkey: toHexString(pk),
-            amount: '32000000000',
-            wc: BAD_WC,
-            signature: toHexString(theftDepositSign),
-            tx: '0x122',
-            blockHash: '0x123456',
-            blockNumber: currentBlock.number - 1,
-            logIndex: 1,
-            depositCount: 1,
-            depositDataRoot: new Uint8Array(),
-            index: '',
-          },
-          {
-            valid: true,
-            pubkey: toHexString(pk),
-            amount: '32000000000',
-            wc: LIDO_WC,
-            signature: toHexString(lidoSign),
-            tx: '0x123',
-            blockHash: currentBlock.hash,
-            blockNumber: currentBlock.number,
-            logIndex: 1,
-            depositCount: 2,
-            depositDataRoot: new Uint8Array(),
-            index: '',
-          },
-        ],
-        headers: {
-          startBlock: currentBlock.number - 2,
-          endBlock: currentBlock.number,
-        },
-      });
-
-      await guardianService.handleNewBlock();
-
-      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
-
-      expect(sendPauseMessage).toBeCalledTimes(0);
-
-      const securityContract = SecurityAbi__factory.connect(
-        SECURITY_MODULE,
-        providerService.provider,
-      );
-
-      const isOnPause = await securityContract.isDepositsPaused();
-
-      expect(isOnPause).toBe(false);
-
-      expect(sendPauseMessage).toBeCalledTimes(0);
-      expect(sendUnvetMessage).toBeCalledTimes(1);
-      expect(sendUnvetMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          blockNumber: currentBlock.number,
-          guardianAddress: wallet.address,
-          guardianIndex: 7,
-          stakingModuleId: 1,
-          operatorIds: '0x0000000000000000',
-          vettedKeysByOperator: '0x00000000000000000000000000000000',
-        }),
-      );
-      expect(unvetSigningKeys).toBeCalledTimes(1);
-      expect(sendDepositMessage).toBeCalledTimes(1);
-      expect(sendDepositMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          blockNumber: currentBlock.number,
-          guardianAddress: wallet.address,
-          guardianIndex: 7,
-          stakingModuleId: 2,
-        }),
-      );
     },
     TESTS_TIMEOUT,
   );
@@ -800,16 +574,148 @@ describe('ganache e2e tests', () => {
           stakingModuleId: 2,
         }),
       );
-      expect(unvetSigningKeys).toBeCalledTimes(0);
       expect(sendPauseMessage).toBeCalledTimes(0);
 
-      const securityContract = SecurityAbi__factory.connect(
-        SECURITY_MODULE,
+      // Check if on pause now
+      const routerContract = StakingRouterAbi__factory.connect(
+        STAKING_ROUTER,
         providerService.provider,
       );
-
-      const isOnPause = await securityContract.isDepositsPaused();
+      const isOnPause = await routerContract.getStakingModuleIsDepositsPaused(
+        1,
+      );
       expect(isOnPause).toBe(false);
+    },
+    TESTS_TIMEOUT,
+  );
+
+  test(
+    'historical front-run',
+    async () => {
+      const currentBlock = await providerService.provider.getBlock('latest');
+
+      await signingKeysRegistryService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number,
+          endBlock: currentBlock.number,
+          stakingModulesAddresses: [NOP_REGISTRY, SIMPLE_DVT],
+        },
+      });
+
+      const { signature: lidoSign } = signDeposit(pk, sk);
+      const { signature: theftDepositSign } = signDeposit(pk, sk, BAD_WC);
+
+      const keys = [
+        {
+          key: toHexString(pk),
+          depositSignature: toHexString(lidoSign),
+          operatorIndex: 0,
+          used: true,
+          index: 0,
+          moduleAddress: NOP_REGISTRY,
+          vetted: true,
+        },
+      ];
+
+      await levelDBService.setCachedEvents({
+        data: [
+          {
+            valid: true,
+            pubkey: toHexString(pk),
+            amount: '32000000000',
+            wc: BAD_WC,
+            signature: toHexString(theftDepositSign),
+            tx: '0x122',
+            blockHash: '0x123456',
+            blockNumber: currentBlock.number - 1,
+            logIndex: 1,
+            depositCount: 1,
+            depositDataRoot: new Uint8Array(),
+            index: '',
+          },
+          {
+            valid: true,
+            pubkey: toHexString(pk),
+            amount: '32000000000',
+            wc: LIDO_WC,
+            signature: toHexString(lidoSign),
+            tx: '0x123',
+            blockHash: currentBlock.hash,
+            blockNumber: currentBlock.number,
+            logIndex: 1,
+            depositCount: 2,
+            depositDataRoot: new Uint8Array(),
+            index: '',
+          },
+        ],
+        headers: {
+          startBlock: currentBlock.number - 2,
+          endBlock: currentBlock.number,
+        },
+      });
+
+      // setup elBlockSnapshot
+      const meta = mockMeta(currentBlock, currentBlock.hash);
+      // setup /v1/modules
+      const stakingModules = [mockedModuleCurated, mockedModuleDvt];
+      keysApiMockGetModules(keysApiService, stakingModules, meta);
+      // setup /v1/keys
+      keysApiMockGetAllKeys(keysApiService, keys, meta);
+      mockedKeysApiFind(keysApiService, keys, meta);
+
+      await guardianService.handleNewBlock();
+
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+      const routerContract = StakingRouterAbi__factory.connect(
+        STAKING_ROUTER,
+        providerService.provider,
+      );
+      const isOnPause = await routerContract.getStakingModuleIsDepositsPaused(
+        1,
+      );
+
+      expect(isOnPause).toBe(true);
+
+      const isOnPause2Module =
+        await routerContract.getStakingModuleIsDepositsPaused(2);
+
+      expect(isOnPause2Module).toBe(false);
+      expect(sendDepositMessage).toBeCalledTimes(0);
+      expect(sendPauseMessage).toBeCalledTimes(1);
+
+      // Mine a new block
+      await providerService.provider.send('evm_mine', []);
+
+      // // Your assertions after mining the block
+      const newBlock = await providerService.provider.getBlock('latest');
+
+      // setup elBlockSnapshot
+      const newMeta = mockMeta(newBlock, newBlock.hash);
+      keysApiMockGetModules(keysApiService, stakingModules, newMeta);
+      // setup /v1/keys
+      keysApiMockGetAllKeys(keysApiService, keys, newMeta);
+      mockedKeysApiFind(keysApiService, keys, newMeta);
+
+      sendPauseMessage.mockClear();
+
+      await guardianService.handleNewBlock();
+
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+      const isOnPause1NextIter =
+        await routerContract.getStakingModuleIsDepositsPaused(1);
+
+      expect(isOnPause1NextIter).toBe(true);
+
+      const isOnPause2NextIter =
+        await routerContract.getStakingModuleIsDepositsPaused(2);
+
+      expect(isOnPause2NextIter).toBe(true);
+
+      expect(sendDepositMessage).toBeCalledTimes(0);
+      expect(sendPauseMessage).toBeCalledTimes(1);
     },
     TESTS_TIMEOUT,
   );

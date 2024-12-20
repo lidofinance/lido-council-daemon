@@ -8,7 +8,6 @@ import { Configuration } from 'common/config';
 import { GroupedByModuleOperatorListResponse } from './interfaces/GroupedByModuleOperatorListResponse';
 import { InconsistentLastChangedBlockHash } from 'common/custom-errors';
 import { SRModuleListResponse } from './interfaces/SRModuleListResponse';
-import { SRModuleKeyListResponse } from './interfaces/SRModuleKeyListResponse';
 import { ELBlockSnapshot } from './interfaces/ELBlockSnapshot';
 import { DeepReadonly } from 'common/ts-utils';
 
@@ -155,16 +154,6 @@ export class KeysApiService {
 
   public async getModules() {
     const result = await this.fetch<SRModuleListResponse>(`/v1/modules`);
-    return result;
-  }
-
-  /**
-   * The /v1/modules/{module_id}/keys endpoint returns full list of keys
-   */
-  public async getModuleKeys(moduleId: number, opId: number) {
-    const result = await this.fetch<SRModuleKeyListResponse>(
-      `/v1/modules/${moduleId}/keys?operatorIndex=${opId}`,
-    );
     return result;
   }
 

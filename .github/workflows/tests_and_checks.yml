@@ -1,8 +1,8 @@
 name: Tests and checks
 on: pull_request
 jobs:
-  unit_tests:
-    name: Unit Tests
+  test:
+    name: App tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -10,7 +10,7 @@ jobs:
       - name: Set up node
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 14
           cache: 'yarn'
       - name: Install dependencies
         run: yarn install --immutable
@@ -18,37 +18,10 @@ jobs:
         run: yarn lint
       - name: Run tests
         run: yarn test
-        env:
-          RPC_URL: ${{ secrets.RPC_URL }}
-          CHAIN_ID: 17000
-          LOCATOR_DEVNET_ADDRESS: "0x28FAB2059C713A7F9D8c86Db49f9bb0e96Af1ef8"
-          WALLET_PRIVATE_KEY: ${{ secrets.WALLET_PRIVATE_KEY }}
-
-  e2e_tests:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-      - name: Set up node
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: 'yarn'
-      - name: Install dependencies
-        run: yarn install --immutable
       - name: Run e2e transports
         run: docker compose -f docker-compose.test.yml up -d
-      - name: Pull kapi
-        run: docker pull lidofinance/lido-keys-api:staging
-      - name: Pull psql
-        run: docker pull postgres:14-alpine
       - name: Run e2e tests
         run: yarn test:e2e
         env:
           RPC_URL: ${{ secrets.RPC_URL }}
           WALLET_PRIVATE_KEY: ${{ secrets.WALLET_PRIVATE_KEY }}
-          KEYS_API_URL: http://127.0.0.1:3000
-          CHAIN_ID: 17000
-          LOCATOR_DEVNET_ADDRESS: "0x28FAB2059C713A7F9D8c86Db49f9bb0e96Af1ef8"
-
