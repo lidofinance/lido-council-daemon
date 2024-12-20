@@ -74,10 +74,6 @@ export class GuardianMessageService {
     });
   }
 
-  /**
-   * Sends an unvetting message to the message broker
-   * @param message - MessageUnvet object
-   */
   public sendUnvetMessage(message: Omit<MessageUnvet, 'type'>) {
     return this.sendMessageFromGuardian({
       ...message,

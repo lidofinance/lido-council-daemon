@@ -213,10 +213,8 @@ export class GuardianService implements OnModuleInit {
       this.handleKeys(stakingModulesData, blockData, lidoKeys)
         .catch(this.logger.error)
         .finally(() => {
-          this.logger.log(
-            'End of unvetting and deposits processing by Guardian',
-          );
-          endTimer();
+          this.logger.log('End of unvetting and deposits processing by Guardian');
+          endTimer()
         });
     } catch (error) {
       this.logger.error('Guardian cycle processing error');

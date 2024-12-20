@@ -12,7 +12,7 @@ import {
   SigningData,
 } from '../../src/bls/bls.containers';
 
-import { testSetupProvider } from './provider';
+import { CHAIN_ID } from '../constants';
 
 const computeDomain = (
   domainType: Uint8Array,
@@ -43,13 +43,11 @@ const computeSigningRoot = <T>(
   return SigningData.hashTreeRoot({ objectRoot, domain });
 };
 
-export const computeRoot = async (depositMessage: {
+export const computeRoot = (depositMessage: {
   pubkey: Uint8Array;
   withdrawalCredentials: Uint8Array;
   amount: number;
 }) => {
-  const network = await testSetupProvider.getNetwork();
-  const CHAIN_ID = network.chainId;
   const forkVersion = GENESIS_FORK_VERSION_BY_CHAIN_ID[CHAIN_ID];
 
   const domain = computeDomain(DOMAIN_DEPOSIT, forkVersion, ZERO_HASH);
