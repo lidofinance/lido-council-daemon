@@ -95,8 +95,8 @@ export async function deposit(moduleId: number) {
   const lidoVotingSigner = LidoAbi__factory.connect(lidoAddress, votingSigner);
 
   await lidoVotingSigner.setStakingLimit(
-    ethers.utils.parseEther('120000'), // _maxStakeLimit
-    ethers.utils.parseEther('120000'), // _stakeLimitIncreasePerBlock
+    ethers.utils.parseEther('150000'), // _maxStakeLimit
+    ethers.utils.parseEther('23.4375'), // _stakeLimitIncreasePerBlock
   );
 
   const unfinalizedStETHWei = await withdrawalQueue.unfinalizedStETH();
@@ -110,10 +110,11 @@ export async function deposit(moduleId: number) {
     .add(ethers.utils.parseEther('100000'));
   const amountForDepositsInEth = ethers.utils.formatEther(amountForDeposits);
 
-  transferEther(lidoAddress, amountForDepositsInEth);
+  await transferEther(lidoAddress, amountForDepositsInEth);
 
   await new Promise((res) => setTimeout(res, 12000));
 
+  //TODO: check how many keys waiting deposit
   const tx = await lido.deposit(1, moduleId, new Uint8Array());
 
   await tx.wait();
