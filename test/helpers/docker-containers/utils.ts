@@ -169,25 +169,6 @@ async function pullAndCreateKapiContainer(docker: Docker) {
   const exposedHosts =
     process.platform === 'linux' ? {} : { ExposedPorts: { '3000/tcp': {} } };
 
-  console.log({
-    Image: KAPI_IMAGE,
-    name: KAPI_CONTAINER,
-    Env: [
-      'NODE_ENV=production',
-      'DB_NAME=node_operator_keys_service_db',
-      'DB_PORT=5432',
-      `DB_HOST=${DB_HOST}`,
-      'DB_USER=postgres',
-      'DB_PASSWORD=postgres',
-      `PROVIDERS_URLS=${HARDHAT_URL}`,
-      'VALIDATOR_REGISTRY_ENABLE=false',
-      `CHAIN_ID=${CHAIN_ID}`,
-      'CL_API_URLS=',
-    ],
-    ...exposedHosts,
-    HostConfig: hostConfig,
-  });
-
   // Create and configure the PostgreSQL container
   const container = await docker.createContainer({
     Image: KAPI_IMAGE,

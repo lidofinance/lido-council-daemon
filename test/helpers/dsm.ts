@@ -6,6 +6,7 @@ import { getLocator } from './sr.contract';
 import { Contract } from '@ethersproject/contracts';
 import { wqAbi } from './wq.abi';
 import { VOTING } from './voting';
+import { BigNumber } from 'ethers';
 
 function createWallet(provider: ethers.providers.JsonRpcProvider) {
   if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
@@ -94,11 +95,6 @@ export async function deposit(moduleId: number) {
 
   const lidoVotingSigner = LidoAbi__factory.connect(lidoAddress, votingSigner);
 
-  await lidoVotingSigner.setStakingLimit(
-    ethers.utils.parseEther('150000'), // _maxStakeLimit
-    ethers.utils.parseEther('23.4375'), // _stakeLimitIncreasePerBlock
-  );
-
   const unfinalizedStETHWei = await withdrawalQueue.unfinalizedStETH();
   const depositableEtherWei = await lido.getBufferedEther();
 
@@ -109,6 +105,13 @@ export async function deposit(moduleId: number) {
     .abs()
     .add(ethers.utils.parseEther('100000'));
   const amountForDepositsInEth = ethers.utils.formatEther(amountForDeposits);
+
+  await lidoVotingSigner.setStakingLimit(
+    ethers.utils.parseEther(amountForDepositsInEth), // _maxStakeLimit
+    ethers.utils.parseEther(amountForDepositsInEth), // _stakeLimitIncreasePerBlock
+  );
+
+  await new Promise((res) => setTimeout(res, 12000));
 
   await transferEther(lidoAddress, amountForDepositsInEth);
 
