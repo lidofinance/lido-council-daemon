@@ -6,7 +6,6 @@ import { getLocator } from './sr.contract';
 import { Contract } from '@ethersproject/contracts';
 import { wqAbi } from './wq.abi';
 import { VOTING } from './voting';
-import { BigNumber } from 'ethers';
 
 function createWallet(provider: ethers.providers.JsonRpcProvider) {
   if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
