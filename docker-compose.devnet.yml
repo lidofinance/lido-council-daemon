@@ -1,0 +1,40 @@
+version: '3.7'
+
+networks:
+  devnet:
+    name: ${DOCKER_NETWORK_NAME}
+    external: true
+
+services:
+  rabbit:
+      build:
+        context: .
+        dockerfile: Dockerfile.test.yml
+      container_name: 'rabbitmq'
+      ports:
+        - "15674:15674"
+        - "15672:15672"
+
+  council_daemon:
+    build: ./
+    networks:
+      - devnet
+    ports:
+      - "127.0.0.1:${PORT}:3000"
+    environment:
+      - PORT=3000
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_FORMAT=${LOG_FORMAT}
+      - RPC_URL=${RPC_URL}
+      - WALLET_PRIVATE_KEY=${WALLET_PRIVATE_KEY}
+      - KEYS_API_HOST=${KEYS_API_HOST}
+      - KEYS_API_PORT=${KEYS_API_PORT}
+      - PUBSUB_SERVICE=rabbitmq
+      - RABBITMQ_URL=${RABBITMQ_URL}
+      - RABBITMQ_LOGIN=${RABBITMQ_LOGIN}
+      - RABBITMQ_PASSCODE=${RABBITMQ_PASSCODE}
+      - LOCATOR_DEVNET_ADDRESS=${LOCATOR_DEVNET_ADDRESS}
+    volumes:
+     - ./.volumes/cache/:/council/cache/
+# volumes:
+#   council_cache:
