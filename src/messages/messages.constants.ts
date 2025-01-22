@@ -7,8 +7,8 @@ export const MESSAGE_TOPIC_PREFIX_BY_NETWORK = {
   [CHAINS.Mainnet]: 'mainnet',
   [CHAINS.Goerli]: 'goerli',
   [CHAINS.Holesky]: 'holesky',
-  [LOCAL_DEVNET_CHAIN_ID]: 'devnet',
-  [PECTRA_5_DEVNET_CHAIN_ID]: 'devnet-pectra5',
+  [LOCAL_DEVNET_CHAIN_ID]: 'testnet',
+  [PECTRA_5_DEVNET_CHAIN_ID]: 'testnet',
 };
 
 export const getMessageTopicPrefix = (chainId: CHAINS): string => {
