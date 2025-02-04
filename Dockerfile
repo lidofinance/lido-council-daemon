@@ -32,6 +32,8 @@ COPY --from=building /council/dist ./dist
 COPY --from=building /council/node_modules ./node_modules
 COPY ./package*.json ./
 
+RUN mkdir -p /council/cache && chown -R node:node /council/cache
+
 USER node
 
 HEALTHCHECK --interval=120s --timeout=10s --retries=2 \
