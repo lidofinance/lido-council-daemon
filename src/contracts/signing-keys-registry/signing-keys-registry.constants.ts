@@ -11,12 +11,14 @@ export const SIGNING_KEYS_CACHE_DEFAULT = Object.freeze({
 
 const LOCAL_DEVNET_CHAIN_ID = 32382;
 const PECTRA_5_DEVNET_CHAIN_ID = 7088110746;
+const PECTRA_6_DEVNET_CHAIN_ID = 7072151312;
 
 export const EARLIEST_MODULE_DEPLOYMENT_BLOCK_NETWORK = {
   [CHAINS.Mainnet]: 11473216,
   [CHAINS.Holesky]: 0,
   [LOCAL_DEVNET_CHAIN_ID]: 0,
   [PECTRA_5_DEVNET_CHAIN_ID]: 0,
+  [PECTRA_6_DEVNET_CHAIN_ID]: 0,
 };
 
 // will make a gap in case of reorganization
