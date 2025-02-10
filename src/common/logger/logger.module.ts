@@ -12,16 +12,22 @@ export const LoggerModule = WinstonModule.forRootAsync({
       new winston.transports.Console({
         format:
           config.LOG_FORMAT === 'json'
-            ? winston.format.json()
+            ? winston.format.combine(
+                winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+                winston.format((info) => {
+                  info.pid = process.pid;
+                  return info;
+                })(),
+                winston.format.json(),
+              )
             : winston.format.combine(
                 winston.format.colorize({ all: true }),
                 winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-                winston.format.simple(),
                 winston.format.printf((log) => {
                   const { timestamp, level, message, context } = log;
                   const extra = context ? JSON.stringify(context) : '';
 
-                  return `${timestamp} ${level}: ${message} ${extra}`;
+                  return `${timestamp} [PID:${process.pid}] ${level}: ${message} ${extra}`;
                 }),
               ),
       }),
