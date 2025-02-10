@@ -10,7 +10,7 @@ jobs:
           sudo df -h
           sudo swapon --show
           sudo swapoff -a
-          sudo fallocate -l 32G /swapfile
+          sudo fallocate -l 16G /swapfile
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
@@ -33,6 +33,7 @@ jobs:
           CHAIN_ID: 17000
           LOCATOR_DEVNET_ADDRESS: "0x28FAB2059C713A7F9D8c86Db49f9bb0e96Af1ef8"
           WALLET_PRIVATE_KEY: ${{ secrets.WALLET_PRIVATE_KEY }}
+          NODE_OPTIONS: --max-old-space-size=8192
 
   e2e_tests:
     name: E2E Tests
