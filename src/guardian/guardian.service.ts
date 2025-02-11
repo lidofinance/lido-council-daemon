@@ -190,20 +190,8 @@ export class GuardianService implements OnModuleInit {
         lidoKeys,
       );
 
-      if (
-        blockData.securityVersion === 3 &&
-        !blockData.alreadyPausedDeposits &&
-        blockData.theftHappened
-      ) {
+      if (!blockData.alreadyPausedDeposits && blockData.theftHappened) {
         await this.stakingModuleGuardService.handlePauseV3(blockData);
-        return;
-      }
-
-      if (blockData.securityVersion !== 3 && blockData.theftHappened) {
-        await this.stakingModuleGuardService.handlePauseV2(
-          stakingModulesData,
-          blockData,
-        );
         return;
       }
 
@@ -318,10 +306,6 @@ export class GuardianService implements OnModuleInit {
     stakingModulesData: StakingModuleData[],
     blockData: BlockData,
   ) {
-    if (blockData.securityVersion !== 3) {
-      return;
-    }
-
     const firstInvalidModule = this.findFirstInvalidModule(stakingModulesData);
 
     if (!firstInvalidModule) {
