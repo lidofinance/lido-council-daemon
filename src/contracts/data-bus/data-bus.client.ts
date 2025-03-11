@@ -3,7 +3,10 @@ import { EventDataMap, eventMappers } from './data-bus.serializer';
 import { MessagesDataMap, MessagesNames } from './data-bus.serializer';
 import * as eventsAbi from '../../abi/data-bus.abi.json';
 import { TransactionResponse } from '@ethersproject/abstract-provider';
-import { DATA_BUS_REQUEST_TIMEOUT } from './data-bus.constants';
+import {
+  DATA_BUS_GAS_MULTIPLIER,
+  DATA_BUS_REQUEST_TIMEOUT,
+} from './data-bus.constants';
 
 export class DataBusClient {
   private dataBusAddress: string;
@@ -29,10 +32,21 @@ export class DataBusClient {
   }
 
   async sendTransaction(eventId: string, dataBytes: string) {
-    const tx: TransactionResponse = await this.dataBus.sendMessage(
+    const estimatedGas = await this.dataBus.estimateGas.sendMessage(
       eventId,
       dataBytes,
     );
+
+    const gasLimit = estimatedGas.mul(DATA_BUS_GAS_MULTIPLIER).div(100);
+
+    const tx: TransactionResponse = await this.dataBus.sendMessage(
+      eventId,
+      dataBytes,
+      {
+        gasLimit,
+      },
+    );
+
     await tx.wait();
     return tx;
   }
