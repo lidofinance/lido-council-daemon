@@ -97,15 +97,17 @@ export class DepositRegistryService {
       lastSavedEventInDB: initialCache.data[initialCache.data.length - 1],
     });
 
+    const depositEventsStep = await this.getDepositEventStep();
+
     for (
       let block = firstNotCachedBlock;
       block <= finalizedBlockNumber;
-      block += DEPOSIT_EVENTS_STEP
+      block += depositEventsStep
     ) {
       const chunkStartBlock = block;
       const chunkToBlock = Math.min(
         finalizedBlockNumber,
-        block + DEPOSIT_EVENTS_STEP - 1,
+        block + depositEventsStep - 1,
       );
 
       const chunkEventGroup = await this.fetcher.fetchEventsFallOver(
@@ -257,6 +259,14 @@ export class DepositRegistryService {
       startBlock: cachedEvents.headers.startBlock,
       endBlock,
     };
+  }
+
+  public async getDepositEventStep(): Promise<number> {
+    const chainId = await this.providerService.getChainId();
+    const step = DEPOSIT_EVENTS_STEP[chainId];
+    if (step == null) throw new Error(`Chain ${chainId} is not supported`);
+
+    return step;
   }
 
   // Log sorting errors based on depositCount
