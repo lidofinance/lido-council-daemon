@@ -12,6 +12,8 @@ import {
   BLSPubkey,
   Bytes32,
   DOMAIN_DEPOSIT,
+  EMPTY_SIGNATURE,
+  EMPTY_WC,
   GENESIS_FORK_VERSION_BY_CHAIN_ID,
   UintNum64,
   ZERO_HASH,
@@ -21,6 +23,7 @@ import { DepositData } from './interfaces';
 
 @Injectable()
 export class BlsService implements OnModuleInit {
+  invalidCounter = 0;
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private providerService: ProviderService,
@@ -38,9 +41,8 @@ export class BlsService implements OnModuleInit {
       throw new Error('Fork version is not set');
     }
 
+    const { pubkey, wc, amount, signature } = depositData;
     try {
-      const { pubkey, wc, amount, signature } = depositData;
-
       const depositMessage = {
         pubkey: BLSPubkey.fromJson(pubkey),
         withdrawalCredentials: Bytes32.fromJson(wc),
@@ -64,9 +66,17 @@ export class BlsService implements OnModuleInit {
 
       return blst.verify(signingRoot, blsPublicKey, blsSignature);
     } catch (error) {
+      this.invalidCounter++;
+      if (signature === EMPTY_SIGNATURE && wc === EMPTY_WC) {
+        this.logger.warn('Deposit data is not valid', {
+          invalidCount: this.invalidCounter,
+        });
+        return false;
+      }
       this.logger.warn('Deposit data is not valid', {
         ...depositData,
         error: String(error),
+        invalidCount: this.invalidCounter,
       });
 
       return false;
