@@ -108,6 +108,13 @@ export class DepositRegistryService {
         block + DEPOSIT_EVENTS_STEP - 1,
       );
 
+      this.logger.log('Fetching deposit events', {
+        chunkStartBlock,
+        chunkToBlock,
+        finalizedBlockNumber,
+        blockDifference: chunkToBlock - chunkStartBlock,
+      });
+
       const chunkEventGroup = await this.fetcher.fetchEventsFallOver(
         chunkStartBlock,
         chunkToBlock,
