@@ -113,6 +113,11 @@ export class DepositRegistryService {
         chunkToBlock,
         finalizedBlockNumber,
         blockDifference: chunkToBlock - chunkStartBlock,
+        percentComplete:
+          Math.round(
+            ((chunkToBlock / finalizedBlockNumber) * 100 + Number.EPSILON) *
+              100,
+          ) / 100,
       });
 
       const chunkEventGroup = await this.fetcher.fetchEventsFallOver(
