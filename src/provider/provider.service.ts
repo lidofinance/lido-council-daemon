@@ -2,6 +2,7 @@ import { Block } from '@ethersproject/abstract-provider';
 import { CHAINS } from '@lido-sdk/constants';
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { FALLBACK_CHUCK_SIZE } from 'provider';
 import { sleep } from 'utils';
 import { RpcBatchProvider, RpcProvider } from './interfaces';
 import {
@@ -103,20 +104,46 @@ export class ProviderService {
       const isPartitionable = endBlock - startBlock > 1;
 
       if (isPartitionable && isPartitionRequired) {
-        this.logger.debug?.(`Failing to get events, splitting into chunks`, {
-          startBlock,
-          endBlock,
-        });
+        this.logger.debug?.(
+          `Failing to get events, splitting into chunks of 50 blocks`,
+          {
+            startBlock,
+            endBlock,
+          },
+        );
 
-        const center = Math.ceil((endBlock + startBlock) / 2);
-        const [first, second] = await Promise.all([
-          this.fetchEventsFallOver(startBlock, center - 1, fetcher),
-          this.fetchEventsFallOver(center, endBlock, fetcher),
-        ]);
+        const allEvents: E[] = [];
 
-        const events = first.events.concat(second.events) as E[];
+        // Process chunks sequentially
+        let currentStart = startBlock;
+        while (currentStart <= endBlock) {
+          const chunkEnd = Math.min(
+            currentStart + FALLBACK_CHUCK_SIZE - 1,
+            endBlock,
+          );
 
-        return { events, startBlock, endBlock };
+          this.logger.debug?.(
+            `Processing chunk from ${currentStart} to ${chunkEnd}`,
+          );
+
+          // Fetch data for this chunk, but without further chunking if it fails
+          try {
+            const chunk = await fetcher(currentStart, chunkEnd);
+            allEvents.push(...chunk.events);
+          } catch (chunkError) {
+            this.logger.warn(
+              `Error fetching chunk ${currentStart}-${chunkEnd}, retrying`,
+              chunkError,
+            );
+            await sleep(FETCH_EVENTS_RETRY_TIMEOUT_MS);
+            const chunk = await fetcher(currentStart, chunkEnd);
+            allEvents.push(...chunk.events);
+          }
+
+          currentStart = chunkEnd + 1;
+        }
+
+        return { events: allEvents, startBlock, endBlock };
       } else {
         this.logger.warn('Fetch error. Retry', error);
 
