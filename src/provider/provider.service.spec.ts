@@ -97,32 +97,38 @@ describe('ProviderService', () => {
   });
 
   describe('fetchEventsFallOver', () => {
-    it('should fetch recursive if missing response', async () => {
-      const event1 = {} as any;
-      const event2 = {} as any;
-      const expectedFirst = {
-        events: [event1],
-        startBlock: 0,
-        endBlock: 4,
-        extraField: 'some value',
-      };
-      const expectedSecond = {
-        events: [event2],
-        startBlock: 5,
-        endBlock: 10,
-        extraField: 'some value',
-      };
-
+    it('should fetch by chunks of 50 blocks when error occurs', async () => {
+      // Set up test data
       const startBlock = 0;
-      const endBlock = 10;
+      const endBlock = 100;
+
+      // Create mock events
+      const event1 = { id: 1 } as any;
+      const event2 = { id: 2 } as any;
 
       const mockFetchEvents = jest
         .fn()
+        // First call fails with server error
         .mockImplementationOnce(async () => {
           logger.throwError('missing response', Logger.errors.SERVER_ERROR, {});
         })
-        .mockImplementationOnce(async () => expectedFirst)
-        .mockImplementationOnce(async () => expectedSecond);
+        // The next calls should be for chunks of 50 blocks
+        .mockImplementationOnce(async (start, end) => ({
+          events: [event1],
+          startBlock: start,
+          endBlock: end,
+        }))
+        .mockImplementationOnce(async (start, end) => ({
+          events: [event2],
+          startBlock: start,
+          endBlock: end,
+        }))
+        // The remaining chunks
+        .mockImplementation(async (start, end) => ({
+          events: [],
+          startBlock: start,
+          endBlock: end,
+        }));
 
       const result = await providerService.fetchEventsFallOver(
         startBlock,
@@ -130,23 +136,25 @@ describe('ProviderService', () => {
         mockFetchEvents,
       );
 
-      const { calls, results } = mockFetchEvents.mock;
-      const events = [event1, event2];
+      const { calls } = mockFetchEvents.mock;
 
-      expect(Object.keys(result)).toHaveLength(3);
-      expect(result).toEqual({ events, startBlock, endBlock });
-      expect(mockFetchEvents).toBeCalledTimes(3);
+      // We expect the initial call plus enough calls to cover chunks of 50 blocks
+      expect(mockFetchEvents).toHaveBeenCalledTimes(4); // Initial call + 3 chunk calls
+
+      // First call is the initial attempt that fails
       expect(calls[0]).toEqual([startBlock, endBlock]);
-      expect(calls[1]).toEqual([
-        expectedFirst.startBlock,
-        expectedFirst.endBlock,
-      ]);
-      expect(calls[2]).toEqual([
-        expectedSecond.startBlock,
-        expectedSecond.endBlock,
-      ]);
-      await expect(results[1].value).resolves.toEqual(expectedFirst);
-      await expect(results[2].value).resolves.toEqual(expectedSecond);
+
+      // Check that subsequent calls are properly chunked
+      expect(calls[1]).toEqual([0, 49]); // First chunk
+      expect(calls[2]).toEqual([50, 99]); // Second chunk
+      expect(calls[3]).toEqual([100, 100]); // Third chunk
+
+      // Verify the combined results
+      expect(result).toEqual({
+        events: [event1, event2],
+        startBlock,
+        endBlock,
+      });
     });
   });
 });
