@@ -110,6 +110,18 @@ export class DepositRegistryService {
         block + depositEventsStep - 1,
       );
 
+      this.logger.log('Fetching deposit events', {
+        chunkStartBlock,
+        chunkToBlock,
+        finalizedBlockNumber,
+        blockDifference: chunkToBlock - chunkStartBlock,
+        percentComplete:
+          Math.round(
+            ((chunkToBlock / finalizedBlockNumber) * 100 + Number.EPSILON) *
+              100,
+          ) / 100,
+      });
+
       const chunkEventGroup = await this.fetcher.fetchEventsFallOver(
         chunkStartBlock,
         chunkToBlock,
