@@ -15,6 +15,8 @@ export const DEPOSIT_EVENTS_STEP: {
   [CHAINS.Holesky]: 50,
 };
 
+export const DEPOSIT_EVENTS_STEP_DEFAULT = 10_000;
+
 export const DEPOSIT_CACHE_DEFAULT = Object.freeze({
   headers: {
     startBlock: 0,

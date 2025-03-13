@@ -4,6 +4,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { ProviderService } from 'provider';
 import {
   DEPOSIT_EVENTS_STEP,
+  DEPOSIT_EVENTS_STEP_DEFAULT,
   DEPOSIT_REGISTRY_FINALIZED_TAG,
 } from './deposits-registry.constants';
 import {
@@ -275,9 +276,8 @@ export class DepositRegistryService {
 
   public async getDepositEventStep(): Promise<number> {
     const chainId = await this.providerService.getChainId();
-    const step = DEPOSIT_EVENTS_STEP[chainId];
-    if (step == null) throw new Error(`Chain ${chainId} is not supported`);
-
+    const step = DEPOSIT_EVENTS_STEP[chainId] ?? DEPOSIT_EVENTS_STEP_DEFAULT;
+    this.logger.log('Using deposit event step', { step });
     return step;
   }
 
