@@ -5,6 +5,7 @@ import { METRIC_BUILD_INFO } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Gauge } from 'prom-client';
 import { ProviderService } from 'provider';
+import { getHeapStatistics } from 'v8';
 
 export class AppService implements OnModuleInit {
   constructor(
@@ -18,7 +19,15 @@ export class AppService implements OnModuleInit {
     const version = APP_VERSION;
     const name = APP_NAME;
 
-    this.buildInfo.labels({ version, name, network }).inc();
-    this.logger.log('Init app', { name, version, network });
+    const { heap_size_limit } = getHeapStatistics();
+    const heapLimit = Math.round(heap_size_limit / 1024 / 1024).toString();
+
+    this.buildInfo.labels({ version, name, network, heapLimit }).inc();
+    this.logger.log('Init app', {
+      name,
+      version,
+      network,
+      heapLimit,
+    });
   }
 }

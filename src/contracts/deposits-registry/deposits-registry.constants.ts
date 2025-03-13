@@ -8,7 +8,14 @@ export const DEPLOYMENT_BLOCK_NETWORK: {
   [CHAINS.Holesky]: 0,
 };
 
-export const DEPOSIT_EVENTS_STEP = 10_000;
+export const DEPOSIT_EVENTS_STEP: {
+  [key in CHAINS]?: number;
+} = {
+  [CHAINS.Mainnet]: 10_000,
+  [CHAINS.Holesky]: 50,
+};
+
+export const DEPOSIT_EVENTS_STEP_DEFAULT = 10_000;
 
 export const DEPOSIT_CACHE_DEFAULT = Object.freeze({
   headers: {
