@@ -1,15 +1,19 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import {
   HealthIndicator,
   HealthIndicatorResult,
   HealthCheckError,
 } from '@nestjs/terminus';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { ProviderService } from 'provider';
 import { MAX_BLOCK_DELAY_SECONDS } from './health.constants';
 
 @Injectable()
 export class ProviderHealthIndicator extends HealthIndicator {
-  constructor(private providerService: ProviderService) {
+  constructor(
+    private providerService: ProviderService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
+  ) {
     super();
   }
 
@@ -18,6 +22,7 @@ export class ProviderHealthIndicator extends HealthIndicator {
       const block = await this.providerService.getBlock();
       return block.timestamp;
     } catch (error) {
+      this.logger.warn('Failed to get block timestamp', error);
       return -1;
     }
   }
