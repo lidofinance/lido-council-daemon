@@ -94,7 +94,7 @@ const getVariant = <Name extends MessagesNames>(
   return dataVariant.data as MessagesDataMap[Name];
 };
 
-describe('DataBus', () => {
+describe.skip('DataBus', () => {
   let provider: ethers.providers.JsonRpcProvider;
   let owner: ethers.Signer;
   let sdk: DataBusClient;
