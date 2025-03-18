@@ -1231,10 +1231,10 @@
   resolved "https://registry.npmjs.org/@lido-nestjs/utils/-/utils-1.3.0.tgz"
   integrity sha512-/5I30Dos9TC18YfZq8O9ele28DpUQQCySB9X9GXPeSmY1AV4w2kIGQrws1wu2gtw7x5mZnW8PtWthJmH1f6vJQ==
 
-"@lido-sdk/constants@^3.2.1":
-  version "3.2.1"
-  resolved "https://registry.npmjs.org/@lido-sdk/constants/-/constants-3.2.1.tgz"
-  integrity sha512-zes0Mw0r1nEQYBNHV5fxK2H9Byowejy4haFy9LYDh1nL72aNJzzdh5S5iM+pKlEuLHQJHV5lVO/k9tunNJIKqQ==
+"@lido-sdk/constants@3.4.0":
+  version "3.4.0"
+  resolved "https://registry.yarnpkg.com/@lido-sdk/constants/-/constants-3.4.0.tgz#af1f0b0b8bdc893552041626eb34ced3d4a38731"
+  integrity sha512-hF5dGgAl2kWba9tZxvx9ioQR8LEixgn7iyjNoPqasmuOLOzeDjhyX1PCUBuhm0m1e2EpXM2yxVhK8cbWJvpmVw==
   dependencies:
     tiny-invariant "^1.1.0"
 
