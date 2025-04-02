@@ -22,6 +22,7 @@ import { GuardianMessageService } from 'guardian/guardian-message';
 import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 import {
   addGuardians,
+  canDeposit,
   deposit,
   getGuardians,
   getLidoWC,
@@ -40,7 +41,10 @@ import {
 import { truncateTables } from './helpers/pg';
 import { accountImpersonate, testSetupProvider } from './helpers/provider';
 import { SecretKey } from '@chainsafe/blst';
-import { getStakingModulesInfo } from './helpers/sr.contract';
+import {
+  getStakingModulesInfo,
+  prioritizeShareLimit,
+} from './helpers/sr.contract';
 import { packNodeOperatorIds } from 'guardian/unvetting/bytes';
 import {
   setupContainers,
@@ -284,9 +288,9 @@ describe('Front-run e2e tests', () => {
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      expect(sendUnvetMessage).toBeCalledTimes(0);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
       // 4 - number of modules
-      expect(sendDepositMessage).toBeCalledTimes(stakingModulesCount);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
     });
 
     test('Increase staking limit', async () => {
@@ -310,7 +314,7 @@ describe('Front-run e2e tests', () => {
 
       const walletAddress = await getWalletAddress();
 
-      expect(sendUnvetMessage).toBeCalledTimes(1);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
@@ -323,11 +327,13 @@ describe('Front-run e2e tests', () => {
           vettedKeysByOperator: '0x00000000000000000000000000000003',
         }),
       );
-      expect(sendDepositMessage).toBeCalledTimes(2 * stakingModulesCount - 1);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
+        2 * stakingModulesCount - 1,
+      );
     }, 50_000);
 
     test('no pause happen', async () => {
-      expect(sendPauseMessage).toBeCalledTimes(0);
+      expect(sendPauseMessage).toHaveBeenCalledTimes(0);
 
       const securityContract = SecurityAbi__factory.connect(
         securityModuleAddress,
@@ -432,13 +438,13 @@ describe('Front-run e2e tests', () => {
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      expect(sendUnvetMessage).toBeCalledTimes(0);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
       // deposits work for every module
-      expect(sendDepositMessage).toBeCalledTimes(stakingModulesCount);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
     });
 
     test('no pause happen', async () => {
-      expect(sendPauseMessage).toBeCalledTimes(0);
+      expect(sendPauseMessage).toHaveBeenCalledTimes(0);
 
       const securityContract = SecurityAbi__factory.connect(
         securityModuleAddress,
@@ -549,11 +555,11 @@ describe('Front-run e2e tests', () => {
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      expect(sendUnvetMessage).toBeCalledTimes(0);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
     });
 
     test('no pause happen', async () => {
-      expect(sendPauseMessage).toBeCalledTimes(0);
+      expect(sendPauseMessage).toHaveBeenCalledTimes(0);
 
       const securityContract = SecurityAbi__factory.connect(
         securityModuleAddress,
@@ -565,7 +571,7 @@ describe('Front-run e2e tests', () => {
     });
 
     test('deposits still work', async () => {
-      expect(sendDepositMessage).toBeCalledTimes(stakingModulesCount);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
     });
 
     test('Check staking limit for sdvt operator before unvetting', async () => {
@@ -576,6 +582,7 @@ describe('Front-run e2e tests', () => {
 
   describe('Historical front-run', () => {
     let snapshotId: number;
+    let canRunTests = true;
 
     beforeAll(async () => {
       snapshotId = await testSetupProvider.send('evm_snapshot', []);
@@ -584,6 +591,8 @@ describe('Front-run e2e tests', () => {
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);
       setupMocks();
+      canRunTests = await canDeposit();
+      console.log('canRunTests', canRunTests);
     }, 50_000);
 
     afterAll(async () => {
@@ -597,7 +606,9 @@ describe('Front-run e2e tests', () => {
       await signKeyLevelDBService.close();
     });
 
-    test('add unused unvetted key', async () => {
+    const runIf = canRunTests ? test : test.skip;
+
+    runIf('add unused unvetted key', async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
       await nor.addSigningKey(
         firstOperator.index,
@@ -610,7 +621,7 @@ describe('Front-run e2e tests', () => {
       await waitForNewerBlock(currentBlock.number);
     });
 
-    test('Increase staking limit', async () => {
+    runIf('Increase staking limit', async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
 
       // keys total amount was 3, added key with wrong sign, now it is 4 keys
@@ -619,23 +630,39 @@ describe('Front-run e2e tests', () => {
       await waitForNewerBlock(currentBlock.number);
     });
 
-    test('deposit lido key', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
-      await deposit(1);
-      await waitForNewerBlock(currentBlock.number);
-    }, 60_000);
+    runIf(
+      'decrease share limit for all modules except curated',
+      async () => {
+        // curated module id - 1
+        await prioritizeShareLimit(1);
+      },
+      60_000,
+    );
 
-    test('Check staking limit for operator that key was deposited', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
-      const op = await nor.getOperator(firstOperator.index, false);
-      expect(Number(op.totalVettedValidators)).toEqual(4);
-      expect(Number(op.totalAddedValidators)).toEqual(4);
-      expect(Number(op.totalDepositedValidators)).toEqual(4);
+    runIf(
+      'deposit lido key',
+      async () => {
+        const currentBlock = await providerService.provider.getBlock('latest');
+        await deposit(1);
+        await waitForNewerBlock(currentBlock.number);
+      },
+      60_000,
+    );
 
-      await waitForNewerOrEqBlock(currentBlock.number);
-    });
+    runIf(
+      'Check staking limit for operator that key was deposited',
+      async () => {
+        const currentBlock = await providerService.provider.getBlock('latest');
+        const op = await nor.getOperator(firstOperator.index, false);
+        expect(Number(op.totalVettedValidators)).toEqual(4);
+        expect(Number(op.totalAddedValidators)).toEqual(4);
+        expect(Number(op.totalDepositedValidators)).toEqual(4);
 
-    test('Check kapi see new used key', async () => {
+        await waitForNewerOrEqBlock(currentBlock.number);
+      },
+    );
+
+    runIf('Check kapi see new used key', async () => {
       const {
         data: { keys },
       } = await keysApiService.getModuleKeys(1, firstOperator.index);
@@ -644,7 +671,7 @@ describe('Front-run e2e tests', () => {
       expect(lastKeys?.used).toBe(true);
     });
 
-    test('Set cache to current block', async () => {
+    runIf('Set cache to current block', async () => {
       const currentBlock = await providerService.provider.getBlock('latest');
       const { signature: lidoSign } = await signDeposit(
         frontrunPK,
@@ -704,12 +731,12 @@ describe('Front-run e2e tests', () => {
       });
     });
 
-    test('Run council daemon', async () => {
+    runIf('Run council daemon', async () => {
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
     });
 
-    test('Pause happen', async () => {
+    runIf('Pause happen', async () => {
       const securityContract = SecurityAbi__factory.connect(
         securityModuleAddress,
         providerService.provider,
@@ -717,11 +744,11 @@ describe('Front-run e2e tests', () => {
 
       const isOnPause = await securityContract.isDepositsPaused();
       expect(isOnPause).toBe(true);
-      expect(sendPauseMessage).toBeCalledTimes(1);
+      expect(sendPauseMessage).toHaveBeenCalledTimes(1);
     });
 
-    test('Deposits does not work for whole list of modules', () => {
-      expect(sendDepositMessage).toBeCalledTimes(0);
+    runIf('Deposits does not work for whole list of modules', () => {
+      expect(sendDepositMessage).toHaveBeenCalledTimes(0);
     });
   });
 });

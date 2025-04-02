@@ -108,7 +108,7 @@ describe('GuardianService', () => {
       guardianService.handleNewBlock(),
     ]);
 
-    expect(isNeedToProcessNewStatMock).toBeCalledTimes(1);
-    expect(getOperatorsAndModulesMock).toBeCalledTimes(1);
+    expect(isNeedToProcessNewStatMock).toHaveBeenCalledTimes(1);
+    expect(getOperatorsAndModulesMock).toHaveBeenCalledTimes(1);
   });
 });

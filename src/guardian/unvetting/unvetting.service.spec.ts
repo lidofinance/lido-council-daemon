@@ -119,7 +119,7 @@ describe('UnvettingService', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      expect(unvetSigningKeysMock).toBeCalledTimes(1);
+      expect(unvetSigningKeysMock).toHaveBeenCalledTimes(1);
       expect(unvetSigningKeysMock).toBeCalledWith(
         1,
         1,
@@ -130,7 +130,7 @@ describe('UnvettingService', () => {
         'somesign',
       );
 
-      expect(sendUnvetMessageMock).toBeCalledTimes(1);
+      expect(sendUnvetMessageMock).toHaveBeenCalledTimes(1);
 
       expect(sendUnvetMessageMock).toBeCalledWith({
         nonce: 1,
@@ -176,7 +176,7 @@ describe('UnvettingService', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      expect(unvetSigningKeysMock).toBeCalledTimes(1);
+      expect(unvetSigningKeysMock).toHaveBeenCalledTimes(1);
       expect(unvetSigningKeysMock).toBeCalledWith(
         1,
         1,
@@ -187,7 +187,7 @@ describe('UnvettingService', () => {
         'somesign',
       );
 
-      expect(sendUnvetMessageMock).toBeCalledTimes(1);
+      expect(sendUnvetMessageMock).toHaveBeenCalledTimes(1);
       expect(sendUnvetMessageMock).toBeCalledWith({
         nonce: 1,
         blockNumber: 1,

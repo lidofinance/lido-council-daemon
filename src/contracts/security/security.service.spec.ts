@@ -72,7 +72,7 @@ describe('SecurityService', () => {
 
       const guardians = await securityService.getGuardians();
       expect(guardians).toEqual(expected);
-      expect(mockProviderCall).toBeCalledTimes(1);
+      expect(mockProviderCall).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -134,7 +134,7 @@ describe('SecurityService', () => {
 
       const signature = await securityService.signDepositData(...args);
 
-      expect(mockGetAttestMessagePrefix).toBeCalledTimes(1);
+      expect(mockGetAttestMessagePrefix).toHaveBeenCalledTimes(1);
       expect(signDepositData).toBeCalledWith({
         prefix,
         depositRoot,
@@ -170,7 +170,7 @@ describe('SecurityService', () => {
         blockHash,
         TEST_MODULE_ID,
       );
-      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
+      expect(mockGetPauseMessagePrefix).toHaveBeenCalledTimes(1);
       expect(signPauseData).toBeCalledWith({
         blockNumber: 1,
         prefix:
@@ -203,7 +203,7 @@ describe('SecurityService', () => {
         blockNumber,
         blockHash,
       );
-      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
+      expect(mockGetPauseMessagePrefix).toHaveBeenCalledTimes(1);
       expect(signPauseData).toBeCalledWith({
         blockNumber: 1,
         prefix:
@@ -262,10 +262,10 @@ describe('SecurityService', () => {
         signature,
       );
 
-      expect(mockPauseDeposits).toBeCalledTimes(1);
-      expect(mockWait).toBeCalledTimes(1);
-      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
-      expect(mockGetContractWithSigner).toBeCalledTimes(1);
+      expect(mockPauseDeposits).toHaveBeenCalledTimes(1);
+      expect(mockWait).toHaveBeenCalledTimes(1);
+      expect(mockGetPauseMessagePrefix).toHaveBeenCalledTimes(1);
+      expect(mockGetContractWithSigner).toHaveBeenCalledTimes(1);
     });
 
     it('should exit if the previous call is not completed', async () => {
@@ -274,10 +274,10 @@ describe('SecurityService', () => {
         securityService.pauseDepositsV2(blockNumber, TEST_MODULE_ID, signature),
       ]);
 
-      expect(mockPauseDeposits).toBeCalledTimes(1);
-      expect(mockWait).toBeCalledTimes(1);
-      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
-      expect(mockGetContractWithSigner).toBeCalledTimes(1);
+      expect(mockPauseDeposits).toHaveBeenCalledTimes(1);
+      expect(mockWait).toHaveBeenCalledTimes(1);
+      expect(mockGetPauseMessagePrefix).toHaveBeenCalledTimes(1);
+      expect(mockGetContractWithSigner).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -315,10 +315,10 @@ describe('SecurityService', () => {
     it('should call contract method', async () => {
       await securityService.pauseDepositsV3(blockNumber, signature);
 
-      expect(mockPauseDeposits).toBeCalledTimes(1);
-      expect(mockWait).toBeCalledTimes(1);
-      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
-      expect(mockGetContractWithSigner).toBeCalledTimes(1);
+      expect(mockPauseDeposits).toHaveBeenCalledTimes(1);
+      expect(mockWait).toHaveBeenCalledTimes(1);
+      expect(mockGetPauseMessagePrefix).toHaveBeenCalledTimes(1);
+      expect(mockGetContractWithSigner).toHaveBeenCalledTimes(1);
     });
 
     it('should exit if the previous call is not completed', async () => {
@@ -327,10 +327,10 @@ describe('SecurityService', () => {
         securityService.pauseDepositsV3(blockNumber, signature),
       ]);
 
-      expect(mockPauseDeposits).toBeCalledTimes(1);
-      expect(mockWait).toBeCalledTimes(1);
-      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
-      expect(mockGetContractWithSigner).toBeCalledTimes(1);
+      expect(mockPauseDeposits).toHaveBeenCalledTimes(1);
+      expect(mockWait).toHaveBeenCalledTimes(1);
+      expect(mockGetPauseMessagePrefix).toHaveBeenCalledTimes(1);
+      expect(mockGetContractWithSigner).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -358,7 +358,7 @@ describe('SecurityService', () => {
         operatorIds,
         vettedKeysByOperator,
       );
-      expect(mockGetUnvetMessagePrefix).toBeCalledTimes(1);
+      expect(mockGetUnvetMessagePrefix).toHaveBeenCalledTimes(1);
       expect(signUnvetData).toBeCalledWith({
         blockNumber,
         blockHash,
@@ -435,10 +435,10 @@ describe('SecurityService', () => {
         signature,
       );
 
-      expect(mockUnvetSigningKeys).toBeCalledTimes(1);
-      expect(mockWait).toBeCalledTimes(1);
-      expect(mockGetUnvetMessagePrefix).toBeCalledTimes(1);
-      expect(mockGetContractWithSigner).toBeCalledTimes(1);
+      expect(mockUnvetSigningKeys).toHaveBeenCalledTimes(1);
+      expect(mockWait).toHaveBeenCalledTimes(1);
+      expect(mockGetUnvetMessagePrefix).toHaveBeenCalledTimes(1);
+      expect(mockGetContractWithSigner).toHaveBeenCalledTimes(1);
     });
 
     it('should exit if the previous call is not completed', async () => {
@@ -463,10 +463,10 @@ describe('SecurityService', () => {
         ),
       ]);
 
-      expect(mockUnvetSigningKeys).toBeCalledTimes(1);
-      expect(mockWait).toBeCalledTimes(1);
-      expect(mockGetUnvetMessagePrefix).toBeCalledTimes(1);
-      expect(mockGetContractWithSigner).toBeCalledTimes(1);
+      expect(mockUnvetSigningKeys).toHaveBeenCalledTimes(1);
+      expect(mockWait).toHaveBeenCalledTimes(1);
+      expect(mockGetUnvetMessagePrefix).toHaveBeenCalledTimes(1);
+      expect(mockGetContractWithSigner).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -492,7 +492,7 @@ describe('SecurityService', () => {
 
       const prefix = await securityService.getAttestMessagePrefix(blockHash);
       expect(prefix).toBe(expected);
-      expect(mockProviderCall).toBeCalledTimes(1);
+      expect(mockProviderCall).toHaveBeenCalledTimes(1);
     });
 
     it('getPauseMessagePrefix', async () => {
@@ -508,7 +508,7 @@ describe('SecurityService', () => {
 
       const prefix = await securityService.getPauseMessagePrefix(blockHash);
       expect(prefix).toBe(expected);
-      expect(mockProviderCall).toBeCalledTimes(1);
+      expect(mockProviderCall).toHaveBeenCalledTimes(1);
     });
 
     it('getUnvetMessagePrefix', async () => {
@@ -524,7 +524,7 @@ describe('SecurityService', () => {
 
       const prefix = await securityService.getUnvetMessagePrefix(blockHash);
       expect(prefix).toBe(expected);
-      expect(mockProviderCall).toBeCalledTimes(1);
+      expect(mockProviderCall).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -60,7 +60,7 @@ describe('SecurityService', () => {
         TEST_MODULE_ID,
       );
       expect(isPaused).toBe(!expected);
-      expect(mockProviderCalla).toBeCalledTimes(1);
+      expect(mockProviderCalla).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -78,7 +78,7 @@ describe('SecurityService', () => {
 
       const wc = await await stakingRouterService.getWithdrawalCredentials();
       expect(wc).toBe(expected);
-      expect(mockProviderCall).toBeCalledTimes(1);
+      expect(mockProviderCall).toHaveBeenCalledTimes(1);
     });
   });
 });

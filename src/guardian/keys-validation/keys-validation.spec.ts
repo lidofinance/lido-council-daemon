@@ -76,7 +76,7 @@ describe('KeysValidationService', () => {
         genesisForkVersion: Buffer.from(fork.buffer),
       }));
 
-      expect(validateKeysFun).toBeCalledTimes(1);
+      expect(validateKeysFun).toHaveBeenCalledTimes(1);
       expect(validateKeysFun).toBeCalledWith(depositKeyList);
       expect(result).toEqual([invalidKey1, duplicate, invalidKey2]);
 
@@ -94,7 +94,7 @@ describe('KeysValidationService', () => {
         wc,
       );
 
-      expect(validateKeysFun).toBeCalledTimes(1);
+      expect(validateKeysFun).toHaveBeenCalledTimes(1);
       expect(validateKeysFun).toBeCalledWith([]);
       expect(newResult).toEqual([invalidKey1, duplicate, invalidKey2]);
     });
@@ -122,7 +122,7 @@ describe('KeysValidationService', () => {
         genesisForkVersion: Buffer.from(fork.buffer),
       }));
 
-      expect(validateKeysFun).toBeCalledTimes(1);
+      expect(validateKeysFun).toHaveBeenCalledTimes(1);
       expect(validateKeysFun).toBeCalledWith(depositKeyList);
       expect(newResult).toEqual([invalidKey1, duplicate]);
     });

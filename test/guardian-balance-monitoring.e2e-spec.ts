@@ -255,9 +255,9 @@ describe('Guardian balance ', () => {
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       // 4 - number of modules
-      expect(validateKeys).toBeCalledTimes(stakingModulesCount);
-      expect(sendUnvetMessage).toBeCalledTimes(0);
-      expect(sendDepositMessage).toBeCalledTimes(stakingModulesCount);
+      expect(validateKeys).toHaveBeenCalledTimes(stakingModulesCount);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
     });
 
     test('Increase staking limit', async () => {
@@ -279,10 +279,12 @@ describe('Guardian balance ', () => {
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      expect(validateKeys).toBeCalledTimes(2 * stakingModulesCount);
-      expect(sendUnvetMessage).toBeCalledTimes(1);
-      expect(unvetSigningKeys).toBeCalledTimes(0);
-      expect(sendDepositMessage).toBeCalledTimes(2 * stakingModulesCount - 1);
+      expect(validateKeys).toHaveBeenCalledTimes(2 * stakingModulesCount);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
+      expect(unvetSigningKeys).toHaveBeenCalledTimes(0);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
+        2 * stakingModulesCount - 1,
+      );
 
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
       console.log('Finished!');
@@ -311,8 +313,8 @@ describe('Guardian balance ', () => {
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      expect(validateKeys).toBeCalledTimes(3 * stakingModulesCount);
-      expect(sendUnvetMessage).toBeCalledTimes(2);
+      expect(validateKeys).toHaveBeenCalledTimes(3 * stakingModulesCount);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(2);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
@@ -324,7 +326,7 @@ describe('Guardian balance ', () => {
         }),
       );
 
-      expect(unvetSigningKeys).toBeCalledTimes(1);
+      expect(unvetSigningKeys).toHaveBeenCalledTimes(1);
       expect(unvetSigningKeys).toHaveBeenCalledWith(
         expect.anything(),
         currentBlock.number,
@@ -337,7 +339,9 @@ describe('Guardian balance ', () => {
     }, 60_000);
 
     test('No deposits for module', async () => {
-      expect(sendDepositMessage).toBeCalledTimes(3 * stakingModulesCount - 2);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
+        3 * stakingModulesCount - 2,
+      );
     });
 
     test('Check staking limit for operator after unvetting', async () => {

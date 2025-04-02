@@ -1,11 +1,12 @@
 import { ethers, BigNumber } from 'ethers';
-import { testSetupProvider } from './provider';
+import { accountImpersonate, testSetupProvider } from './provider';
 import * as dotenv from 'dotenv';
 import {
   IStakingModuleAbi__factory,
   LocatorAbi__factory,
   StakingRouterAbi__factory,
 } from 'generated';
+import { AGENT } from './agent';
 
 export const CURATED_ONCHAIN_V1_TYPE = 'curated-onchain-v1';
 export const COMMUNITY_ONCHAIN_V1_TYPE = 'community-onchain-v1';
@@ -33,17 +34,23 @@ export async function getStakingModules(): Promise<
     BigNumber,
     BigNumber,
     BigNumber,
+    number,
+    BigNumber,
+    BigNumber,
   ] & {
     id: number;
     stakingModuleAddress: string;
     stakingModuleFee: number;
     treasuryFee: number;
-    targetShare: number;
+    stakeShareLimit: number;
     status: number;
     name: string;
     lastDepositAt: BigNumber;
     lastDepositBlock: BigNumber;
     exitedValidatorsCount: BigNumber;
+    priorityExitShareThreshold: number;
+    maxDepositsPerBlock: BigNumber;
+    minDepositBlockDistance: BigNumber;
   })[]
 > {
   const locator = getLocator();
@@ -54,6 +61,39 @@ export async function getStakingModules(): Promise<
     testSetupProvider,
   );
   return await contract.getStakingModules();
+}
+
+export async function prioritizeShareLimit(moduleId: number) {
+  const locator = getLocator();
+  const stakingRouterAddress = await locator.stakingRouter();
+  const network = await testSetupProvider.getNetwork();
+  const CHAIN_ID = network.chainId;
+  const agent = AGENT[CHAIN_ID];
+  await accountImpersonate(agent);
+  const agentSigner = testSetupProvider.getSigner(agent);
+
+  const contract = StakingRouterAbi__factory.connect(
+    stakingRouterAddress,
+    agentSigner,
+  );
+
+  const modules = await getStakingModules();
+
+  await Promise.all(
+    modules.map(async (stakingModule) => {
+      if (stakingModule.id === moduleId) return;
+
+      await contract.updateStakingModule(
+        stakingModule.id,
+        1,
+        stakingModule.priorityExitShareThreshold,
+        stakingModule.stakingModuleFee,
+        stakingModule.treasuryFee,
+        stakingModule.maxDepositsPerBlock,
+        stakingModule.minDepositBlockDistance,
+      );
+    }),
+  );
 }
 
 export async function getStakingModulesInfo() {

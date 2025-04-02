@@ -41,7 +41,7 @@ describe('ProviderService', () => {
 
       const chainId = await providerService.getChainId();
       expect(chainId).toBe(expected);
-      expect(mockProviderCall).toBeCalledTimes(1);
+      expect(mockProviderCall).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -59,7 +59,7 @@ describe('ProviderService', () => {
 
       const blockNumber = await providerService.getBlockNumber();
       expect(blockNumber).toBe(expected);
-      expect(mockBlockNumber).toBeCalledTimes(1);
+      expect(mockBlockNumber).toHaveBeenCalledTimes(1);
       expect(mockGetBlockNumber).not.toBeCalled();
     });
 
@@ -76,8 +76,8 @@ describe('ProviderService', () => {
 
       const blockNumber = await providerService.getBlockNumber();
       expect(blockNumber).toBe(expected);
-      expect(mockBlockNumber).toBeCalledTimes(1);
-      expect(mockGetBlockNumber).toBeCalledTimes(1);
+      expect(mockBlockNumber).toHaveBeenCalledTimes(1);
+      expect(mockGetBlockNumber).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -91,7 +91,7 @@ describe('ProviderService', () => {
 
       const block = await providerService.getBlock();
       expect(block).toBe(expected);
-      expect(mockProviderCall).toBeCalledTimes(1);
+      expect(mockProviderCall).toHaveBeenCalledTimes(1);
       expect(mockProviderCall).toBeCalledWith('latest');
     });
   });
@@ -135,7 +135,7 @@ describe('ProviderService', () => {
 
       expect(Object.keys(result)).toHaveLength(3);
       expect(result).toEqual({ events, startBlock, endBlock });
-      expect(mockFetchEvents).toBeCalledTimes(3);
+      expect(mockFetchEvents).toHaveBeenCalledTimes(3);
       expect(calls[0]).toEqual([startBlock, endBlock]);
       expect(calls[1]).toEqual([
         expectedFirst.startBlock,

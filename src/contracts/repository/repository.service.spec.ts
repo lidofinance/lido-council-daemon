@@ -50,7 +50,7 @@ describe('RepositoryService', () => {
     it('should call getLidoAddress once', async () => {
       await repositoryService.getCachedLidoContract();
       await repositoryService.getCachedLidoContract();
-      expect(mockGetAddress).toBeCalledTimes(1);
+      expect(mockGetAddress).toHaveBeenCalledTimes(1);
     });
 
     it('should cache instance', async () => {
@@ -76,7 +76,7 @@ describe('RepositoryService', () => {
     it('should call getDepositSecurityAddress once', async () => {
       await repositoryService.getCachedDSMContract();
       await repositoryService.getCachedDSMContract();
-      expect(mockGetAddress).toBeCalledTimes(1);
+      expect(mockGetAddress).toHaveBeenCalledTimes(1);
     });
 
     it('should cache instance', async () => {
@@ -104,7 +104,7 @@ describe('RepositoryService', () => {
     it('should call getDepositAddress once', async () => {
       await repositoryService.getCachedDepositContract();
       await repositoryService.getCachedDepositContract();
-      expect(mockGetAddress).toBeCalledTimes(1);
+      expect(mockGetAddress).toHaveBeenCalledTimes(1);
     });
 
     it('should cache instance', async () => {
@@ -132,7 +132,7 @@ describe('RepositoryService', () => {
         await repositoryService.getCachedStakingRouterContract();
       const contract2 =
         await repositoryService.getCachedStakingRouterContract();
-      expect(mockGetAddress).toBeCalledTimes(1);
+      expect(mockGetAddress).toHaveBeenCalledTimes(1);
 
       expect(contract1).toEqual(contract2);
     });
