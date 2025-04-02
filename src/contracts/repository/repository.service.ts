@@ -49,7 +49,8 @@ export class RepositoryService {
       await this.initCachedContracts({ blockHash: block.hash });
       return block;
     } catch (error) {
-      this.logger.error('Init contracts error. Retry', error);
+      this.logger.error('Init contracts error. Retry');
+      this.logger.error(error);
       await sleep(INIT_CONTRACTS_TIMEOUT);
       return await this.initOrWaitCachedContracts();
     }
