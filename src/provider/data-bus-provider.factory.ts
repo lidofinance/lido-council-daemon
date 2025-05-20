@@ -70,7 +70,6 @@ export const getProviderFactory = (
             );
 
             logger.error(error);
-            // process.exit(1);
           }, MAX_TIME_WITHOUT_NEW_BLOCKS_MS);
         };
 
