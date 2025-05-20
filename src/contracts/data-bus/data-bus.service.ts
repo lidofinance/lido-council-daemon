@@ -23,7 +23,7 @@ import { Configuration } from 'common/config';
 import { DataBusClient } from './data-bus.client';
 import { MessageRequiredFields } from 'messages';
 import { DSMMessageSender } from './dsm-message-sender.client';
-import { getProviderFactory } from 'provider/provider.factory';
+import { getProviderFactory } from 'provider/data-bus-provider.factory';
 import { StaticJsonRpcProvider } from '@ethersproject/providers';
 import { ModuleRef } from '@nestjs/core';
 
