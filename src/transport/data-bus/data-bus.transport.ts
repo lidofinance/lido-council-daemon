@@ -13,6 +13,7 @@ import { DataBusService } from 'contracts/data-bus';
 @Injectable()
 @implementationOf(TransportInterface)
 export class DataBusTransport implements TransportInterface, OnModuleInit {
+  private isDataBusConnected = false;
   public constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private dataBusService: DataBusService,
@@ -23,7 +24,21 @@ export class DataBusTransport implements TransportInterface, OnModuleInit {
   }
 
   public async initialize() {
+    try {
+      await this.connect();
+    } catch (error) {
+      this.logger.warn('Error initializing DataBusTransport', error);
+    }
+  }
+
+  private async connect() {
+    if (this.isDataBusConnected) {
+      return;
+    }
+    this.logger.log('Connecting DataBusTransport');
     await this.dataBusService.initialize();
+    this.isDataBusConnected = true;
+    this.logger.log('DataBusTransport connected successfully');
   }
 
   public async publish<T>(
@@ -31,6 +46,8 @@ export class DataBusTransport implements TransportInterface, OnModuleInit {
     message: T,
     messageType: MessageType,
   ): Promise<void> {
+    await this.connect();
+
     this.logger.log?.(
       `Publishing message of type "${messageType}" to topic "${topic}"`,
     );
