@@ -36,17 +36,6 @@ export const getProviderFactory = (
       });
 
     class Provider extends SourceProvider {
-      async _uncachedDetectNetwork() {
-        try {
-          return await super._uncachedDetectNetwork();
-        } catch (error) {
-          const logger = await getLogger();
-
-          logger.error(error);
-          throw error;
-        }
-      }
-
       static _formatter: Formatter | null = null;
 
       static getFormatter(): Formatter {

@@ -47,6 +47,11 @@ export class DataBusService {
 
   async initialize() {
     this.provider = await this.createProvider();
+    // Check if the provider is initialized
+    // if provider is not initialized, error will be thrown
+    this.logger.log('DataBusService provider created', {
+      blockNumber: await this.provider.getBlockNumber(),
+    });
 
     const guardianAddress = this.address;
     register.setDefaultLabels({ guardianAddress });
