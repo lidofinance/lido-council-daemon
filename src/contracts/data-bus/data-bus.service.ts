@@ -23,7 +23,7 @@ import { Configuration } from 'common/config';
 import { DataBusClient } from './data-bus.client';
 import { MessageRequiredFields } from 'messages';
 import { DSMMessageSender } from './dsm-message-sender.client';
-import { getProviderFactory } from 'provider/provider.factory';
+import { getProviderFactory } from 'provider/data-bus-provider.factory';
 import { StaticJsonRpcProvider } from '@ethersproject/providers';
 import { ModuleRef } from '@nestjs/core';
 
@@ -47,6 +47,11 @@ export class DataBusService {
 
   async initialize() {
     this.provider = await this.createProvider();
+    // Check if the provider is initialized
+    // if provider is not initialized, error will be thrown
+    this.logger.log('DataBusService provider created', {
+      blockNumber: await this.provider.getBlockNumber(),
+    });
 
     const guardianAddress = this.address;
     register.setDefaultLabels({ guardianAddress });

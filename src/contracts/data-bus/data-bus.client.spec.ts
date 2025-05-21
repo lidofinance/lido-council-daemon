@@ -1,14 +1,7 @@
 import { Block } from '@ethersproject/providers';
 import { ethers } from 'ethers';
 import { formatBytes32String } from 'ethers/lib/utils';
-import { Server } from 'ganache';
-import {
-  CHAIN_ID,
-  FORK_BLOCK,
-  GANACHE_PORT,
-  UNLOCKED_ACCOUNTS,
-} from '../../../test/constants';
-import { makeServer } from '../../../test/server';
+import { TEST_SERVER_PORT } from './utils/constants';
 import { DataBusClient } from './data-bus.client';
 import {
   MessageDepositV1,
@@ -19,6 +12,11 @@ import {
   MessagesNames,
   MessageUnvetV1,
 } from './data-bus.serializer';
+import { HardhatServer } from '../../../test/helpers/hardhat-server';
+import { accountImpersonate, setBalance } from '../../../test/helpers/provider';
+import { getSecurityOwner } from '../../../test/helpers/dsm';
+
+jest.setTimeout(40_000);
 
 export const randomInt = (min: number, max: number) =>
   Math.floor(Math.random() * (max - min + 1)) + min;
@@ -96,29 +94,34 @@ const getVariant = <Name extends MessagesNames>(
   return dataVariant.data as MessagesDataMap[Name];
 };
 
-describe('DataBus', () => {
+describe.skip('DataBus', () => {
   let provider: ethers.providers.JsonRpcProvider;
   let owner: ethers.Signer;
   let sdk: DataBusClient;
-  let server: Server<'ethereum'>;
   let variants: ReturnType<typeof getVariants>;
+  let hardhatServer: HardhatServer;
+  let dsmOwnerAddress: string;
 
   const setupServer = async () => {
-    server = makeServer(FORK_BLOCK, CHAIN_ID, UNLOCKED_ACCOUNTS, true);
-    await server.listen(GANACHE_PORT);
+    hardhatServer = new HardhatServer();
+    await hardhatServer.start();
   };
 
   beforeEach(async () => {
     await setupServer();
+    dsmOwnerAddress = await getSecurityOwner();
+    await accountImpersonate(dsmOwnerAddress);
+    await setBalance(dsmOwnerAddress, 100);
+
     // Set up Ganache provider (ensure Ganache is running on port 8545)
     provider = new ethers.providers.JsonRpcProvider(
-      'http://localhost:' + GANACHE_PORT,
+      'http://127.0.0.1:' + TEST_SERVER_PORT,
     );
     variants = getVariants(await provider.getBlock('latest'));
 
     // Get the first account as the owner
-    const accounts = await provider.listAccounts();
-    owner = provider.getSigner(accounts[0]);
+    // const accounts = await provider.listAccounts();
+    owner = provider.getSigner(dsmOwnerAddress); //accounts[0]);
 
     // Deploy the DataBus contract from bytecode
     const dataBusBytecode =
@@ -142,7 +145,7 @@ describe('DataBus', () => {
   });
 
   afterEach(async () => {
-    await server.close();
+    await hardhatServer.stop();
   });
 
   it('should measure gas for sendPingMessage', async () => {

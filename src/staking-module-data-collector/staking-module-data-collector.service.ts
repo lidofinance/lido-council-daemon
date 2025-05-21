@@ -210,6 +210,7 @@ export class StakingModuleDataCollectorService {
       (key) =>
         !key.used && key.vetted && key.moduleAddress === stakingModuleAddress,
     );
+
     return vettedUnusedKeys;
   }
 }

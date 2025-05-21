@@ -4,6 +4,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { ProviderService } from 'provider';
 import {
   DEPOSIT_EVENTS_STEP,
+  DEPOSIT_EVENTS_STEP_DEFAULT,
   DEPOSIT_REGISTRY_FINALIZED_TAG,
 } from './deposits-registry.constants';
 import {
@@ -97,16 +98,30 @@ export class DepositRegistryService {
       lastSavedEventInDB: initialCache.data[initialCache.data.length - 1],
     });
 
+    const depositEventsStep = await this.getDepositEventStep();
+
     for (
       let block = firstNotCachedBlock;
       block <= finalizedBlockNumber;
-      block += DEPOSIT_EVENTS_STEP
+      block += depositEventsStep
     ) {
       const chunkStartBlock = block;
       const chunkToBlock = Math.min(
         finalizedBlockNumber,
-        block + DEPOSIT_EVENTS_STEP - 1,
+        block + depositEventsStep - 1,
       );
+
+      this.logger.log('Fetching deposit events', {
+        chunkStartBlock,
+        chunkToBlock,
+        finalizedBlockNumber,
+        blockDifference: chunkToBlock - chunkStartBlock,
+        percentComplete:
+          Math.round(
+            ((chunkToBlock / finalizedBlockNumber) * 100 + Number.EPSILON) *
+              100,
+          ) / 100,
+      });
 
       const chunkEventGroup = await this.fetcher.fetchEventsFallOver(
         chunkStartBlock,
@@ -257,6 +272,13 @@ export class DepositRegistryService {
       startBlock: cachedEvents.headers.startBlock,
       endBlock,
     };
+  }
+
+  public async getDepositEventStep(): Promise<number> {
+    const chainId = await this.providerService.getChainId();
+    const step = DEPOSIT_EVENTS_STEP[chainId] ?? DEPOSIT_EVENTS_STEP_DEFAULT;
+    this.logger.log('Using deposit event step', { step });
+    return step;
   }
 
   // Log sorting errors based on depositCount
