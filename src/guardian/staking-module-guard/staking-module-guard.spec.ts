@@ -217,13 +217,13 @@ describe('StakingModuleGuardService', () => {
         blockData,
       );
 
-      expect(mockIsSameContractsStates).toBeCalledTimes(2);
+      expect(mockIsSameContractsStates).toHaveBeenCalledTimes(2);
       const { results } = mockIsSameContractsStates.mock;
       expect(results[0].value).toBeFalsy();
       expect(results[1].value).toBeTruthy();
 
-      expect(mockSendMessageFromGuardian).toBeCalledTimes(1);
-      expect(mockSignDepositData).toBeCalledTimes(1);
+      expect(mockSendMessageFromGuardian).toHaveBeenCalledTimes(1);
+      expect(mockSignDepositData).toHaveBeenCalledTimes(1);
     });
 
     it('should send deposit message', async () => {
@@ -249,8 +249,8 @@ describe('StakingModuleGuardService', () => {
         blockData,
       );
 
-      expect(mockSendMessageFromGuardian).toBeCalledTimes(1);
-      expect(mockSignDepositData).toBeCalledTimes(1);
+      expect(mockSendMessageFromGuardian).toHaveBeenCalledTimes(1);
+      expect(mockSignDepositData).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -54,7 +54,7 @@ describe('WalletService', () => {
         .mockImplementation(() => undefined as any);
 
       walletService.subscribeToEthereumUpdates();
-      expect(mockOn).toBeCalledTimes(1);
+      expect(mockOn).toHaveBeenCalledTimes(1);
       expect(mockOn).toBeCalledWith('block', expect.any(Function));
     });
   });

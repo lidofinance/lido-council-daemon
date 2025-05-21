@@ -267,11 +267,11 @@ describe('Duplicates e2e tests', () => {
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      expect(sendUnvetMessage).toBeCalledTimes(0);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
     });
 
     test('deposits work', async () => {
-      expect(sendDepositMessage).toBeCalledTimes(stakingModulesCount);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
     });
 
     test('increase staking limit for the first operator', async () => {
@@ -288,13 +288,13 @@ describe('Duplicates e2e tests', () => {
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      expect(sendUnvetMessage).toBeCalledTimes(0);
-      expect(unvetSigningKeys).toBeCalledTimes(0);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
+      expect(unvetSigningKeys).toHaveBeenCalledTimes(0);
     });
 
     test('deposits work', async () => {
       // second iteration of deposits
-      expect(sendDepositMessage).toBeCalledTimes(stakingModulesCount * 2);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount * 2);
     });
 
     test('increase staking limit for the second operator', async () => {
@@ -323,7 +323,7 @@ describe('Duplicates e2e tests', () => {
       const walletAddress = await getWalletAddress();
 
       // unvetting for second module
-      expect(sendUnvetMessage).toBeCalledTimes(1);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
@@ -335,7 +335,7 @@ describe('Duplicates e2e tests', () => {
         }),
       );
 
-      expect(unvetSigningKeys).toBeCalledTimes(1);
+      expect(unvetSigningKeys).toHaveBeenCalledTimes(1);
       expect(unvetSigningKeys).toHaveBeenCalledWith(
         expect.anything(),
         currentBlock.number,
@@ -349,7 +349,7 @@ describe('Duplicates e2e tests', () => {
 
     test('no deposits for module', async () => {
       // 8 prev + 3 new
-      expect(sendDepositMessage).toBeCalledTimes(
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
         stakingModulesCount * 2 + stakingModulesCount - 1,
       );
     });
@@ -435,11 +435,11 @@ describe('Duplicates e2e tests', () => {
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      expect(sendUnvetMessage).toBeCalledTimes(0);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
     });
 
     test('Deposits work', async () => {
-      expect(sendDepositMessage).toBeCalledTimes(stakingModulesCount);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
     });
 
     test('Increase staking limit for the first operator', async () => {
@@ -463,7 +463,7 @@ describe('Duplicates e2e tests', () => {
       const walletAddress = await getWalletAddress();
 
       // unvetting for second module
-      expect(sendUnvetMessage).toBeCalledTimes(1);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
@@ -475,7 +475,7 @@ describe('Duplicates e2e tests', () => {
         }),
       );
 
-      expect(unvetSigningKeys).toBeCalledTimes(1);
+      expect(unvetSigningKeys).toHaveBeenCalledTimes(1);
       expect(unvetSigningKeys).toHaveBeenCalledWith(
         expect.anything(),
         currentBlock.number,
@@ -488,7 +488,9 @@ describe('Duplicates e2e tests', () => {
     });
 
     test('no deposits for module', async () => {
-      expect(sendDepositMessage).toBeCalledTimes(2 * stakingModulesCount - 1);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
+        2 * stakingModulesCount - 1,
+      );
     });
 
     test('Check staking limit for nor operator after unvetting', async () => {
@@ -567,11 +569,11 @@ describe('Duplicates e2e tests', () => {
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      expect(sendUnvetMessage).toBeCalledTimes(0);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
     });
 
     test('Deposits work', async () => {
-      expect(sendDepositMessage).toBeCalledTimes(stakingModulesCount);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
     });
 
     test('Increase staking limit for the first operator', async () => {
@@ -596,7 +598,7 @@ describe('Duplicates e2e tests', () => {
       const walletAddress = await getWalletAddress();
 
       // unvetting for second module
-      expect(sendUnvetMessage).toBeCalledTimes(1);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
@@ -607,7 +609,7 @@ describe('Duplicates e2e tests', () => {
           vettedKeysByOperator: '0x00000000000000000000000000000004',
         }),
       );
-      expect(unvetSigningKeys).toBeCalledTimes(1);
+      expect(unvetSigningKeys).toHaveBeenCalledTimes(1);
       expect(unvetSigningKeys).toHaveBeenCalledWith(
         expect.anything(),
         currentBlock.number,
@@ -620,7 +622,9 @@ describe('Duplicates e2e tests', () => {
     });
 
     test('No deposits for module', async () => {
-      expect(sendDepositMessage).toBeCalledTimes(2 * stakingModulesCount - 1);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
+        2 * stakingModulesCount - 1,
+      );
     });
 
     test('Check staking limit for nor operator after unvetting', async () => {
@@ -704,11 +708,11 @@ describe('Duplicates e2e tests', () => {
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      expect(sendUnvetMessage).toBeCalledTimes(0);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
     });
 
     test('deposits work', async () => {
-      expect(sendDepositMessage).toBeCalledTimes(stakingModulesCount);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
     });
 
     test('increase staking limit for op = 0', async () => {
@@ -724,12 +728,12 @@ describe('Duplicates e2e tests', () => {
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      expect(sendUnvetMessage).toBeCalledTimes(0);
-      expect(unvetSigningKeys).toBeCalledTimes(0);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
+      expect(unvetSigningKeys).toHaveBeenCalledTimes(0);
     });
 
     test('deposits work', async () => {
-      expect(sendDepositMessage).toBeCalledTimes(2 * stakingModulesCount);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(2 * stakingModulesCount);
     });
 
     test('increase staking limit for the first operator of SDVT contract', async () => {
@@ -758,7 +762,7 @@ describe('Duplicates e2e tests', () => {
       const walletAddress = await getWalletAddress();
 
       // unvetting for second module
-      expect(sendUnvetMessage).toBeCalledTimes(1);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
@@ -770,7 +774,7 @@ describe('Duplicates e2e tests', () => {
         }),
       );
 
-      expect(unvetSigningKeys).toBeCalledTimes(1);
+      expect(unvetSigningKeys).toHaveBeenCalledTimes(1);
       expect(unvetSigningKeys).toHaveBeenCalledWith(
         expect.anything(),
         currentBlock.number,
@@ -783,7 +787,9 @@ describe('Duplicates e2e tests', () => {
     });
 
     test('no deposits for module', async () => {
-      expect(sendDepositMessage).toBeCalledTimes(3 * stakingModulesCount - 1);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
+        3 * stakingModulesCount - 1,
+      );
     });
 
     test('Check staking limit for nor operator after unvetting', async () => {
@@ -881,11 +887,11 @@ describe('Duplicates e2e tests', () => {
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      expect(sendUnvetMessage).toBeCalledTimes(0);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
     });
 
     test('deposits work', async () => {
-      expect(sendDepositMessage).toBeCalledTimes(stakingModulesCount);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
     });
 
     test('increase staking limit for op = 0 of NOR contract', async () => {
@@ -923,7 +929,7 @@ describe('Duplicates e2e tests', () => {
       const walletAddress = await getWalletAddress();
 
       // unvetting for second module
-      expect(sendUnvetMessage).toBeCalledTimes(1);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
@@ -935,7 +941,7 @@ describe('Duplicates e2e tests', () => {
         }),
       );
 
-      expect(unvetSigningKeys).toBeCalledTimes(1);
+      expect(unvetSigningKeys).toHaveBeenCalledTimes(1);
       expect(unvetSigningKeys).toHaveBeenCalledWith(
         expect.anything(),
         currentBlock.number,
@@ -948,7 +954,9 @@ describe('Duplicates e2e tests', () => {
     });
 
     test('no deposits for module for both modules', async () => {
-      expect(sendDepositMessage).toBeCalledTimes(2 * stakingModulesCount - 2);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
+        2 * stakingModulesCount - 2,
+      );
     });
 
     test('Check staking limit for nor operator after unvetting', async () => {
@@ -970,7 +978,7 @@ describe('Duplicates e2e tests', () => {
 
       // unvetting for second module
       // it is already second unvetting during test
-      expect(sendUnvetMessage).toBeCalledTimes(2);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(2);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
@@ -982,7 +990,7 @@ describe('Duplicates e2e tests', () => {
         }),
       );
 
-      expect(unvetSigningKeys).toBeCalledTimes(2);
+      expect(unvetSigningKeys).toHaveBeenCalledTimes(2);
       expect(unvetSigningKeys).toHaveBeenCalledWith(
         expect.anything(),
         currentBlock.number,
@@ -1000,7 +1008,7 @@ describe('Duplicates e2e tests', () => {
     });
 
     test('Deposits again work for first module, but not for second', async () => {
-      expect(sendDepositMessage).toBeCalledTimes(
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
         3 * stakingModulesCount - 2 - 1,
       );
     });

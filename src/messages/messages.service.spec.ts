@@ -84,8 +84,8 @@ describe('MessagesService', () => {
 
       await messagesService.sendMessage(expectedMessage);
 
-      expect(mockGetTopic).toBeCalledTimes(1);
-      expect(mockPublish).toBeCalledTimes(1);
+      expect(mockGetTopic).toHaveBeenCalledTimes(1);
+      expect(mockPublish).toHaveBeenCalledTimes(1);
       expect(mockPublish).toBeCalledWith(
         expectedTopic,
         expectedMessage,

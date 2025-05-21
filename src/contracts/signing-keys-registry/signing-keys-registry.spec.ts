@@ -108,7 +108,7 @@ describe('SigningKeysRegistryService', () => {
       newEvent.moduleAddress,
     ]);
 
-    expect(deleteCache).toBeCalledTimes(1);
+    expect(deleteCache).toHaveBeenCalledTimes(1);
 
     const newResult = await dbService.getEventsCache();
 

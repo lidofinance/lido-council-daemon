@@ -63,7 +63,7 @@ describe('GuardianService', () => {
 
       await guardianMessageService.sendMessageFromGuardian(message);
 
-      expect(mockSendMessage).toBeCalledTimes(1);
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
       expect(mockSendMessage).toBeCalledWith(expect.objectContaining(message));
     });
 

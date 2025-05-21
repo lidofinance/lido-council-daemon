@@ -67,7 +67,19 @@ export async function setGuardianBalance(eth: string) {
   await setBalance(wallet.address, Number(eth));
 }
 
-export async function deposit(moduleId: number) {
+export async function canDeposit() {
+  const locator = getLocator();
+  const lidoAddress = await locator.lido();
+  const dsm = await locator.depositSecurityModule();
+
+  const signer = testSetupProvider.getSigner(dsm);
+
+  const lido = LidoAbi__factory.connect(lidoAddress, signer);
+  const res = await lido.canDeposit();
+  return res;
+}
+
+export async function deposit(moduleId: number, depositCount = 1) {
   const locator = getLocator();
   const dsm = await locator.depositSecurityModule();
   const lidoAddress = await locator.lido();
@@ -102,9 +114,11 @@ export async function deposit(moduleId: number) {
   const amountForDeposits = depositableEtherWei
     .sub(unfinalizedStETHWei)
     .abs()
-    .add(ethers.utils.parseEther('100000'));
+    .add(ethers.utils.parseEther((depositCount * 32).toString()));
   const amountForDepositsInEth = ethers.utils.formatEther(amountForDeposits);
 
+  // TODO: check current stake limit and increase it on value i need
+  //
   await lidoVotingSigner.setStakingLimit(
     ethers.utils.parseEther(amountForDepositsInEth), // _maxStakeLimit
     ethers.utils.parseEther(amountForDepositsInEth), // _stakeLimitIncreasePerBlock
@@ -116,7 +130,6 @@ export async function deposit(moduleId: number) {
 
   await new Promise((res) => setTimeout(res, 12000));
 
-  //TODO: check how many keys waiting deposit
   const tx = await lido.deposit(1, moduleId, new Uint8Array());
 
   await tx.wait();

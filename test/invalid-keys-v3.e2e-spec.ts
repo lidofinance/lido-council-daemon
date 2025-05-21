@@ -248,9 +248,9 @@ describe('Signature validation e2e test', () => {
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       // 4 - number of modules
-      expect(validateKeys).toBeCalledTimes(stakingModulesCount);
-      expect(sendUnvetMessage).toBeCalledTimes(0);
-      expect(sendDepositMessage).toBeCalledTimes(stakingModulesCount);
+      expect(validateKeys).toHaveBeenCalledTimes(stakingModulesCount);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
     });
 
     test('Increase staking limit', async () => {
@@ -275,8 +275,8 @@ describe('Signature validation e2e test', () => {
       const walletAddress = await getWalletAddress();
 
       // 4 - number of modules
-      expect(validateKeys).toBeCalledTimes(2 * stakingModulesCount);
-      expect(sendUnvetMessage).toBeCalledTimes(1);
+      expect(validateKeys).toHaveBeenCalledTimes(2 * stakingModulesCount);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
@@ -288,7 +288,7 @@ describe('Signature validation e2e test', () => {
         }),
       );
 
-      expect(unvetSigningKeys).toBeCalledTimes(1);
+      expect(unvetSigningKeys).toHaveBeenCalledTimes(1);
       expect(unvetSigningKeys).toHaveBeenCalledWith(
         expect.anything(),
         currentBlock.number,
@@ -301,7 +301,9 @@ describe('Signature validation e2e test', () => {
     });
 
     test('No deposits for module', async () => {
-      expect(sendDepositMessage).toBeCalledTimes(2 * stakingModulesCount - 1);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
+        2 * stakingModulesCount - 1,
+      );
     });
 
     test('Check staking limit for operator after unvetting', async () => {
