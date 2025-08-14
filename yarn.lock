@@ -558,9 +558,9 @@
     "@ethersproject/properties" "^5.7.0"
     "@ethersproject/strings" "^5.7.0"
 
-"@ethersproject/abstract-provider@5.7.0", "@ethersproject/abstract-provider@^5.7.0":
+"@ethersproject/abstract-provider@5.7.0":
   version "5.7.0"
-  resolved "https://registry.npmjs.org/@ethersproject/abstract-provider/-/abstract-provider-5.7.0.tgz"
+  resolved "https://registry.yarnpkg.com/@ethersproject/abstract-provider/-/abstract-provider-5.7.0.tgz#b0a8550f88b6bf9d51f90e4795d48294630cb9ef"
   integrity sha512-R41c9UkchKCpAqStMYUpdunjo3pkEvZC3FAwZn5S5MGbXoMQOHIdHItezTETxAO5bevtMApSyEhn9+CHcDsWBw==
   dependencies:
     "@ethersproject/bignumber" "^5.7.0"
@@ -571,7 +571,7 @@
     "@ethersproject/transactions" "^5.7.0"
     "@ethersproject/web" "^5.7.0"
 
-"@ethersproject/abstract-provider@^5.8.0":
+"@ethersproject/abstract-provider@5.8.0", "@ethersproject/abstract-provider@^5.7.0", "@ethersproject/abstract-provider@^5.8.0":
   version "5.8.0"
   resolved "https://registry.yarnpkg.com/@ethersproject/abstract-provider/-/abstract-provider-5.8.0.tgz#7581f9be601afa1d02b95d26b9d9840926a35b0c"
   integrity sha512-wC9SFcmh4UK0oKuLJQItoQdzS/qZ51EJegK6EmAWlh+OptpQ/npECOR3QqECd8iGHC0RJb4WKbVdSfif4ammrg==
@@ -1402,11 +1402,6 @@
   resolved "https://registry.yarnpkg.com/@lido-nestjs/constants/-/constants-5.2.1.tgz#f006972b7b69429f7623b0c5ac8b4bba594f9c01"
   integrity sha512-0UvUdQ4KilnH0Nf5JkdKdOrS2HFMjmrS4+2wUXoX08N25MzFryWC0qcdFLp1bvod04Ey/PoUNlj+S2WVKEYgwQ==
 
-"@lido-nestjs/constants@5.3.0":
-  version "5.3.0"
-  resolved "https://registry.yarnpkg.com/@lido-nestjs/constants/-/constants-5.3.0.tgz#a257d9aff873bc10c8be940541405342f82e610e"
-  integrity sha512-8lW8DPmZ1t4t8tOs7E4eqPlWCjhN9poe3q81DtG/Nt0+AMWzx4zTmeap0DGHdeMC4QPB3vRdjb2i3E+B4aJbgA==
-
 "@lido-nestjs/contracts@9.6.0":
   version "9.6.0"
   resolved "https://registry.yarnpkg.com/@lido-nestjs/contracts/-/contracts-9.6.0.tgz#8e01a78be5c0832c4be0d2544b602ec03e95ecf7"
@@ -1417,25 +1412,15 @@
     "@lido-nestjs/constants" "5.2.1"
     ethers "^5.5.4"
 
-"@lido-nestjs/contracts@9.7.0":
-  version "9.7.0"
-  resolved "https://registry.yarnpkg.com/@lido-nestjs/contracts/-/contracts-9.7.0.tgz#bdfa4e224b1f62bdc87c3492c3803911cf178966"
-  integrity sha512-RAZkK2PsvdHujjRA7s6g6iV4I7Z4iz767YCRghUtObgCg7yC7G88FVUegejbJtKq6lKEEpsoezR4LPtWcfIwoQ==
-  dependencies:
-    "@ethersproject/abi" "^5.5.0"
-    "@ethersproject/providers" "^5.5.3"
-    "@lido-nestjs/constants" "5.3.0"
-    ethers "^5.5.4"
-
 "@lido-nestjs/di@1.0.1":
   version "1.0.1"
   resolved "https://registry.npmjs.org/@lido-nestjs/di/-/di-1.0.1.tgz"
   integrity sha512-n/oPivizv6PffyLjtxf8wxm1IteG/YvelHFiz4X6jb4WhrCPpK8J46L/LHTLUmFfcCBXquVcUJqG5Nwy3b2pIg==
 
-"@lido-nestjs/execution@^1.11.0":
-  version "1.14.1"
-  resolved "https://registry.yarnpkg.com/@lido-nestjs/execution/-/execution-1.14.1.tgz#0bb7c4f213ee48bb05fa72f3ed54d34c45e425d4"
-  integrity sha512-YQcRNQQD3b5x/dzDIiG7fEDA//IZg4mYPexd6rGoitkNBTCegmU0Ase7If3BsvRWCsVkqNZdq/8eVmHiAnOs5Q==
+"@lido-nestjs/execution@1.14.2":
+  version "1.14.2"
+  resolved "https://registry.yarnpkg.com/@lido-nestjs/execution/-/execution-1.14.2.tgz#4a7b78f11bf69b5e3eed61bd390b89952ed64297"
+  integrity sha512-LjRiZ6LPAyK57AM1+USYDf6bgumEGeHlxKC511vvUlNTYBq9kFMU7njeXCaw8yaRMAHHFYCLFlN2l6Sp5/r8hg==
   dependencies:
     "@ethersproject/bignumber" "5.8.0"
     "@ethersproject/bytes" "5.8.0"
@@ -1447,7 +1432,7 @@
     "@lido-nestjs/logger" "1.3.2"
     "@lido-nestjs/middleware" "1.2.0"
 
-"@lido-nestjs/fetch@^1.4.0":
+"@lido-nestjs/fetch@^1.3.1":
   version "1.4.0"
   resolved "https://registry.yarnpkg.com/@lido-nestjs/fetch/-/fetch-1.4.0.tgz#574c3140b2699df6570d3544520288aa21b513ea"
   integrity sha512-tWivAb6xf1qfnbaZa77M7TmtaSlvs/OdfR+ZGTe31M1kk2Kl8bXstw2ag8aGRpTgJdesF0aHMQkSaW1gOtInxA==
@@ -1469,7 +1454,7 @@
     "@lido-nestjs/utils" "1.3.0"
     piscina "3.2.0"
 
-"@lido-nestjs/logger@1.3.2", "@lido-nestjs/logger@^1.3.2":
+"@lido-nestjs/logger@1.3.2":
   version "1.3.2"
   resolved "https://registry.yarnpkg.com/@lido-nestjs/logger/-/logger-1.3.2.tgz#0d301d7cfc0ea549ad9a658f74d99ded75bbdc80"
   integrity sha512-Pi00cEruj2jGVuYBK2beKAuvxKvgTvD8zYzswj0GRvCBvxpoMj/MRfsh3fgMCnYq/tYaI0rZQlG6rYyTILLw3Q==
@@ -1478,7 +1463,7 @@
     traverse "^0.6.7"
     winston "^3.4.0"
 
-"@lido-nestjs/middleware@1.2.0", "@lido-nestjs/middleware@^1.2.0":
+"@lido-nestjs/middleware@1.2.0", "@lido-nestjs/middleware@^1.1.1":
   version "1.2.0"
   resolved "https://registry.yarnpkg.com/@lido-nestjs/middleware/-/middleware-1.2.0.tgz#0e64b69149ef1f7e4594896fd08d6e0bd9ef5382"
   integrity sha512-0rkXWKXEKJPRbq1W6cN+yelhc+CruqhUqmdkNKwl4vTk631fpG9yfSfxxQFDAs3LhsTORqqgKUBpdK+epRYjIQ==
