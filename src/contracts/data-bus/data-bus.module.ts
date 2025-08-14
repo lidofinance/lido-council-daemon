@@ -6,6 +6,7 @@ import {
   DATA_BUS_PRIVATE_KEY_CONFIG_PATH,
 } from './data-bus.constants';
 import { DataBusService } from './data-bus.service';
+import { DataBusProviderModule } from '../../provider/data-bus-provider.module';
 
 @Module({})
 export class DataBusModule {
@@ -14,7 +15,7 @@ export class DataBusModule {
   ): DynamicModule {
     return {
       module: DataBusModule,
-      imports: [ConfigModule],
+      imports: [ConfigModule, DataBusProviderModule.forRootAsync()],
       providers: [
         DataBusService,
         {

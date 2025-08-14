@@ -4,3 +4,5 @@ export * from './provider.mock';
 export * from './provider.module';
 export * from './provider.service';
 export * from './provider.test';
+export * from './main-provider.module';
+export * from './data-bus-provider.module';

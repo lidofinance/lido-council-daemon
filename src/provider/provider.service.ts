@@ -2,8 +2,8 @@ import { Block } from '@ethersproject/abstract-provider';
 import { CHAINS } from '@lido-sdk/constants';
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { sleep } from 'utils';
-import { RpcBatchProvider, RpcProvider } from './interfaces';
 import {
   ERRORS_LIMIT_EXCEEDED,
   FETCH_EVENTS_RETRY_TIMEOUT_MS,
@@ -13,24 +13,8 @@ import {
 export class ProviderService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-
-    public provider: RpcProvider,
-    public batchProvider: RpcBatchProvider,
+    public provider: SimpleFallbackJsonRpcBatchProvider,
   ) {}
-
-  /**
-   * Returns a new instance of provider
-   */
-  public getNewProviderInstance(): RpcProvider {
-    return this.provider.clone();
-  }
-
-  /**
-   * Returns a new instance of batch provider
-   */
-  public getNewBatchProviderInstance(): RpcBatchProvider {
-    return this.batchProvider.clone();
-  }
 
   /**
    * Returns current chain id
@@ -44,11 +28,7 @@ export class ProviderService {
    * Returns current block number
    */
   public async getBlockNumber(): Promise<number> {
-    const cachedBlockNumber = this.provider.blockNumber;
-
-    return cachedBlockNumber === -1
-      ? await this.provider.getBlockNumber()
-      : cachedBlockNumber;
+    return await this.provider.getBlockNumber();
   }
 
   /**
