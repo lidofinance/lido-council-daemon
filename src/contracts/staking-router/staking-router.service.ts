@@ -2,13 +2,14 @@ import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { RepositoryService } from 'contracts/repository';
 import { IStakingModuleAbi__factory } from 'generated';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { BlockTag, ProviderService } from 'provider';
+import { BlockTag } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 
 @Injectable()
 export class StakingRouterService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-    private providerService: ProviderService,
+    private provider: SimpleFallbackJsonRpcBatchProvider,
     private repositoryService: RepositoryService,
   ) {}
 
@@ -50,7 +51,7 @@ export class StakingRouterService {
   public async getStakingModule(stakingModuleAddress: string) {
     return IStakingModuleAbi__factory.connect(
       stakingModuleAddress,
-      this.providerService.provider,
+      this.provider,
     );
   }
 

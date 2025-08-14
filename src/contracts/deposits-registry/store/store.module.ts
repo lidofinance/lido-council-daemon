@@ -1,5 +1,4 @@
 import { DynamicModule, Module } from '@nestjs/common';
-import { ProviderModule } from 'provider';
 import { DB_DIR, DB_DEFAULT_VALUE, DB_LAYER_DIR } from './store.constants';
 import { DepositsRegistryStoreService } from './store.service';
 
@@ -12,7 +11,6 @@ export class DepositsRegistryStoreModule {
   ): DynamicModule {
     return {
       module: DepositsRegistryStoreModule,
-      imports: [ProviderModule],
       providers: [
         DepositsRegistryStoreService,
         {

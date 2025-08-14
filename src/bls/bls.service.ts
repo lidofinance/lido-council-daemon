@@ -1,7 +1,7 @@
 import * as blst from '@chainsafe/blst';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Type, fromHexString } from '@chainsafe/ssz';
-import { ProviderService } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import {
   Inject,
   Injectable,
@@ -23,11 +23,12 @@ import { DepositData } from './interfaces';
 export class BlsService implements OnModuleInit {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-    private providerService: ProviderService,
+    private provider: SimpleFallbackJsonRpcBatchProvider,
   ) {}
 
   async onModuleInit() {
-    const chainId = await this.providerService.getChainId();
+    const network = await this.provider.getNetwork();
+    const chainId = network.chainId;
     this.forkVersion = GENESIS_FORK_VERSION_BY_CHAIN_ID[chainId] ?? null;
   }
 

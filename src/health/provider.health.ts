@@ -5,13 +5,13 @@ import {
   HealthCheckError,
 } from '@nestjs/terminus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { ProviderService } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { MAX_BLOCK_DELAY_SECONDS } from './health.constants';
 
 @Injectable()
 export class ProviderHealthIndicator extends HealthIndicator {
   constructor(
-    private providerService: ProviderService,
+    private provider: SimpleFallbackJsonRpcBatchProvider,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
   ) {
     super();
@@ -19,7 +19,7 @@ export class ProviderHealthIndicator extends HealthIndicator {
 
   async getBlockTimestamp() {
     try {
-      const block = await this.providerService.getBlock();
+      const block = await this.provider.getBlock('latest');
       return block.timestamp;
     } catch (error) {
       this.logger.warn('Failed to get block timestamp', error);

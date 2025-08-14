@@ -4,18 +4,22 @@ import { APP_NAME, APP_VERSION } from 'app.constants';
 import { METRIC_BUILD_INFO } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Gauge } from 'prom-client';
-import { ProviderService } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
+import { CHAINS } from '@lido-sdk/constants';
 import { getHeapStatistics } from 'v8';
 
 export class AppService implements OnModuleInit {
   constructor(
-    private providerService: ProviderService,
+    private provider: SimpleFallbackJsonRpcBatchProvider,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     @InjectMetric(METRIC_BUILD_INFO) private buildInfo: Gauge<string>,
   ) {}
 
   async onModuleInit(): Promise<void> {
-    const network = await this.providerService.getNetworkName();
+    const providerNetwork = await this.provider.getNetwork();
+    const network =
+      CHAINS[providerNetwork.chainId]?.toLocaleLowerCase() ||
+      providerNetwork.name;
     const version = APP_VERSION;
     const name = APP_NAME;
 

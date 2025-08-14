@@ -15,7 +15,8 @@ import {
 import { RepositoryService } from 'contracts/repository';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Counter } from 'prom-client';
-import { BlockTag, ProviderService } from 'provider';
+import { BlockTag } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { WalletService } from 'wallet';
 import { DSM_CONTRACT_SUPPORTED_VERSION } from './security.constants';
 
@@ -25,7 +26,7 @@ export class SecurityService {
     @InjectMetric(METRIC_PAUSE_ATTEMPTS) private pauseAttempts: Counter<string>,
     @InjectMetric(METRIC_UNVET_ATTEMPTS) private unvetAttempts: Counter<string>,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-    private providerService: ProviderService,
+    private provider: SimpleFallbackJsonRpcBatchProvider,
     private repositoryService: RepositoryService,
     private walletService: WalletService,
   ) {}
@@ -46,8 +47,7 @@ export class SecurityService {
    */
   public getContractWithSigner(): SecurityAbi {
     const wallet = this.walletService.wallet;
-    const provider = this.providerService.provider;
-    const walletWithProvider = wallet.connect(provider);
+    const walletWithProvider = wallet.connect(this.provider);
     const contract = this.repositoryService.getCachedDSMContract();
     const contractWithSigner = contract.connect(walletWithProvider);
 
@@ -62,12 +62,11 @@ export class SecurityService {
 
     const oldContract = SecurityDeprecatedPauseAbi__factory.connect(
       contract.address,
-      this.providerService.provider,
+      this.provider,
     );
 
     const wallet = this.walletService.wallet;
-    const provider = this.providerService.provider;
-    const walletWithProvider = wallet.connect(provider);
+    const walletWithProvider = wallet.connect(this.provider);
     const contractWithSigner = oldContract.connect(walletWithProvider);
 
     return contractWithSigner;

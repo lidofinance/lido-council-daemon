@@ -7,7 +7,7 @@ import {
   MAX_DEPOSIT_COUNT,
   DB_LAYER_DIR,
 } from './store.constants';
-import { ProviderService } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import {
   VerifiedDepositEvent,
   VerifiedDepositEventsCache,
@@ -24,7 +24,7 @@ export class DepositsRegistryStoreService {
   private cache!: VerifiedDepositEventsCache;
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-    private providerService: ProviderService,
+    private provider: SimpleFallbackJsonRpcBatchProvider,
     @InjectMetric(METRIC_JOB_DURATION)
     private jobDurationMetric: Histogram<string>,
     @Inject(DB_DIR) private cacheDir: string,
@@ -79,7 +79,8 @@ export class DepositsRegistryStoreService {
    * @private
    */
   private async getDBDirPath(): Promise<string> {
-    const chainId = await this.providerService.getChainId();
+    const network = await this.provider.getNetwork();
+    const chainId = network.chainId;
     const networkDir = `chain-${chainId}`;
 
     return join(this.cacheDir, this.cacheLayerDir, networkDir);

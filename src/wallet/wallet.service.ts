@@ -15,7 +15,7 @@ import { OneAtTime } from 'common/decorators';
 import { METRIC_ACCOUNT_BALANCE } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Gauge, register } from 'prom-client';
-import { ProviderService } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import {
   WALLET_BALANCE_UPDATE_BLOCK_RATE,
   WALLET_PRIVATE_KEY,
@@ -35,7 +35,7 @@ export class WalletService implements OnModuleInit {
     @InjectMetric(METRIC_ACCOUNT_BALANCE) private accountBalance: Gauge<string>,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     @Inject(WALLET_PRIVATE_KEY) private privateKey: string,
-    private providerService: ProviderService,
+    private provider: SimpleFallbackJsonRpcBatchProvider,
     protected readonly config: Configuration,
   ) {}
 
@@ -55,8 +55,7 @@ export class WalletService implements OnModuleInit {
    * Subscribes to the event of a new block appearance
    */
   public subscribeToEthereumUpdates() {
-    const provider = this.providerService.provider;
-    provider.on('block', async (blockNumber) => {
+    this.provider.on('block', async (blockNumber) => {
       if (blockNumber % WALLET_BALANCE_UPDATE_BLOCK_RATE !== 0) return;
       await this.monitorGuardianBalance().catch((error) =>
         this.logger.error(error),
@@ -83,8 +82,7 @@ export class WalletService implements OnModuleInit {
    * @returns The account balance in Wei.
    */
   public async getAccountBalance(): Promise<BigNumber> {
-    const provider = this.providerService.provider;
-    return await provider.getBalance(this.address);
+    return await this.provider.getBalance(this.address);
   }
 
   /**

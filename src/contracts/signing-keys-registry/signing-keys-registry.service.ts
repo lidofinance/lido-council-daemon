@@ -1,6 +1,6 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { ProviderService } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { SigningKeyEventsGroupWithStakingModules } from './interfaces/event.interface';
 import { SigningKeysStoreService } from './store';
 import { SigningKeyEventsCache } from './interfaces/cache.interface';
@@ -17,7 +17,7 @@ import { SigningKeysRegistrySanityCheckerService } from './sanity-checker/sanity
 export class SigningKeysRegistryService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-    private providerService: ProviderService,
+    private provider: SimpleFallbackJsonRpcBatchProvider,
     private store: SigningKeysStoreService,
     private fetcher: SigningKeysRegistryFetcherService,
     private sanityChecker: SigningKeysRegistrySanityCheckerService,
@@ -71,7 +71,7 @@ export class SigningKeysRegistryService {
     }
 
     const [finalizedBlock, initialCache] = await Promise.all([
-      this.providerService.getBlock(this.finalizedTag),
+      this.provider.getBlock(this.finalizedTag),
       this.getCachedEvents(),
     ]);
 
@@ -346,7 +346,8 @@ export class SigningKeysRegistryService {
    * @throws {Error} If the chain ID is not supported.
    */
   public async getDeploymentBlockByNetwork(): Promise<number> {
-    const chainId = await this.providerService.getChainId();
+    const network = await this.provider.getNetwork();
+    const chainId = network.chainId;
 
     const block = EARLIEST_MODULE_DEPLOYMENT_BLOCK_NETWORK[chainId];
     if (block == null) throw new Error(`Chain ${chainId} is not supported`);

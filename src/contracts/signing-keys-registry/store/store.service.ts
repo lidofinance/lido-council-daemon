@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Level } from 'level';
 import { join } from 'path';
 import { DB_DIR, DB_DEFAULT_VALUE, DB_LAYER_DIR } from './store.constants';
-import { ProviderService } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { SigningKeyEvent } from '../interfaces/event.interface';
 import { SigningKeyEventsCacheHeaders } from '../interfaces/cache.interface';
 
@@ -10,7 +10,7 @@ import { SigningKeyEventsCacheHeaders } from '../interfaces/cache.interface';
 export class SigningKeysStoreService {
   private db!: Level<string, string>;
   constructor(
-    private providerService: ProviderService,
+    private provider: SimpleFallbackJsonRpcBatchProvider,
     @Inject(DB_DIR) private cacheDir: string,
     @Inject(DB_LAYER_DIR) private cacheLayerDir: string,
     @Inject(DB_DEFAULT_VALUE)
@@ -44,7 +44,8 @@ export class SigningKeysStoreService {
    * @private
    */
   private async getDBDirPath(): Promise<string> {
-    const chainId = await this.providerService.getChainId();
+    const network = await this.provider.getNetwork();
+    const chainId = network.chainId;
     const networkDir = `chain-${chainId}`;
 
     return join(this.cacheDir, this.cacheLayerDir, networkDir);

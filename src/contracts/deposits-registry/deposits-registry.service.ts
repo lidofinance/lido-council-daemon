@@ -1,7 +1,7 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { performance } from 'perf_hooks';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { ProviderService } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import {
   DEPOSIT_EVENTS_STEP,
   DEPOSIT_EVENTS_STEP_DEFAULT,
@@ -24,7 +24,7 @@ import { toHexString } from './crypto';
 export class DepositRegistryService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-    private providerService: ProviderService,
+    private provider: SimpleFallbackJsonRpcBatchProvider,
     private repositoryService: RepositoryService,
 
     private sanityChecker: DepositRegistrySanityCheckerService,
@@ -65,14 +65,13 @@ export class DepositRegistryService {
   }
 
   /**
-   * Updates the cache deposited events
-   * The last N blocks are not stored, in order to avoid storing reorganized blocks
+   * Updates deposit events cache
    */
   public async updateEventsCache(): Promise<void> {
     const fetchTimeStart = performance.now();
 
     const [finalizedBlock, initialCache] = await Promise.all([
-      this.providerService.getBlock(this.finalizedTag),
+      this.provider.getBlock(this.finalizedTag),
       this.getCachedEvents(),
     ]);
 
@@ -275,7 +274,8 @@ export class DepositRegistryService {
   }
 
   public async getDepositEventStep(): Promise<number> {
-    const chainId = await this.providerService.getChainId();
+    const network = await this.provider.getNetwork();
+    const chainId = network.chainId;
     const step = DEPOSIT_EVENTS_STEP[chainId] ?? DEPOSIT_EVENTS_STEP_DEFAULT;
     this.logger.log('Using deposit event step', { step });
     return step;
