@@ -14,6 +14,7 @@ export class MainProviderModule {
           useFactory: async (config: Configuration) => ({
             urls: [config.RPC_URL],
             network: 560048,
+          }),
           inject: [Configuration],
         }),
       ],

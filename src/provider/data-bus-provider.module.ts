@@ -2,7 +2,6 @@ import { DynamicModule, Module } from '@nestjs/common';
 import { ExtendedJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { Configuration } from '../common/config';
 
-// Уникальный токен для Data Bus провайдера
 export const DATA_BUS_PROVIDER_TOKEN = 'DATA_BUS_PROVIDER';
 
 @Module({})
@@ -11,7 +10,6 @@ export class DataBusProviderModule {
     return {
       module: DataBusProviderModule,
       providers: [
-        // Создаем отдельный инстанс провайдера с уникальным токеном
         {
           provide: DATA_BUS_PROVIDER_TOKEN,
           useFactory: async (config: Configuration) => {
