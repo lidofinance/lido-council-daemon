@@ -41,6 +41,11 @@ describe('BlsService', () => {
       .spyOn(provider, 'detectNetwork')
       .mockImplementation(async () => getNetwork(CHAINS.Mainnet));
 
+    jest.spyOn(provider, 'getNetwork').mockImplementation(async () => ({
+      chainId: CHAINS.Mainnet,
+      name: 'mainnet',
+    }));
+
     await blsService.onModuleInit();
   });
 
