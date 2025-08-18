@@ -15,6 +15,7 @@ import { TestProviderModule } from 'provider';
 
 export const setupTestingModule = async () => {
   process.env.EVM_CHAIN_DATA_BUS_PROVIDER_URL = 'http://localhost:8545';
+  process.env.EVM_CHAIN_DATA_BUS_CHAIN_ID = process.env.CHAIN_ID;
 
   const moduleRef = await Test.createTestingModule({
     imports: [

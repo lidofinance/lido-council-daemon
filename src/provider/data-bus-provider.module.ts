@@ -17,7 +17,10 @@ export class DataBusProviderModule {
           useFactory: async (config: Configuration) => ({
             // TODO: URLs and chainId from config
             urls: [config.EVM_CHAIN_DATA_BUS_PROVIDER_URL],
-            network: 10200,
+            network: parseInt(
+              process.env.EVM_CHAIN_DATA_BUS_CHAIN_ID ?? '10200',
+              10,
+            ),
             logRetries: false,
             maxRetries: 1,
           }),
