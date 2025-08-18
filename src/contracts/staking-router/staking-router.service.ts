@@ -2,7 +2,7 @@ import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { RepositoryService } from 'contracts/repository';
 import { IStakingModuleAbi__factory } from 'generated';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { BlockTag } from 'provider';
+import { BlockTag } from '@lido-nestjs/execution';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 
 @Injectable()

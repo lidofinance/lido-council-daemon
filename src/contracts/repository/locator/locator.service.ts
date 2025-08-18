@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { LocatorAbi, LocatorAbi__factory } from 'generated';
-import { BlockTag } from 'provider';
+import { BlockTag } from '@lido-nestjs/execution';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { LIDO_LOCATOR_BY_NETWORK } from './locator.constants';
 import { Configuration } from 'common/config';

@@ -15,7 +15,7 @@ import { SecurityAbi__factory } from '../src/generated';
 import { setupTestingModule, initLevelDB } from './helpers/test-setup';
 import { GuardianService } from 'guardian';
 import { KeysApiService } from 'keys-api/keys-api.service';
-import { ProviderService } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
 import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
 import { GuardianMessageService } from 'guardian/guardian-message';
@@ -58,7 +58,7 @@ jest.mock('../src/transport/stomp/stomp.client.ts');
 jest.setTimeout(100_000);
 
 describe('Front-run e2e tests', () => {
-  let providerService: ProviderService;
+  let provider: SimpleFallbackJsonRpcBatchProvider;
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;
   let levelDBService: DepositsRegistryStoreService;
@@ -90,7 +90,7 @@ describe('Front-run e2e tests', () => {
     // keys events service
     signingKeysRegistryService = moduleRef.get(SigningKeysRegistryService);
 
-    providerService = moduleRef.get(ProviderService);
+    provider = moduleRef.get(SimpleFallbackJsonRpcBatchProvider);
 
     // keys api servies
     keysApiService = moduleRef.get(KeysApiService);
@@ -232,7 +232,7 @@ describe('Front-run e2e tests', () => {
     });
 
     test('Set cache to current block', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
 
       await levelDBService.setCachedEvents({
         data: [],
@@ -253,7 +253,7 @@ describe('Front-run e2e tests', () => {
     });
 
     test('add unused unvetted key', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
       await nor.addSigningKey(
         firstOperator.index,
         1,
@@ -266,7 +266,7 @@ describe('Front-run e2e tests', () => {
     });
 
     test('Make deposit with non-lido WC', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
       // Attempt to front run
       const { depositData: theftDepositData } = await signDeposit(
         frontrunPK,
@@ -278,7 +278,7 @@ describe('Front-run e2e tests', () => {
     });
 
     test('Make deposit with lido WC', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
       // Attempt to front run
       await makeDeposit(lidoDepositData, providerService);
       await waitForNewerBlock(currentBlock.number);
@@ -294,7 +294,7 @@ describe('Front-run e2e tests', () => {
     });
 
     test('Increase staking limit', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
 
       // keys total amount was 3, added key with wrong sign, now it is 4 keys
       // increase limit to 4
@@ -308,7 +308,7 @@ describe('Front-run e2e tests', () => {
     });
 
     test('Unvetting', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
@@ -337,7 +337,7 @@ describe('Front-run e2e tests', () => {
 
       const securityContract = SecurityAbi__factory.connect(
         securityModuleAddress,
-        providerService.provider,
+        provider,
       );
 
       const isOnPause = await securityContract.isDepositsPaused();
@@ -374,7 +374,7 @@ describe('Front-run e2e tests', () => {
     });
 
     test('Set cache to current block', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
 
       await levelDBService.setCachedEvents({
         data: [],
@@ -395,7 +395,7 @@ describe('Front-run e2e tests', () => {
     });
 
     test('add unused unvetted key', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
       await nor.addSigningKey(
         firstOperator.index,
         1,
@@ -408,7 +408,7 @@ describe('Front-run e2e tests', () => {
     });
 
     test('Make deposit with lido WC', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
       // Attempt to front run
       const { depositData: goodDepositData } = await signDeposit(
         frontrunPK,
@@ -421,7 +421,7 @@ describe('Front-run e2e tests', () => {
     });
 
     test('Increase staking limit', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
 
       // keys total amount was 3, added key with wrong sign, now it is 4 keys
       // increase limit to 4
@@ -448,7 +448,7 @@ describe('Front-run e2e tests', () => {
 
       const securityContract = SecurityAbi__factory.connect(
         securityModuleAddress,
-        providerService.provider,
+        provider,
       );
 
       const isOnPause = await securityContract.isDepositsPaused();
@@ -485,7 +485,7 @@ describe('Front-run e2e tests', () => {
     });
 
     test('Set cache to current block', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
 
       await levelDBService.setCachedEvents({
         data: [],
@@ -506,7 +506,7 @@ describe('Front-run e2e tests', () => {
     });
 
     test('add unused unvetted key', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
       await nor.addSigningKey(
         firstOperator.index,
         1,
@@ -519,7 +519,7 @@ describe('Front-run e2e tests', () => {
     });
 
     test('Make invalid deposit with non-lido wc', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
 
       const { signature: weirdSign } = await signDeposit(
         frontrunPK,
@@ -538,7 +538,7 @@ describe('Front-run e2e tests', () => {
     });
 
     test('Increase staking limit', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
 
       // keys total amount was 3, added key with wrong sign, now it is 4 keys
       // increase limit to 4
@@ -563,7 +563,7 @@ describe('Front-run e2e tests', () => {
 
       const securityContract = SecurityAbi__factory.connect(
         securityModuleAddress,
-        providerService.provider,
+        provider,
       );
 
       const isOnPause = await securityContract.isDepositsPaused();
@@ -609,7 +609,7 @@ describe('Front-run e2e tests', () => {
     const runIf = canRunTests ? test : test.skip;
 
     runIf('add unused unvetted key', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
       await nor.addSigningKey(
         firstOperator.index,
         1,
@@ -622,7 +622,7 @@ describe('Front-run e2e tests', () => {
     });
 
     runIf('Increase staking limit', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
 
       // keys total amount was 3, added key with wrong sign, now it is 4 keys
       // increase limit to 4
@@ -642,7 +642,7 @@ describe('Front-run e2e tests', () => {
     runIf(
       'deposit lido key',
       async () => {
-        const currentBlock = await providerService.provider.getBlock('latest');
+        const currentBlock = await provider.getBlock('latest');
         await deposit(1);
         await waitForNewerBlock(currentBlock.number);
       },
@@ -652,7 +652,7 @@ describe('Front-run e2e tests', () => {
     runIf(
       'Check staking limit for operator that key was deposited',
       async () => {
-        const currentBlock = await providerService.provider.getBlock('latest');
+        const currentBlock = await provider.getBlock('latest');
         const op = await nor.getOperator(firstOperator.index, false);
         expect(Number(op.totalVettedValidators)).toEqual(4);
         expect(Number(op.totalAddedValidators)).toEqual(4);
@@ -672,7 +672,7 @@ describe('Front-run e2e tests', () => {
     });
 
     runIf('Set cache to current block', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
       const { signature: lidoSign } = await signDeposit(
         frontrunPK,
         frontrunSK,
@@ -739,7 +739,7 @@ describe('Front-run e2e tests', () => {
     runIf('Pause happen', async () => {
       const securityContract = SecurityAbi__factory.connect(
         securityModuleAddress,
-        providerService.provider,
+        provider,
       );
 
       const isOnPause = await securityContract.isDepositsPaused();

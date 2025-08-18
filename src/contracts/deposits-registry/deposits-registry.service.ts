@@ -14,7 +14,7 @@ import {
   VerifiedDepositEventGroup,
 } from './interfaces';
 import { RepositoryService } from 'contracts/repository';
-import { BlockTag } from 'provider';
+import { BlockTag } from '@lido-nestjs/execution';
 import { DepositsRegistryStoreService } from './store';
 import { DepositsRegistryFetcherService } from './fetcher/fetcher.service';
 import { DepositRegistrySanityCheckerService } from './sanity-checker/sanity-checker.service';

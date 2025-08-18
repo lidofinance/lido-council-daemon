@@ -22,7 +22,7 @@ import { Configuration } from 'common/config';
 import { DataBusClient } from './data-bus.client';
 import { MessageRequiredFields } from 'messages';
 import { DSMMessageSender } from './dsm-message-sender.client';
-import { DATA_BUS_PROVIDER_TOKEN } from 'provider';
+import { DATA_BUS_PROVIDER_TOKEN } from 'provider/data-bus-provider.module';
 
 @Injectable()
 export class DataBusService {

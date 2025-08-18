@@ -3,7 +3,8 @@ import { Test } from '@nestjs/testing';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
 import { getNetwork } from '@ethersproject/networks';
-import { MockProviderModule, ProviderService } from 'provider';
+import { MockProviderModule } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { RepositoryModule } from 'contracts/repository';
 import { BlsModule } from './bls.module';
 import { BlsService } from './bls.service';
@@ -12,7 +13,7 @@ import { LoggerModule } from 'common/logger';
 import { ConfigModule } from 'common/config';
 
 describe('BlsService', () => {
-  let providerService: ProviderService;
+  let provider: SimpleFallbackJsonRpcBatchProvider;
   let blsService: BlsService;
   let loggerService: LoggerService;
 
@@ -28,7 +29,7 @@ describe('BlsService', () => {
       ],
     }).compile();
 
-    providerService = moduleRef.get(ProviderService);
+    provider = moduleRef.get(SimpleFallbackJsonRpcBatchProvider);
     blsService = moduleRef.get(BlsService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
@@ -37,7 +38,7 @@ describe('BlsService', () => {
     jest.spyOn(loggerService, 'debug').mockImplementation(() => undefined);
 
     jest
-      .spyOn(providerService.provider, 'detectNetwork')
+      .spyOn(provider, 'detectNetwork')
       .mockImplementation(async () => getNetwork(CHAINS.Mainnet));
 
     await blsService.onModuleInit();

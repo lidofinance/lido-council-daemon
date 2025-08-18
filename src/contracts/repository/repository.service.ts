@@ -5,7 +5,7 @@ import { SecurityAbi, SecurityAbi__factory } from 'generated';
 import { DepositAbi, DepositAbi__factory } from 'generated';
 import { StakingRouterAbi, StakingRouterAbi__factory } from 'generated';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { BlockTag } from 'provider';
+import { BlockTag } from '@lido-nestjs/execution';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { sleep } from 'utils';
 import { LocatorService } from './locator/locator.service';
