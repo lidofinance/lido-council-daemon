@@ -5,9 +5,7 @@ import { CHAINS } from '@lido-sdk/constants';
 import { Configuration } from 'common/config';
 
 const getMockProviderFactory = () => {
-  return async (
-    config: Configuration,
-  ): Promise<SimpleFallbackJsonRpcBatchProvider> => {
+  return (config: Configuration): SimpleFallbackJsonRpcBatchProvider => {
     class MockProvider extends SimpleFallbackJsonRpcBatchProvider {
       async detectNetwork() {
         return getNetwork(CHAINS.Goerli);
@@ -24,8 +22,12 @@ const getMockProviderFactory = () => {
 
     return new MockProvider(
       {
-        urls: [config.RPC_URL || 'http://localhost:8545'],
-        network: 5,
+        // Use new array-based config with fallback to old single URL
+        urls: config.PROVIDERS_URLS || [
+          config.RPC_URL || 'http://localhost:8545',
+        ],
+        // Use required chain ID config
+        network: config.CHAIN_ID,
       },
       {} as any,
     );

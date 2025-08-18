@@ -12,8 +12,10 @@ export class MainProviderModule {
       imports: [
         FallbackProviderModule.forRootAsync({
           useFactory: async (config: Configuration) => ({
-            urls: [config.RPC_URL],
-            network: 560048,
+            // Use new array-based config with fallback to old single URL
+            urls: config.PROVIDERS_URLS ?? [config.RPC_URL],
+            // Use required chain ID config
+            network: config.CHAIN_ID,
           }),
           inject: [Configuration],
         }),

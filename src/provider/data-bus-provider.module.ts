@@ -15,12 +15,12 @@ export class DataBusProviderModule {
       imports: [
         FallbackProviderModule.forFeatureAsync({
           useFactory: async (config: Configuration) => ({
-            // TODO: URLs and chainId from config
-            urls: [config.EVM_CHAIN_DATA_BUS_PROVIDER_URL],
-            network: parseInt(
-              process.env.EVM_CHAIN_DATA_BUS_CHAIN_ID ?? '10200',
-              10,
-            ),
+            // Use new array-based config with fallback to old single URL
+            urls: config.EVM_CHAIN_DATA_BUS_PROVIDERS_URLS ?? [
+              config.EVM_CHAIN_DATA_BUS_PROVIDER_URL,
+            ],
+            // Use required chain ID config
+            network: config.EVM_CHAIN_DATA_BUS_CHAIN_ID,
             logRetries: false,
             maxRetries: 1,
           }),
