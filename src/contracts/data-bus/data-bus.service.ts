@@ -11,7 +11,6 @@ import {
 } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Counter, Gauge, Histogram, register } from 'prom-client';
-import { ExtendedJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import {
   DATA_BUS_ADDRESS,
   DATA_BUS_BALANCE_UPDATE_BLOCK_RATE,
@@ -22,12 +21,13 @@ import { Configuration } from 'common/config';
 import { DataBusClient } from './data-bus.client';
 import { MessageRequiredFields } from 'messages';
 import { DSMMessageSender } from './dsm-message-sender.client';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { DATA_BUS_PROVIDER_TOKEN } from 'provider/data-bus-provider.module';
 
 @Injectable()
 export class DataBusService {
   private dsmMessageSender!: DSMMessageSender;
-  private provider!: ExtendedJsonRpcBatchProvider;
+  private provider!: SimpleFallbackJsonRpcBatchProvider;
   constructor(
     @InjectMetric(METRIC_DATA_BUS_ACCOUNT_BALANCE)
     private accountBalance: Gauge<string>,
@@ -40,7 +40,7 @@ export class DataBusService {
     @Inject(getToken(METRIC_DATA_BUS_RPC_REQUEST_ERRORS))
     private rpcReqErrorsMetric: Counter<string>,
     @Inject(DATA_BUS_PROVIDER_TOKEN)
-    private dataBusProvider: ExtendedJsonRpcBatchProvider,
+    private dataBusProvider: SimpleFallbackJsonRpcBatchProvider,
   ) {}
 
   async initialize() {
