@@ -68,6 +68,22 @@ describe('Integration Tests', () => {
 
     // Initialize LevelDB
     console.log('Step 7: Initializing LevelDB...');
+    console.log('Step 7.0.0: Testing provider connection first...');
+    const testProvider = moduleRef.get(SimpleFallbackJsonRpcBatchProvider);
+    try {
+      const network = await testProvider.getNetwork();
+      console.log(
+        'Step 7.0.0 completed: Provider connection test successful, chainId:',
+        network.chainId,
+      );
+    } catch (error) {
+      console.error(
+        'Step 7.0.0 failed: Provider connection test failed:',
+        error,
+      );
+      throw error;
+    }
+
     console.log('Step 7.0.1: Getting DepositsRegistryStoreService...');
     levelDBService = moduleRef.get(DepositsRegistryStoreService);
     console.log('Step 7.0.2: Getting SignKeyLevelDBService...');
