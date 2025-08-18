@@ -280,3 +280,16 @@ async function waitForContainerRunning(
     } seconds`,
   );
 }
+
+export async function getContainerLogs(container: Docker.Container) {
+  try {
+    const stream = await container.logs({
+      stdout: true,
+      stderr: true,
+      tail: 50,
+    });
+    console.log(`Container ${container.id} logs:`, stream.toString());
+  } catch (error) {
+    console.error(`Failed to get container logs:`, error);
+  }
+}

@@ -13,8 +13,10 @@ import { HardhatServer } from './helpers/hardhat-server';
 import {
   setupContainers,
   startContainerIfNotRunning,
+  getContainerLogs,
 } from './helpers/docker-containers/utils';
 import { cutModulesKeys } from './helpers/reduce-keys';
+import { waitKAPIUpdateModulesKeys } from './helpers/kapi';
 
 jest.mock('../src/transport/stomp/stomp.client.ts');
 jest.setTimeout(500_000);
@@ -59,7 +61,19 @@ describe('Integration Tests', () => {
 
     console.log('Step 5: Starting Keys API container...');
     await startContainerIfNotRunning(keysApiContainer);
-    console.log('Step 5 completed: Keys API container is running');
+    console.log(
+      'Step 5.1: Keys API container started, waiting for readiness...',
+    );
+    try {
+      await waitKAPIUpdateModulesKeys();
+      console.log('Step 5 completed: Keys API container is running and ready');
+    } catch (error) {
+      console.error(
+        'Keys API readiness check failed, getting container logs...',
+      );
+      await getContainerLogs(keysApiContainer);
+      throw error;
+    }
 
     // Setup testing module
     console.log('Step 6: Setting up testing module...');
