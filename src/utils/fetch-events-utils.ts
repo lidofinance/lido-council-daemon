@@ -1,7 +1,6 @@
+import { AllProvidersFailedError } from '@lido-nestjs/execution';
 import { LoggerService } from '@nestjs/common';
 import { sleep } from './sleep';
-
-const ERRORS_LIMIT_EXCEEDED = [-32005, -32064, -32600, -32602];
 
 const FETCH_EVENTS_RETRY_TIMEOUT_MS = 5_000;
 // TODO: connect this logic with fallback providers
@@ -31,14 +30,7 @@ export async function fetchEventsFallOver<
       endBlock: data.endBlock,
     };
   } catch (error: any) {
-    const errorCode = error?.error?.code;
-    const isLimitExceeded = ERRORS_LIMIT_EXCEEDED.includes(errorCode);
-    const isTimeout = error?.code === 'TIMEOUT';
-    const isServerError = error?.code === 'SERVER_ERROR';
-    const isMissingResponse = error?.reason === 'missing response';
-
-    const isPartitionRequired =
-      isTimeout || isLimitExceeded || isMissingResponse || isServerError;
+    const isPartitionRequired = error instanceof AllProvidersFailedError;
 
     const isPartitionable = endBlock - startBlock > 1;
 
