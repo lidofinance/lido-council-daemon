@@ -37,40 +37,57 @@ describe('Integration Tests', () => {
 
   beforeAll(async () => {
     // Setup containers (postgres and keys-api)
+    console.log('Step 1: Setting up containers...');
     const { kapi, psql } = await setupContainers();
     keysApiContainer = kapi;
     postgresContainer = psql;
+    console.log('Step 1 completed: Containers setup finished');
 
+    console.log('Step 2: Starting PostgreSQL container...');
     await startContainerIfNotRunning(postgresContainer);
+    console.log('Step 2 completed: PostgreSQL container is running');
 
     // Start Hardhat node
+    console.log('Step 3: Starting Hardhat node...');
     hardhatServer = new HardhatServer();
     await hardhatServer.start();
+    console.log('Step 3 completed: Hardhat node is ready');
 
-    console.log('Hardhat node is ready. Starting key cutting process...');
+    console.log('Step 4: Starting key cutting process...');
     await cutModulesKeys();
+    console.log('Step 4 completed: Key cutting process finished');
 
+    console.log('Step 5: Starting Keys API container...');
     await startContainerIfNotRunning(keysApiContainer);
+    console.log('Step 5 completed: Keys API container is running');
 
     // Setup testing module
+    console.log('Step 6: Setting up testing module...');
     moduleRef = await setupTestingModule();
+    console.log('Step 6 completed: Testing module setup finished');
 
     // Initialize LevelDB
+    console.log('Step 7: Initializing LevelDB...');
     levelDBService = moduleRef.get(DepositsRegistryStoreService);
     signKeyLevelDBService = moduleRef.get(SignKeyLevelDBService);
     await initLevelDB(levelDBService, signKeyLevelDBService);
+    console.log('Step 7 completed: LevelDB initialization finished');
 
     // Initialize BLS service
+    console.log('Step 8: Initializing BLS service...');
     const blsService = moduleRef.get(BlsService);
     await blsService.onModuleInit();
+    console.log('Step 8 completed: BLS service initialization finished');
 
     // Get services
+    console.log('Step 9: Getting services from module...');
     provider = moduleRef.get(SimpleFallbackJsonRpcBatchProvider);
     keysApiService = moduleRef.get(KeysApiService);
     guardianService = moduleRef.get(GuardianService);
     securityService = moduleRef.get(SecurityService);
     dataBusService = moduleRef.get(DataBusService);
     transportInterface = moduleRef.get(TransportInterface);
+    console.log('Step 9 completed: All services obtained successfully');
   }, 200_000);
 
   afterAll(async () => {
