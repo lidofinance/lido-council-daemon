@@ -27,7 +27,7 @@ export class HardhatServer {
       // Listen for stdout to detect when Hardhat is ready
       this.hardhatProcess.stdout.on('data', (data) => {
         const output = data.toString();
-
+        console.log(`Hardhat stdout: ${output}`);
         // Check for the Hardhat ready message
         if (output.includes('Started HTTP and WebSocket JSON-RPC server')) {
           this.ready = true;

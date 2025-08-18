@@ -11,12 +11,9 @@ const CHAIN_ID = process.env.CHAIN_ID || '17000';
 const config: HardhatUserConfig = {
   networks: {
     hardhat: {
-      forking:
-        RPC_URL !== 'http://localhost:8545'
-          ? {
-              url: RPC_URL,
-            }
-          : undefined,
+      forking: {
+        url: RPC_URL,
+      },
       chainId: parseInt(CHAIN_ID, 10),
       accounts: [
         {

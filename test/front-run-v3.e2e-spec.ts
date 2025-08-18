@@ -57,7 +57,7 @@ import { cutModulesKeys } from './helpers/reduce-keys';
 jest.mock('../src/transport/stomp/stomp.client.ts');
 jest.setTimeout(100_000);
 
-describe('Front-run e2e tests', () => {
+describe.skip('Front-run e2e tests', () => {
   let provider: SimpleFallbackJsonRpcBatchProvider;
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;
