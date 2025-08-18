@@ -8,7 +8,6 @@ import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { TransportInterface } from 'transport';
 import { PrometheusModule } from 'common/prometheus';
-import { MessagesModule } from 'messages';
 
 jest.mock('../transport/stomp/stomp.client');
 
@@ -18,13 +17,23 @@ describe('MessagesService', () => {
   let transportService: TransportInterface;
 
   beforeEach(async () => {
+    const mockTransportService = {
+      publish: jest.fn(),
+    };
+
     const moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot(),
         MockProviderModule.forRoot(),
         PrometheusModule,
         LoggerModule,
-        MessagesModule,
+      ],
+      providers: [
+        MessagesService,
+        {
+          provide: TransportInterface,
+          useValue: mockTransportService,
+        },
       ],
     }).compile();
 
@@ -55,6 +64,8 @@ describe('MessagesService', () => {
     });
 
     it('should return different topics', async () => {
+      jest.restoreAllMocks();
+
       jest
         .spyOn(provider, 'getNetwork')
         .mockImplementationOnce(async () => ({
