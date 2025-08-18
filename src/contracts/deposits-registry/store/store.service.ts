@@ -61,10 +61,17 @@ export class DepositsRegistryStoreService {
    * @private
    */
   private async setupLevel() {
-    this.db = new Level(await this.getDBDirPath(), {
+    console.log('DepositsRegistryStoreService: Calling getDBDirPath...');
+    const dbPath = await this.getDBDirPath();
+    console.log('DepositsRegistryStoreService: getDBDirPath returned:', dbPath);
+
+    console.log('DepositsRegistryStoreService: Creating Level instance...');
+    this.db = new Level(dbPath, {
       valueEncoding: 'json',
     });
+    console.log('DepositsRegistryStoreService: Opening database...');
     await this.db.open();
+    console.log('DepositsRegistryStoreService: Database opened successfully');
   }
 
   /**
@@ -91,7 +98,14 @@ export class DepositsRegistryStoreService {
    * @private
    */
   private async getDBDirPath(): Promise<string> {
+    console.log(
+      'DepositsRegistryStoreService: Calling provider.getNetwork()...',
+    );
     const network = await this.provider.getNetwork();
+    console.log(
+      'DepositsRegistryStoreService: provider.getNetwork() returned:',
+      network,
+    );
     const chainId = network.chainId;
     const networkDir = `chain-${chainId}`;
 
