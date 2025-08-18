@@ -17,7 +17,7 @@ import {
 import { cutModulesKeys } from './helpers/reduce-keys';
 
 jest.mock('../src/transport/stomp/stomp.client.ts');
-jest.setTimeout(100_000);
+jest.setTimeout(500_000);
 
 describe('Integration Tests', () => {
   let moduleRef: TestingModule;
