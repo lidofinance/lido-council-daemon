@@ -11,7 +11,8 @@ import { WalletModule } from 'wallet';
 import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
 import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { TestProviderModule } from 'provider';
+import { TestProviderModule, DATA_BUS_PROVIDER_TOKEN } from 'provider';
+import { TransportInterface } from 'transport';
 
 export const setupTestingModule = async () => {
   const moduleRef = await Test.createTestingModule({
@@ -27,7 +28,16 @@ export const setupTestingModule = async () => {
       DepositsRegistryModule.register('latest'),
       SecurityModule,
     ],
-  }).compile();
+  })
+    .overrideProvider(TransportInterface)
+    .useValue({
+      publish: jest.fn(),
+    })
+    .overrideProvider(DATA_BUS_PROVIDER_TOKEN)
+    .useValue({
+      getNetwork: jest.fn(),
+    })
+    .compile();
 
   const loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
