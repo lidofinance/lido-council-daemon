@@ -68,8 +68,11 @@ describe('Integration Tests', () => {
 
     // Initialize LevelDB
     console.log('Step 7: Initializing LevelDB...');
+    console.log('Step 7.0.1: Getting DepositsRegistryStoreService...');
     levelDBService = moduleRef.get(DepositsRegistryStoreService);
+    console.log('Step 7.0.2: Getting SignKeyLevelDBService...');
     signKeyLevelDBService = moduleRef.get(SignKeyLevelDBService);
+    console.log('Step 7.0.3: Both services obtained, calling initLevelDB...');
     await initLevelDB(levelDBService, signKeyLevelDBService);
     console.log('Step 7 completed: LevelDB initialization finished');
 
