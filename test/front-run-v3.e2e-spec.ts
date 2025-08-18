@@ -273,14 +273,14 @@ describe('Front-run e2e tests', () => {
         frontrunSK,
         BAD_WC,
       );
-      await makeDeposit(theftDepositData, providerService);
+      await makeDeposit(theftDepositData, provider);
       await waitForNewerBlock(currentBlock.number);
     });
 
     test('Make deposit with lido WC', async () => {
       const currentBlock = await provider.getBlock('latest');
       // Attempt to front run
-      await makeDeposit(lidoDepositData, providerService);
+      await makeDeposit(lidoDepositData, provider);
       await waitForNewerBlock(currentBlock.number);
     });
 
@@ -416,7 +416,7 @@ describe('Front-run e2e tests', () => {
         lidoWC,
         1000000000,
       );
-      await makeDeposit(goodDepositData, providerService, 1);
+      await makeDeposit(goodDepositData, provider, 1);
       await waitForNewerBlock(currentBlock.number);
     });
 
@@ -528,11 +528,7 @@ describe('Front-run e2e tests', () => {
         0,
       );
       const { depositData } = await signDeposit(pk, sk, BAD_WC, 1000000000);
-      await makeDeposit(
-        { ...depositData, signature: weirdSign },
-        providerService,
-        1,
-      );
+      await makeDeposit({ ...depositData, signature: weirdSign }, provider, 1);
 
       await waitForNewerBlock(currentBlock.number);
     });

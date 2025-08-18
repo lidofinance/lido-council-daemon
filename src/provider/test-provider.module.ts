@@ -11,9 +11,10 @@ export class TestProviderModule {
         FallbackProviderModule.forRootAsync({
           useFactory: async () => ({
             urls: ['http://localhost:8545'],
-            network: 5,
+            network: parseInt(process.env.CHAIN_ID || '17000', 10),
             // Add maxRetries to handle test failures gracefully
-            maxRetries: 0,
+            maxRetries: 1,
+            logRetries: false,
           }),
           inject: [],
         }),
