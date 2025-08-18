@@ -11,10 +11,11 @@ import { WalletModule } from 'wallet';
 import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
 import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { TestProviderModule, DATA_BUS_PROVIDER_TOKEN } from 'provider';
-import { TransportInterface } from 'transport';
+import { TestProviderModule } from 'provider';
 
 export const setupTestingModule = async () => {
+  process.env.EVM_CHAIN_DATA_BUS_PROVIDER_URL = 'http://localhost:8545';
+
   const moduleRef = await Test.createTestingModule({
     imports: [
       TestProviderModule.forRoot(),
@@ -28,16 +29,7 @@ export const setupTestingModule = async () => {
       DepositsRegistryModule.register('latest'),
       SecurityModule,
     ],
-  })
-    .overrideProvider(TransportInterface)
-    .useValue({
-      publish: jest.fn(),
-    })
-    .overrideProvider(DATA_BUS_PROVIDER_TOKEN)
-    .useValue({
-      getNetwork: jest.fn(),
-    })
-    .compile();
+  }).compile();
 
   const loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
