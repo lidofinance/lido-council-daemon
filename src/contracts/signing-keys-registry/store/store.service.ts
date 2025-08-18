@@ -21,7 +21,9 @@ export class SigningKeysStoreService {
   ) {}
 
   public async initialize() {
+    console.log('SigningKeysStoreService: Starting setupLevel...');
     await this.setupLevel();
+    console.log('SigningKeysStoreService: setupLevel completed');
   }
 
   /**
@@ -31,10 +33,17 @@ export class SigningKeysStoreService {
    * @private
    */
   private async setupLevel() {
-    this.db = new Level(await this.getDBDirPath(), {
+    console.log('SigningKeysStoreService: Getting DB dir path...');
+    const dbPath = await this.getDBDirPath();
+    console.log('SigningKeysStoreService: DB dir path obtained:', dbPath);
+
+    console.log('SigningKeysStoreService: Creating Level instance...');
+    this.db = new Level(dbPath, {
       valueEncoding: 'json',
     });
+    console.log('SigningKeysStoreService: Opening database...');
     await this.db.open();
+    console.log('SigningKeysStoreService: Database opened successfully');
   }
 
   /**
@@ -44,7 +53,12 @@ export class SigningKeysStoreService {
    * @private
    */
   private async getDBDirPath(): Promise<string> {
+    console.log('SigningKeysStoreService: Calling provider.getNetwork()...');
     const network = await this.provider.getNetwork();
+    console.log(
+      'SigningKeysStoreService: provider.getNetwork() returned:',
+      network,
+    );
     const chainId = network.chainId;
     const networkDir = `chain-${chainId}`;
 

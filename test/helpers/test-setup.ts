@@ -46,6 +46,13 @@ export const initLevelDB = async (
   levelDBService: DepositsRegistryStoreService,
   signKeyLevelDBService: SignKeyLevelDBService,
 ) => {
+  console.log(
+    'Step 7.1: Starting DepositsRegistryStoreService.initialize()...',
+  );
   await levelDBService.initialize();
+  console.log('Step 7.1 completed: DepositsRegistryStoreService initialized');
+
+  console.log('Step 7.2: Starting SignKeyLevelDBService.initialize()...');
   await signKeyLevelDBService.initialize();
+  console.log('Step 7.2 completed: SignKeyLevelDBService initialized');
 };

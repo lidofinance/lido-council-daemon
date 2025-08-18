@@ -37,9 +37,21 @@ export class DepositsRegistryStoreService {
   ) {}
 
   public async initialize() {
+    console.log('DepositsRegistryStoreService: Starting setupLevel...');
     await this.setupLevel();
+    console.log('DepositsRegistryStoreService: setupLevel completed');
+
+    console.log('DepositsRegistryStoreService: Starting setupEventsCache...');
     await this.setupEventsCache();
+    console.log('DepositsRegistryStoreService: setupEventsCache completed');
+
+    console.log(
+      'DepositsRegistryStoreService: Starting validateAndCleanInconsistentCache...',
+    );
     await this.validateAndCleanInconsistentCache();
+    console.log(
+      'DepositsRegistryStoreService: validateAndCleanInconsistentCache completed',
+    );
   }
 
   /**
