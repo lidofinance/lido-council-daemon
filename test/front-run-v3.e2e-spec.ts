@@ -578,7 +578,7 @@ describe('Front-run e2e tests', () => {
   // Error: VM Exception while processing transaction: reverted with reason string 'APP_AUTH_FAILED'"
   // reason - need add dual governance support
   // TODO: implement dual governance support
-  describe.skip('Historical front-run', () => {
+  describe('Historical front-run', () => {
     let snapshotId: number;
     let canRunTests = true;
 
