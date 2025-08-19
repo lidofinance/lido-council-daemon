@@ -153,10 +153,28 @@ export async function deposit(moduleId: number, depositCount = 1) {
     'function grantPermission(address _entity, address _app, bytes32 _role)',
   ];
 
-  console.log('Getting ACL contract address...');
-  const aclAddress = '0xfd1E42595CeC3E83239bf8dFc535250e7F48E0bC'; // Hardcoded for holesky
-  await accountImpersonate(aclAddress);
+  console.log('Getting DAO and ACL contracts...');
+  const daoAddress = '0x3b03f75Ec541Ca11a223bB58621A3146246E1644'; // Hardcoded for holesky
+  await accountImpersonate(daoAddress);
+
+  const kernelAbi = [
+    'function acl() view returns (address)',
+    'function APP_MANAGER_ROLE() view returns (bytes32)',
+    'function getAddress() view returns (address)',
+  ];
+
+  const dao = new Contract(daoAddress, kernelAbi, votingSigner);
+  const aclAddress = await dao.acl();
   const acl = new Contract(aclAddress, aclAbi, votingSigner);
+  const APP_MANAGER_ROLE = await dao.APP_MANAGER_ROLE();
+
+  console.log('Creating ACL permission...');
+  await acl.createPermission(
+    voting,
+    await dao.getAddress(),
+    APP_MANAGER_ROLE,
+    voting,
+  );
 
   console.log('Getting STAKING_CONTROL_ROLE...');
   const stakingControlRole = await lido.STAKING_CONTROL_ROLE();
