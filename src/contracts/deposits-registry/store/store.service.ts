@@ -37,20 +37,28 @@ export class DepositsRegistryStoreService {
   ) {}
 
   public async initialize() {
-    console.log('DepositsRegistryStoreService: Starting setupLevel...');
+    this.logger.log('Starting setupLevel...', 'DepositsRegistryStoreService');
     await this.setupLevel();
-    console.log('DepositsRegistryStoreService: setupLevel completed');
+    this.logger.log('setupLevel completed', 'DepositsRegistryStoreService');
 
-    console.log('DepositsRegistryStoreService: Starting setupEventsCache...');
+    this.logger.log(
+      'Starting setupEventsCache...',
+      'DepositsRegistryStoreService',
+    );
     await this.setupEventsCache();
-    console.log('DepositsRegistryStoreService: setupEventsCache completed');
+    this.logger.log(
+      'setupEventsCache completed',
+      'DepositsRegistryStoreService',
+    );
 
-    console.log(
-      'DepositsRegistryStoreService: Starting validateAndCleanInconsistentCache...',
+    this.logger.log(
+      'Starting validateAndCleanInconsistentCache...',
+      'DepositsRegistryStoreService',
     );
     await this.validateAndCleanInconsistentCache();
-    console.log(
-      'DepositsRegistryStoreService: validateAndCleanInconsistentCache completed',
+    this.logger.log(
+      'validateAndCleanInconsistentCache completed',
+      'DepositsRegistryStoreService',
     );
   }
 
@@ -61,17 +69,26 @@ export class DepositsRegistryStoreService {
    * @private
    */
   private async setupLevel() {
-    console.log('DepositsRegistryStoreService: Calling getDBDirPath...');
+    this.logger.log('Calling getDBDirPath...', 'DepositsRegistryStoreService');
     const dbPath = await this.getDBDirPath();
-    console.log('DepositsRegistryStoreService: getDBDirPath returned:', dbPath);
+    this.logger.log(
+      `getDBDirPath returned: ${dbPath}`,
+      'DepositsRegistryStoreService',
+    );
 
-    console.log('DepositsRegistryStoreService: Creating Level instance...');
+    this.logger.log(
+      'Creating Level instance...',
+      'DepositsRegistryStoreService',
+    );
     this.db = new Level(dbPath, {
       valueEncoding: 'json',
     });
-    console.log('DepositsRegistryStoreService: Opening database...');
+    this.logger.log('Opening database...', 'DepositsRegistryStoreService');
     await this.db.open();
-    console.log('DepositsRegistryStoreService: Database opened successfully');
+    this.logger.log(
+      'Database opened successfully',
+      'DepositsRegistryStoreService',
+    );
   }
 
   /**
@@ -98,13 +115,14 @@ export class DepositsRegistryStoreService {
    * @private
    */
   private async getDBDirPath(): Promise<string> {
-    console.log(
-      'DepositsRegistryStoreService: Calling provider.getNetwork()...',
+    this.logger.log(
+      'Calling provider.getNetwork()...',
+      'DepositsRegistryStoreService',
     );
     const network = await this.provider.getNetwork();
-    console.log(
-      'DepositsRegistryStoreService: provider.getNetwork() returned:',
-      network,
+    this.logger.log(
+      `provider.getNetwork() returned: ${JSON.stringify(network)}`,
+      'DepositsRegistryStoreService',
     );
     const chainId = network.chainId;
     const networkDir = `chain-${chainId}`;
