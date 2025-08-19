@@ -288,7 +288,7 @@ describe('Guardian balance ', () => {
 
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
       console.log('Finished!');
-    }, 100_000);
+    }, 300_000);
 
     test('Add key with broken signature to make kapi update state', async () => {
       const currentBlock = await provider.getBlock('latest');

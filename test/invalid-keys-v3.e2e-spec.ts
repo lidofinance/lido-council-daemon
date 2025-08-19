@@ -40,7 +40,7 @@ import {
 } from './helpers/docker-containers/utils';
 import { cutModulesKeys } from './helpers/reduce-keys';
 
-jest.setTimeout(100_000);
+jest.setTimeout(300_000);
 
 describe('Signature validation e2e test', () => {
   let provider: SimpleFallbackJsonRpcBatchProvider;

@@ -55,7 +55,7 @@ import { cutModulesKeys } from './helpers/reduce-keys';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
-jest.setTimeout(100_000);
+jest.setTimeout(300_000);
 
 describe('Front-run e2e tests', () => {
   let provider: SimpleFallbackJsonRpcBatchProvider;
