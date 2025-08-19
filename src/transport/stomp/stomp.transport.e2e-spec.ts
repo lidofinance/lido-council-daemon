@@ -7,7 +7,7 @@ import StompTransport from './stomp.transport';
 import StompClient from './stomp.client';
 import { STOMP_OPTIONS } from 'transport/transport.constants';
 
-describe.skip('StompTransport', () => {
+describe('StompTransport', () => {
   let transport: StompTransport;
   let moduleRef: TestingModule;
 

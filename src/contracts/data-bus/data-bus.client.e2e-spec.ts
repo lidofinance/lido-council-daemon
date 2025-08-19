@@ -94,7 +94,7 @@ const getVariant = <Name extends MessagesNames>(
   return dataVariant.data as MessagesDataMap[Name];
 };
 
-describe.skip('DataBus', () => {
+describe('DataBus', () => {
   let provider: ethers.providers.JsonRpcProvider;
   let owner: ethers.Signer;
   let sdk: DataBusClient;
@@ -146,6 +146,10 @@ describe.skip('DataBus', () => {
 
   afterEach(async () => {
     await hardhatServer.stop();
+  });
+
+  afterAll(() => {
+    if (global.gc) global.gc();
   });
 
   it('should measure gas for sendPingMessage', async () => {

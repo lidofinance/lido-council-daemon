@@ -576,7 +576,7 @@ describe('Front-run e2e tests', () => {
     });
   });
 
-  describe.skip('Historical front-run', () => {
+  describe('Historical front-run', () => {
     let snapshotId: number;
     let canRunTests = true;
 

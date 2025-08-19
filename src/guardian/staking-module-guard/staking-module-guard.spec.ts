@@ -16,6 +16,7 @@ import { KeysValidationModule } from 'guardian/keys-validation/keys-validation.m
 import { vettedKeys } from './keys.fixtures';
 import { KeysApiModule } from 'keys-api/keys-api.module';
 import { KeysApiService } from 'keys-api/keys-api.service';
+import { TransportInterface } from 'transport';
 import { DATA_BUS_PROVIDER_TOKEN } from 'provider/data-bus-provider.module';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 
@@ -61,6 +62,10 @@ describe('StakingModuleGuardService', () => {
         KeysValidationModule,
       ],
     })
+      .overrideProvider(TransportInterface)
+      .useValue({
+        publish: jest.fn(),
+      })
       .overrideProvider(DATA_BUS_PROVIDER_TOKEN)
       .useValue({
         getNetwork: jest.fn(),
