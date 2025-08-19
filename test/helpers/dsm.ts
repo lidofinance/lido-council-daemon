@@ -146,6 +146,29 @@ export async function deposit(moduleId: number, depositCount = 1) {
 
   // TODO: check current stake limit and increase it on value i need
   //
+  console.log('Checking if staking control permission is needed...');
+
+  // Grant STAKING_CONTROL_ROLE permission via ACL contract
+  const aclAbi = [
+    'function grantPermission(address _entity, address _app, bytes32 _role)',
+  ];
+
+  console.log('Getting ACL contract address...');
+  const aclAddress = '0xfd1E42595CeC3E83239bf8dFc535250e7F48E0bC'; // Hardcoded for holesky
+  const acl = new Contract(aclAddress, aclAbi, votingSigner);
+
+  console.log('Getting STAKING_CONTROL_ROLE...');
+  const stakingControlRole = await lido.STAKING_CONTROL_ROLE();
+
+  console.log('Granting STAKING_CONTROL_ROLE permission...');
+  const grantTx = await acl.grantPermission(
+    voting,
+    lidoAddress,
+    stakingControlRole,
+  );
+  await grantTx.wait();
+  console.log('Permission granted successfully');
+
   console.log('Setting staking limit...');
   await lidoVotingSigner.setStakingLimit(
     ethers.utils.parseEther(amountForDepositsInEth), // _maxStakeLimit
