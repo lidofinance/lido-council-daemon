@@ -169,12 +169,7 @@ export async function deposit(moduleId: number, depositCount = 1) {
   const APP_MANAGER_ROLE = await dao.APP_MANAGER_ROLE();
 
   console.log('Creating ACL permission...');
-  await acl.createPermission(
-    voting,
-    await dao.getAddress(),
-    APP_MANAGER_ROLE,
-    voting,
-  );
+  await acl.createPermission(voting, daoAddress, APP_MANAGER_ROLE);
 
   console.log('Getting STAKING_CONTROL_ROLE...');
   const stakingControlRole = await lido.STAKING_CONTROL_ROLE();
