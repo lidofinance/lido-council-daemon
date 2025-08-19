@@ -85,6 +85,7 @@ export async function deposit(moduleId: number, depositCount = 1) {
   );
 
   const locator = getLocator();
+  console.log('locator', locator);
   console.log('Getting deposit security module address...');
   const dsm = await locator.depositSecurityModule();
   console.log(`Deposit security module address: ${dsm}`);
@@ -169,7 +170,7 @@ export async function deposit(moduleId: number, depositCount = 1) {
   const APP_MANAGER_ROLE = await dao.APP_MANAGER_ROLE();
 
   console.log('Creating ACL permission...');
-  await acl.createPermission(voting, daoAddress, APP_MANAGER_ROLE);
+  await acl.grantPermission(voting, daoAddress, APP_MANAGER_ROLE);
 
   console.log('Getting STAKING_CONTROL_ROLE...');
   const stakingControlRole = await lido.STAKING_CONTROL_ROLE();
