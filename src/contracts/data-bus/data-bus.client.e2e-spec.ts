@@ -93,8 +93,8 @@ const getVariant = <Name extends MessagesNames>(
   }
   return dataVariant.data as MessagesDataMap[Name];
 };
-
-describe('DataBus', () => {
+// TODO: add separate HH config for local run
+describe.skip('DataBus', () => {
   let provider: ethers.providers.JsonRpcProvider;
   let owner: ethers.Signer;
   let sdk: DataBusClient;
