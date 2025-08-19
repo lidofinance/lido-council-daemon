@@ -155,6 +155,7 @@ export async function deposit(moduleId: number, depositCount = 1) {
 
   console.log('Getting ACL contract address...');
   const aclAddress = '0xfd1E42595CeC3E83239bf8dFc535250e7F48E0bC'; // Hardcoded for holesky
+  await accountImpersonate(aclAddress);
   const acl = new Contract(aclAddress, aclAbi, votingSigner);
 
   console.log('Getting STAKING_CONTROL_ROLE...');
