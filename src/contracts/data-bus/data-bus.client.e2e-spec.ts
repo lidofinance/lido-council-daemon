@@ -93,14 +93,15 @@ const getVariant = <Name extends MessagesNames>(
   }
   return dataVariant.data as MessagesDataMap[Name];
 };
-// TODO: add separate HH config for local run
-describe.skip('DataBus', () => {
+
+describe('DataBus', () => {
   let provider: ethers.providers.JsonRpcProvider;
   let owner: ethers.Signer;
   let sdk: DataBusClient;
   let variants: ReturnType<typeof getVariants>;
   let hardhatServer: HardhatServer;
   let dsmOwnerAddress: string;
+  let testStartBlock: number;
 
   const setupServer = async () => {
     hardhatServer = new HardhatServer();
@@ -117,7 +118,12 @@ describe.skip('DataBus', () => {
     provider = new ethers.providers.JsonRpcProvider(
       'http://127.0.0.1:' + TEST_SERVER_PORT,
     );
-    variants = getVariants(await provider.getBlock('latest'));
+
+    // Get current block number for test start reference
+    const currentBlock = await provider.getBlock('latest');
+    testStartBlock = currentBlock.number;
+
+    variants = getVariants(currentBlock);
 
     // Get the first account as the owner
     // const accounts = await provider.listAccounts();
@@ -165,13 +171,13 @@ describe.skip('DataBus', () => {
 
     expect(gasUsed.toNumber()).toBeLessThanOrEqual(29847);
 
-    const events = await sdk.get('MessagePingV1');
+    const events = await sdk.get('MessagePingV1', testStartBlock - 1);
     const [event] = events;
 
     expect(event.data).toEqual(dataVariant);
     expect(event.guardianAddress).toEqual(await owner.getAddress());
 
-    const allEvents = await sdk.getAll();
+    const allEvents = await sdk.getAll(testStartBlock - 1);
     expect(event).toEqual(allEvents[0]);
   });
 
@@ -188,7 +194,7 @@ describe.skip('DataBus', () => {
 
     expect(gasUsed.toNumber()).toBeLessThanOrEqual(31858);
 
-    const events = await sdk.get(messageName);
+    const events = await sdk.get(messageName, testStartBlock - 1);
 
     const [event] = events;
     const eventData = event.data;
@@ -196,7 +202,7 @@ describe.skip('DataBus', () => {
     expect(eventData).toEqual(dataVariant);
     expect(event.guardianAddress).toEqual(await owner.getAddress());
 
-    const allEvents = await sdk.getAll();
+    const allEvents = await sdk.getAll(testStartBlock - 1);
     expect(event).toEqual(allEvents[0]);
   });
 
@@ -213,13 +219,13 @@ describe.skip('DataBus', () => {
 
     expect(gasUsed.toNumber()).toBeLessThanOrEqual(34024);
 
-    const events = await sdk.get('MessageUnvetV1');
+    const events = await sdk.get('MessageUnvetV1', testStartBlock - 1);
     const [event] = events;
 
     expect(event.data).toEqual(dataVariant);
     expect(event.guardianAddress).toEqual(await owner.getAddress());
 
-    const allEvents = await sdk.getAll();
+    const allEvents = await sdk.getAll(testStartBlock - 1);
     expect(event).toEqual(allEvents[0]);
   });
 
@@ -236,13 +242,13 @@ describe.skip('DataBus', () => {
 
     expect(gasUsed.toNumber()).toBeLessThanOrEqual(31858);
 
-    const events = await sdk.get(messageName);
+    const events = await sdk.get(messageName, testStartBlock - 1);
     const [event] = events;
 
     expect(event.data).toEqual(dataVariant);
     expect(event.guardianAddress).toEqual(await owner.getAddress());
 
-    const allEvents = await sdk.getAll();
+    const allEvents = await sdk.getAll(testStartBlock - 1);
     expect(event).toEqual(allEvents[0]);
   });
 
@@ -259,13 +265,13 @@ describe.skip('DataBus', () => {
 
     expect(gasUsed.toNumber()).toBeLessThanOrEqual(30213);
 
-    const events = await sdk.get(messageName);
+    const events = await sdk.get(messageName, testStartBlock - 1);
     const [event] = events;
 
     expect(event.data).toEqual(dataVariant);
     expect(event.guardianAddress).toEqual(await owner.getAddress());
 
-    const allEvents = await sdk.getAll();
+    const allEvents = await sdk.getAll(testStartBlock - 1);
     expect(event).toEqual(allEvents[0]);
   });
 
