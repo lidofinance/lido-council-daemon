@@ -1,10 +1,12 @@
 import { ethers } from 'ethers';
+import { strict as assert } from 'assert';
 import { NO_PRIVKEY_MESSAGE } from '../constants';
 import { LidoAbi__factory, SecurityAbi__factory } from 'generated';
 import { accountImpersonate, setBalance, testSetupProvider } from './provider';
 import { getLocator } from './sr.contract';
 import { Contract } from '@ethersproject/contracts';
 import { wqAbi } from './wq.abi';
+import { AGENT, DAO } from './addresses';
 
 function createWallet(provider: ethers.providers.JsonRpcProvider) {
   if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
@@ -83,7 +85,14 @@ export async function deposit(moduleId: number, depositCount = 1) {
   const dsm = await locator.depositSecurityModule();
   const lidoAddress = await locator.lido();
   const withdrawalQueueAddress = await locator.withdrawalQueue();
-  const agent = '0xE92329EC7ddB11D25e25b3c21eeBf11f15eB325d';
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const chainId = process.env.CHAIN_ID!;
+
+  const agent = AGENT[chainId];
+  const daoAddress = DAO[chainId];
+
+  assert(!!agent, 'Agent address is invalid');
+  assert(!!daoAddress, 'DAO address is invalid');
 
   await accountImpersonate(dsm);
   await accountImpersonate(agent);
@@ -92,6 +101,7 @@ export async function deposit(moduleId: number, depositCount = 1) {
   const signer = testSetupProvider.getSigner(dsm);
 
   const lido = LidoAbi__factory.connect(lidoAddress, signer);
+
   const withdrawalQueue = new Contract(
     withdrawalQueueAddress,
     wqAbi,
@@ -117,7 +127,6 @@ export async function deposit(moduleId: number, depositCount = 1) {
     'function grantPermission(address _entity, address _app, bytes32 _role)',
   ];
 
-  const daoAddress = '0x3b03f75Ec541Ca11a223bB58621A3146246E1644'; // Hardcoded for holesky
   await accountImpersonate(daoAddress);
 
   const kernelAbi = [
