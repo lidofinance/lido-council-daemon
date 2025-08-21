@@ -15,7 +15,7 @@ export class TestProviderModule {
             // Use new array-based config with fallback to localhost for tests
             urls: config?.PROVIDERS_URLS || ['http://127.0.0.1:8545'],
             // Use chain ID config with fallback to CHAIN_ID env var for tests
-            network: config?.CHAIN_ID ?? parseInt(CHAIN_ID || '17000', 10),
+            network: CHAIN_ID,
             // Add maxRetries to handle test failures gracefully
             maxRetries: 1,
             logRetries: false,
