@@ -18,6 +18,7 @@ import {
 import { cutModulesKeys } from './helpers/reduce-keys';
 import { waitKAPIUpdateModulesKeys } from './helpers/kapi';
 import { sleep } from 'utils';
+import { getLocator } from './helpers/sr.contract';
 
 jest.mock('../src/transport/stomp/stomp.client.ts');
 jest.setTimeout(500_000);
@@ -98,7 +99,7 @@ describe('Integration Tests', () => {
         'Step 7.0.0 completed: Provider connection test successful, chainId:',
         network.chainId,
       );
-      console.log(network)
+      console.log(network);
     } catch (error) {
       console.error(
         'Step 7.0.0 failed: Provider connection test failed:',
@@ -140,17 +141,19 @@ describe('Integration Tests', () => {
   });
 
   describe('Infrastructure connectivity', () => {
-    it.only('should connect to Hardhat node', async () => {
+    it('should connect to Hardhat node', async () => {
       const network = await provider.getNetwork();
       expect(network).toBeDefined();
       expect(network.chainId).toBeDefined();
       console.log('E2E_CHAIN_ID', network.chainId);
     });
 
-    // it('should connect to Keys API', async () => {
-    //   const status = await keysApiService.getKeysApiStatus();
-    //   expect(status).toBeDefined();
-    // });
+    it('should connect to Keys API', async () => {
+      const locator = await getLocator();
+      const dsm = await locator.depositSecurityModule();
+      console.log('LOCATOR', locator.address);
+      console.log('E2E_DEPOSIT_SECURITY_MODULE', dsm);
+    });
 
     // it('should initialize all core services', () => {
     //   expect(guardianService).toBeDefined();
