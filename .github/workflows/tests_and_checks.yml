@@ -21,7 +21,7 @@ jobs:
         env:
           RPC_URL: ${{ secrets.E2E_RPC_URL }}
           CHAIN_ID: 560048
-          LOCATOR_DEVNET_ADDRESS: "0x28FAB2059C713A7F9D8c86Db49f9bb0e96Af1ef8"
+          LOCATOR_DEVNET_ADDRESS: "0xe2EF9536DAAAEBFf5b1c130957AB3E80056b06D8"
           WALLET_PRIVATE_KEY: ${{ secrets.WALLET_PRIVATE_KEY }}
       - name: Run e2e transports
         run: docker compose -f docker-compose.test.yml up -d
@@ -34,7 +34,7 @@ jobs:
         env:
           RPC_URL: ${{ secrets.E2E_RPC_URL }}
           CHAIN_ID: 560048
-          LOCATOR_DEVNET_ADDRESS: "0x28FAB2059C713A7F9D8c86Db49f9bb0e96Af1ef8"
+          LOCATOR_DEVNET_ADDRESS: "0xe2EF9536DAAAEBFf5b1c130957AB3E80056b06D8"
           WALLET_PRIVATE_KEY: ${{ secrets.WALLET_PRIVATE_KEY }}
           KEYS_API_URL: http://127.0.0.1:3000
 
