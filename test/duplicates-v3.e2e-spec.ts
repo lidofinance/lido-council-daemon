@@ -37,7 +37,7 @@ import { cutModulesKeys } from './helpers/reduce-keys';
 jest.mock('../src/transport/stomp/stomp.client.ts');
 jest.setTimeout(300_000);
 
-describe.skip('Duplicates e2e tests', () => {
+describe('Duplicates e2e tests', () => {
   let provider: SimpleFallbackJsonRpcBatchProvider;
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;
@@ -182,7 +182,7 @@ describe.skip('Duplicates e2e tests', () => {
     lidoWC = await getLidoWC();
     const { signature } = await signDeposit(duplicatePK, duplicateSK, lidoWC);
     duplicateDepositSignature = signature;
-  }, 200_000);
+  }, 300_000);
 
   afterAll(async () => {
     await keysApiContainer.stop();
