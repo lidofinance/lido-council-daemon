@@ -67,14 +67,15 @@ describe('Integration Tests', () => {
       'Step 5.1: Keys API container started, waiting for readiness...',
     );
     try {
-      await sleep(10_000)
       const stream = await keysApiContainer.logs({
         stdout: true,
         stderr: true,
         tail: 50,
       });
-      console.log(`Container ${keysApiContainer.id} logs:`, stream.toString());
-      // await waitKAPIUpdateModulesKeys();
+      stream.on('data', (chunk) => {
+        console.log(`Container ${keysApiContainer.id} logs:`, chunk.toString());
+      });
+      await waitKAPIUpdateModulesKeys();
       console.log('Step 5 completed: Keys API container is running and ready');
     } catch (error) {
       console.error(
@@ -131,7 +132,7 @@ describe('Integration Tests', () => {
     dataBusService = moduleRef.get(DataBusService);
     transportInterface = moduleRef.get(TransportInterface);
     console.log('Step 9 completed: All services obtained successfully');
-  }, 100_000);
+  }, 200_000);
 
   afterAll(async () => {
     await hardhatServer?.stop();
