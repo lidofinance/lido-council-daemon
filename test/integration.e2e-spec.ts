@@ -1,4 +1,5 @@
 import { TestingModule } from '@nestjs/testing';
+import { Writable } from 'stream';
 import { setupTestingModule, initLevelDB } from './helpers/test-setup';
 import { GuardianService } from 'guardian/guardian.service';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
@@ -67,14 +68,38 @@ describe('Integration Tests', () => {
       'Step 5.1: Keys API container started, waiting for readiness...',
     );
     try {
-      const stream = await keysApiContainer.logs({
+      const logStream = await keysApiContainer.logs({
         stdout: true,
         stderr: true,
         tail: 50,
+        follow: true,
       });
-      stream.on('data', (chunk) => {
-        console.log(`Container ${keysApiContainer.id} logs:`, chunk.toString());
+
+
+      const stdout = new Writable({
+        write(chunk, encoding, callback) {
+          console.log(
+            `[Container ${keysApiContainer.id}]`,
+            chunk.toString().trim(),
+          );
+          callback();
+        },
       });
+
+      const stderr = new Writable({
+        write(chunk, encoding, callback) {
+          console.error(
+            `[Container ${keysApiContainer.id} ERROR]`,
+            chunk.toString().trim(),
+          );
+          callback();
+        },
+      });
+
+      keysApiContainer.modem.demuxStream(logStream, stdout, stderr);
+
+      console.log(`Subscribed to container ${keysApiContainer.id} logs`);
+
       await waitKAPIUpdateModulesKeys();
       console.log('Step 5 completed: Keys API container is running and ready');
     } catch (error) {
