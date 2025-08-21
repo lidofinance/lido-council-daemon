@@ -3,7 +3,7 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-const RPC_URL = process.env.E2E_RPC_URL || process.env.RPC_URL || 'http://127.0.0.1:8545';
+const RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:8545';
 const secretKey = process.env.WALLET_PRIVATE_KEY!;
 
 const config: HardhatUserConfig = {
@@ -12,7 +12,7 @@ const config: HardhatUserConfig = {
       forking: {
         url: RPC_URL,
       },
-      chainId: parseInt(process.env.E2E_CHAIN_ID || process.env.CHAIN_ID || '17000', 10),
+      chainId: 560048,
       accounts: [
         {
           privateKey: secretKey,
