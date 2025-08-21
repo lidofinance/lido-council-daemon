@@ -135,6 +135,7 @@ describe('Integration Tests', () => {
       const network = await provider.getNetwork();
       expect(network).toBeDefined();
       expect(network.chainId).toBeDefined();
+      console.log('E2E_CHAIN_ID', network.chainId);
     });
 
     it('should connect to Keys API', async () => {
