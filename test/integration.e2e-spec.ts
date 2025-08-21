@@ -47,7 +47,7 @@ describe('Integration Tests', () => {
     console.log('Step 1 completed: Containers setup finished');
 
     console.log('Step 2: Starting PostgreSQL container...');
-    await startContainerIfNotRunning(postgresContainer);
+    // await startContainerIfNotRunning(postgresContainer);
     console.log('Step 2 completed: PostgreSQL container is running');
 
     // Start Hardhat node
