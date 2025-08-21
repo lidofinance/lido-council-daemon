@@ -1,6 +1,5 @@
 import { HardhatUserConfig } from 'hardhat/config';
 import * as dotenv from 'dotenv';
-import { CHAIN_ID } from './test/helpers/config';
 
 dotenv.config();
 
@@ -13,7 +12,7 @@ const config: HardhatUserConfig = {
       forking: {
         url: RPC_URL,
       },
-      chainId: parseInt(CHAIN_ID, 10),
+      chainId: parseInt(process.env.E2E_CHAIN_ID || process.env.CHAIN_ID || '17000', 10),
       accounts: [
         {
           privateKey: secretKey,
