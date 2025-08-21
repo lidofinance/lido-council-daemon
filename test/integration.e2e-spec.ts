@@ -17,7 +17,6 @@ import {
 } from './helpers/docker-containers/utils';
 import { cutModulesKeys } from './helpers/reduce-keys';
 import { waitKAPIUpdateModulesKeys } from './helpers/kapi';
-import { sleep } from 'utils';
 import { getLocator } from './helpers/sr.contract';
 
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -42,13 +41,13 @@ describe('Integration Tests', () => {
   beforeAll(async () => {
     // Setup containers (postgres and keys-api)
     console.log('Step 1: Setting up containers...');
-    // const { kapi, psql } = await setupContainers();
-    // keysApiContainer = kapi;
-    // postgresContainer = psql;
+    const { kapi, psql } = await setupContainers();
+    keysApiContainer = kapi;
+    postgresContainer = psql;
     console.log('Step 1 completed: Containers setup finished');
 
     console.log('Step 2: Starting PostgreSQL container...');
-    // await startContainerIfNotRunning(postgresContainer);
+    await startContainerIfNotRunning(postgresContainer);
     console.log('Step 2 completed: PostgreSQL container is running');
 
     // Start Hardhat node
@@ -58,31 +57,24 @@ describe('Integration Tests', () => {
     console.log('Step 3 completed: Hardhat node is ready');
 
     console.log('Step 4: Starting key cutting process...');
-    // await cutModulesKeys();
+    await cutModulesKeys();
     console.log('Step 4 completed: Key cutting process finished');
 
     console.log('Step 5: Starting Keys API container...');
-    // await startContainerIfNotRunning(keysApiContainer);
+    await startContainerIfNotRunning(keysApiContainer);
     console.log(
       'Step 5.1: Keys API container started, waiting for readiness...',
     );
-    // try {
-    //   await sleep(10_000)
-    //   const stream = await keysApiContainer.logs({
-    //     stdout: true,
-    //     stderr: true,
-    //     tail: 50,
-    //   });
-    //   console.log(`Container ${keysApiContainer.id} logs:`, stream.toString());
-    //   // await waitKAPIUpdateModulesKeys();
-    //   console.log('Step 5 completed: Keys API container is running and ready');
-    // } catch (error) {
-    //   console.error(
-    //     'Keys API readiness check failed, getting container logs...',
-    //   );
-    //   await getContainerLogs(keysApiContainer);
-    //   throw error;
-    // }
+    try {
+      await waitKAPIUpdateModulesKeys();
+      console.log('Step 5 completed: Keys API container is running and ready');
+    } catch (error) {
+      console.error(
+        'Keys API readiness check failed, getting container logs...',
+      );
+      await getContainerLogs(keysApiContainer);
+      throw error;
+    }
 
     // Setup testing module
     console.log('Step 6: Setting up testing module...');
@@ -113,7 +105,7 @@ describe('Integration Tests', () => {
     console.log('Step 7.0.2: Getting SignKeyLevelDBService...');
     signKeyLevelDBService = moduleRef.get(SignKeyLevelDBService);
     console.log('Step 7.0.3: Both services obtained, calling initLevelDB...');
-    // await initLevelDB(levelDBService, signKeyLevelDBService);
+    await initLevelDB(levelDBService, signKeyLevelDBService);
     console.log('Step 7 completed: LevelDB initialization finished');
 
     // Initialize BLS service
@@ -135,8 +127,8 @@ describe('Integration Tests', () => {
 
   afterAll(async () => {
     await hardhatServer?.stop();
-    // await postgresContainer?.stop();
-    // await keysApiContainer?.stop();
+    await postgresContainer?.stop();
+    await keysApiContainer?.stop();
     await moduleRef?.close();
   });
 
@@ -155,44 +147,44 @@ describe('Integration Tests', () => {
       console.log('E2E_DEPOSIT_SECURITY_MODULE', dsm);
     });
 
-    // it('should initialize all core services', () => {
-    //   expect(guardianService).toBeDefined();
-    //   expect(securityService).toBeDefined();
-    //   expect(dataBusService).toBeDefined();
-    //   expect(transportInterface).toBeDefined();
-    // });
+    it('should initialize all core services', () => {
+      expect(guardianService).toBeDefined();
+      expect(securityService).toBeDefined();
+      expect(dataBusService).toBeDefined();
+      expect(transportInterface).toBeDefined();
+    });
   });
 
-  // describe('Data-bus provider connectivity after refactoring', () => {
-  //   it('should have transport interface working', () => {
-  //     expect(transportInterface).toBeDefined();
-  //     expect(typeof transportInterface.publish).toBe('function');
-  //   });
+  describe('Data-bus provider connectivity after refactoring', () => {
+    it('should have transport interface working', () => {
+      expect(transportInterface).toBeDefined();
+      expect(typeof transportInterface.publish).toBe('function');
+    });
 
-  //   it('should initialize data-bus service without errors', async () => {
-  //     expect(dataBusService).toBeDefined();
-  //     await expect(dataBusService.initialize()).resolves.not.toThrow();
-  //   });
+    it('should initialize data-bus service without errors', async () => {
+      expect(dataBusService).toBeDefined();
+      await expect(dataBusService.initialize()).resolves.not.toThrow();
+    });
 
-  //   it('should have guardian service with provider access', () => {
-  //     expect(guardianService).toBeDefined();
-  //     expect(typeof guardianService.handleNewBlock).toBe('function');
-  //     expect(typeof guardianService.isNeedToProcessNewState).toBe('function');
-  //   });
-  // });
+    it('should have guardian service with provider access', () => {
+      expect(guardianService).toBeDefined();
+      expect(typeof guardianService.handleNewBlock).toBe('function');
+      expect(typeof guardianService.isNeedToProcessNewState).toBe('function');
+    });
+  });
 
-  // describe.skip('Basic functionality', () => {
-  //   it('should get modules from Keys API', async () => {
-  //     const modules = await keysApiService.getModules();
-  //     expect(modules).toBeDefined();
-  //     expect(modules.data).toBeDefined();
-  //     expect(Array.isArray(modules.data)).toBe(true);
-  //   });
+  describe('Basic functionality', () => {
+    it('should get modules from Keys API', async () => {
+      const modules = await keysApiService.getModules();
+      expect(modules).toBeDefined();
+      expect(modules.data).toBeDefined();
+      expect(Array.isArray(modules.data)).toBe(true);
+    });
 
-  //   it('should get current block number', async () => {
-  //     const blockNumber = await provider.getBlockNumber();
-  //     expect(typeof blockNumber).toBe('number');
-  //     expect(blockNumber).toBeGreaterThan(0);
-  //   });
-  // });
+    it('should get current block number', async () => {
+      const blockNumber = await provider.getBlockNumber();
+      expect(typeof blockNumber).toBe('number');
+      expect(blockNumber).toBeGreaterThan(0);
+    });
+  });
 });
