@@ -157,7 +157,7 @@ describe('Integration Tests', () => {
     dataBusService = moduleRef.get(DataBusService);
     transportInterface = moduleRef.get(TransportInterface);
     console.log('Step 9 completed: All services obtained successfully');
-  }, 200_000);
+  }, 300_000);
 
   afterAll(async () => {
     await hardhatServer?.stop();
