@@ -6,7 +6,7 @@ import { accountImpersonate, setBalance, testSetupProvider } from './provider';
 import { getLocator } from './sr.contract';
 import { Contract } from '@ethersproject/contracts';
 import { wqAbi } from './wq.abi';
-import { AGENT, DAO } from './addresses';
+import { AGENT, CHAIN_ID, DAO } from './config';
 
 function createWallet(provider: ethers.providers.JsonRpcProvider) {
   if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
@@ -86,7 +86,7 @@ export async function deposit(moduleId: number, depositCount = 1) {
   const lidoAddress = await locator.lido();
   const withdrawalQueueAddress = await locator.withdrawalQueue();
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-  const chainId = process.env.CHAIN_ID!;
+  const chainId = CHAIN_ID;
 
   const agent = AGENT[chainId];
   const daoAddress = DAO[chainId];
