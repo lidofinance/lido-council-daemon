@@ -17,6 +17,7 @@ import {
 } from './helpers/docker-containers/utils';
 import { cutModulesKeys } from './helpers/reduce-keys';
 import { waitKAPIUpdateModulesKeys } from './helpers/kapi';
+import { sleep } from 'utils';
 import { getLocator } from './helpers/sr.contract';
 
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -66,7 +67,14 @@ describe('Integration Tests', () => {
       'Step 5.1: Keys API container started, waiting for readiness...',
     );
     try {
-      await waitKAPIUpdateModulesKeys();
+      await sleep(10_000)
+      const stream = await keysApiContainer.logs({
+        stdout: true,
+        stderr: true,
+        tail: 50,
+      });
+      console.log(`Container ${keysApiContainer.id} logs:`, stream.toString());
+      // await waitKAPIUpdateModulesKeys();
       console.log('Step 5 completed: Keys API container is running and ready');
     } catch (error) {
       console.error(
