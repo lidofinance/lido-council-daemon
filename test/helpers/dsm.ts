@@ -85,7 +85,7 @@ export async function deposit(moduleId: number, depositCount = 1) {
   const dsm = await locator.depositSecurityModule();
   const lidoAddress = await locator.lido();
   const withdrawalQueueAddress = await locator.withdrawalQueue();
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
   const chainId = CHAIN_ID;
 
   const agent = AGENT[chainId];
