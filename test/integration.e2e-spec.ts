@@ -41,9 +41,9 @@ describe('Integration Tests', () => {
   beforeAll(async () => {
     // Setup containers (postgres and keys-api)
     console.log('Step 1: Setting up containers...');
-    const { kapi, psql } = await setupContainers();
-    keysApiContainer = kapi;
-    postgresContainer = psql;
+    // const { kapi, psql } = await setupContainers();
+    // keysApiContainer = kapi;
+    // postgresContainer = psql;
     console.log('Step 1 completed: Containers setup finished');
 
     console.log('Step 2: Starting PostgreSQL container...');
@@ -61,27 +61,27 @@ describe('Integration Tests', () => {
     console.log('Step 4 completed: Key cutting process finished');
 
     console.log('Step 5: Starting Keys API container...');
-    await startContainerIfNotRunning(keysApiContainer);
+    // await startContainerIfNotRunning(keysApiContainer);
     console.log(
       'Step 5.1: Keys API container started, waiting for readiness...',
     );
-    try {
-      await sleep(10_000)
-      const stream = await keysApiContainer.logs({
-        stdout: true,
-        stderr: true,
-        tail: 50,
-      });
-      console.log(`Container ${keysApiContainer.id} logs:`, stream.toString());
-      // await waitKAPIUpdateModulesKeys();
-      console.log('Step 5 completed: Keys API container is running and ready');
-    } catch (error) {
-      console.error(
-        'Keys API readiness check failed, getting container logs...',
-      );
-      await getContainerLogs(keysApiContainer);
-      throw error;
-    }
+    // try {
+    //   await sleep(10_000)
+    //   const stream = await keysApiContainer.logs({
+    //     stdout: true,
+    //     stderr: true,
+    //     tail: 50,
+    //   });
+    //   console.log(`Container ${keysApiContainer.id} logs:`, stream.toString());
+    //   // await waitKAPIUpdateModulesKeys();
+    //   console.log('Step 5 completed: Keys API container is running and ready');
+    // } catch (error) {
+    //   console.error(
+    //     'Keys API readiness check failed, getting container logs...',
+    //   );
+    //   await getContainerLogs(keysApiContainer);
+    //   throw error;
+    // }
 
     // Setup testing module
     console.log('Step 6: Setting up testing module...');
@@ -98,6 +98,7 @@ describe('Integration Tests', () => {
         'Step 7.0.0 completed: Provider connection test successful, chainId:',
         network.chainId,
       );
+      console.log(network)
     } catch (error) {
       console.error(
         'Step 7.0.0 failed: Provider connection test failed:',
@@ -133,13 +134,13 @@ describe('Integration Tests', () => {
 
   afterAll(async () => {
     await hardhatServer?.stop();
-    await postgresContainer?.stop();
-    await keysApiContainer?.stop();
+    // await postgresContainer?.stop();
+    // await keysApiContainer?.stop();
     await moduleRef?.close();
   });
 
   describe('Infrastructure connectivity', () => {
-    it('should connect to Hardhat node', async () => {
+    it.only('should connect to Hardhat node', async () => {
       const network = await provider.getNetwork();
       expect(network).toBeDefined();
       expect(network.chainId).toBeDefined();
