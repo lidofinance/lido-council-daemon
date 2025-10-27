@@ -18,7 +18,6 @@ import {
 } from './helpers/docker-containers/utils';
 import { cutModulesKeys } from './helpers/reduce-keys';
 import { waitKAPIUpdateModulesKeys } from './helpers/kapi';
-import { sleep } from 'utils';
 import { getLocator } from './helpers/sr.contract';
 
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -74,7 +73,6 @@ describe('Integration Tests', () => {
         tail: 50,
         follow: true,
       });
-
 
       const stdout = new Writable({
         write(chunk, encoding, callback) {
