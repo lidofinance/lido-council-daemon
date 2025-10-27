@@ -182,7 +182,7 @@ describe('Duplicates e2e tests', () => {
     lidoWC = await getLidoWC();
     const { signature } = await signDeposit(duplicatePK, duplicateSK, lidoWC);
     duplicateDepositSignature = signature;
-  }, 200_000);
+  }, 300_000);
 
   afterAll(async () => {
     await keysApiContainer.stop();

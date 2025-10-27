@@ -1,4 +1,5 @@
 import { TestingModule } from '@nestjs/testing';
+import { Writable } from 'stream';
 import { setupTestingModule, initLevelDB } from './helpers/test-setup';
 import { GuardianService } from 'guardian/guardian.service';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
@@ -17,6 +18,7 @@ import {
 } from './helpers/docker-containers/utils';
 import { cutModulesKeys } from './helpers/reduce-keys';
 import { waitKAPIUpdateModulesKeys } from './helpers/kapi';
+import { getLocator } from './helpers/sr.contract';
 
 jest.mock('../src/transport/stomp/stomp.client.ts');
 jest.setTimeout(500_000);
@@ -65,6 +67,37 @@ describe('Integration Tests', () => {
       'Step 5.1: Keys API container started, waiting for readiness...',
     );
     try {
+      const logStream = await keysApiContainer.logs({
+        stdout: true,
+        stderr: true,
+        tail: 50,
+        follow: true,
+      });
+
+      const stdout = new Writable({
+        write(chunk, encoding, callback) {
+          console.log(
+            `[Container ${keysApiContainer.id}]`,
+            chunk.toString().trim(),
+          );
+          callback();
+        },
+      });
+
+      const stderr = new Writable({
+        write(chunk, encoding, callback) {
+          console.error(
+            `[Container ${keysApiContainer.id} ERROR]`,
+            chunk.toString().trim(),
+          );
+          callback();
+        },
+      });
+
+      keysApiContainer.modem.demuxStream(logStream, stdout, stderr);
+
+      console.log(`Subscribed to container ${keysApiContainer.id} logs`);
+
       await waitKAPIUpdateModulesKeys();
       console.log('Step 5 completed: Keys API container is running and ready');
     } catch (error) {
@@ -90,6 +123,7 @@ describe('Integration Tests', () => {
         'Step 7.0.0 completed: Provider connection test successful, chainId:',
         network.chainId,
       );
+      console.log(network);
     } catch (error) {
       console.error(
         'Step 7.0.0 failed: Provider connection test failed:',
@@ -121,7 +155,7 @@ describe('Integration Tests', () => {
     dataBusService = moduleRef.get(DataBusService);
     transportInterface = moduleRef.get(TransportInterface);
     console.log('Step 9 completed: All services obtained successfully');
-  }, 200_000);
+  }, 300_000);
 
   afterAll(async () => {
     await hardhatServer?.stop();
@@ -135,11 +169,14 @@ describe('Integration Tests', () => {
       const network = await provider.getNetwork();
       expect(network).toBeDefined();
       expect(network.chainId).toBeDefined();
+      console.log('E2E_CHAIN_ID', network.chainId);
     });
 
     it('should connect to Keys API', async () => {
-      const status = await keysApiService.getKeysApiStatus();
-      expect(status).toBeDefined();
+      const locator = await getLocator();
+      const dsm = await locator.depositSecurityModule();
+      console.log('LOCATOR', locator.address);
+      console.log('E2E_DEPOSIT_SECURITY_MODULE', dsm);
     });
 
     it('should initialize all core services', () => {

@@ -12,10 +12,11 @@ import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store'
 import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { TestProviderModule } from 'provider';
+import { CHAIN_ID } from './config';
 
 export const setupTestingModule = async () => {
   process.env.EVM_CHAIN_DATA_BUS_PROVIDER_URL = 'http://127.0.0.1:8545';
-  process.env.EVM_CHAIN_DATA_BUS_CHAIN_ID = process.env.CHAIN_ID;
+  process.env.EVM_CHAIN_DATA_BUS_CHAIN_ID = String(CHAIN_ID);
 
   const moduleRef = await Test.createTestingModule({
     imports: [
