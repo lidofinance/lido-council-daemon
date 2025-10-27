@@ -6,7 +6,7 @@ import {
   LocatorAbi__factory,
   StakingRouterAbi__factory,
 } from 'generated';
-import { AGENT } from './agent';
+import { AGENT } from './config';
 
 export const CURATED_ONCHAIN_V1_TYPE = 'curated-onchain-v1';
 export const COMMUNITY_ONCHAIN_V1_TYPE = 'community-onchain-v1';
@@ -69,6 +69,11 @@ export async function prioritizeShareLimit(moduleId: number) {
   const network = await testSetupProvider.getNetwork();
   const CHAIN_ID = network.chainId;
   const agent = AGENT[CHAIN_ID];
+
+  if (!agent) {
+    throw new Error(`AGENT address not found for chain ID: ${CHAIN_ID}`);
+  }
+
   await accountImpersonate(agent);
   const agentSigner = testSetupProvider.getSigner(agent);
 

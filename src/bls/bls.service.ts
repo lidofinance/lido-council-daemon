@@ -30,6 +30,13 @@ export class BlsService implements OnModuleInit {
     const network = await this.provider.getNetwork();
     const chainId = network.chainId;
     this.forkVersion = GENESIS_FORK_VERSION_BY_CHAIN_ID[chainId] ?? null;
+
+    if (!this.forkVersion) {
+      throw new Error(
+        `GENESIS_FORK_VERSION not found for chain ID: ${chainId}. ` +
+          `Please add the fork version to GENESIS_FORK_VERSION_BY_CHAIN_ID in bls.constants.ts`,
+      );
+    }
   }
 
   private forkVersion: Uint8Array | null = null;

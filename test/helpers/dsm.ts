@@ -91,6 +91,13 @@ export async function deposit(moduleId: number, depositCount = 1) {
   const agent = AGENT[chainId];
   const daoAddress = DAO[chainId];
 
+  if (!agent) {
+    throw new Error(`AGENT address not found for chain ID: ${chainId}`);
+  }
+  if (!daoAddress) {
+    throw new Error(`DAO address not found for chain ID: ${chainId}`);
+  }
+
   assert(!!agent, 'Agent address is invalid');
   assert(!!daoAddress, 'DAO address is invalid');
 
