@@ -1,22 +1,22 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { getNetwork } from '@ethersproject/networks';
-import { CHAINS } from '@lido-sdk/constants';
+import { CHAINS } from '@lido-nestjs/constants';
 import { Configuration } from 'common/config';
 
 const getMockProviderFactory = () => {
   return (config: Configuration): SimpleFallbackJsonRpcBatchProvider => {
     class MockProvider extends SimpleFallbackJsonRpcBatchProvider {
       async detectNetwork() {
-        return getNetwork(CHAINS.Goerli);
+        return getNetwork(CHAINS.Hoodi);
       }
 
       async _detectNetwork() {
-        return getNetwork(CHAINS.Goerli);
+        return getNetwork(CHAINS.Hoodi);
       }
 
       async getNetwork() {
-        return getNetwork(CHAINS.Goerli);
+        return getNetwork(CHAINS.Hoodi);
       }
     }
 

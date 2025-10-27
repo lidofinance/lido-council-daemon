@@ -23,7 +23,7 @@ import { mockRepository } from 'contracts/repository/repository.mock';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { UnvettingModule } from './unvetting/unvetting.module';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
-import { CHAINS } from '@lido-sdk/constants';
+import { CHAINS } from '@lido-nestjs/constants';
 import { getNetwork } from '@ethersproject/networks';
 import { JsonRpcProvider } from '@ethersproject/providers';
 

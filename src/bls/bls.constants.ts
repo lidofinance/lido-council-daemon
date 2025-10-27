@@ -1,4 +1,4 @@
-import { CHAINS } from '@lido-sdk/constants';
+import { CHAINS } from '@lido-nestjs/constants';
 import { ByteVectorType, UintNumberType } from '@chainsafe/ssz';
 
 export const Bytes4 = new ByteVectorType(4);
