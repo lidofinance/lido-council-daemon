@@ -76,10 +76,7 @@ export class BlockDataCollectorService {
           lidoWC,
         );
 
-      const alreadyPausedDeposits = await this.alreadyPausedDeposits(
-        blockHash,
-        securityVersion,
-      );
+      const alreadyPausedDeposits = await this.alreadyPausedDeposits(blockHash);
 
       if (alreadyPausedDeposits) {
         this.logger.warn('Deposits are already paused', {
@@ -110,20 +107,11 @@ export class BlockDataCollectorService {
     }
   }
 
-  private async alreadyPausedDeposits(
-    blockHash: string,
-    securityVersion: number,
-  ) {
-    if (securityVersion === 3) {
-      const alreadyPaused = await this.securityService.isDepositsPaused({
-        blockHash,
-      });
+  private async alreadyPausedDeposits(blockHash: string) {
+    const alreadyPaused = await this.securityService.isDepositsPaused({
+      blockHash,
+    });
 
-      return alreadyPaused;
-    }
-
-    // for earlier versions DSM contact didn't have this method
-    // we check pause for every method via staking router contract
-    return false;
+    return alreadyPaused;
   }
 }

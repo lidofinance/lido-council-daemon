@@ -17,6 +17,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Counter } from 'prom-client';
 import { BlockTag, ProviderService } from 'provider';
 import { WalletService } from 'wallet';
+import { DSM_CONTRACT_SUPPORTED_VERSION } from './security.constants';
 
 @Injectable()
 export class SecurityService {
@@ -368,18 +369,20 @@ export class SecurityService {
 
   public async version(blockTag?: BlockTag): Promise<number> {
     const contract = this.getContractWithSigner();
-    try {
-      const version = await contract.VERSION({
-        blockTag: blockTag as any,
-      });
-      return version.toNumber();
-    } catch (error) {
-      this.logger.warn(
-        'Error while fetching the version; the locator may have returned an outdated version of the DSM contract',
-      );
+    const version = await contract.VERSION({
+      blockTag: blockTag as any,
+    });
 
-      return 2;
+    const currentVersion = version.toNumber();
+
+    if (currentVersion !== DSM_CONTRACT_SUPPORTED_VERSION) {
+      this.logger.warn(`Deprecated DSM contract version found: ${version}`, {
+        dsmContractAddress: contract.address,
+        blockTag,
+      });
+      throw new Error(`Deprecated DSM contract version found: ${version}`);
     }
+    return currentVersion;
   }
 
   /**

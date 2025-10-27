@@ -17,6 +17,7 @@ export const EARLIEST_MODULE_DEPLOYMENT_BLOCK_NETWORK = {
   [CHAINS.Holesky]: 0,
   [LOCAL_DEVNET_CHAIN_ID]: 0,
   [PECTRA_5_DEVNET_CHAIN_ID]: 0,
+  [CHAINS.Hoodi]: 0,
 };
 
 // will make a gap in case of reorganization

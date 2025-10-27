@@ -15,11 +15,13 @@ export const Version = Bytes4;
 export const Domain = Bytes32;
 
 export const DOMAIN_DEPOSIT = Uint8Array.from([3, 0, 0, 0]);
+
 export const GENESIS_FORK_VERSION_MAINNET = Version.fromJson('0x00000000');
 export const GENESIS_FORK_VERSION_PRATER = Version.fromJson('0x00001020');
 export const GENESIS_FORK_VERSION_HOLESKY = Version.fromJson('0x01017000');
 export const GENESIS_FORK_VERSION_DEVNET = Version.fromJson('0x10000038');
 export const GENESIS_FORK_VERSION_DEVNET_PECTRA5 = Version.fromJson('0x10710240');
+export const GENESIS_FORK_VERSION_HOODI = Version.fromJson('0x10000910');
 
 export const ZERO_HASH = Buffer.alloc(32, 0);
 
@@ -32,4 +34,5 @@ export const GENESIS_FORK_VERSION_BY_CHAIN_ID = {
   [CHAINS.Holesky]: GENESIS_FORK_VERSION_HOLESKY,
   [LOCAL_DEVNET_CHAIN_ID]: GENESIS_FORK_VERSION_DEVNET,
   [PECTRA_5_DEVNET_CHAIN_ID]: GENESIS_FORK_VERSION_DEVNET_PECTRA5,
+  [CHAINS.Hoodi]: GENESIS_FORK_VERSION_HOODI,
 };
