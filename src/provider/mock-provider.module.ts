@@ -1,12 +1,19 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { getNetwork } from '@ethersproject/networks';
-import { CHAINS } from '@lido-sdk/constants';
+import { CHAINS } from '@lido-nestjs/constants';
 import { Configuration } from 'common/config';
+import { DATA_BUS_PROVIDER_TOKEN } from './data-bus-provider.module';
 
 const getMockProviderFactory = () => {
   return (config: Configuration): SimpleFallbackJsonRpcBatchProvider => {
     class MockProvider extends SimpleFallbackJsonRpcBatchProvider {
+      // NOTE: MockProvider uses Goerli network, but the specific chain ID is not functionally important
+      // for unit tests - it's just a constant value. Unit tests are isolated and don't depend on
+      // actual network behavior. The only requirement is that the chain ID's genesis fork version
+      // matches the test fixtures (key signatures in keys.fixtures.ts were generated for Goerli).
+      // In production, the real chain ID comes from configuration, not from this mock.
+      // There's no need to change to Hoodi/other networks unless testing network-specific logic.
       async detectNetwork() {
         return getNetwork(CHAINS.Goerli);
       }
@@ -46,8 +53,12 @@ export class MockProviderModule {
           useFactory: getMockProviderFactory(),
           inject: [Configuration],
         },
+        {
+          provide: DATA_BUS_PROVIDER_TOKEN,
+          useExisting: SimpleFallbackJsonRpcBatchProvider,
+        },
       ],
-      exports: [SimpleFallbackJsonRpcBatchProvider],
+      exports: [SimpleFallbackJsonRpcBatchProvider, DATA_BUS_PROVIDER_TOKEN],
     };
   }
 }

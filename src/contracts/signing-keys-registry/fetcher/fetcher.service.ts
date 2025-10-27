@@ -1,7 +1,6 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { StakingRouterService } from 'contracts/staking-router';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { fetchEventsFallOver } from 'utils/fetch-events-utils';
 import {
   SigningKeyEvent,
@@ -12,7 +11,6 @@ import {
 export class SigningKeysRegistryFetcherService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-    private provider: SimpleFallbackJsonRpcBatchProvider,
     private stakingRouterService: StakingRouterService,
   ) {}
 

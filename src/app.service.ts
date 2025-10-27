@@ -5,7 +5,7 @@ import { METRIC_BUILD_INFO } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Gauge } from 'prom-client';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
-import { CHAINS } from '@lido-sdk/constants';
+import { CHAINS } from '@lido-nestjs/constants';
 import { getHeapStatistics } from 'v8';
 
 export class AppService implements OnModuleInit {

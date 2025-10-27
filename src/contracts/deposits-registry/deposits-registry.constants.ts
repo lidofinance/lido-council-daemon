@@ -1,4 +1,4 @@
-import { CHAINS } from '@lido-sdk/constants';
+import { CHAINS } from '@lido-nestjs/constants';
 
 export const DEPLOYMENT_BLOCK_NETWORK: {
   [key in CHAINS]?: number;

@@ -1415,6 +1415,11 @@
   resolved "https://registry.yarnpkg.com/@lido-nestjs/constants/-/constants-5.2.1.tgz#f006972b7b69429f7623b0c5ac8b4bba594f9c01"
   integrity sha512-0UvUdQ4KilnH0Nf5JkdKdOrS2HFMjmrS4+2wUXoX08N25MzFryWC0qcdFLp1bvod04Ey/PoUNlj+S2WVKEYgwQ==
 
+"@lido-nestjs/constants@^5.3.0":
+  version "5.3.0"
+  resolved "https://registry.yarnpkg.com/@lido-nestjs/constants/-/constants-5.3.0.tgz#a257d9aff873bc10c8be940541405342f82e610e"
+  integrity sha512-8lW8DPmZ1t4t8tOs7E4eqPlWCjhN9poe3q81DtG/Nt0+AMWzx4zTmeap0DGHdeMC4QPB3vRdjb2i3E+B4aJbgA==
+
 "@lido-nestjs/contracts@9.6.0":
   version "9.6.0"
   resolved "https://registry.yarnpkg.com/@lido-nestjs/contracts/-/contracts-9.6.0.tgz#8e01a78be5c0832c4be0d2544b602ec03e95ecf7"
@@ -1485,13 +1490,6 @@
   version "1.3.0"
   resolved "https://registry.npmjs.org/@lido-nestjs/utils/-/utils-1.3.0.tgz"
   integrity sha512-/5I30Dos9TC18YfZq8O9ele28DpUQQCySB9X9GXPeSmY1AV4w2kIGQrws1wu2gtw7x5mZnW8PtWthJmH1f6vJQ==
-
-"@lido-sdk/constants@3.4.0":
-  version "3.4.0"
-  resolved "https://registry.yarnpkg.com/@lido-sdk/constants/-/constants-3.4.0.tgz#af1f0b0b8bdc893552041626eb34ced3d4a38731"
-  integrity sha512-hF5dGgAl2kWba9tZxvx9ioQR8LEixgn7iyjNoPqasmuOLOzeDjhyX1PCUBuhm0m1e2EpXM2yxVhK8cbWJvpmVw==
-  dependencies:
-    tiny-invariant "^1.1.0"
 
 "@nestjs/cli@^8.2.5":
   version "8.2.5"
@@ -7794,11 +7792,6 @@ timers-ext@^0.1.7:
   dependencies:
     es5-ext "~0.10.46"
     next-tick "1"
-
-tiny-invariant@^1.1.0:
-  version "1.3.1"
-  resolved "https://registry.npmjs.org/tiny-invariant/-/tiny-invariant-1.3.1.tgz"
-  integrity sha512-AD5ih2NlSssTCwsMznbvwMZpJ1cbhkGd2uueNxzv2jDlEeZdU04JQfRnggJQ8DrcVBGjAsCKwFBbDlVNtEMlzw==
 
 tinyglobby@^0.2.6:
   version "0.2.14"
