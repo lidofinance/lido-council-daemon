@@ -1,7 +1,6 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { FallbackProviderModule } from '@lido-nestjs/execution';
 import { Configuration } from '../common/config';
-import { CHAIN_ID } from '../../test/helpers/config';
 
 @Module({})
 export class TestProviderModule {
@@ -15,7 +14,7 @@ export class TestProviderModule {
             // Use new array-based config with fallback to localhost for tests
             urls: config?.PROVIDERS_URLS || ['http://127.0.0.1:8545'],
             // Use chain ID config with fallback to CHAIN_ID env var for tests
-            network: CHAIN_ID,
+            network: 560048,
             // Add maxRetries to handle test failures gracefully
             maxRetries: 1,
             logRetries: false,
