@@ -1,33 +1,43 @@
-import { CHAINS } from '@lido-sdk/constants';
+import { CHAINS } from '@lido-nestjs/constants';
 import { Test } from '@nestjs/testing';
 import { getNetwork } from '@ethersproject/networks';
-import { MockProviderModule, ProviderService } from 'provider';
+import { MockProviderModule } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { MessagesService } from './messages.service';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { TransportInterface } from 'transport';
 import { PrometheusModule } from 'common/prometheus';
-import { MessagesModule } from 'messages';
 
 jest.mock('../transport/stomp/stomp.client');
 
 describe('MessagesService', () => {
-  let providerService: ProviderService;
+  let provider: SimpleFallbackJsonRpcBatchProvider;
   let messagesService: MessagesService;
   let transportService: TransportInterface;
 
   beforeEach(async () => {
+    const mockTransportService = {
+      publish: jest.fn(),
+    };
+
     const moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot(),
         MockProviderModule.forRoot(),
         PrometheusModule,
         LoggerModule,
-        MessagesModule,
+      ],
+      providers: [
+        MessagesService,
+        {
+          provide: TransportInterface,
+          useValue: mockTransportService,
+        },
       ],
     }).compile();
 
-    providerService = moduleRef.get(ProviderService);
+    provider = moduleRef.get(SimpleFallbackJsonRpcBatchProvider);
     messagesService = moduleRef.get(MessagesService);
     transportService = moduleRef.get(TransportInterface);
   });
@@ -35,7 +45,7 @@ describe('MessagesService', () => {
   describe('getMessageTopic', () => {
     it('should return topic for mainnet', async () => {
       jest
-        .spyOn(providerService.provider, 'detectNetwork')
+        .spyOn(provider, 'getNetwork')
         .mockImplementation(async () => getNetwork(CHAINS.Mainnet));
 
       const topic = await messagesService.getMessageTopic();
@@ -45,7 +55,7 @@ describe('MessagesService', () => {
 
     it('should return topic for goerli', async () => {
       jest
-        .spyOn(providerService.provider, 'detectNetwork')
+        .spyOn(provider, 'getNetwork')
         .mockImplementation(async () => getNetwork(CHAINS.Goerli));
 
       const topic = await messagesService.getMessageTopic();
@@ -54,11 +64,22 @@ describe('MessagesService', () => {
     });
 
     it('should return different topics', async () => {
+      jest.restoreAllMocks();
+
       jest
-        .spyOn(providerService, 'getChainId')
-        .mockImplementationOnce(async () => CHAINS.Mainnet)
-        .mockImplementationOnce(async () => CHAINS.Goerli)
-        .mockImplementationOnce(async () => CHAINS.Holesky);
+        .spyOn(provider, 'getNetwork')
+        .mockImplementationOnce(async () => ({
+          chainId: CHAINS.Mainnet,
+          name: 'mainnet',
+        }))
+        .mockImplementationOnce(async () => ({
+          chainId: CHAINS.Goerli,
+          name: 'goerli',
+        }))
+        .mockImplementationOnce(async () => ({
+          chainId: CHAINS.Holesky,
+          name: 'holesky',
+        }));
 
       const mainnetTopic = await messagesService.getMessageTopic();
       const goerliTopic = await messagesService.getMessageTopic();

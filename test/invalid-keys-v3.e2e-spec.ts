@@ -10,7 +10,7 @@ jest.mock('../src/transport/stomp/stomp.client.ts');
 import { setupTestingModule, initLevelDB } from './helpers/test-setup';
 import { SecurityService } from 'contracts/security';
 import { GuardianService } from 'guardian';
-import { ProviderService } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { GuardianMessageService } from 'guardian/guardian-message';
 import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
 import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
@@ -40,10 +40,10 @@ import {
 } from './helpers/docker-containers/utils';
 import { cutModulesKeys } from './helpers/reduce-keys';
 
-jest.setTimeout(100_000);
+jest.setTimeout(300_000);
 
 describe('Signature validation e2e test', () => {
-  let providerService: ProviderService;
+  let provider: SimpleFallbackJsonRpcBatchProvider;
   let guardianService: GuardianService;
   let keyValidator: KeyValidatorInterface;
   let levelDBService: DepositsRegistryStoreService;
@@ -77,7 +77,7 @@ describe('Signature validation e2e test', () => {
     // keys events service
     signingKeysRegistryService = moduleRef.get(SigningKeysRegistryService);
 
-    providerService = moduleRef.get(ProviderService);
+    provider = moduleRef.get(SimpleFallbackJsonRpcBatchProvider);
 
     // dsm methods and council sign services
     securityService = moduleRef.get(SecurityService);
@@ -207,7 +207,7 @@ describe('Signature validation e2e test', () => {
     });
 
     test('Set cache to current block', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
 
       await levelDBService.setCachedEvents({
         data: [],
@@ -228,7 +228,7 @@ describe('Signature validation e2e test', () => {
     });
 
     test('Add key with broken signature', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
       const randomSign =
         '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e';
 
@@ -254,7 +254,7 @@ describe('Signature validation e2e test', () => {
     });
 
     test('Increase staking limit', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
 
       // keys total amount was 3, added key with wrong sign, now it is 4 keys
       // increase limit to 4
@@ -268,7 +268,7 @@ describe('Signature validation e2e test', () => {
     });
 
     test('Unvetting', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 

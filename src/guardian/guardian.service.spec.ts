@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { LoggerModule } from 'common/logger';
-import { MockProviderModule } from 'provider';
+import { DATA_BUS_PROVIDER_TOKEN, MockProviderModule } from 'provider';
 import { GuardianService } from './guardian.service';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
@@ -22,6 +22,10 @@ import { mockLocator } from 'contracts/repository/locator/locator.mock';
 import { mockRepository } from 'contracts/repository/repository.mock';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { UnvettingModule } from './unvetting/unvetting.module';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
+import { CHAINS } from '@lido-nestjs/constants';
+import { getNetwork } from '@ethersproject/networks';
+import { JsonRpcProvider } from '@ethersproject/providers';
 
 jest.mock('../transport/stomp/stomp.client');
 
@@ -53,7 +57,25 @@ describe('GuardianService', () => {
         GuardianMetricsModule,
         UnvettingModule,
       ],
-    }).compile();
+    })
+      .overrideProvider(DATA_BUS_PROVIDER_TOKEN)
+      .useValue({
+        getNetwork: jest.fn(),
+      })
+      .overrideProvider(SimpleFallbackJsonRpcBatchProvider)
+      .useValue(new JsonRpcProvider('http://localhost:8545'))
+      .compile();
+
+    const provider = moduleRef.get(SimpleFallbackJsonRpcBatchProvider);
+
+    jest
+      .spyOn(provider, 'detectNetwork')
+      .mockImplementation(async () => getNetwork(CHAINS.Mainnet));
+
+    jest.spyOn(provider, 'getNetwork').mockImplementation(async () => ({
+      chainId: CHAINS.Mainnet,
+      name: 'mainnet',
+    }));
 
     keysApiService = moduleRef.get(KeysApiService);
 

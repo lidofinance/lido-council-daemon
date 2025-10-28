@@ -1,4 +1,4 @@
-import { CHAINS } from '@lido-sdk/constants';
+import { CHAINS } from '@lido-nestjs/constants';
 
 export const SIGNING_KEYS_CACHE_DEFAULT = Object.freeze({
   headers: {
@@ -14,6 +14,7 @@ export const EARLIEST_MODULE_DEPLOYMENT_BLOCK_NETWORK: {
 } = {
   [CHAINS.Mainnet]: 11473216,
   [CHAINS.Holesky]: 0,
+  [CHAINS.Hoodi]: 0,
 };
 
 // will make a gap in case of reorganization

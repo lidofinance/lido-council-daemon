@@ -3,7 +3,7 @@ import { NO_PRIVKEY_MESSAGE } from '../constants';
 import { computeRoot } from './computeDomain';
 import { DepositData } from 'bls/bls.containers';
 import { ethers } from 'ethers';
-import { ProviderService } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { DepositAbi__factory } from 'generated';
 import { SecretKey } from '@chainsafe/blst';
 import { getSecurityContract } from './dsm';
@@ -35,7 +35,7 @@ export async function signDeposit(
 
 export async function makeDeposit(
   depositData: any,
-  providerService: ProviderService,
+  provider: SimpleFallbackJsonRpcBatchProvider,
   amount = 32,
 ): Promise<{ wallet: ethers.Wallet; depositSign: Uint8Array }> {
   const depositDataRoot = DepositData.hashTreeRoot(depositData);
@@ -44,7 +44,7 @@ export async function makeDeposit(
   const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
 
   // Make a deposit
-  const signer = wallet.connect(providerService.provider);
+  const signer = wallet.connect(provider);
   const dsm = await getSecurityContract();
   const depositContractAddress = await dsm.DEPOSIT_CONTRACT();
 

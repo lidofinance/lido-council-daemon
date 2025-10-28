@@ -9,16 +9,16 @@ import { SecurityModule, SecurityService } from 'contracts/security';
 import { RepositoryModule } from 'contracts/repository';
 import { StakingModuleGuardModule } from './staking-module-guard.module';
 import { GuardianMetricsModule } from '../guardian-metrics';
-import {
-  GuardianMessageModule,
-  GuardianMessageService,
-} from '../guardian-message';
+import { GuardianMessageService } from '../guardian-message';
 import { StakingModuleGuardService } from './staking-module-guard.service';
 
 import { KeysValidationModule } from 'guardian/keys-validation/keys-validation.module';
 import { vettedKeys } from './keys.fixtures';
 import { KeysApiModule } from 'keys-api/keys-api.module';
 import { KeysApiService } from 'keys-api/keys-api.service';
+import { TransportInterface } from 'transport';
+import { DATA_BUS_PROVIDER_TOKEN } from 'provider/data-bus-provider.module';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 
 jest.mock('../../transport/stomp/stomp.client');
 
@@ -57,12 +57,24 @@ describe('StakingModuleGuardService', () => {
         SecurityModule,
         KeysApiModule,
         GuardianMetricsModule,
-        GuardianMessageModule,
         RepositoryModule,
         PrometheusModule,
         KeysValidationModule,
       ],
-    }).compile();
+    })
+      .overrideProvider(TransportInterface)
+      .useValue({
+        publish: jest.fn(),
+      })
+      .overrideProvider(DATA_BUS_PROVIDER_TOKEN)
+      .useValue({
+        getNetwork: jest.fn(),
+      })
+      .overrideProvider(SimpleFallbackJsonRpcBatchProvider)
+      .useValue({
+        getNetwork: jest.fn(),
+      })
+      .compile();
 
     securityService = moduleRef.get(SecurityService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);

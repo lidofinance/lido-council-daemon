@@ -5,7 +5,8 @@ import { SecurityAbi, SecurityAbi__factory } from 'generated';
 import { DepositAbi, DepositAbi__factory } from 'generated';
 import { StakingRouterAbi, StakingRouterAbi__factory } from 'generated';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { BlockTag, ProviderService } from 'provider';
+import { BlockTag } from '@lido-nestjs/execution';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { sleep } from 'utils';
 import { LocatorService } from './locator/locator.service';
 import {
@@ -20,7 +21,7 @@ import {
 export class RepositoryService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-    private providerService: ProviderService,
+    private provider: SimpleFallbackJsonRpcBatchProvider,
     private locatorService: LocatorService,
   ) {}
   private tempContractsCache: Record<
@@ -44,12 +45,13 @@ export class RepositoryService {
    * Init cache for each contract or wait if it makes some error
    */
   public async initOrWaitCachedContracts(): Promise<Block> {
-    const block = await this.providerService.getBlock();
+    const block = await this.provider.getBlock('latest');
     try {
       await this.initCachedContracts({ blockHash: block.hash });
       return block;
     } catch (error) {
-      this.logger.error('Init contracts error. Retry', error);
+      this.logger.error('Init contracts error. Retry');
+      this.logger.error(error);
       await sleep(INIT_CONTRACTS_TIMEOUT);
       return await this.initOrWaitCachedContracts();
     }
@@ -128,12 +130,11 @@ export class RepositoryService {
    */
   private async initCachedLidoContract(blockTag: BlockTag): Promise<void> {
     const address = await this.locatorService.getLidoAddress(blockTag);
-    const provider = this.providerService.provider;
 
     this.setContractCache(
       address,
       LIDO_ABI,
-      LidoAbi__factory.connect(address, provider),
+      LidoAbi__factory.connect(address, this.provider),
     );
   }
 
@@ -142,12 +143,11 @@ export class RepositoryService {
    */
   private async initCachedDSMContract(blockTag: BlockTag): Promise<void> {
     const address = await this.locatorService.getDSMAddress(blockTag);
-    const provider = this.providerService.provider;
 
     this.setContractCache(
       address,
       DSM_ABI,
-      SecurityAbi__factory.connect(address, provider),
+      SecurityAbi__factory.connect(address, this.provider),
     );
   }
 
@@ -157,12 +157,11 @@ export class RepositoryService {
   private async initCachedDepositContract(blockTag: BlockTag): Promise<void> {
     if (this.permanentContractsCache[DEPOSIT_ABI]) return;
     const depositAddress = await this.getDepositAddress(blockTag);
-    const provider = this.providerService.provider;
 
     this.setPermanentContractCache(
       depositAddress,
       DEPOSIT_ABI,
-      DepositAbi__factory.connect(depositAddress, provider),
+      DepositAbi__factory.connect(depositAddress, this.provider),
     );
   }
 
@@ -174,12 +173,11 @@ export class RepositoryService {
   ): Promise<void> {
     const stakingRouterAddress =
       await this.locatorService.getStakingRouterAddress(blockTag);
-    const provider = this.providerService.provider;
 
     this.setContractCache(
       stakingRouterAddress,
       STAKING_ROUTER_ABI,
-      StakingRouterAbi__factory.connect(stakingRouterAddress, provider),
+      StakingRouterAbi__factory.connect(stakingRouterAddress, this.provider),
     );
   }
 

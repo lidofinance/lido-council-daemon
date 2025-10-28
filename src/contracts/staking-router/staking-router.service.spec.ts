@@ -1,7 +1,8 @@
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
-import { MockProviderModule, ProviderService } from 'provider';
+import { MockProviderModule } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { Interface } from '@ethersproject/abi';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
@@ -14,7 +15,7 @@ import { StakingRouterModule, StakingRouterService } from '.';
 const TEST_MODULE_ID = 1;
 
 describe('SecurityService', () => {
-  let providerService: ProviderService;
+  let provider: SimpleFallbackJsonRpcBatchProvider;
   let repositoryService: RepositoryService;
   let locatorService: LocatorService;
   let stakingRouterService: StakingRouterService;
@@ -30,7 +31,7 @@ describe('SecurityService', () => {
       ],
     }).compile();
 
-    providerService = moduleRef.get(ProviderService);
+    provider = moduleRef.get(SimpleFallbackJsonRpcBatchProvider);
     repositoryService = moduleRef.get(RepositoryService);
     locatorService = moduleRef.get(LocatorService);
     stakingRouterService = moduleRef.get(StakingRouterService);
@@ -48,7 +49,7 @@ describe('SecurityService', () => {
       const expected = true;
 
       const mockProviderCalla = jest
-        .spyOn(providerService.provider, 'call')
+        .spyOn(provider, 'call')
         .mockImplementation(async () => {
           const iface = new Interface(StakingRouterAbi__factory.abi);
           return iface.encodeFunctionResult('getStakingModuleIsActive', [
@@ -69,7 +70,7 @@ describe('SecurityService', () => {
       const expected = '0x' + '1'.repeat(64);
 
       const mockProviderCall = jest
-        .spyOn(providerService.provider, 'call')
+        .spyOn(provider, 'call')
         .mockImplementation(async () => {
           const iface = new Interface(StakingRouterAbi__factory.abi);
           const result = [expected];

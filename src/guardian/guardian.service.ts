@@ -23,7 +23,7 @@ import { StakingModuleGuardService } from './staking-module-guard';
 import { GuardianMessageService } from './guardian-message';
 import { GuardianMetricsService } from './guardian-metrics';
 import { BlockData, StakingModuleData } from './interfaces';
-import { ProviderService } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import {
   MIN_KAPI_VERSION,
@@ -60,7 +60,7 @@ export class GuardianService implements OnModuleInit {
     private guardianMessageService: GuardianMessageService,
     private guardianMetricsService: GuardianMetricsService,
 
-    private providerService: ProviderService,
+    private provider: SimpleFallbackJsonRpcBatchProvider,
     private keysApiService: KeysApiService,
     private signingKeysRegistryService: SigningKeysRegistryService,
 
@@ -91,7 +91,8 @@ export class GuardianService implements OnModuleInit {
           ),
         ]);
 
-        const chainId = await this.providerService.getChainId();
+        const network = await this.provider.getNetwork();
+        const chainId = network.chainId;
         const keysApiStatus = await this.keysApiService.getKeysApiStatus();
 
         if (chainId !== keysApiStatus.chainId) {

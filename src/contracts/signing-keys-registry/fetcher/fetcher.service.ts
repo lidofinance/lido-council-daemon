@@ -1,7 +1,7 @@
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { StakingRouterService } from 'contracts/staking-router';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { ProviderService } from 'provider';
+import { fetchEventsFallOver } from 'utils/fetch-events-utils';
 import {
   SigningKeyEvent,
   SigningKeyEventsGroup,
@@ -11,7 +11,6 @@ import {
 export class SigningKeysRegistryFetcherService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-    private providerService: ProviderService,
     private stakingRouterService: StakingRouterService,
   ) {}
 
@@ -31,10 +30,11 @@ export class SigningKeysRegistryFetcherService {
     const fetcherWrapper = (start: number, end: number) =>
       this.fetchEvents(start, end, stakingModulesAddresses);
 
-    return await this.providerService.fetchEventsFallOver(
+    return await fetchEventsFallOver(
       startBlock,
       endBlock,
       fetcherWrapper,
+      this.logger,
     );
   }
 

@@ -1,11 +1,12 @@
 import { ethers } from 'ethers';
+import { strict as assert } from 'assert';
 import { NO_PRIVKEY_MESSAGE } from '../constants';
 import { LidoAbi__factory, SecurityAbi__factory } from 'generated';
 import { accountImpersonate, setBalance, testSetupProvider } from './provider';
 import { getLocator } from './sr.contract';
 import { Contract } from '@ethersproject/contracts';
 import { wqAbi } from './wq.abi';
-import { VOTING } from './voting';
+import { AGENT, CHAIN_ID, DAO } from './config';
 
 function createWallet(provider: ethers.providers.JsonRpcProvider) {
   if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
@@ -84,27 +85,38 @@ export async function deposit(moduleId: number, depositCount = 1) {
   const dsm = await locator.depositSecurityModule();
   const lidoAddress = await locator.lido();
   const withdrawalQueueAddress = await locator.withdrawalQueue();
-  const network = await testSetupProvider.getNetwork();
-  const CHAIN_ID = network.chainId;
-  const voting = VOTING[CHAIN_ID];
+
+  const chainId = CHAIN_ID;
+
+  const agent = AGENT[chainId];
+  const daoAddress = DAO[chainId];
+
+  if (!agent) {
+    throw new Error(`AGENT address not found for chain ID: ${chainId}`);
+  }
+  if (!daoAddress) {
+    throw new Error(`DAO address not found for chain ID: ${chainId}`);
+  }
+
+  assert(!!agent, 'Agent address is invalid');
+  assert(!!daoAddress, 'DAO address is invalid');
 
   await accountImpersonate(dsm);
-  await accountImpersonate(voting);
+  await accountImpersonate(agent);
   await setBalance(dsm, 100);
-  await setBalance(voting, 100);
-
+  await setBalance(agent, 100);
   const signer = testSetupProvider.getSigner(dsm);
 
   const lido = LidoAbi__factory.connect(lidoAddress, signer);
+
   const withdrawalQueue = new Contract(
     withdrawalQueueAddress,
     wqAbi,
     testSetupProvider,
   );
 
-  const votingSigner = testSetupProvider.getSigner(voting);
-
-  const lidoVotingSigner = LidoAbi__factory.connect(lidoAddress, votingSigner);
+  const agentSigner = testSetupProvider.getSigner(agent);
+  const lidoAgentSigner = LidoAbi__factory.connect(lidoAddress, agentSigner);
 
   const unfinalizedStETHWei = await withdrawalQueue.unfinalizedStETH();
   const depositableEtherWei = await lido.getBufferedEther();
@@ -117,9 +129,33 @@ export async function deposit(moduleId: number, depositCount = 1) {
     .add(ethers.utils.parseEther((depositCount * 32).toString()));
   const amountForDepositsInEth = ethers.utils.formatEther(amountForDeposits);
 
-  // TODO: check current stake limit and increase it on value i need
-  //
-  await lidoVotingSigner.setStakingLimit(
+  // Grant STAKING_CONTROL_ROLE permission via ACL contract
+  const aclAbi = [
+    'function grantPermission(address _entity, address _app, bytes32 _role)',
+  ];
+
+  await accountImpersonate(daoAddress);
+
+  const kernelAbi = [
+    'function acl() view returns (address)',
+    'function APP_MANAGER_ROLE() view returns (bytes32)',
+    'function getAddress() view returns (address)',
+  ];
+
+  const dao = new Contract(daoAddress, kernelAbi, agentSigner);
+  const aclAddress = await dao.acl();
+  const acl = new Contract(aclAddress, aclAbi, agentSigner);
+
+  const stakingControlRole = await lido.STAKING_CONTROL_ROLE();
+
+  const grantTx = await acl.grantPermission(
+    agent,
+    lidoAddress,
+    stakingControlRole,
+  );
+  await grantTx.wait();
+
+  await lidoAgentSigner.setStakingLimit(
     ethers.utils.parseEther(amountForDepositsInEth), // _maxStakeLimit
     ethers.utils.parseEther(amountForDepositsInEth), // _stakeLimitIncreasePerBlock
   );
@@ -131,7 +167,6 @@ export async function deposit(moduleId: number, depositCount = 1) {
   await new Promise((res) => setTimeout(res, 12000));
 
   const tx = await lido.deposit(1, moduleId, new Uint8Array());
-
   await tx.wait();
 }
 
@@ -139,6 +174,7 @@ export async function transferEther(recipientAddress: string, amount: string) {
   if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
   const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
   const signer = testSetupProvider.getSigner(wallet.address);
+
   await setBalance(wallet.address, 1000000);
 
   const tx = {
@@ -147,6 +183,5 @@ export async function transferEther(recipientAddress: string, amount: string) {
   };
 
   const transactionResponse = await signer.sendTransaction(tx);
-
   await transactionResponse.wait();
 }
