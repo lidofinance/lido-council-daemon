@@ -2,7 +2,8 @@ import { isAddress } from '@ethersproject/address';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
-import { MockProviderModule, ProviderService } from 'provider';
+import { MockProviderModule } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { WalletService } from 'wallet';
 import { SecurityAbi__factory } from 'generated';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
@@ -27,7 +28,7 @@ describe('SecurityService', () => {
   const address3 = hexZeroPad('0x3', 20);
 
   let securityService: SecurityService;
-  let providerService: ProviderService;
+  let provider: SimpleFallbackJsonRpcBatchProvider;
   let repositoryService: RepositoryService;
   let walletService: WalletService;
   let loggerService: LoggerService;
@@ -45,7 +46,7 @@ describe('SecurityService', () => {
     }).compile();
 
     securityService = moduleRef.get(SecurityService);
-    providerService = moduleRef.get(ProviderService);
+    provider = moduleRef.get(SimpleFallbackJsonRpcBatchProvider);
     repositoryService = moduleRef.get(RepositoryService);
     walletService = moduleRef.get(WalletService);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
@@ -63,7 +64,7 @@ describe('SecurityService', () => {
       const expected = [address1, address2];
 
       const mockProviderCall = jest
-        .spyOn(providerService.provider, 'call')
+        .spyOn(provider, 'call')
         .mockImplementation(async () => {
           const iface = new Interface(SecurityAbi__factory.abi);
           const result = [expected];
@@ -72,7 +73,7 @@ describe('SecurityService', () => {
 
       const guardians = await securityService.getGuardians();
       expect(guardians).toEqual(expected);
-      expect(mockProviderCall).toBeCalledTimes(1);
+      expect(mockProviderCall).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -134,7 +135,7 @@ describe('SecurityService', () => {
 
       const signature = await securityService.signDepositData(...args);
 
-      expect(mockGetAttestMessagePrefix).toBeCalledTimes(1);
+      expect(mockGetAttestMessagePrefix).toHaveBeenCalledTimes(1);
       expect(signDepositData).toBeCalledWith({
         prefix,
         depositRoot,
@@ -170,7 +171,7 @@ describe('SecurityService', () => {
         blockHash,
         TEST_MODULE_ID,
       );
-      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
+      expect(mockGetPauseMessagePrefix).toHaveBeenCalledTimes(1);
       expect(signPauseData).toBeCalledWith({
         blockNumber: 1,
         prefix:
@@ -203,7 +204,7 @@ describe('SecurityService', () => {
         blockNumber,
         blockHash,
       );
-      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
+      expect(mockGetPauseMessagePrefix).toHaveBeenCalledTimes(1);
       expect(signPauseData).toBeCalledWith({
         blockNumber: 1,
         prefix:
@@ -262,10 +263,10 @@ describe('SecurityService', () => {
         signature,
       );
 
-      expect(mockPauseDeposits).toBeCalledTimes(1);
-      expect(mockWait).toBeCalledTimes(1);
-      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
-      expect(mockGetContractWithSigner).toBeCalledTimes(1);
+      expect(mockPauseDeposits).toHaveBeenCalledTimes(1);
+      expect(mockWait).toHaveBeenCalledTimes(1);
+      expect(mockGetPauseMessagePrefix).toHaveBeenCalledTimes(1);
+      expect(mockGetContractWithSigner).toHaveBeenCalledTimes(1);
     });
 
     it('should exit if the previous call is not completed', async () => {
@@ -274,10 +275,10 @@ describe('SecurityService', () => {
         securityService.pauseDepositsV2(blockNumber, TEST_MODULE_ID, signature),
       ]);
 
-      expect(mockPauseDeposits).toBeCalledTimes(1);
-      expect(mockWait).toBeCalledTimes(1);
-      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
-      expect(mockGetContractWithSigner).toBeCalledTimes(1);
+      expect(mockPauseDeposits).toHaveBeenCalledTimes(1);
+      expect(mockWait).toHaveBeenCalledTimes(1);
+      expect(mockGetPauseMessagePrefix).toHaveBeenCalledTimes(1);
+      expect(mockGetContractWithSigner).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -315,10 +316,10 @@ describe('SecurityService', () => {
     it('should call contract method', async () => {
       await securityService.pauseDepositsV3(blockNumber, signature);
 
-      expect(mockPauseDeposits).toBeCalledTimes(1);
-      expect(mockWait).toBeCalledTimes(1);
-      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
-      expect(mockGetContractWithSigner).toBeCalledTimes(1);
+      expect(mockPauseDeposits).toHaveBeenCalledTimes(1);
+      expect(mockWait).toHaveBeenCalledTimes(1);
+      expect(mockGetPauseMessagePrefix).toHaveBeenCalledTimes(1);
+      expect(mockGetContractWithSigner).toHaveBeenCalledTimes(1);
     });
 
     it('should exit if the previous call is not completed', async () => {
@@ -327,10 +328,10 @@ describe('SecurityService', () => {
         securityService.pauseDepositsV3(blockNumber, signature),
       ]);
 
-      expect(mockPauseDeposits).toBeCalledTimes(1);
-      expect(mockWait).toBeCalledTimes(1);
-      expect(mockGetPauseMessagePrefix).toBeCalledTimes(1);
-      expect(mockGetContractWithSigner).toBeCalledTimes(1);
+      expect(mockPauseDeposits).toHaveBeenCalledTimes(1);
+      expect(mockWait).toHaveBeenCalledTimes(1);
+      expect(mockGetPauseMessagePrefix).toHaveBeenCalledTimes(1);
+      expect(mockGetContractWithSigner).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -358,7 +359,7 @@ describe('SecurityService', () => {
         operatorIds,
         vettedKeysByOperator,
       );
-      expect(mockGetUnvetMessagePrefix).toBeCalledTimes(1);
+      expect(mockGetUnvetMessagePrefix).toHaveBeenCalledTimes(1);
       expect(signUnvetData).toBeCalledWith({
         blockNumber,
         blockHash,
@@ -435,10 +436,10 @@ describe('SecurityService', () => {
         signature,
       );
 
-      expect(mockUnvetSigningKeys).toBeCalledTimes(1);
-      expect(mockWait).toBeCalledTimes(1);
-      expect(mockGetUnvetMessagePrefix).toBeCalledTimes(1);
-      expect(mockGetContractWithSigner).toBeCalledTimes(1);
+      expect(mockUnvetSigningKeys).toHaveBeenCalledTimes(1);
+      expect(mockWait).toHaveBeenCalledTimes(1);
+      expect(mockGetUnvetMessagePrefix).toHaveBeenCalledTimes(1);
+      expect(mockGetContractWithSigner).toHaveBeenCalledTimes(1);
     });
 
     it('should exit if the previous call is not completed', async () => {
@@ -463,10 +464,10 @@ describe('SecurityService', () => {
         ),
       ]);
 
-      expect(mockUnvetSigningKeys).toBeCalledTimes(1);
-      expect(mockWait).toBeCalledTimes(1);
-      expect(mockGetUnvetMessagePrefix).toBeCalledTimes(1);
-      expect(mockGetContractWithSigner).toBeCalledTimes(1);
+      expect(mockUnvetSigningKeys).toHaveBeenCalledTimes(1);
+      expect(mockWait).toHaveBeenCalledTimes(1);
+      expect(mockGetUnvetMessagePrefix).toHaveBeenCalledTimes(1);
+      expect(mockGetContractWithSigner).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -483,7 +484,7 @@ describe('SecurityService', () => {
       const expected = '0x' + '1'.repeat(64);
 
       const mockProviderCall = jest
-        .spyOn(providerService.provider, 'call')
+        .spyOn(provider, 'call')
         .mockImplementation(async () => {
           const iface = new Interface(SecurityAbi__factory.abi);
           const result = [expected];
@@ -492,14 +493,14 @@ describe('SecurityService', () => {
 
       const prefix = await securityService.getAttestMessagePrefix(blockHash);
       expect(prefix).toBe(expected);
-      expect(mockProviderCall).toBeCalledTimes(1);
+      expect(mockProviderCall).toHaveBeenCalledTimes(1);
     });
 
     it('getPauseMessagePrefix', async () => {
       const expected = '0x' + '1'.repeat(64);
 
       const mockProviderCall = jest
-        .spyOn(providerService.provider, 'call')
+        .spyOn(provider, 'call')
         .mockImplementation(async () => {
           const iface = new Interface(SecurityAbi__factory.abi);
           const result = [expected];
@@ -508,14 +509,14 @@ describe('SecurityService', () => {
 
       const prefix = await securityService.getPauseMessagePrefix(blockHash);
       expect(prefix).toBe(expected);
-      expect(mockProviderCall).toBeCalledTimes(1);
+      expect(mockProviderCall).toHaveBeenCalledTimes(1);
     });
 
     it('getUnvetMessagePrefix', async () => {
       const expected = '0x' + '1'.repeat(64);
 
       const mockProviderCall = jest
-        .spyOn(providerService.provider, 'call')
+        .spyOn(provider, 'call')
         .mockImplementation(async () => {
           const iface = new Interface(SecurityAbi__factory.abi);
           const result = [expected];
@@ -524,7 +525,7 @@ describe('SecurityService', () => {
 
       const prefix = await securityService.getUnvetMessagePrefix(blockHash);
       expect(prefix).toBe(expected);
-      expect(mockProviderCall).toBeCalledTimes(1);
+      expect(mockProviderCall).toHaveBeenCalledTimes(1);
     });
   });
 });

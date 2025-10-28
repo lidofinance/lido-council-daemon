@@ -2,13 +2,9 @@ import { ConfigModule } from 'common/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnvettingService } from './unvetting.service';
 import { SecurityModule, SecurityService } from 'contracts/security';
-import {
-  GuardianMessageModule,
-  GuardianMessageService,
-} from 'guardian/guardian-message';
+import { GuardianMessageService } from 'guardian/guardian-message';
 import { mockKeys, mockKeys2 } from './fixtures';
 import { LoggerModule } from 'common/logger';
-import { UnvettingModule } from './unvetting.module';
 import { PrometheusModule } from 'common/prometheus';
 import { MockProviderModule } from 'provider';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
@@ -38,14 +34,17 @@ describe('UnvettingService', () => {
         PrometheusModule,
         MockProviderModule.forRoot(),
         SecurityModule,
-        GuardianMessageModule,
-        UnvettingModule,
+      ],
+      providers: [
+        UnvettingService,
+        {
+          provide: GuardianMessageService,
+          useValue: mockGuardianMessageService,
+        },
       ],
     })
       .overrideProvider(SecurityService)
       .useValue(mockSecurityService)
-      .overrideProvider(GuardianMessageService)
-      .useValue(mockGuardianMessageService)
       .compile();
 
     service = moduleRef.get<UnvettingService>(UnvettingService);
@@ -119,7 +118,7 @@ describe('UnvettingService', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      expect(unvetSigningKeysMock).toBeCalledTimes(1);
+      expect(unvetSigningKeysMock).toHaveBeenCalledTimes(1);
       expect(unvetSigningKeysMock).toBeCalledWith(
         1,
         1,
@@ -130,7 +129,7 @@ describe('UnvettingService', () => {
         'somesign',
       );
 
-      expect(sendUnvetMessageMock).toBeCalledTimes(1);
+      expect(sendUnvetMessageMock).toHaveBeenCalledTimes(1);
 
       expect(sendUnvetMessageMock).toBeCalledWith({
         nonce: 1,
@@ -176,7 +175,7 @@ describe('UnvettingService', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      expect(unvetSigningKeysMock).toBeCalledTimes(1);
+      expect(unvetSigningKeysMock).toHaveBeenCalledTimes(1);
       expect(unvetSigningKeysMock).toBeCalledWith(
         1,
         1,
@@ -187,7 +186,7 @@ describe('UnvettingService', () => {
         'somesign',
       );
 
-      expect(sendUnvetMessageMock).toBeCalledTimes(1);
+      expect(sendUnvetMessageMock).toHaveBeenCalledTimes(1);
       expect(sendUnvetMessageMock).toBeCalledWith({
         nonce: 1,
         blockNumber: 1,

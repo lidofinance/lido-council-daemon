@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { Block } from '@ethersproject/abstract-provider';
-import { MockProviderModule, ProviderService } from 'provider';
+import { MockProviderModule } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
@@ -25,7 +26,7 @@ describe('SigningKeysRegistryService', () => {
   let locatorService: LocatorService;
   let signingKeysRegistryService: SigningKeysRegistryService;
   let signingKeysFetch: SigningKeysRegistryFetcherService;
-  let providerService: ProviderService;
+  let provider: SimpleFallbackJsonRpcBatchProvider;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -48,7 +49,7 @@ describe('SigningKeysRegistryService', () => {
     locatorService = moduleRef.get(LocatorService);
     signingKeysRegistryService = moduleRef.get(SigningKeysRegistryService);
     signingKeysFetch = moduleRef.get(SigningKeysRegistryFetcherService);
-    providerService = moduleRef.get(ProviderService);
+    provider = moduleRef.get(SimpleFallbackJsonRpcBatchProvider);
 
     const loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
     jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
@@ -91,7 +92,7 @@ describe('SigningKeysRegistryService', () => {
         };
       });
 
-    jest.spyOn(providerService, 'getBlock').mockImplementation(async () => {
+    jest.spyOn(provider, 'getBlock').mockImplementation(async () => {
       return { number: endBlock } as Block;
     });
 
@@ -108,7 +109,7 @@ describe('SigningKeysRegistryService', () => {
       newEvent.moduleAddress,
     ]);
 
-    expect(deleteCache).toBeCalledTimes(1);
+    expect(deleteCache).toHaveBeenCalledTimes(1);
 
     const newResult = await dbService.getEventsCache();
 

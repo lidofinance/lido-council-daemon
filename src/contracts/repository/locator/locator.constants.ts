@@ -1,4 +1,4 @@
-import { CHAINS } from '@lido-sdk/constants';
+import { CHAINS } from '@lido-nestjs/constants';
 
 export const LIDO_LOCATOR_BY_NETWORK: {
   [key in CHAINS]?: string;

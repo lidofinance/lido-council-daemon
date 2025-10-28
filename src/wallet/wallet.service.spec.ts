@@ -7,7 +7,7 @@ import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { MockProviderModule } from 'provider';
-import { ProviderService } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { WalletModule } from 'wallet';
 import { WALLET_PRIVATE_KEY } from './wallet.constants';
 import { WalletService } from './wallet.service';
@@ -23,7 +23,7 @@ const TEST_MODULE_ID = 1;
 describe('WalletService', () => {
   const wallet = Wallet.createRandom();
   let walletService: WalletService;
-  let providerService: ProviderService;
+  let provider: SimpleFallbackJsonRpcBatchProvider;
   let loggerService: LoggerService;
 
   beforeEach(async () => {
@@ -41,7 +41,7 @@ describe('WalletService', () => {
       .compile();
 
     walletService = moduleRef.get(WalletService);
-    providerService = moduleRef.get(ProviderService);
+    provider = moduleRef.get(SimpleFallbackJsonRpcBatchProvider);
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
@@ -50,11 +50,11 @@ describe('WalletService', () => {
   describe('subscribeToEthereumUpdates', () => {
     it('should subscribe to updates', () => {
       const mockOn = jest
-        .spyOn(providerService.provider, 'on')
+        .spyOn(provider, 'on')
         .mockImplementation(() => undefined as any);
 
       walletService.subscribeToEthereumUpdates();
-      expect(mockOn).toBeCalledTimes(1);
+      expect(mockOn).toHaveBeenCalledTimes(1);
       expect(mockOn).toBeCalledWith('block', expect.any(Function));
     });
   });

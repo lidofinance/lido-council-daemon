@@ -9,7 +9,7 @@ import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { GENESIS_FORK_VERSION_BY_CHAIN_ID } from 'bls/bls.constants';
 import { LRUCache } from 'lru-cache';
 import { DEPOSIT_DATA_LRU_CACHE_SIZE } from './constants';
-import { ProviderService } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 type DepositKey = RegistryKey & {
@@ -23,7 +23,7 @@ export class KeysValidationService {
 
   constructor(
     private readonly keyValidator: KeyValidatorInterface,
-    private readonly provider: ProviderService,
+    private readonly provider: SimpleFallbackJsonRpcBatchProvider,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
   ) {
     this.depositDataCache = new LRUCache({ max: DEPOSIT_DATA_LRU_CACHE_SIZE });
@@ -133,7 +133,8 @@ export class KeysValidationService {
   }
 
   private async forkVersion(): Promise<Uint8Array> {
-    const chainId = await this.provider.getChainId();
+    const network = await this.provider.getNetwork();
+    const chainId = network.chainId;
     const forkVersion = GENESIS_FORK_VERSION_BY_CHAIN_ID[chainId];
 
     if (!forkVersion) {
