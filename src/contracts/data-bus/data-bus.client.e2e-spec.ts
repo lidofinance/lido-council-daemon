@@ -274,22 +274,4 @@ describe('DataBus', () => {
     const allEvents = await sdk.getAll(testStartBlock - 1);
     expect(event).toEqual(allEvents[0]);
   });
-
-  it('should throw a timeout error if the transaction does not complete within the specified time', async () => {
-    jest.spyOn(sdk, 'sendTransaction').mockReturnValue(
-      new Promise((resolve) => {
-        setTimeout(() => {
-          // eslint-disable-next-line @typescript-eslint/no-empty-function
-          resolve({ wait: () => {} } as any);
-        }, 6000);
-      }),
-    );
-
-    const messageName = 'MessagePingV1' as const;
-    const dataVariant: MessagePingV1 = getVariant(messageName, variants);
-
-    await expect(
-      sdk.sendMessage(messageName, dataVariant, 1000),
-    ).rejects.toThrow('Data Bus transaction timed out after 1000ms');
-  });
 });

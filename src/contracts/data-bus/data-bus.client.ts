@@ -3,7 +3,6 @@ import { EventDataMap, eventMappers } from './data-bus.serializer';
 import { MessagesDataMap, MessagesNames } from './data-bus.serializer';
 import * as eventsAbi from '../../abi/data-bus.abi.json';
 import { TransactionResponse } from '@ethersproject/abstract-provider';
-import { DATA_BUS_REQUEST_TIMEOUT } from './data-bus.constants';
 
 export class DataBusClient {
   private dataBusAddress: string;
@@ -29,9 +28,24 @@ export class DataBusClient {
   }
 
   async sendTransaction(eventId: string, dataBytes: string) {
+    // Fetch the nonce from the latest confirmed block to avoid reusing the
+    // optimistic "pending" nonce that ethers defaults to. When previous
+    // transactions stay pending (e.g. due to dropped/underpriced txs on Gnosis)
+    // the pending nonce keeps increasing and new sends get
+    // stuck; using 'latest' keeps the sequence in sync with what the chain has
+    // actually mined.
+    const signerAddress = await this.dataBus.signer.getAddress();
+    const nonce = await this.provider.getTransactionCount(
+      signerAddress,
+      'latest',
+    );
+
     const tx: TransactionResponse = await this.dataBus.sendMessage(
       eventId,
       dataBytes,
+      {
+        nonce,
+      },
     );
     await tx.wait();
     return tx;
@@ -40,7 +54,6 @@ export class DataBusClient {
   async sendMessage<EventName extends MessagesNames>(
     eventName: EventName,
     data: MessagesDataMap[EventName],
-    timeout = DATA_BUS_REQUEST_TIMEOUT,
   ): Promise<TransactionResponse> {
     const event = this.eventsFragments.find((ev) => ev.name === eventName);
     if (!event) {
@@ -52,19 +65,10 @@ export class DataBusClient {
       [data],
     );
 
-    // Promise for the timeout
-    const timeoutPromise = new Promise<TransactionResponse>((_, reject) => {
-      const id = setTimeout(() => {
-        clearTimeout(id);
-        reject(new Error(`Data Bus transaction timed out after ${timeout}ms`));
-      }, timeout);
-    });
-
-    // Use Promise.race to set a timeout for the entire process
-    const tx: TransactionResponse = await Promise.race([
-      this.sendTransaction(eventId, dataBytes),
-      timeoutPromise,
-    ]);
+    const tx: TransactionResponse = await this.sendTransaction(
+      eventId,
+      dataBytes,
+    );
     return tx;
   }
 

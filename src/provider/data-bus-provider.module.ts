@@ -7,6 +7,7 @@ import { Configuration } from '../common/config';
 import { getToken } from '@willsoto/nestjs-prometheus';
 import { METRIC_DATA_BUS_RPC_REQUEST_DURATION } from 'common/prometheus';
 import { Histogram } from 'prom-client';
+import { DATA_BUS_REQUEST_TIMEOUT } from 'contracts/data-bus/data-bus.constants';
 
 export const DATA_BUS_PROVIDER_TOKEN = 'DATA_BUS_PROVIDER';
 
@@ -29,6 +30,7 @@ export class DataBusProviderModule {
             network: config.EVM_CHAIN_DATA_BUS_CHAIN_ID,
             logRetries: false,
             maxRetries: 1,
+            requestTimeoutMs: DATA_BUS_REQUEST_TIMEOUT,
             fetchMiddlewares: [
               async (next) => {
                 const endTimer = requestMetric.startTimer();
