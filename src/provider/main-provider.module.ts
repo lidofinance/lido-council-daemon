@@ -20,6 +20,7 @@ export class MainProviderModule {
           ) => ({
             urls: config.PROVIDERS_URLS ?? [config.RPC_URL],
             network: config.CHAIN_ID,
+            instanceLabel: 'EL1',
             fetchMiddlewares: [
               async (next) => {
                 const endTimer = requestMetric.startTimer();
