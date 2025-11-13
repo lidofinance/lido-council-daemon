@@ -28,6 +28,7 @@ export class DataBusProviderModule {
             ],
             // Use required chain ID config
             network: config.EVM_CHAIN_DATA_BUS_CHAIN_ID,
+            instanceLabel: 'DataBus',
             logRetries: false,
             maxRetries: 1,
             requestTimeoutMs: DATA_BUS_REQUEST_TIMEOUT,

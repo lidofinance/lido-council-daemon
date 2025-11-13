@@ -5,6 +5,24 @@ import { CHAINS } from '@lido-nestjs/constants';
 import { Configuration } from 'common/config';
 import { DATA_BUS_PROVIDER_TOKEN } from './data-bus-provider.module';
 
+const mockLogger = {
+  log: () => {
+    /* noop */
+  },
+  error: () => {
+    /* noop */
+  },
+  warn: () => {
+    /* noop */
+  },
+  debug: () => {
+    /* noop */
+  },
+  verbose: () => {
+    /* noop */
+  },
+};
+
 const getMockProviderFactory = () => {
   return (config: Configuration): SimpleFallbackJsonRpcBatchProvider => {
     class MockProvider extends SimpleFallbackJsonRpcBatchProvider {
@@ -36,7 +54,7 @@ const getMockProviderFactory = () => {
         // Use required chain ID config
         network: config.CHAIN_ID,
       },
-      {} as any,
+      mockLogger as any,
     );
   };
 };
