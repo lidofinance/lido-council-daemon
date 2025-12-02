@@ -11,26 +11,23 @@ import {
 } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Counter, Gauge, Histogram, register } from 'prom-client';
-import { RpcProvider } from 'provider';
 import {
   DATA_BUS_ADDRESS,
   DATA_BUS_BALANCE_UPDATE_BLOCK_RATE,
   DATA_BUS_PRIVATE_KEY,
-  DATA_BUS_PROVIDER_CONFIG_PATH,
 } from './data-bus.constants';
 
 import { Configuration } from 'common/config';
 import { DataBusClient } from './data-bus.client';
 import { MessageRequiredFields } from 'messages';
 import { DSMMessageSender } from './dsm-message-sender.client';
-import { getProviderFactory } from 'provider/data-bus-provider.factory';
-import { StaticJsonRpcProvider } from '@ethersproject/providers';
-import { ModuleRef } from '@nestjs/core';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
+import { DATA_BUS_PROVIDER_TOKEN } from 'provider/data-bus-provider.module';
 
 @Injectable()
 export class DataBusService {
   private dsmMessageSender!: DSMMessageSender;
-  private provider!: RpcProvider;
+  private provider!: SimpleFallbackJsonRpcBatchProvider;
   constructor(
     @InjectMetric(METRIC_DATA_BUS_ACCOUNT_BALANCE)
     private accountBalance: Gauge<string>,
@@ -42,16 +39,12 @@ export class DataBusService {
     private rpcReqDurationMetric: Histogram<string>,
     @Inject(getToken(METRIC_DATA_BUS_RPC_REQUEST_ERRORS))
     private rpcReqErrorsMetric: Counter<string>,
-    private moduleRef: ModuleRef,
+    @Inject(DATA_BUS_PROVIDER_TOKEN)
+    private dataBusProvider: SimpleFallbackJsonRpcBatchProvider,
   ) {}
 
   async initialize() {
-    this.provider = await this.createProvider();
-    // Check if the provider is initialized
-    // if provider is not initialized, error will be thrown
-    this.logger.log('DataBusService provider created', {
-      blockNumber: await this.provider.getBlockNumber(),
-    });
+    this.provider = this.dataBusProvider;
 
     const guardianAddress = this.address;
     register.setDefaultLabels({ guardianAddress });
@@ -145,20 +138,6 @@ export class DataBusService {
   }
 
   private cachedWallet: Wallet | null = null;
-
-  public async createProvider(): Promise<RpcProvider> {
-    const providerFactory = getProviderFactory(
-      StaticJsonRpcProvider,
-      DATA_BUS_PROVIDER_CONFIG_PATH,
-    );
-
-    return providerFactory(
-      this.rpcReqDurationMetric,
-      this.rpcReqErrorsMetric,
-      this.moduleRef,
-      this.config,
-    );
-  }
 
   /**
    * Guardian wallet address

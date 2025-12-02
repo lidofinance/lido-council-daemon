@@ -1,4 +1,4 @@
-import { CHAINS } from '@lido-sdk/constants';
+import { CHAINS } from '@lido-nestjs/constants';
 
 export const SIGNING_KEYS_CACHE_DEFAULT = Object.freeze({
   headers: {

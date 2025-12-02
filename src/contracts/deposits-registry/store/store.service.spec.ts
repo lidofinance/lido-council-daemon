@@ -38,6 +38,7 @@ describe('dbService', () => {
     }).compile();
 
     dbService = moduleRef.get(DepositsRegistryStoreService);
+
     await dbService.initialize();
   });
 

@@ -1,16 +1,18 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { Level } from 'level';
 import { join } from 'path';
 import { DB_DIR, DB_DEFAULT_VALUE, DB_LAYER_DIR } from './store.constants';
-import { ProviderService } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { SigningKeyEvent } from '../interfaces/event.interface';
 import { SigningKeyEventsCacheHeaders } from '../interfaces/cache.interface';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 @Injectable()
 export class SigningKeysStoreService {
   private db!: Level<string, string>;
   constructor(
-    private providerService: ProviderService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
+    private provider: SimpleFallbackJsonRpcBatchProvider,
     @Inject(DB_DIR) private cacheDir: string,
     @Inject(DB_LAYER_DIR) private cacheLayerDir: string,
     @Inject(DB_DEFAULT_VALUE)
@@ -21,7 +23,9 @@ export class SigningKeysStoreService {
   ) {}
 
   public async initialize() {
+    this.logger.log('Starting setupLevel...', 'SigningKeysStoreService');
     await this.setupLevel();
+    this.logger.log('setupLevel completed', 'SigningKeysStoreService');
   }
 
   /**
@@ -31,10 +35,20 @@ export class SigningKeysStoreService {
    * @private
    */
   private async setupLevel() {
-    this.db = new Level(await this.getDBDirPath(), {
+    this.logger.log('Getting DB dir path...', 'SigningKeysStoreService');
+    const dbPath = await this.getDBDirPath();
+    this.logger.log(
+      `DB dir path obtained: ${dbPath}`,
+      'SigningKeysStoreService',
+    );
+
+    this.logger.log('Creating Level instance...', 'SigningKeysStoreService');
+    this.db = new Level(dbPath, {
       valueEncoding: 'json',
     });
+    this.logger.log('Opening database...', 'SigningKeysStoreService');
     await this.db.open();
+    this.logger.log('Database opened successfully', 'SigningKeysStoreService');
   }
 
   /**
@@ -44,7 +58,16 @@ export class SigningKeysStoreService {
    * @private
    */
   private async getDBDirPath(): Promise<string> {
-    const chainId = await this.providerService.getChainId();
+    this.logger.log(
+      'Calling provider.getNetwork()...',
+      'SigningKeysStoreService',
+    );
+    const network = await this.provider.getNetwork();
+    this.logger.log(
+      `provider.getNetwork() returned: ${JSON.stringify(network)}`,
+      'SigningKeysStoreService',
+    );
+    const chainId = network.chainId;
     const networkDir = `chain-${chainId}`;
 
     return join(this.cacheDir, this.cacheLayerDir, networkDir);

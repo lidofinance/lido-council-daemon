@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ProviderService } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { TransportInterface } from 'transport';
 import { getMessageTopicPrefix } from './messages.constants';
 import { Configuration } from 'common/config';
@@ -12,7 +12,7 @@ import { MessageRequiredFields } from './interfaces';
 export class MessagesService {
   constructor(
     @InjectMetric(METRIC_SENT_MESSAGES) public messageCounter: Counter<string>,
-    private providerService: ProviderService,
+    private provider: SimpleFallbackJsonRpcBatchProvider,
     private transportService: TransportInterface,
     private config: Configuration,
   ) {}
@@ -22,7 +22,8 @@ export class MessagesService {
    * @returns message topic
    */
   public async getMessageTopic(): Promise<string> {
-    const chainId = await this.providerService.getChainId();
+    const network = await this.provider.getNetwork();
+    const chainId = network.chainId;
     const prefix = getMessageTopicPrefix(chainId);
     const topic = this.config.BROKER_TOPIC;
 
