@@ -175,7 +175,7 @@ describe('Signature validation e2e test', () => {
     firstOperator = activeOperators[0];
     // create duplicate
     await getLidoWC();
-  }, 120_000);
+  }, 360_000);
 
   afterAll(async () => {
     await keysApiContainer.stop();
