@@ -1,1 +1,1 @@
-export const MAIN_PROVIDER_REQUEST_TIMEOUT = 60 * 60 * 1000; // 1 hour
+export const MAIN_PROVIDER_REQUEST_TIMEOUT = 10 * 60 * 1000; // 10 minutes
