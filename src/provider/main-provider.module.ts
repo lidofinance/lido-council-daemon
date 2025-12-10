@@ -4,6 +4,7 @@ import { Configuration } from '../common/config';
 import { Histogram } from 'prom-client';
 import { getToken } from '@willsoto/nestjs-prometheus';
 import { METRIC_RPC_REQUEST_DURATION } from 'common/prometheus';
+import { MAIN_PROVIDER_REQUEST_TIMEOUT } from './provider.constants';
 
 @Global()
 @Module({})
@@ -21,6 +22,7 @@ export class MainProviderModule {
             urls: config.PROVIDERS_URLS ?? [config.RPC_URL],
             network: config.CHAIN_ID,
             instanceLabel: 'EL1',
+            requestTimeoutMs: MAIN_PROVIDER_REQUEST_TIMEOUT,
             fetchMiddlewares: [
               async (next) => {
                 const endTimer = requestMetric.startTimer();
