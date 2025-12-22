@@ -64,14 +64,19 @@ describe('fetchEventsFallOver', () => {
       expect(fetcher).toHaveBeenCalledWith(0, 5);
     });
 
-    it('should return empty events for inverted range', async () => {
-      const fetcher = createSuccessFetcher();
+    it('should handle inverted range (startBlock > endBlock)', async () => {
+      // contract.queryFilter returns empty array for inverted ranges
+      const fetcher = createFetcher(async (start, end) => ({
+        events: [],
+        startBlock: start,
+        endBlock: end,
+      }));
       const result = await fetchEventsFallOver(10, 5, fetcher);
 
       expect(result.events).toEqual([]);
       expect(result.startBlock).toBe(10);
       expect(result.endBlock).toBe(5);
-      expect(fetcher).not.toHaveBeenCalled();
+      expect(fetcher).toHaveBeenCalledWith(10, 5);
     });
 
     it('should handle single block range', async () => {
@@ -241,7 +246,7 @@ describe('fetchEventsFallOver', () => {
       await fetchEventsFallOver(0, 5, fetcher, logger as any);
 
       expect(logger.debug).toHaveBeenCalledWith(
-        'Range fetched successfully',
+        'Fetched range',
         expect.objectContaining({ start: 0, end: 5 }),
       );
     });
@@ -268,7 +273,7 @@ describe('fetchEventsFallOver', () => {
       await fetchEventsFallOver(0, 10, fetcher, logger as any);
 
       expect(logger.debug).toHaveBeenCalledWith(
-        'Splitting range due to provider failure',
+        'Splitting range',
         expect.objectContaining({ start: 0, end: 10 }),
       );
     });
