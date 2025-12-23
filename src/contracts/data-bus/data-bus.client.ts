@@ -3,13 +3,14 @@ import { EventDataMap, eventMappers } from './data-bus.serializer';
 import { MessagesDataMap, MessagesNames } from './data-bus.serializer';
 import * as eventsAbi from '../../abi/data-bus.abi.json';
 import { TransactionResponse } from '@ethersproject/abstract-provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 
 export class DataBusClient {
-  private dataBusAddress: string;
-  private eventsInterface: utils.Interface;
-  private provider: providers.Provider;
-  private eventsFragments: utils.EventFragment[] = [];
-  private dataBus: Contract;
+  private readonly dataBusAddress: string;
+  private readonly eventsInterface: utils.Interface;
+  private readonly provider: SimpleFallbackJsonRpcBatchProvider;
+  private readonly eventsFragments: utils.EventFragment[] = [];
+  private readonly dataBus: Contract;
 
   constructor(dataBusAddress: string, signer: Signer) {
     this.dataBusAddress = dataBusAddress;
@@ -18,7 +19,7 @@ export class DataBusClient {
     if (!signer.provider) {
       throw new Error('Signer with provider is required');
     }
-    this.provider = signer.provider;
+    this.provider = signer.provider as SimpleFallbackJsonRpcBatchProvider;
     this.eventsFragments = Object.values(this.eventsInterface.events);
     this.dataBus = new Contract(
       dataBusAddress,
@@ -47,7 +48,9 @@ export class DataBusClient {
         nonce,
       },
     );
-    await tx.wait();
+    // Use waitForTransactionWithFallback instead of tx.wait() to avoid hanging forever
+    // when provider fails.
+    await this.provider.waitForTransactionWithFallback(tx.hash);
     return tx;
   }
 
