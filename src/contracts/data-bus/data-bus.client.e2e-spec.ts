@@ -119,6 +119,15 @@ describe('DataBus', () => {
       'http://127.0.0.1:' + TEST_SERVER_PORT,
     );
 
+    // Add mock waitForTransactionWithFallback method for tests
+    // DataBusClient expects SimpleFallbackJsonRpcBatchProvider
+    (provider as any).waitForTransactionWithFallback = async (
+      txHash: string,
+    ) => {
+      const receipt = await provider.waitForTransaction(txHash);
+      return { receipt, pollCount: 1, elapsedMs: 0 };
+    };
+
     // Get current block number for test start reference
     const currentBlock = await provider.getBlock('latest');
     testStartBlock = currentBlock.number;
