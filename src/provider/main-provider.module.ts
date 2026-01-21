@@ -23,6 +23,7 @@ export class MainProviderModule {
             network: config.CHAIN_ID,
             instanceLabel: 'EL1',
             requestTimeoutMs: MAIN_PROVIDER_REQUEST_TIMEOUT,
+            logRetries: false,
             fetchMiddlewares: [
               async (next) => {
                 const endTimer = requestMetric.startTimer();
