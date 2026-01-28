@@ -33,3 +33,11 @@ export const METRIC_DUPLICATED_KEYS_TOTAL = `${METRICS_PREFIX}duplicated_keys_to
 export const METRIC_INVALID_KEYS_TOTAL = `${METRICS_PREFIX}invalid_keys_total`;
 
 export const METRIC_JOB_DURATION = `${METRICS_PREFIX}handle_job_duration`;
+
+// RPC Metrics
+export const METRIC_HTTP_RPC_REQUESTS_TOTAL = `${METRICS_PREFIX}http_rpc_requests_total`;
+export const METRIC_HTTP_RPC_BATCH_SIZE = `${METRICS_PREFIX}http_rpc_batch_size`;
+export const METRIC_HTTP_RPC_RESPONSE_SECONDS = `${METRICS_PREFIX}http_rpc_response_seconds`;
+export const METRIC_HTTP_RPC_REQUEST_PAYLOAD_BYTES = `${METRICS_PREFIX}http_rpc_request_payload_bytes`;
+export const METRIC_HTTP_RPC_RESPONSE_PAYLOAD_BYTES = `${METRICS_PREFIX}http_rpc_response_payload_bytes`;
+export const METRIC_RPC_REQUEST_TOTAL = `${METRICS_PREFIX}rpc_request_total`;

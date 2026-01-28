@@ -1,4 +1,4 @@
-import { DynamicModule, Module } from '@nestjs/common';
+import { DynamicModule, Global, Module } from '@nestjs/common';
 import {
   FallbackProviderModule,
   SimpleFallbackJsonRpcBatchProvider,
@@ -11,11 +11,13 @@ import { DATA_BUS_REQUEST_TIMEOUT } from 'contracts/data-bus/data-bus.constants'
 
 export const DATA_BUS_PROVIDER_TOKEN = 'DATA_BUS_PROVIDER';
 
+@Global()
 @Module({})
 export class DataBusProviderModule {
   static forRootAsync(): DynamicModule {
     return {
       module: DataBusProviderModule,
+      global: true,
       imports: [
         FallbackProviderModule.forRootAsync({
           useFactory: async (
