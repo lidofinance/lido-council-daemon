@@ -30,6 +30,13 @@ import {
   METRIC_HTTP_RPC_REQUEST_PAYLOAD_BYTES,
   METRIC_HTTP_RPC_RESPONSE_PAYLOAD_BYTES,
   METRIC_RPC_REQUEST_TOTAL,
+  METRIC_NONCE_LATEST,
+  METRIC_NONCE_PENDING,
+  METRIC_NONCE_GAP,
+  METRIC_DEPOSITS_CACHE_BYTES,
+  METRIC_DEPOSITS_CACHE_COUNT,
+  METRIC_SIGNING_KEYS_CACHE_BYTES,
+  METRIC_SIGNING_KEYS_CACHE_COUNT,
 } from './prometheus.constants';
 
 export const PrometheusTransportMessageCounterProvider = makeCounterProvider({
@@ -208,4 +215,44 @@ export const PrometheusRpcRequestTotalProvider = makeCounterProvider({
     'result',
     'rpc_error_code',
   ] as const,
+});
+
+// Nonce Metrics providers
+export const PrometheusNonceLatestProvider = makeGaugeProvider({
+  name: METRIC_NONCE_LATEST,
+  help: 'Latest confirmed nonce for guardian address',
+  labelNames: ['network'] as const,
+});
+
+export const PrometheusNoncePendingProvider = makeGaugeProvider({
+  name: METRIC_NONCE_PENDING,
+  help: 'Pending nonce for guardian address',
+  labelNames: ['network'] as const,
+});
+
+export const PrometheusNonceGapProvider = makeGaugeProvider({
+  name: METRIC_NONCE_GAP,
+  help: 'Difference between pending and latest nonce',
+  labelNames: ['network'] as const,
+});
+
+// Events Cache Metrics providers
+export const PrometheusDepositsCacheBytesProvider = makeGaugeProvider({
+  name: METRIC_DEPOSITS_CACHE_BYTES,
+  help: 'Memory used by deposits events cache in bytes',
+});
+
+export const PrometheusDepositsCacheCountProvider = makeGaugeProvider({
+  name: METRIC_DEPOSITS_CACHE_COUNT,
+  help: 'Number of deposit events in cache',
+});
+
+export const PrometheusSigningKeysCacheBytesProvider = makeGaugeProvider({
+  name: METRIC_SIGNING_KEYS_CACHE_BYTES,
+  help: 'Memory used by signing keys events cache in bytes',
+});
+
+export const PrometheusSigningKeysCacheCountProvider = makeGaugeProvider({
+  name: METRIC_SIGNING_KEYS_CACHE_COUNT,
+  help: 'Number of signing key events in cache',
 });

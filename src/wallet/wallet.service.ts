@@ -12,7 +12,12 @@ import {
 } from '@nestjs/common';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { OneAtTime } from 'common/decorators';
-import { METRIC_ACCOUNT_BALANCE } from 'common/prometheus';
+import {
+  METRIC_ACCOUNT_BALANCE,
+  METRIC_NONCE_LATEST,
+  METRIC_NONCE_PENDING,
+  METRIC_NONCE_GAP,
+} from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Gauge, register } from 'prom-client';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
@@ -33,6 +38,9 @@ import { Configuration } from 'common/config';
 export class WalletService implements OnModuleInit {
   constructor(
     @InjectMetric(METRIC_ACCOUNT_BALANCE) private accountBalance: Gauge<string>,
+    @InjectMetric(METRIC_NONCE_LATEST) private nonceLatest: Gauge<string>,
+    @InjectMetric(METRIC_NONCE_PENDING) private noncePending: Gauge<string>,
+    @InjectMetric(METRIC_NONCE_GAP) private nonceGap: Gauge<string>,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     @Inject(WALLET_PRIVATE_KEY) private privateKey: string,
     private provider: SimpleFallbackJsonRpcBatchProvider,
@@ -66,15 +74,25 @@ export class WalletService implements OnModuleInit {
   }
 
   /**
-   * Monitors the guardian account balance to ensure it is sufficient for transactions.
-   * Updates the account balance metric.
+   * Monitors the guardian account balance and nonce to ensure it is sufficient for transactions.
+   * Updates the account balance and nonce metrics.
    */
   @OneAtTime()
   public async monitorGuardianBalance() {
-    const balanceWei = await this.getAccountBalance();
+    const [balanceWei, latestNonce, pendingNonce] = await Promise.all([
+      this.getAccountBalance(),
+      this.provider.getTransactionCount(this.address, 'latest'),
+      this.provider.getTransactionCount(this.address, 'pending'),
+    ]);
+
     const balanceETH = formatEther(balanceWei);
     this.accountBalance.set(Number(balanceETH));
     this.isBalanceSufficient(balanceWei);
+
+    const gap = pendingNonce - latestNonce;
+    this.nonceLatest.labels({ network: 'ethereum' }).set(latestNonce);
+    this.noncePending.labels({ network: 'ethereum' }).set(pendingNonce);
+    this.nonceGap.labels({ network: 'ethereum' }).set(gap);
   }
 
   /**

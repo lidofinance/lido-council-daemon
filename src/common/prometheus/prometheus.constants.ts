@@ -41,3 +41,14 @@ export const METRIC_HTTP_RPC_RESPONSE_SECONDS = `${METRICS_PREFIX}http_rpc_respo
 export const METRIC_HTTP_RPC_REQUEST_PAYLOAD_BYTES = `${METRICS_PREFIX}http_rpc_request_payload_bytes`;
 export const METRIC_HTTP_RPC_RESPONSE_PAYLOAD_BYTES = `${METRICS_PREFIX}http_rpc_response_payload_bytes`;
 export const METRIC_RPC_REQUEST_TOTAL = `${METRICS_PREFIX}rpc_request_total`;
+
+// Nonce Metrics
+export const METRIC_NONCE_LATEST = `${METRICS_PREFIX}nonce_latest`;
+export const METRIC_NONCE_PENDING = `${METRICS_PREFIX}nonce_pending`;
+export const METRIC_NONCE_GAP = `${METRICS_PREFIX}nonce_gap`;
+
+// Events Cache Metrics
+export const METRIC_DEPOSITS_CACHE_BYTES = `${METRICS_PREFIX}deposits_cache_bytes`;
+export const METRIC_DEPOSITS_CACHE_COUNT = `${METRICS_PREFIX}deposits_cache_count`;
+export const METRIC_SIGNING_KEYS_CACHE_BYTES = `${METRICS_PREFIX}signing_keys_cache_bytes`;
+export const METRIC_SIGNING_KEYS_CACHE_COUNT = `${METRICS_PREFIX}signing_keys_cache_count`;

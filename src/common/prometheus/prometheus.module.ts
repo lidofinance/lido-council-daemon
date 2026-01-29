@@ -26,6 +26,13 @@ import {
   PrometheusHttpRpcRequestPayloadBytesProvider,
   PrometheusHttpRpcResponsePayloadBytesProvider,
   PrometheusRpcRequestTotalProvider,
+  PrometheusNonceLatestProvider,
+  PrometheusNoncePendingProvider,
+  PrometheusNonceGapProvider,
+  PrometheusDepositsCacheBytesProvider,
+  PrometheusDepositsCacheCountProvider,
+  PrometheusSigningKeysCacheBytesProvider,
+  PrometheusSigningKeysCacheCountProvider,
 } from './prometheus.provider';
 import { METRICS_PREFIX, METRICS_URL } from './prometheus.constants';
 import { RpcMetricsPrometheusService } from './rpc-metrics-prometheus.service';
@@ -67,6 +74,15 @@ const providers = [
   PrometheusHttpRpcResponsePayloadBytesProvider,
   PrometheusRpcRequestTotalProvider,
   RpcMetricsPrometheusService,
+  // Nonce Metrics providers
+  PrometheusNonceLatestProvider,
+  PrometheusNoncePendingProvider,
+  PrometheusNonceGapProvider,
+  // Events Cache Metrics providers
+  PrometheusDepositsCacheBytesProvider,
+  PrometheusDepositsCacheCountProvider,
+  PrometheusSigningKeysCacheBytesProvider,
+  PrometheusSigningKeysCacheCountProvider,
 ];
 
 PrometheusModule.global = true;
