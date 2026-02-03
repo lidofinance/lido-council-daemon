@@ -48,25 +48,43 @@ export async function fetchEventsFallOver<
   const stack: RangeTask[] = [{ start: startBlock, end: endBlock }];
 
   let task: RangeTask | undefined;
+  let fetchAttempt = 0;
+
   while ((task = stack.pop()) !== undefined) {
+    fetchAttempt++;
+    const fetchStartTime = Date.now();
+
+    logger?.log?.('Starting fetch for range', {
+      start: task.start,
+      end: task.end,
+      stackSize: stack.length,
+      fetchAttempt,
+    });
+
     try {
       const { events } = await fetcher(task.start, task.end);
+      const fetchDuration = Date.now() - fetchStartTime;
 
       for (const event of events) {
         allEvents.push(event);
       }
 
-      logger?.debug?.('Fetched range', {
+      logger?.log?.('Fetched range successfully', {
         start: task.start,
         end: task.end,
         count: events.length,
+        totalEvents: allEvents.length,
+        durationMs: fetchDuration,
       });
     } catch (error: unknown) {
+      const fetchDuration = Date.now() - fetchStartTime;
+
       if (!shouldSplitEventsRange(error, task)) {
         logger?.error?.('Failed to fetch range', {
           start: task.start,
           end: task.end,
           error: error instanceof Error ? error.message : error,
+          durationMs: fetchDuration,
         });
         throw error;
       }
@@ -75,9 +93,11 @@ export async function fetchEventsFallOver<
       stack.push(right);
       stack.push(left);
 
-      logger?.debug?.('Splitting range', {
+      logger?.warn?.('Splitting range due to provider failure', {
         start: task.start,
         end: task.end,
+        newRanges: { left, right },
+        durationMs: fetchDuration,
       });
     }
   }
