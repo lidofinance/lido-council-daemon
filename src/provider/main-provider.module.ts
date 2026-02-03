@@ -4,7 +4,10 @@ import { Configuration } from '../common/config';
 import { Histogram } from 'prom-client';
 import { getToken } from '@willsoto/nestjs-prometheus';
 import { METRIC_RPC_REQUEST_DURATION } from 'common/prometheus';
-import { MAIN_PROVIDER_REQUEST_TIMEOUT } from './provider.constants';
+import {
+  MAIN_PROVIDER_REQUEST_TIMEOUT,
+  PROVIDER_RESET_INTERVAL,
+} from './provider.constants';
 
 @Global()
 @Module({})
@@ -22,7 +25,10 @@ export class MainProviderModule {
             urls: config.PROVIDERS_URLS ?? [config.RPC_URL],
             network: config.CHAIN_ID,
             instanceLabel: 'EL1',
+            maxRetries: 1,
             requestTimeoutMs: MAIN_PROVIDER_REQUEST_TIMEOUT,
+            // Don't reset provider URL selection, only on error
+            resetIntervalMs: PROVIDER_RESET_INTERVAL,
             logRetries: false,
             fetchMiddlewares: [
               async (next) => {
