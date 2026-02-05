@@ -48,17 +48,17 @@ export async function fetchEventsFallOver<
   const stack: RangeTask[] = [{ start: startBlock, end: endBlock }];
 
   let task: RangeTask | undefined;
-  let fetchAttempt = 0;
+  let requestCount = 0;
 
   while ((task = stack.pop()) !== undefined) {
-    fetchAttempt++;
+    requestCount++;
     const fetchStartTime = Date.now();
 
     logger?.log?.('Starting fetch for range', {
       start: task.start,
       end: task.end,
       stackSize: stack.length,
-      fetchAttempt,
+      requestCount,
     });
 
     try {

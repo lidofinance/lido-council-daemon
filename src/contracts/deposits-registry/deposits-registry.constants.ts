@@ -12,7 +12,7 @@ export const DEPLOYMENT_BLOCK_NETWORK: {
 export const DEPOSIT_EVENTS_STEP: {
   [key in CHAINS]?: number;
 } = {
-  [CHAINS.Mainnet]: 500,
+  [CHAINS.Mainnet]: 10000,
   [CHAINS.Holesky]: 50,
   [CHAINS.Hoodi]: 50,
 };
