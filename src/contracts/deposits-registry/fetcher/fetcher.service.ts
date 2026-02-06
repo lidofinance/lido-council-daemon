@@ -80,7 +80,7 @@ export class DepositsRegistryFetcherService {
 
     const blsStartTime = Date.now();
     const events = rawEvents.map((rawEvent, index) => {
-      if (index > 0 && index % 100 === 0) {
+      if (index > 0 && index % 2000 === 0) {
         const elapsed = Date.now() - blsStartTime;
         this.logger.log('fetchEvents: BLS verification progress', {
           processed: index,
