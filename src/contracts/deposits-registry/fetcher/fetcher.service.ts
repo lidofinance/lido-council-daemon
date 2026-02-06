@@ -48,13 +48,57 @@ export class DepositsRegistryFetcherService {
     startBlock: number,
     endBlock: number,
   ): Promise<VerifiedDepositEventGroup> {
+    this.logger.log('fetchEvents: getting contract', {
+      startBlock,
+      endBlock,
+    });
     const contract = await this.repositoryService.getCachedDepositContract();
+
+    this.logger.log('fetchEvents: starting queryFilter', {
+      startBlock,
+      endBlock,
+    });
+    const queryStartTime = Date.now();
     const filter = contract.filters.DepositEvent();
     const rawEvents = await contract.queryFilter(filter, startBlock, endBlock);
-    const events = rawEvents.map((rawEvent) => {
+    const queryDurationMs = Date.now() - queryStartTime;
+
+    this.logger.log('fetchEvents: queryFilter completed', {
+      startBlock,
+      endBlock,
+      eventsCount: rawEvents.length,
+      queryDurationMs,
+    });
+
+    if (rawEvents.length === 0) {
+      return { events: [], startBlock, endBlock };
+    }
+
+    this.logger.log('fetchEvents: starting BLS verification', {
+      eventsCount: rawEvents.length,
+    });
+
+    const blsStartTime = Date.now();
+    const events = rawEvents.map((rawEvent, index) => {
+      if (index > 0 && index % 2000 === 0) {
+        const elapsed = Date.now() - blsStartTime;
+        this.logger.log('fetchEvents: BLS verification progress', {
+          processed: index,
+          total: rawEvents.length,
+          elapsedMs: elapsed,
+        });
+      }
       const formatted = this.formatEvent(rawEvent);
       const valid = this.verifyDeposit(formatted);
       return { valid, ...formatted };
+    });
+    const blsDurationMs = Date.now() - blsStartTime;
+
+    const avgPerEvent = blsDurationMs / rawEvents.length;
+    this.logger.log('fetchEvents: BLS verification completed', {
+      eventsCount: rawEvents.length,
+      blsDurationMs,
+      avgPerEventMs: Math.round(avgPerEvent * 100) / 100,
     });
 
     return { events, startBlock, endBlock };

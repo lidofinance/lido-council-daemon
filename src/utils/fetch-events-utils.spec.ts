@@ -236,24 +236,26 @@ describe('fetchEventsFallOver', () => {
   });
 
   describe('logger integration', () => {
-    it('should call logger.debug on success', async () => {
+    it('should call logger.log on success', async () => {
       const logger = {
-        debug: jest.fn(),
+        log: jest.fn(),
+        warn: jest.fn(),
         error: jest.fn(),
       };
 
       const fetcher = createSuccessFetcher();
       await fetchEventsFallOver(0, 5, fetcher, logger as any);
 
-      expect(logger.debug).toHaveBeenCalledWith(
-        'Fetched range',
+      expect(logger.log).toHaveBeenCalledWith(
+        'Fetched range successfully',
         expect.objectContaining({ start: 0, end: 5 }),
       );
     });
 
-    it('should call logger.debug on split', async () => {
+    it('should call logger.warn on split', async () => {
       const logger = {
-        debug: jest.fn(),
+        log: jest.fn(),
+        warn: jest.fn(),
         error: jest.fn(),
       };
 
@@ -272,15 +274,16 @@ describe('fetchEventsFallOver', () => {
 
       await fetchEventsFallOver(0, 10, fetcher, logger as any);
 
-      expect(logger.debug).toHaveBeenCalledWith(
-        'Splitting range',
+      expect(logger.warn).toHaveBeenCalledWith(
+        'Splitting range due to provider failure',
         expect.objectContaining({ start: 0, end: 10 }),
       );
     });
 
     it('should call logger.error on failure', async () => {
       const logger = {
-        debug: jest.fn(),
+        log: jest.fn(),
+        warn: jest.fn(),
         error: jest.fn(),
       };
 
