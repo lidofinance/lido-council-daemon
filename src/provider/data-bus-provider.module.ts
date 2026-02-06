@@ -8,6 +8,7 @@ import { getToken } from '@willsoto/nestjs-prometheus';
 import { METRIC_DATA_BUS_RPC_REQUEST_DURATION } from 'common/prometheus';
 import { Histogram } from 'prom-client';
 import { DATA_BUS_REQUEST_TIMEOUT } from 'contracts/data-bus/data-bus.constants';
+import { PROVIDER_RESET_INTERVAL } from './provider.constants';
 
 export const DATA_BUS_PROVIDER_TOKEN = 'DATA_BUS_PROVIDER';
 
@@ -31,6 +32,8 @@ export class DataBusProviderModule {
             instanceLabel: 'DataBus',
             logRetries: false,
             maxRetries: 1,
+            // Don't reset provider URL selection, only on error
+            resetIntervalMs: PROVIDER_RESET_INTERVAL,
             requestTimeoutMs: DATA_BUS_REQUEST_TIMEOUT,
             fetchMiddlewares: [
               async (next) => {
