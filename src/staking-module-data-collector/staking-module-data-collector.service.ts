@@ -17,6 +17,7 @@ type State = {
   stakingModules: SRModule[];
   meta: ELBlockSnapshot;
   lidoKeys: DeepReadonly<RegistryKey[]>;
+  moduleWCMap: Record<number, string>;
 };
 
 @Injectable()
@@ -38,6 +39,7 @@ export class StakingModuleDataCollectorService {
     stakingModules,
     meta,
     lidoKeys,
+    moduleWCMap,
   }: State): Promise<StakingModuleData[]> {
     return await Promise.all(
       stakingModules.map(async (stakingModule) => {
@@ -49,6 +51,7 @@ export class StakingModuleDataCollectorService {
                 blockHash: meta.blockHash,
               },
             ),
+          withdrawalCredentials: moduleWCMap[stakingModule.id],
           nonce: stakingModule.nonce,
           stakingModuleId: stakingModule.id,
           stakingModuleAddress: stakingModule.stakingModuleAddress,
@@ -107,7 +110,6 @@ export class StakingModuleDataCollectorService {
         stakingModuleData.invalidKeys =
           await this.stakingModuleGuardService.getInvalidKeys(
             stakingModuleData,
-            blockData,
           );
         endTimerValidation();
 

@@ -222,10 +222,17 @@ export class GuardianService implements OnModuleInit {
   ) {
     const { blockHash, blockNumber } = meta;
 
+    // Fetch per-module withdrawal credentials once, pass to both services
+    const moduleWCMap = await this.fetchModuleWithdrawalCredentials(
+      stakingModules,
+      blockHash,
+    );
+
     const [blockData, stakingModulesData] = await Promise.all([
       this.blockDataCollectorService.getCurrentBlockData({
         blockHash,
         blockNumber,
+        moduleWCMap,
       }),
       // Construct the Staking Module data array using information fetched from the Keys API,
       // identifying vetted unused keys and checking the module pause status
@@ -233,6 +240,7 @@ export class GuardianService implements OnModuleInit {
         stakingModules,
         meta,
         lidoKeys,
+        moduleWCMap,
       }),
     ]);
 
@@ -427,5 +435,24 @@ export class GuardianService implements OnModuleInit {
     blockNumber: number;
   }) {
     this.lastProcessedStateMeta = newMeta;
+  }
+
+  private async fetchModuleWithdrawalCredentials(
+    stakingModules: SRModule[],
+    blockHash: string,
+  ): Promise<Record<number, string>> {
+    const entries = await Promise.all(
+      stakingModules.map(
+        async (m) =>
+          [
+            m.id,
+            await this.stakingRouterService.getStakingModuleWithdrawalCredentials(
+              m.id,
+              { blockHash },
+            ),
+          ] as [number, string],
+      ),
+    );
+    return Object.fromEntries(entries);
   }
 }

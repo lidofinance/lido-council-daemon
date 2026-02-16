@@ -38,6 +38,7 @@ const stakingModuleData = {
   lastDepositBlock: 0,
   blockHash: '',
   isDepositsPaused: false,
+  withdrawalCredentials: '0x12',
 };
 
 describe('StakingModuleGuardService', () => {
@@ -268,30 +269,30 @@ describe('StakingModuleGuardService', () => {
 
   describe('excludeEligibleIntersections', () => {
     const pubkey = '0x1234';
-    const lidoWC = '0x12';
+    const moduleWC = '0x12';
     const attackerWC = '0x23';
-    const blockData = { blockHash: '0x1234', lidoWC } as any;
+    const moduleData = { withdrawalCredentials: moduleWC } as any;
 
     it('should exclude invalid intersections', async () => {
       // here should be in real test valid deposit
       // but function ignore it
-      const intersections = [{ valid: false, pubkey, wc: lidoWC } as any];
+      const intersections = [{ valid: false, pubkey, wc: moduleWC } as any];
 
       const filteredIntersections =
-        await stakingModuleGuardService.excludeEligibleIntersections(
-          blockData,
+        stakingModuleGuardService.excludeEligibleIntersections(
+          moduleData,
           intersections,
         );
 
       expect(filteredIntersections).toHaveLength(0);
     });
 
-    it('should exclude intersections with lido WC', async () => {
-      const intersections = [{ valid: true, pubkey, wc: lidoWC } as any];
+    it('should exclude intersections with module WC', async () => {
+      const intersections = [{ valid: true, pubkey, wc: moduleWC } as any];
 
       const filteredIntersections =
-        await stakingModuleGuardService.excludeEligibleIntersections(
-          blockData,
+        stakingModuleGuardService.excludeEligibleIntersections(
+          moduleData,
           intersections,
         );
 
@@ -302,8 +303,8 @@ describe('StakingModuleGuardService', () => {
       const intersections = [{ valid: true, pubkey, wc: attackerWC } as any];
 
       const filteredIntersections =
-        await stakingModuleGuardService.excludeEligibleIntersections(
-          blockData,
+        stakingModuleGuardService.excludeEligibleIntersections(
+          moduleData,
           intersections,
         );
 

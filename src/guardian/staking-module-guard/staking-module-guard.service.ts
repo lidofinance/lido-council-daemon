@@ -68,11 +68,11 @@ export class StakingModuleGuardService {
    */
   private getDepositsWithLidoWC(
     depositedEvents: VerifiedDepositEventGroup,
-    lidoWC: string,
+    lidoWCSet: Set<string>,
   ): VerifiedDepositEvent[] {
     // Filter events for those with Lido withdrawal credentials and valid status
     const depositsMatchingLidoWC = depositedEvents.events.filter(
-      ({ wc, valid }) => wc === lidoWC && valid,
+      ({ wc, valid }) => lidoWCSet.has(wc) && valid,
     );
 
     this.logger.log('Deposits matching Lido WC count', {
@@ -124,7 +124,7 @@ export class StakingModuleGuardService {
    */
   private getNonLidoDuplicatedDeposits(
     depositedEventsGroup: VerifiedDepositEventGroup,
-    lidoWC: string,
+    lidoWCSet: Set<string>,
     earliestLidoWCDepositsByPubkey: Record<string, VerifiedDepositEvent>,
   ): VerifiedDepositEvent[] {
     const nonLidoDuplicatedDeposits: VerifiedDepositEvent[] = [];
@@ -132,7 +132,10 @@ export class StakingModuleGuardService {
     const { events: depositedEvents } = depositedEventsGroup;
 
     depositedEvents.forEach((event) => {
-      if (earliestLidoWCDepositsByPubkey[event.pubkey] && event.wc !== lidoWC) {
+      if (
+        earliestLidoWCDepositsByPubkey[event.pubkey] &&
+        !lidoWCSet.has(event.wc)
+      ) {
         nonLidoDuplicatedDeposits.push(event);
       }
     });
@@ -214,23 +217,30 @@ export class StakingModuleGuardService {
 
   /**
    * Checks if Lido deposits have been front-ran in the past based on historical deposit data.
-   * This method does not account for WC rotation as historical deposits were manually checked.
    *
    * @param depositedEvents - A group of historical deposit events.
-   * @param lidoWC - The withdrawal credential associated with Lido.
+   * @param lidoWCList - All valid Lido withdrawal credentials (0x01 and 0x02 variants).
    * @returns True if front-running was detected at any point in the past; false if no front-running occurred.
    */
   public async getHistoricalFrontRun(
     depositedEvents: VerifiedDepositEventGroup,
-    lidoWC: string,
+    lidoWCList: string[],
   ) {
-    const lidoWCDeposits = this.getDepositsWithLidoWC(depositedEvents, lidoWC);
+    const lidoWCSet = new Set(lidoWCList);
+
+    const lidoWCDeposits = this.getDepositsWithLidoWC(
+      depositedEvents,
+      lidoWCSet,
+    );
+
+    // Detect cross-type WC deposits: same pubkey deposited with different Lido WC types
+    this.detectCrossTypeDeposits(lidoWCDeposits);
 
     const earliestDepositsMap = this.getEarliestDepositsMap(lidoWCDeposits);
 
     const nonLidoDuplicatedDeposits = this.getNonLidoDuplicatedDeposits(
       depositedEvents,
-      lidoWC,
+      lidoWCSet,
       earliestDepositsMap,
     );
 
@@ -263,6 +273,36 @@ export class StakingModuleGuardService {
     return hasFrontRunning;
   }
 
+  /**
+   * Detects deposits on the same pubkey with different Lido WC types (e.g. 0x01 and 0x02).
+   * This indicates a cross-type deposit — ETH is not lost but the WC type is wrong for the module.
+   */
+  private detectCrossTypeDeposits(
+    lidoWCDeposits: VerifiedDepositEvent[],
+  ): void {
+    const wcByPubkey = new Map<string, Set<string>>();
+
+    for (const deposit of lidoWCDeposits) {
+      const wcSet = wcByPubkey.get(deposit.pubkey) ?? new Set();
+      wcSet.add(deposit.wc);
+      wcByPubkey.set(deposit.pubkey, wcSet);
+    }
+
+    const crossTypeKeys: { pubkey: string; wcTypes: string[] }[] = [];
+    for (const [pubkey, wcSet] of wcByPubkey) {
+      if (wcSet.size > 1) {
+        crossTypeKeys.push({ pubkey, wcTypes: [...wcSet] });
+      }
+    }
+
+    if (crossTypeKeys.length > 0) {
+      this.logger.warn(
+        'Cross-type WC deposits detected: same key deposited with different Lido WC types',
+        { crossTypeKeys },
+      );
+    }
+  }
+
   public async alreadyPausedDeposits(blockData: BlockData, version: number) {
     if (version === 3) {
       const alreadyPaused = await this.securityService.isDepositsPaused({
@@ -293,7 +333,7 @@ export class StakingModuleGuardService {
     // or we will report key for unvetting without reason
     // at the same time such vetted unused key will be reported as duplicated too
     const frontRunAttempts = this.excludeEligibleIntersections(
-      blockData,
+      stakingModuleData,
       keysIntersections,
     );
 
@@ -347,16 +387,18 @@ export class StakingModuleGuardService {
   }
 
   /**
-   * Excludes invalid deposits and deposits with Lido WC from intersections
-   * @param blockData - collected data from the current block
+   * Excludes deposits that match the module's withdrawal credentials from intersections.
+   * Deposits with non-Lido WC or cross-type Lido WC (wrong type for this module) are kept as front-run attempts.
+   * @param stakingModuleData - data for the specific staking module
    * @param intersections - list of deposits with keys that were deposited earlier
    */
   public excludeEligibleIntersections(
-    blockData: BlockData,
+    stakingModuleData: StakingModuleData,
     intersections: VerifiedDepositEvent[],
   ): VerifiedDepositEvent[] {
     return intersections.filter(
-      ({ wc, valid }) => wc !== blockData.lidoWC && valid,
+      ({ wc, valid }) =>
+        wc !== stakingModuleData.withdrawalCredentials && valid,
     );
   }
 
@@ -543,7 +585,6 @@ export class StakingModuleGuardService {
 
   public async getInvalidKeys(
     stakingModuleData: StakingModuleData,
-    blockData: BlockData,
   ): Promise<RegistryKey[]> {
     this.logger.log('Start keys validation', {
       keysCount: stakingModuleData.vettedUnusedKeys.length,
@@ -555,7 +596,7 @@ export class StakingModuleGuardService {
 
     const invalidKeysList = await this.keysValidationService.getInvalidKeys(
       stakingModuleData.vettedUnusedKeys,
-      blockData.lidoWC,
+      stakingModuleData.withdrawalCredentials,
     );
 
     const validationTimeEnd = performance.now();

@@ -7,7 +7,7 @@ export interface BlockData {
   depositedEvents: VerifiedDepositedEventGroup;
   guardianAddress: string;
   guardianIndex: number;
-  lidoWC: string;
+  lidoWCList: string[];
   securityVersion: number;
   alreadyPausedDeposits: boolean;
   theftHappened: boolean;

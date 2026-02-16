@@ -37,6 +37,7 @@ export async function getStakingModules(): Promise<
     number,
     BigNumber,
     BigNumber,
+    number,
   ] & {
     id: number;
     stakingModuleAddress: string;
@@ -51,6 +52,7 @@ export async function getStakingModules(): Promise<
     priorityExitShareThreshold: number;
     maxDepositsPerBlock: BigNumber;
     minDepositBlockDistance: BigNumber;
+    withdrawalCredentialsType: number;
   })[]
 > {
   const locator = getLocator();

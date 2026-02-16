@@ -11,5 +11,6 @@ export interface StakingModuleData {
   invalidKeys: RegistryKey[];
   frontRunKeys: RegistryKey[];
   unresolvedDuplicatedKeys: RegistryKey[];
+  withdrawalCredentials: string;
   isModuleDepositsPaused: boolean;
 }

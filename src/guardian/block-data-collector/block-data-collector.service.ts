@@ -14,7 +14,6 @@ import {
 import { Counter, Histogram } from 'prom-client';
 import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 import { WalletService } from 'wallet';
-import { StakingRouterService } from 'contracts/staking-router';
 
 @Injectable()
 export class BlockDataCollectorService {
@@ -32,7 +31,6 @@ export class BlockDataCollectorService {
 
     private depositService: DepositRegistryService,
     private securityService: SecurityService,
-    private stakingRouterService: StakingRouterService,
 
     private stakingModuleGuardService: StakingModuleGuardService,
   ) {}
@@ -45,25 +43,27 @@ export class BlockDataCollectorService {
   public async getCurrentBlockData({
     blockNumber,
     blockHash,
+    moduleWCMap,
   }: {
     blockNumber: number;
     blockHash: string;
+    moduleWCMap: Record<number, string>;
   }): Promise<BlockData> {
     const endTimer = this.blockRequestsHistogram.startTimer();
     try {
       const guardianAddress = this.securityService.getGuardianAddress();
+      const lidoWCList = [...new Set(Object.values(moduleWCMap))];
+
       const [
         depositRoot,
         depositedEvents,
         guardianIndex,
-        lidoWC,
         securityVersion,
         walletBalanceCritical,
       ] = await Promise.all([
         this.depositService.getDepositRoot({ blockHash }),
         this.depositService.getAllDepositedEvents(blockNumber, blockHash),
         this.securityService.getGuardianIndex({ blockHash }),
-        this.stakingRouterService.getWithdrawalCredentials({ blockHash }),
         this.securityService.version({
           blockHash,
         }),
@@ -73,7 +73,7 @@ export class BlockDataCollectorService {
       const theftHappened =
         await this.stakingModuleGuardService.getHistoricalFrontRun(
           depositedEvents,
-          lidoWC,
+          lidoWCList,
         );
 
       const alreadyPausedDeposits = await this.alreadyPausedDeposits(blockHash);
@@ -92,7 +92,7 @@ export class BlockDataCollectorService {
         depositedEvents,
         guardianAddress,
         guardianIndex,
-        lidoWC,
+        lidoWCList,
         securityVersion,
         alreadyPausedDeposits,
         theftHappened,
