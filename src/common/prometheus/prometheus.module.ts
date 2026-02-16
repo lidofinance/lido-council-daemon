@@ -19,6 +19,7 @@ import {
   PrometheusDataBusRPCErrorsCounterProvider,
   PrometheusDataBusAccountBalanceProvider,
   PrometheusDataBusRPCRequestsHistogramProvider,
+  PrometheusCrossTypeDepositsProvider,
   PrometheusJobDurationProvider,
 } from './prometheus.provider';
 import { METRICS_PREFIX, METRICS_URL } from './prometheus.constants';
@@ -51,6 +52,7 @@ const providers = [
   PrometheusDuplicatedKeysProvider,
   PrometheusInvalidKeysProvider,
   PrometheusUnvetKeysCounterProvider,
+  PrometheusCrossTypeDepositsProvider,
   PrometheusJobDurationProvider,
 ];
 

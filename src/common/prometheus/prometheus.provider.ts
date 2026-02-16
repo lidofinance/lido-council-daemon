@@ -23,6 +23,7 @@ import {
   METRIC_DATA_BUS_ACCOUNT_BALANCE,
   METRIC_DATA_BUS_RPC_REQUEST_DURATION,
   METRIC_DATA_BUS_RPC_REQUEST_ERRORS,
+  METRIC_CROSS_TYPE_DEPOSITS_TOTAL,
   METRIC_JOB_DURATION,
 } from './prometheus.constants';
 
@@ -136,6 +137,11 @@ export const PrometheusInvalidKeysProvider = makeGaugeProvider({
   name: METRIC_INVALID_KEYS_TOTAL,
   help: 'Number of invalid keys',
   labelNames: ['stakingModuleId'] as const,
+});
+
+export const PrometheusCrossTypeDepositsProvider = makeGaugeProvider({
+  name: METRIC_CROSS_TYPE_DEPOSITS_TOTAL,
+  help: 'Number of keys with cross-type Lido WC deposits',
 });
 
 export const PrometheusJobDurationProvider = makeHistogramProvider({

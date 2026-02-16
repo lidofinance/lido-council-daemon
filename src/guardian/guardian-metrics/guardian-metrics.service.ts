@@ -9,6 +9,7 @@ import {
   METRIC_INTERSECTIONS_TOTAL,
   METRIC_INVALID_KEYS_TOTAL,
   METRIC_DUPLICATED_KEYS_TOTAL,
+  METRIC_CROSS_TYPE_DEPOSITS_TOTAL,
 } from 'common/prometheus';
 import { Gauge } from 'prom-client';
 
@@ -32,6 +33,9 @@ export class GuardianMetricsService {
 
     @InjectMetric(METRIC_INVALID_KEYS_TOTAL)
     private invalidKeysCounter: Gauge<string>,
+
+    @InjectMetric(METRIC_CROSS_TYPE_DEPOSITS_TOTAL)
+    private crossTypeDepositsCounter: Gauge<string>,
   ) {}
 
   /**
@@ -163,5 +167,13 @@ export class GuardianMetricsService {
     invalidKeysCount: number,
   ) {
     this.invalidKeysCounter.set({ stakingModuleId }, invalidKeysCount);
+  }
+
+  /**
+   * Set the number of keys with cross-type Lido WC deposits
+   * (same key deposited with different Lido WC types, e.g. 0x01 and 0x02)
+   */
+  public collectCrossTypeDepositsMetrics(crossTypeKeysCount: number) {
+    this.crossTypeDepositsCounter.set(crossTypeKeysCount);
   }
 }

@@ -295,6 +295,10 @@ export class StakingModuleGuardService {
       }
     }
 
+    this.guardianMetricsService.collectCrossTypeDepositsMetrics(
+      crossTypeKeys.length,
+    );
+
     if (crossTypeKeys.length > 0) {
       this.logger.warn(
         'Cross-type WC deposits detected: same key deposited with different Lido WC types',
