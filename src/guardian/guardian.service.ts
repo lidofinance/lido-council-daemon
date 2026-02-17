@@ -441,18 +441,19 @@ export class GuardianService implements OnModuleInit {
     stakingModules: SRModule[],
     blockHash: string,
   ): Promise<Record<number, string>> {
-    const entries = await Promise.all(
-      stakingModules.map(
-        async (m) =>
-          [
-            m.id,
-            await this.stakingRouterService.getStakingModuleWithdrawalCredentials(
-              m.id,
-              { blockHash },
-            ),
-          ] as [number, string],
-      ),
+    // Each module's WC differs only in the first byte (withdrawalCredentialsType),
+    // which is available from KAPI via SRModule.
+    const baseWC = await this.stakingRouterService.getWithdrawalCredentials({
+      blockHash,
+    });
+
+    return Object.fromEntries(
+      stakingModules.map((m) => [
+        m.id,
+        '0x' +
+          String(m.withdrawalCredentialsType).padStart(2, '0') +
+          baseWC.slice(4),
+      ]),
     );
-    return Object.fromEntries(entries);
   }
 }

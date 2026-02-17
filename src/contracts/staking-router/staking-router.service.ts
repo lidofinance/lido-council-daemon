@@ -101,17 +101,4 @@ export class StakingRouterService {
       blockTag: blockTag as any,
     });
   }
-
-  public async getStakingModuleWithdrawalCredentials(
-    stakingModuleId: number,
-    blockTag?: BlockTag,
-  ): Promise<string> {
-    const stakingRouterContract =
-      await this.repositoryService.getCachedStakingRouterContract();
-
-    return stakingRouterContract.getStakingModuleWithdrawalCredentials(
-      stakingModuleId,
-      { blockTag: blockTag as any },
-    );
-  }
 }

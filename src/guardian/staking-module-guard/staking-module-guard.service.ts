@@ -233,9 +233,6 @@ export class StakingModuleGuardService {
       lidoWCSet,
     );
 
-    // Detect cross-type WC deposits: same pubkey deposited with different Lido WC types
-    this.detectCrossTypeDeposits(lidoWCDeposits);
-
     const earliestDepositsMap = this.getEarliestDepositsMap(lidoWCDeposits);
 
     const nonLidoDuplicatedDeposits = this.getNonLidoDuplicatedDeposits(
@@ -271,40 +268,6 @@ export class StakingModuleGuardService {
     }
 
     return hasFrontRunning;
-  }
-
-  /**
-   * Detects deposits on the same pubkey with different Lido WC types (e.g. 0x01 and 0x02).
-   * This indicates a cross-type deposit — ETH is not lost but the WC type is wrong for the module.
-   */
-  private detectCrossTypeDeposits(
-    lidoWCDeposits: VerifiedDepositEvent[],
-  ): void {
-    const wcByPubkey = new Map<string, Set<string>>();
-
-    for (const deposit of lidoWCDeposits) {
-      const wcSet = wcByPubkey.get(deposit.pubkey) ?? new Set();
-      wcSet.add(deposit.wc);
-      wcByPubkey.set(deposit.pubkey, wcSet);
-    }
-
-    const crossTypeKeys: { pubkey: string; wcTypes: string[] }[] = [];
-    for (const [pubkey, wcSet] of wcByPubkey) {
-      if (wcSet.size > 1) {
-        crossTypeKeys.push({ pubkey, wcTypes: [...wcSet] });
-      }
-    }
-
-    this.guardianMetricsService.collectCrossTypeDepositsMetrics(
-      crossTypeKeys.length,
-    );
-
-    if (crossTypeKeys.length > 0) {
-      this.logger.warn(
-        'Cross-type WC deposits detected: same key deposited with different Lido WC types',
-        { crossTypeKeys },
-      );
-    }
   }
 
   public async alreadyPausedDeposits(blockData: BlockData, version: number) {
