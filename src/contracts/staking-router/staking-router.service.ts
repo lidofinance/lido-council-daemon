@@ -15,14 +15,28 @@ export class StakingRouterService {
 
   /**
    * @param blockTag
-   * @returns List of staking modules fetched from the SR contract
+   * @returns List of staking modules fetched from the SR contract.
+   * Before SRv3 release modules had only 0x01 types of keys and withdrawalCredentialsType diesnd does not exist in module' struct 
+   * So for staking router version == 3, will set withdrawalCredentialsType = 1
+   * TODO: remove SR v3 branch after voting
    */
   public async getStakingModules(blockTag: BlockTag) {
     const stakingRouter =
-      await this.repositoryService.getCachedStakingRouterContract();
-    const stakingModules = await stakingRouter.getStakingModules({
-      blockTag: blockTag as any,
-    });
+      this.repositoryService.getCachedStakingRouterContract();
+
+    const [stakingModules, version] = await Promise.all([
+      stakingRouter.getStakingModules({
+        blockTag: blockTag as any,
+      }),
+      this.getContractVersion(blockTag),
+    ]);
+
+    if (version < 4) {
+      return stakingModules.map((m) => ({
+        ...m,
+        withdrawalCredentialsType: 1,
+      }));
+    }
 
     return stakingModules;
   }
@@ -95,10 +109,26 @@ export class StakingRouterService {
 
   public async getWithdrawalCredentials(blockTag?: BlockTag): Promise<string> {
     const stakingRouterContract =
-      await this.repositoryService.getCachedStakingRouterContract();
+      this.repositoryService.getCachedStakingRouterContract();
 
     return await stakingRouterContract.getWithdrawalCredentials({
       blockTag: blockTag as any,
     });
+  }
+
+  /**
+   * Returns the on-chain version of the Staking Router contract.
+   * SR v3 does not have withdrawalCredentialsType in module struct.
+   * SR v4 introduces per-module withdrawalCredentialsType.
+   */
+  public async getContractVersion(blockTag?: BlockTag): Promise<number> {
+    const stakingRouterContract =
+      this.repositoryService.getCachedStakingRouterContract();
+
+    const version = await stakingRouterContract.getContractVersion({
+      blockTag: blockTag as any,
+    });
+
+    return version.toNumber();
   }
 }
