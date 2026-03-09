@@ -109,6 +109,7 @@ describe('UnvettingService', () => {
       const stakingModuleData = {
         invalidKeys: mockKeys,
         duplicatedKeys: [],
+        crossTypeKeys: [],
         frontRunKeys: [],
         nonce: 1,
         stakingModuleId: 1,
@@ -166,6 +167,7 @@ describe('UnvettingService', () => {
       const stakingModuleData = {
         invalidKeys: mockKeys2,
         duplicatedKeys: [],
+        crossTypeKeys: [],
         frontRunKeys: [],
         nonce: 1,
         stakingModuleId: 1,

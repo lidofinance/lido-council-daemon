@@ -16,6 +16,7 @@ import { KeysValidationService } from 'guardian/keys-validation/keys-validation.
 import { performance } from 'perf_hooks';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { KeysApiService } from 'keys-api/keys-api.service';
+import { DeepReadonly } from 'common/ts-utils';
 
 @Injectable()
 export class StakingModuleGuardService {
@@ -270,6 +271,80 @@ export class StakingModuleGuardService {
     return hasFrontRunning;
   }
 
+  /**
+   * Check if all deposited keys has withdrawal credentials corresponding to module
+   *
+   * @param depositedEvents All verified deposit contract events
+   * @param usedKeys lido keys
+   * @param moduleAddressToWC Map of addresses match withdrawal credentials
+   */
+  public async checkValidatorsHasWrongWC(
+    depositedEvents: VerifiedDepositEventGroup,
+    lidoKeys: DeepReadonly<RegistryKey[]>,
+    moduleAddressToWC: DeepReadonly<Record<string, string>>,
+  ) {
+    const usedKeyExpectedWC = new Map<string, string>();
+    for (const key of lidoKeys) {
+      if (key.used) {
+        const expectedWC = moduleAddressToWC[key.moduleAddress];
+        if (!expectedWC) throw new Error('Unexpected module address');
+        usedKeyExpectedWC.set(key.key, expectedWC);
+      }
+    }
+
+    // find earliest events for each used key in Lido
+    const earliestDeposits: Record<string, VerifiedDepositEvent> = {};
+    for (const event of depositedEvents.events) {
+      if (!event.valid) continue;
+      if (!usedKeyExpectedWC.has(event.pubkey)) continue;
+
+      const existing = earliestDeposits[event.pubkey];
+      if (!existing || this.isFirstEventEarlier(event, existing)) {
+        earliestDeposits[event.pubkey] = event;
+      }
+    }
+
+    const lidoWCs = new Set(Object.values(moduleAddressToWC));
+
+    const frontRunnedLidoDeposits: string[] = [];
+    const wrongWCTypeLidoDeposits: string[] = [];
+
+    // check each earliest event has lido wc with correct withdrawal credentials type
+    for (const pubkey in earliestDeposits) {
+      const expectedWC = usedKeyExpectedWC.get(pubkey);
+      const earliestEventWC = earliestDeposits[pubkey].wc;
+
+      // non-lido wc
+      if (!lidoWCs.has(earliestEventWC)) {
+        frontRunnedLidoDeposits.push(pubkey);
+        continue;
+      }
+
+      // lido wc not corresponding to module wc
+      if (earliestEventWC != expectedWC) {
+        wrongWCTypeLidoDeposits.push(pubkey);
+      }
+    }
+
+    const hasFrontRunning = frontRunnedLidoDeposits.length > 0;
+    if (hasFrontRunning) {
+      this.logger.warn('Found historical front-run', {
+        frontRunnedLidoDeposits,
+      });
+    }
+    const hasWrongWCType = wrongWCTypeLidoDeposits.length > 0;
+    if (hasWrongWCType) {
+      this.logger.warn(
+        'Found deposited keys with wrong withdrawal credentials type',
+        {
+          wrongWCTypeLidoDeposits,
+        },
+      );
+    }
+
+    return hasFrontRunning || hasWrongWCType;
+  }
+
   public async alreadyPausedDeposits(blockData: BlockData, version: number) {
     if (version === 3) {
       const alreadyPaused = await this.securityService.isDepositsPaused({
@@ -290,32 +365,43 @@ export class StakingModuleGuardService {
   public getFrontRunAttempts(
     stakingModuleData: StakingModuleData,
     blockData: BlockData,
-  ): RegistryKey[] {
+    lidoWCSet: Set<string>,
+  ): { frontRunKeys: RegistryKey[]; crossTypeKeys: RegistryKey[] } {
     const keysIntersections = this.getKeysIntersections(
       stakingModuleData,
       blockData,
     );
+    const moduleWC = stakingModuleData.withdrawalCredentials;
 
-    // if we have one ineligible and eligible events for the same key we should check which one was first
-    // or we will report key for unvetting without reason
-    // at the same time such vetted unused key will be reported as duplicated too
-    const frontRunAttempts = this.excludeEligibleIntersections(
-      stakingModuleData,
-      keysIntersections,
-    );
+    const frontRunPubkeys = new Set<string>();
+    const crossTypePubkeys = new Set<string>();
+
+    for (const event of keysIntersections) {
+      if (!event.valid) continue;
+      if (event.wc === moduleWC) continue;
+
+      if (lidoWCSet.has(event.wc)) {
+        crossTypePubkeys.add(event.pubkey);
+      } else {
+        frontRunPubkeys.add(event.pubkey);
+      }
+    }
 
     this.guardianMetricsService.collectIntersectionsMetrics(
       stakingModuleData.stakingModuleId,
-      keysIntersections,
-      frontRunAttempts,
+      keysIntersections.length,
+      frontRunPubkeys.size + crossTypePubkeys.size,
+      crossTypePubkeys.size,
     );
 
-    const keys = new Set(frontRunAttempts.map((deposit) => deposit.pubkey));
-
-    // list can have duplicated keys
-    return stakingModuleData.vettedUnusedKeys.filter((key) =>
-      keys.has(key.key),
-    );
+    return {
+      frontRunKeys: stakingModuleData.vettedUnusedKeys.filter((k) =>
+        frontRunPubkeys.has(k.key),
+      ),
+      crossTypeKeys: stakingModuleData.vettedUnusedKeys.filter((k) =>
+        crossTypePubkeys.has(k.key),
+      ),
+    };
   }
 
   /**
@@ -353,22 +439,6 @@ export class StakingModuleGuardService {
     return intersections;
   }
 
-  /**
-   * Excludes deposits that match the module's withdrawal credentials from intersections.
-   * Deposits with non-Lido WC or cross-type Lido WC (wrong type for this module) are kept as front-run attempts.
-   * @param stakingModuleData - data for the specific staking module
-   * @param intersections - list of deposits with keys that were deposited earlier
-   */
-  public excludeEligibleIntersections(
-    stakingModuleData: StakingModuleData,
-    intersections: VerifiedDepositEvent[],
-  ): VerifiedDepositEvent[] {
-    return intersections.filter(
-      ({ wc, valid }) =>
-        wc !== stakingModuleData.withdrawalCredentials && valid,
-    );
-  }
-
   public async handlePauseV3(blockData: BlockData): Promise<void> {
     const { blockNumber, blockHash, guardianAddress, guardianIndex } =
       blockData;
@@ -399,86 +469,6 @@ export class StakingModuleGuardService {
       });
 
     await this.guardianMessageService.sendPauseMessageV3(pauseMessage);
-  }
-
-  /**
-   * pause all modules, old version of contract
-   */
-  public async handlePauseV2(
-    stakingModulesData: StakingModuleData[],
-    blockData: BlockData,
-  ) {
-    for (const stakingModuleData of stakingModulesData) {
-      if (this.isModuleAlreadyPaused(stakingModuleData, blockData)) {
-        continue;
-      }
-
-      await this.pauseModuleDeposits(stakingModuleData, blockData);
-      return; // Only process one transaction per handleNewBlock
-    }
-    return;
-  }
-
-  private isModuleAlreadyPaused(
-    stakingModuleData: StakingModuleData,
-    blockData: BlockData,
-  ): boolean {
-    if (stakingModuleData.isModuleDepositsPaused) {
-      this.logger.log('Deposits are already paused for module', {
-        blockHash: blockData.blockHash,
-        stakingModuleId: stakingModuleData.stakingModuleId,
-      });
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * pause module
-   * @param blockData - collected data from the current block
-   */
-  public async pauseModuleDeposits(
-    stakingModuleData: StakingModuleData,
-    blockData: BlockData,
-  ): Promise<void> {
-    const { nonce, stakingModuleId } = stakingModuleData;
-
-    this.logger.warn('Pause deposits for module', {
-      blockHash: blockData.blockHash,
-      stakingModuleId,
-    });
-
-    const {
-      blockNumber,
-      blockHash,
-      guardianAddress,
-      guardianIndex,
-      depositRoot,
-    } = blockData;
-
-    const signature = await this.securityService.signPauseDataV2(
-      blockNumber,
-      blockHash,
-      stakingModuleId,
-    );
-
-    const pauseMessage = {
-      depositRoot,
-      nonce,
-      guardianAddress,
-      guardianIndex,
-      blockNumber,
-      blockHash,
-      signature,
-      stakingModuleId,
-    };
-
-    // Call pause without waiting for completion
-    this.securityService
-      .pauseDepositsV2(blockNumber, stakingModuleId, signature)
-      .catch((error) => this.logger.error(error));
-
-    await this.guardianMessageService.sendPauseMessageV2(pauseMessage);
   }
 
   /**

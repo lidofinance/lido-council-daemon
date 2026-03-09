@@ -14,6 +14,8 @@ import {
 import { Counter, Histogram } from 'prom-client';
 import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 import { WalletService } from 'wallet';
+import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
+import { DeepReadonly } from 'common/ts-utils';
 
 @Injectable()
 export class BlockDataCollectorService {
@@ -44,15 +46,16 @@ export class BlockDataCollectorService {
     blockNumber,
     blockHash,
     moduleWCMap,
+    lidoKeys,
   }: {
     blockNumber: number;
     blockHash: string;
-    moduleWCMap: Record<number, string>;
+    moduleWCMap: Record<string, string>;
+    lidoKeys: DeepReadonly<RegistryKey[]>;
   }): Promise<BlockData> {
     const endTimer = this.blockRequestsHistogram.startTimer();
     try {
       const guardianAddress = this.securityService.getGuardianAddress();
-      const lidoWCList = [...new Set(Object.values(moduleWCMap))];
 
       const [
         depositRoot,
@@ -70,10 +73,16 @@ export class BlockDataCollectorService {
         this.walletService.isBalanceCritical(),
       ]);
 
-      const theftHappened =
-        await this.stakingModuleGuardService.getHistoricalFrontRun(
+      // const theftHappened =
+      //   await this.stakingModuleGuardService.getHistoricalFrontRun(
+      //     depositedEvents,
+      //     lidoWCList,
+      //   );
+      const violationWCFound =
+        await this.stakingModuleGuardService.checkValidatorsHasWrongWC(
           depositedEvents,
-          lidoWCList,
+          lidoKeys,
+          moduleWCMap,
         );
 
       const alreadyPausedDeposits = await this.alreadyPausedDeposits(blockHash);
@@ -92,10 +101,9 @@ export class BlockDataCollectorService {
         depositedEvents,
         guardianAddress,
         guardianIndex,
-        lidoWCList,
         securityVersion,
         alreadyPausedDeposits,
-        theftHappened,
+        violationWCFound,
         walletBalanceCritical,
       };
     } catch (error) {

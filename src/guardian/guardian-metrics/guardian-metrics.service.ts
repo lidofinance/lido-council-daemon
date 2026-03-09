@@ -116,13 +116,18 @@ export class GuardianMetricsService {
    */
   public collectIntersectionsMetrics(
     stakingModuleId: number,
-    all: VerifiedDepositEvent[],
-    filtered: VerifiedDepositEvent[],
+    all: number,
+    filtered: number,
+    crossTypeCount: number,
   ): void {
-    this.intersectionsCounter.set({ type: 'all', stakingModuleId }, all.length);
+    this.intersectionsCounter.set({ type: 'all', stakingModuleId }, all);
     this.intersectionsCounter.set(
       { type: 'filtered', stakingModuleId },
-      filtered.length,
+      filtered,
+    );
+    this.intersectionsCounter.set(
+      { type: 'cross_type', stakingModuleId },
+      crossTypeCount,
     );
   }
 

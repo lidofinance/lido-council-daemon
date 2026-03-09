@@ -55,6 +55,7 @@ export class UnvettingService {
     return stakingModuleData.invalidKeys.concat(
       stakingModuleData.duplicatedKeys,
       stakingModuleData.frontRunKeys,
+      stakingModuleData.crossTypeKeys,
     );
   }
 

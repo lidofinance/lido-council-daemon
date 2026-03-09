@@ -192,7 +192,7 @@ export class GuardianService implements OnModuleInit {
         lidoKeys,
       );
 
-      if (!blockData.alreadyPausedDeposits && blockData.theftHappened) {
+      if (!blockData.alreadyPausedDeposits && blockData.violationWCFound) {
         await this.stakingModuleGuardService.handlePauseV3(blockData);
         return;
       }
@@ -234,6 +234,7 @@ export class GuardianService implements OnModuleInit {
         blockHash,
         blockNumber,
         moduleWCMap,
+        lidoKeys,
       }),
       // Construct the Staking Module data array using information fetched from the Keys API,
       // identifying vetted unused keys and checking the module pause status
@@ -343,6 +344,7 @@ export class GuardianService implements OnModuleInit {
     const keys = moduleData.invalidKeys.concat(
       moduleData.duplicatedKeys,
       moduleData.frontRunKeys,
+      moduleData.crossTypeKeys,
     );
     return keys.length > 0;
   }
@@ -361,7 +363,7 @@ export class GuardianService implements OnModuleInit {
         if (
           this.ignoreDeposits(
             stakingModuleData,
-            blockData.theftHappened,
+            blockData.violationWCFound,
             blockData.alreadyPausedDeposits,
             stakingModuleData.stakingModuleId,
           )
@@ -379,13 +381,14 @@ export class GuardianService implements OnModuleInit {
 
   private ignoreDeposits(
     stakingModuleData: StakingModuleData,
-    theftHappened: boolean,
+    violationWCFound: boolean,
     alreadyPausedDeposits: boolean,
     stakingModuleId: number,
   ): boolean {
     const keysForUnvetting = stakingModuleData.invalidKeys.concat(
       stakingModuleData.frontRunKeys,
       stakingModuleData.duplicatedKeys,
+      stakingModuleData.crossTypeKeys,
     );
 
     // if neither of this conditions is true, deposits are allowed for module
@@ -393,7 +396,7 @@ export class GuardianService implements OnModuleInit {
       keysForUnvetting.length > 0 ||
       stakingModuleData.unresolvedDuplicatedKeys.length > 0 ||
       alreadyPausedDeposits ||
-      theftHappened ||
+      violationWCFound ||
       stakingModuleData.isModuleDepositsPaused;
 
     if (ignoreDeposits) {
@@ -401,7 +404,7 @@ export class GuardianService implements OnModuleInit {
         keysForUnvetting: keysForUnvetting.length,
         duplicates: stakingModuleData.unresolvedDuplicatedKeys.length,
         alreadyPausedDeposits,
-        theftHappened,
+        violationWCFound,
         isModuleDepositsPaused: stakingModuleData.isModuleDepositsPaused,
         stakingModuleId,
       });
@@ -441,7 +444,7 @@ export class GuardianService implements OnModuleInit {
   private async fetchModuleWithdrawalCredentials(
     stakingModules: SRModule[],
     blockHash: string,
-  ): Promise<Record<number, string>> {
+  ): Promise<Record<string, string>> {
     // Each module's WC differs only in the first byte (withdrawalCredentialsType),
     // which is available from KAPI via SRModule.
     const baseWC = await this.stakingRouterService.getWithdrawalCredentials({
@@ -454,7 +457,7 @@ export class GuardianService implements OnModuleInit {
           utils.hexlify(m.withdrawalCredentialsType),
           1,
         );
-        return [m.id, typePrefix + baseWC.slice(4)];
+        return [m.stakingModuleAddress, typePrefix + baseWC.slice(4)];
       }),
     );
   }

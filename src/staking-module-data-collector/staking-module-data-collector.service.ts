@@ -17,7 +17,7 @@ type State = {
   stakingModules: SRModule[];
   meta: ELBlockSnapshot;
   lidoKeys: DeepReadonly<RegistryKey[]>;
-  moduleWCMap: Record<number, string>;
+  moduleWCMap: Record<string, string>;
 };
 
 @Injectable()
@@ -51,7 +51,8 @@ export class StakingModuleDataCollectorService {
                 blockHash: meta.blockHash,
               },
             ),
-          withdrawalCredentials: moduleWCMap[stakingModule.id],
+          withdrawalCredentials:
+            moduleWCMap[stakingModule.stakingModuleAddress],
           nonce: stakingModule.nonce,
           stakingModuleId: stakingModule.id,
           stakingModuleAddress: stakingModule.stakingModuleAddress,
@@ -64,6 +65,7 @@ export class StakingModuleDataCollectorService {
           duplicatedKeys: [],
           invalidKeys: [],
           frontRunKeys: [],
+          crossTypeKeys: [],
           unresolvedDuplicatedKeys: [],
         };
       }),
@@ -92,12 +94,18 @@ export class StakingModuleDataCollectorService {
 
     await Promise.all(
       stakingModulesData.map(async (stakingModuleData) => {
+        const lidoWCSet = new Set(
+          stakingModulesData.map((m) => m.withdrawalCredentials),
+        );
         // identify keys that were front-run withing vetted unused keys
-        stakingModuleData.frontRunKeys =
+        const { frontRunKeys, crossTypeKeys } =
           this.stakingModuleGuardService.getFrontRunAttempts(
             stakingModuleData,
             blockData,
+            lidoWCSet,
           );
+        stakingModuleData.frontRunKeys = frontRunKeys;
+        stakingModuleData.crossTypeKeys = crossTypeKeys;
 
         const endTimerValidation = this.jobDurationMetric
           .labels({
@@ -186,6 +194,7 @@ export class StakingModuleDataCollectorService {
       stakingModuleId,
       blockHash,
       frontRunKeys,
+      crossTypeKeys,
       invalidKeys,
       duplicatedKeys,
       unresolvedDuplicatedKeys,
@@ -193,6 +202,7 @@ export class StakingModuleDataCollectorService {
     this.logger.log('Keys check state', {
       stakingModuleId: stakingModuleId,
       frontRunAttempt: frontRunKeys.length,
+      crossTypeKeys: crossTypeKeys.length,
       invalid: invalidKeys.length,
       duplicated: duplicatedKeys.length,
       unresolvedDuplicated: unresolvedDuplicatedKeys.length,

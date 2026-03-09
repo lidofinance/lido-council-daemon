@@ -9,6 +9,7 @@ export interface StakingModuleData {
   lastChangedBlockHash: string;
   duplicatedKeys: RegistryKey[];
   invalidKeys: RegistryKey[];
+  crossTypeKeys: RegistryKey[];
   frontRunKeys: RegistryKey[];
   unresolvedDuplicatedKeys: RegistryKey[];
   withdrawalCredentials: string;

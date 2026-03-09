@@ -289,7 +289,6 @@ describe('Front-run e2e tests', () => {
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
-      // 4 - number of modules
       expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
     });
 
