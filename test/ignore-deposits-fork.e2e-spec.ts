@@ -1,23 +1,20 @@
-import { JsonRpcProvider } from '@ethersproject/providers';
 import { BigNumber } from '@ethersproject/bignumber';
 import {
-  LocatorAbi__factory,
   StakingRouterAbi__factory,
   LidoAbi__factory,
 } from 'generated';
 import { HardhatServer } from './helpers/hardhat-server';
-import { TEST_SERVER_URL } from './constants';
+import { getLocator } from './helpers/sr.contract';
+import { testSetupProvider } from './helpers/provider';
 
-const MAINNET_LOCATOR = '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb';
+jest.setTimeout(60_000);
 
 describe('ignoreDeposits fork test', () => {
   let hardhatServer: HardhatServer;
-  let provider: JsonRpcProvider;
 
   beforeAll(async () => {
     hardhatServer = new HardhatServer();
     await hardhatServer.start();
-    provider = new JsonRpcProvider(TEST_SERVER_URL);
   });
 
   afterAll(async () => {
@@ -25,9 +22,9 @@ describe('ignoreDeposits fork test', () => {
   });
 
   it('getDepositableEther returns a valid BigNumber', async () => {
-    const locator = LocatorAbi__factory.connect(MAINNET_LOCATOR, provider);
+    const locator = getLocator();
     const lidoAddress = await locator.lido();
-    const lido = LidoAbi__factory.connect(lidoAddress, provider);
+    const lido = LidoAbi__factory.connect(lidoAddress, testSetupProvider);
 
     const depositableEther = await lido.getDepositableEther();
 
@@ -35,16 +32,16 @@ describe('ignoreDeposits fork test', () => {
   });
 
   it('getStakingModuleMaxDepositsCount returns allocation for each module', async () => {
-    const locator = LocatorAbi__factory.connect(MAINNET_LOCATOR, provider);
+    const locator = getLocator();
 
     const stakingRouterAddress = await locator.stakingRouter();
     const stakingRouter = StakingRouterAbi__factory.connect(
       stakingRouterAddress,
-      provider,
+      testSetupProvider,
     );
 
     const lidoAddress = await locator.lido();
-    const lido = LidoAbi__factory.connect(lidoAddress, provider);
+    const lido = LidoAbi__factory.connect(lidoAddress, testSetupProvider);
 
     const depositableEther = await lido.getDepositableEther();
     const modules = await stakingRouter.getStakingModules();
@@ -63,12 +60,12 @@ describe('ignoreDeposits fork test', () => {
   });
 
   it('module with zero depositable ether has no allocation', async () => {
-    const locator = LocatorAbi__factory.connect(MAINNET_LOCATOR, provider);
+    const locator = getLocator();
 
     const stakingRouterAddress = await locator.stakingRouter();
     const stakingRouter = StakingRouterAbi__factory.connect(
       stakingRouterAddress,
-      provider,
+      testSetupProvider,
     );
 
     const modules = await stakingRouter.getStakingModules();
@@ -84,5 +81,4 @@ describe('ignoreDeposits fork test', () => {
       expect(maxDepositsCount.eq(0)).toBe(true);
     }
   });
-
 });
