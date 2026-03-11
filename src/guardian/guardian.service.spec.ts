@@ -94,6 +94,57 @@ describe('GuardianService', () => {
     await mockRepository(repositoryService);
   });
 
+  describe('ignoreDeposits', () => {
+    const makeModuleData = (overrides = {}) => ({
+      blockHash: '0x1234',
+      vettedUnusedKeys: [],
+      nonce: 1,
+      stakingModuleId: 1,
+      stakingModuleAddress: '0x1',
+      lastChangedBlockHash: '0x1',
+      duplicatedKeys: [],
+      invalidKeys: [],
+      frontRunKeys: [],
+      unresolvedDuplicatedKeys: [],
+      isModuleDepositsPaused: false,
+      hasDepositsAllocation: true,
+      ...overrides,
+    });
+
+    it('should ignore deposits when module has no deposits allocation', () => {
+      const result = (guardianService as any).ignoreDeposits(
+        makeModuleData({ hasDepositsAllocation: false }),
+        false,
+        false,
+        1,
+      );
+      expect(result).toBe(true);
+    });
+
+    it('should not ignore deposits when module has deposits allocation', () => {
+      const result = (guardianService as any).ignoreDeposits(
+        makeModuleData({ hasDepositsAllocation: true }),
+        false,
+        false,
+        1,
+      );
+      expect(result).toBe(false);
+    });
+
+    it('should ignore deposits when module is paused even with allocation', () => {
+      const result = (guardianService as any).ignoreDeposits(
+        makeModuleData({
+          hasDepositsAllocation: true,
+          isModuleDepositsPaused: true,
+        }),
+        false,
+        false,
+        1,
+      );
+      expect(result).toBe(true);
+    });
+  });
+
   it('should exit if the previous call is not completed', async () => {
     // OneAtTime test
     const getOperatorsAndModulesMock = jest
