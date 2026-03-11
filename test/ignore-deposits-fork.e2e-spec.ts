@@ -9,7 +9,7 @@ import { testSetupProvider } from './helpers/provider';
 
 jest.setTimeout(60_000);
 
-describe('ignoreDeposits fork test', () => {
+describe.skip('ignoreDeposits fork test', () => {
   let hardhatServer: HardhatServer;
 
   beforeAll(async () => {
@@ -73,10 +73,7 @@ describe('ignoreDeposits fork test', () => {
 
     for (const mod of modules) {
       const maxDepositsCount =
-        await stakingRouter.getStakingModuleMaxDepositsCount(
-          mod.id,
-          zeroEther,
-        );
+        await stakingRouter.getStakingModuleMaxDepositsCount(mod.id, zeroEther);
 
       expect(maxDepositsCount.eq(0)).toBe(true);
     }

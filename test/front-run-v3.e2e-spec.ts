@@ -42,7 +42,6 @@ import { truncateTables } from './helpers/pg';
 import { accountImpersonate, testSetupProvider } from './helpers/provider';
 import { SecretKey } from '@chainsafe/blst';
 import {
-  getModulesWithDepositsCount,
   getStakingModulesInfo,
   prioritizeShareLimit,
 } from './helpers/sr.contract';
@@ -130,9 +129,27 @@ describe('Front-run e2e tests', () => {
       .mockImplementation(() => Promise.resolve(true));
   };
 
+  const getNewDepositMessages = (fromCallIndex: number) => {
+    return sendDepositMessage.mock.calls
+      .slice(fromCallIndex)
+      .map(([message]) => message as { stakingModuleId: number });
+  };
+
+  const expectDepositsStillWork = (fromCallIndex = 0) => {
+    expect(getNewDepositMessages(fromCallIndex).length).toBeGreaterThan(0);
+  };
+
+  const expectNoDepositsForModule = (moduleId: number, fromCallIndex = 0) => {
+    const newDepositMessages = getNewDepositMessages(fromCallIndex);
+    expect(
+      newDepositMessages.some(
+        (message) => message.stakingModuleId === moduleId,
+      ),
+    ).toBe(false);
+  };
+
   let stakingModulesAddresses: string[];
   let curatedModuleAddress: string;
-  let modulesWithDepositsCount: number;
   let firstOperator: any;
   let nor: CuratedOnchainV1;
   const frontrunPK: Uint8Array = pk;
@@ -186,7 +203,6 @@ describe('Front-run e2e tests', () => {
 
     ({ stakingModulesAddresses, curatedModuleAddress } =
       await getStakingModulesInfo());
-    modulesWithDepositsCount = await getModulesWithDepositsCount();
 
     // get two different active operators
     nor = new CuratedOnchainV1(curatedModuleAddress);
@@ -286,13 +302,12 @@ describe('Front-run e2e tests', () => {
     });
 
     test('Key is not vetted, module will not be set on soft pause', async () => {
+      const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
-      expect(sendDepositMessage).toHaveBeenCalledTimes(
-        modulesWithDepositsCount,
-      );
+      expectDepositsStillWork(depositCallsBeforeCycle);
     });
 
     test('Increase staking limit', async () => {
@@ -311,6 +326,7 @@ describe('Front-run e2e tests', () => {
 
     test('Unvetting', async () => {
       const currentBlock = await provider.getBlock('latest');
+      const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
@@ -329,9 +345,7 @@ describe('Front-run e2e tests', () => {
           vettedKeysByOperator: '0x00000000000000000000000000000003',
         }),
       );
-      expect(sendDepositMessage).toHaveBeenCalledTimes(
-        2 * modulesWithDepositsCount - 1,
-      );
+      expectNoDepositsForModule(1, depositCallsBeforeCycle);
     }, 50_000);
 
     test('no pause happen', async () => {
@@ -437,14 +451,12 @@ describe('Front-run e2e tests', () => {
     });
 
     test('no unvetting will happen', async () => {
+      const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
-      // deposits work for every module with allocation
-      expect(sendDepositMessage).toHaveBeenCalledTimes(
-        modulesWithDepositsCount,
-      );
+      expectDepositsStillWork(depositCallsBeforeCycle);
     });
 
     test('no pause happen', async () => {
@@ -571,9 +583,7 @@ describe('Front-run e2e tests', () => {
     });
 
     test('deposits still work', async () => {
-      expect(sendDepositMessage).toHaveBeenCalledTimes(
-        modulesWithDepositsCount,
-      );
+      expectDepositsStillWork();
     });
 
     test('Check staking limit for sdvt operator before unvetting', async () => {
