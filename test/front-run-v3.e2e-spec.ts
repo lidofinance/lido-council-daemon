@@ -42,6 +42,7 @@ import { truncateTables } from './helpers/pg';
 import { accountImpersonate, testSetupProvider } from './helpers/provider';
 import { SecretKey } from '@chainsafe/blst';
 import {
+  getModulesWithDepositsCount,
   getStakingModulesInfo,
   prioritizeShareLimit,
 } from './helpers/sr.contract';
@@ -131,7 +132,7 @@ describe('Front-run e2e tests', () => {
 
   let stakingModulesAddresses: string[];
   let curatedModuleAddress: string;
-  let stakingModulesCount: number;
+  let modulesWithDepositsCount: number;
   let firstOperator: any;
   let nor: CuratedOnchainV1;
   const frontrunPK: Uint8Array = pk;
@@ -185,7 +186,7 @@ describe('Front-run e2e tests', () => {
 
     ({ stakingModulesAddresses, curatedModuleAddress } =
       await getStakingModulesInfo());
-    stakingModulesCount = stakingModulesAddresses.length;
+    modulesWithDepositsCount = await getModulesWithDepositsCount();
 
     // get two different active operators
     nor = new CuratedOnchainV1(curatedModuleAddress);
@@ -289,8 +290,9 @@ describe('Front-run e2e tests', () => {
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
-      // 4 - number of modules
-      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
+        modulesWithDepositsCount,
+      );
     });
 
     test('Increase staking limit', async () => {
@@ -328,7 +330,7 @@ describe('Front-run e2e tests', () => {
         }),
       );
       expect(sendDepositMessage).toHaveBeenCalledTimes(
-        2 * stakingModulesCount - 1,
+        2 * modulesWithDepositsCount - 1,
       );
     }, 50_000);
 
@@ -439,8 +441,10 @@ describe('Front-run e2e tests', () => {
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
-      // deposits work for every module
-      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
+      // deposits work for every module with allocation
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
+        modulesWithDepositsCount,
+      );
     });
 
     test('no pause happen', async () => {
@@ -567,7 +571,9 @@ describe('Front-run e2e tests', () => {
     });
 
     test('deposits still work', async () => {
-      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
+        modulesWithDepositsCount,
+      );
     });
 
     test('Check staking limit for sdvt operator before unvetting', async () => {

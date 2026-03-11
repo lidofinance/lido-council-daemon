@@ -32,7 +32,10 @@ import { waitForNewerBlock, waitKAPIUpdateModulesKeys } from './helpers/kapi';
 import { CuratedOnchainV1 } from './helpers/nor.contract';
 import { truncateTables } from './helpers/pg';
 import { packNodeOperatorIds } from 'guardian/unvetting/bytes';
-import { getStakingModulesInfo } from './helpers/sr.contract';
+import {
+  getModulesWithDepositsCount,
+  getStakingModulesInfo,
+} from './helpers/sr.contract';
 import { HardhatServer } from './helpers/hardhat-server';
 import {
   setupContainers,
@@ -124,6 +127,7 @@ describe('Signature validation e2e test', () => {
   let stakingModulesAddresses: string[];
   let curatedModuleAddress: string;
   let stakingModulesCount: number;
+  let modulesWithDepositsCount: number;
   let firstOperator: any;
   let nor: CuratedOnchainV1;
   const frontrunPK: Uint8Array = pk;
@@ -168,6 +172,7 @@ describe('Signature validation e2e test', () => {
     ({ stakingModulesAddresses, curatedModuleAddress } =
       await getStakingModulesInfo());
     stakingModulesCount = stakingModulesAddresses.length;
+    modulesWithDepositsCount = await getModulesWithDepositsCount();
 
     // get two different active operators
     nor = new CuratedOnchainV1(curatedModuleAddress);
@@ -250,7 +255,9 @@ describe('Signature validation e2e test', () => {
       // 4 - number of modules
       expect(validateKeys).toHaveBeenCalledTimes(stakingModulesCount);
       expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
-      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
+        modulesWithDepositsCount,
+      );
     });
 
     test('Increase staking limit', async () => {
@@ -302,7 +309,7 @@ describe('Signature validation e2e test', () => {
 
     test('No deposits for module', async () => {
       expect(sendDepositMessage).toHaveBeenCalledTimes(
-        2 * stakingModulesCount - 1,
+        2 * modulesWithDepositsCount - 1,
       );
     });
 
