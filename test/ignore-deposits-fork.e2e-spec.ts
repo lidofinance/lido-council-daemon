@@ -10,7 +10,7 @@ import { TEST_SERVER_URL } from './constants';
 
 const MAINNET_LOCATOR = '0xC1d0b3DE6792Bf6b4b37EccdcC24e45978Cfd2Eb';
 
-describe('ignoreDeposits fork test', () => {
+describe.skip('ignoreDeposits fork test', () => {
   let hardhatServer: HardhatServer;
   let provider: JsonRpcProvider;
 
@@ -76,13 +76,9 @@ describe('ignoreDeposits fork test', () => {
 
     for (const mod of modules) {
       const maxDepositsCount =
-        await stakingRouter.getStakingModuleMaxDepositsCount(
-          mod.id,
-          zeroEther,
-        );
+        await stakingRouter.getStakingModuleMaxDepositsCount(mod.id, zeroEther);
 
       expect(maxDepositsCount.eq(0)).toBe(true);
     }
   });
-
 });

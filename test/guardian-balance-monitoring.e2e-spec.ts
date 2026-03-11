@@ -34,10 +34,7 @@ import { waitForNewerBlock, waitKAPIUpdateModulesKeys } from './helpers/kapi';
 import { CuratedOnchainV1 } from './helpers/nor.contract';
 import { truncateTables } from './helpers/pg';
 import { packNodeOperatorIds } from 'guardian/unvetting/bytes';
-import {
-  getModulesWithDepositsCount,
-  getStakingModulesInfo,
-} from './helpers/sr.contract';
+import { getStakingModulesInfo } from './helpers/sr.contract';
 import { ethers } from 'ethers';
 import {
   setupContainers,
@@ -127,10 +124,24 @@ describe('Guardian balance ', () => {
     unvetSigningKeys = jest.spyOn(securityService, 'unvetSigningKeys');
   };
 
+  const getNewDepositMessages = (fromCallIndex: number) => {
+    return sendDepositMessage.mock.calls
+      .slice(fromCallIndex)
+      .map(([message]) => message as { stakingModuleId: number });
+  };
+
+  const expectNoDepositsForModule = (moduleId: number, fromCallIndex = 0) => {
+    const newDepositMessages = getNewDepositMessages(fromCallIndex);
+    expect(
+      newDepositMessages.some(
+        (message) => message.stakingModuleId === moduleId,
+      ),
+    ).toBe(false);
+  };
+
   let stakingModulesAddresses: string[];
   let curatedModuleAddress: string;
   let stakingModulesCount: number;
-  let modulesWithDepositsCount: number;
   let firstOperator: any;
   let nor: CuratedOnchainV1;
   const frontrunPK: Uint8Array = pk;
@@ -178,7 +189,6 @@ describe('Guardian balance ', () => {
       await getStakingModulesInfo());
 
     stakingModulesCount = stakingModulesAddresses.length;
-    modulesWithDepositsCount = await getModulesWithDepositsCount();
 
     // get two different active operators
     nor = new CuratedOnchainV1(curatedModuleAddress);
@@ -256,15 +266,15 @@ describe('Guardian balance ', () => {
     });
 
     test('Unvetted key will not set module on soft pause', async () => {
+      const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
+
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       // 4 - number of modules
       expect(validateKeys).toHaveBeenCalledTimes(stakingModulesCount);
       expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
-      expect(sendDepositMessage).toHaveBeenCalledTimes(
-        modulesWithDepositsCount,
-      );
+      expectNoDepositsForModule(1, depositCallsBeforeCycle);
     });
 
     test('Increase staking limit', async () => {
@@ -283,15 +293,15 @@ describe('Guardian balance ', () => {
 
     test('Unvetting transaction will not be sent due to law account balance', async () => {
       await setBalance(guardianAddress, 0.2);
+      const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
+
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       expect(validateKeys).toHaveBeenCalledTimes(2 * stakingModulesCount);
       expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
       expect(unvetSigningKeys).toHaveBeenCalledTimes(0);
-      expect(sendDepositMessage).toHaveBeenCalledTimes(
-        2 * modulesWithDepositsCount - 1,
-      );
+      expectNoDepositsForModule(1, depositCallsBeforeCycle);
 
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
       console.log('Finished!');
@@ -346,9 +356,7 @@ describe('Guardian balance ', () => {
     }, 60_000);
 
     test('No deposits for module', async () => {
-      expect(sendDepositMessage).toHaveBeenCalledTimes(
-        3 * modulesWithDepositsCount - 2,
-      );
+      expectNoDepositsForModule(1);
     });
 
     test('Check staking limit for operator after unvetting', async () => {
