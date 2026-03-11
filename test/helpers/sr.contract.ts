@@ -3,6 +3,7 @@ import { accountImpersonate, testSetupProvider } from './provider';
 import * as dotenv from 'dotenv';
 import {
   IStakingModuleAbi__factory,
+  LidoAbi__factory,
   LocatorAbi__factory,
   StakingRouterAbi__factory,
 } from 'generated';
@@ -125,6 +126,32 @@ export async function getStakingModulesInfo() {
     sdvtModuleAddress,
     srModules,
   };
+}
+
+export async function getModulesWithDepositsCount(): Promise<number> {
+  const locator = getLocator();
+  const stakingRouterAddress = await locator.stakingRouter();
+  const lidoAddress = await locator.lido();
+
+  const stakingRouter = StakingRouterAbi__factory.connect(
+    stakingRouterAddress,
+    testSetupProvider,
+  );
+  const lido = LidoAbi__factory.connect(lidoAddress, testSetupProvider);
+
+  const depositableEther = await lido.getDepositableEther();
+  const modules = await stakingRouter.getStakingModules();
+
+  let count = 0;
+  for (const mod of modules) {
+    const maxDeposits = await stakingRouter.getStakingModuleMaxDepositsCount(
+      mod.id,
+      depositableEther,
+    );
+    if (maxDeposits.gt(0)) count++;
+  }
+
+  return count;
 }
 
 export async function getType(contractAddress: string) {

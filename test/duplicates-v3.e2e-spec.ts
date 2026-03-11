@@ -24,7 +24,10 @@ import { waitForNewerBlock, waitKAPIUpdateModulesKeys } from './helpers/kapi';
 import { truncateTables } from './helpers/pg';
 import { CuratedOnchainV1 } from './helpers/nor.contract';
 import { toHexString } from 'contracts/deposits-registry/crypto';
-import { getStakingModulesInfo } from './helpers/sr.contract';
+import {
+  getModulesWithDepositsCount,
+  getStakingModulesInfo,
+} from './helpers/sr.contract';
 import { SecretKey } from '@chainsafe/blst';
 import { packNodeOperatorIds } from 'guardian/unvetting/bytes';
 import { HardhatServer } from './helpers/hardhat-server';
@@ -117,7 +120,7 @@ describe('Duplicates e2e tests', () => {
   let stakingModulesAddresses: string[];
   let curatedModuleAddress: string;
   let sdvtModuleAddress: string;
-  let stakingModulesCount: number;
+  let modulesWithDepositsCount: number;
   let curatedFirstOperator: any;
   let curatedSecondOperator: any;
   let sdvtOperator: any;
@@ -166,7 +169,7 @@ describe('Duplicates e2e tests', () => {
     ({ stakingModulesAddresses, curatedModuleAddress, sdvtModuleAddress } =
       await getStakingModulesInfo());
 
-    stakingModulesCount = stakingModulesAddresses.length;
+    modulesWithDepositsCount = await getModulesWithDepositsCount();
 
     // get two different active operators
     nor = new CuratedOnchainV1(curatedModuleAddress);
@@ -271,7 +274,9 @@ describe('Duplicates e2e tests', () => {
     });
 
     test('deposits work', async () => {
-      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
+        modulesWithDepositsCount,
+      );
     });
 
     test('increase staking limit for the first operator', async () => {
@@ -294,7 +299,9 @@ describe('Duplicates e2e tests', () => {
 
     test('deposits work', async () => {
       // second iteration of deposits
-      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount * 2);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
+        modulesWithDepositsCount * 2,
+      );
     });
 
     test('increase staking limit for the second operator', async () => {
@@ -350,7 +357,7 @@ describe('Duplicates e2e tests', () => {
     test('no deposits for module', async () => {
       // 8 prev + 3 new
       expect(sendDepositMessage).toHaveBeenCalledTimes(
-        stakingModulesCount * 2 + stakingModulesCount - 1,
+        modulesWithDepositsCount * 2 + modulesWithDepositsCount - 1,
       );
     });
 
@@ -439,7 +446,9 @@ describe('Duplicates e2e tests', () => {
     });
 
     test('Deposits work', async () => {
-      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
+        modulesWithDepositsCount,
+      );
     });
 
     test('Increase staking limit for the first operator', async () => {
@@ -489,7 +498,7 @@ describe('Duplicates e2e tests', () => {
 
     test('no deposits for module', async () => {
       expect(sendDepositMessage).toHaveBeenCalledTimes(
-        2 * stakingModulesCount - 1,
+        2 * modulesWithDepositsCount - 1,
       );
     });
 
@@ -573,7 +582,9 @@ describe('Duplicates e2e tests', () => {
     });
 
     test('Deposits work', async () => {
-      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
+        modulesWithDepositsCount,
+      );
     });
 
     test('Increase staking limit for the first operator', async () => {
@@ -623,7 +634,7 @@ describe('Duplicates e2e tests', () => {
 
     test('No deposits for module', async () => {
       expect(sendDepositMessage).toHaveBeenCalledTimes(
-        2 * stakingModulesCount - 1,
+        2 * modulesWithDepositsCount - 1,
       );
     });
 
@@ -712,7 +723,9 @@ describe('Duplicates e2e tests', () => {
     });
 
     test('deposits work', async () => {
-      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
+        modulesWithDepositsCount,
+      );
     });
 
     test('increase staking limit for op = 0', async () => {
@@ -733,7 +746,9 @@ describe('Duplicates e2e tests', () => {
     });
 
     test('deposits work', async () => {
-      expect(sendDepositMessage).toHaveBeenCalledTimes(2 * stakingModulesCount);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
+        2 * modulesWithDepositsCount,
+      );
     });
 
     test('increase staking limit for the first operator of SDVT contract', async () => {
@@ -788,7 +803,7 @@ describe('Duplicates e2e tests', () => {
 
     test('no deposits for module', async () => {
       expect(sendDepositMessage).toHaveBeenCalledTimes(
-        3 * stakingModulesCount - 1,
+        3 * modulesWithDepositsCount - 1,
       );
     });
 
@@ -891,7 +906,9 @@ describe('Duplicates e2e tests', () => {
     });
 
     test('deposits work', async () => {
-      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
+      expect(sendDepositMessage).toHaveBeenCalledTimes(
+        modulesWithDepositsCount,
+      );
     });
 
     test('increase staking limit for op = 0 of NOR contract', async () => {
@@ -955,7 +972,7 @@ describe('Duplicates e2e tests', () => {
 
     test('no deposits for module for both modules', async () => {
       expect(sendDepositMessage).toHaveBeenCalledTimes(
-        2 * stakingModulesCount - 2,
+        2 * modulesWithDepositsCount - 2,
       );
     });
 
@@ -1009,7 +1026,7 @@ describe('Duplicates e2e tests', () => {
 
     test('Deposits again work for first module, but not for second', async () => {
       expect(sendDepositMessage).toHaveBeenCalledTimes(
-        3 * stakingModulesCount - 2 - 1,
+        3 * modulesWithDepositsCount - 2 - 1,
       );
     });
   });
