@@ -1435,10 +1435,10 @@
   resolved "https://registry.npmjs.org/@lido-nestjs/di/-/di-1.0.1.tgz"
   integrity sha512-n/oPivizv6PffyLjtxf8wxm1IteG/YvelHFiz4X6jb4WhrCPpK8J46L/LHTLUmFfcCBXquVcUJqG5Nwy3b2pIg==
 
-"@lido-nestjs/execution@1.19.0":
-  version "1.19.0"
-  resolved "https://registry.yarnpkg.com/@lido-nestjs/execution/-/execution-1.19.0.tgz#0ef3773210ce605c7a2ee40ccd00c339b8780400"
-  integrity sha512-cfaTey+0ovYE3BRNM0pvbNemLBuX5SdmU0RpQiMBBIFNZKkyx0teLNHiEDwBaXUgBQqtbhj+bstN+K9A4pU1AQ==
+"@lido-nestjs/execution@1.21.0":
+  version "1.21.0"
+  resolved "https://registry.yarnpkg.com/@lido-nestjs/execution/-/execution-1.21.0.tgz#eedbbb42ccece643324cbe43b56a35e1818202c8"
+  integrity sha512-rDFEET4r3EWgo7zihAdG6S1rwv/vRtlnQWlSkVFxOZaTeQoQkMt526Fw7T2Ppe8bifPI3q8f21cAHsj6pAqqfg==
   dependencies:
     "@ethersproject/bignumber" "5.8.0"
     "@ethersproject/bytes" "5.8.0"
