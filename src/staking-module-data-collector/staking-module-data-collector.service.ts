@@ -39,16 +39,27 @@ export class StakingModuleDataCollectorService {
     meta,
     lidoKeys,
   }: State): Promise<StakingModuleData[]> {
+    const blockTag = { blockHash: meta.blockHash };
+
+    const depositableEther =
+      await this.stakingRouterService.getDepositableEther(blockTag);
+
     return await Promise.all(
       stakingModules.map(async (stakingModule) => {
+        const maxDepositsCount =
+          await this.stakingRouterService.getStakingModuleMaxDepositsCount(
+            stakingModule.id,
+            depositableEther,
+            blockTag,
+          );
+
         return {
           isModuleDepositsPaused:
             await this.stakingRouterService.isModuleDepositsPaused(
               stakingModule.id,
-              {
-                blockHash: meta.blockHash,
-              },
+              blockTag,
             ),
+          hasDepositsAllocation: maxDepositsCount > 0,
           nonce: stakingModule.nonce,
           stakingModuleId: stakingModule.id,
           stakingModuleAddress: stakingModule.stakingModuleAddress,

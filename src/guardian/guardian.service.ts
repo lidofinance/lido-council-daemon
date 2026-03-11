@@ -385,7 +385,8 @@ export class GuardianService implements OnModuleInit {
       stakingModuleData.unresolvedDuplicatedKeys.length > 0 ||
       alreadyPausedDeposits ||
       theftHappened ||
-      stakingModuleData.isModuleDepositsPaused;
+      stakingModuleData.isModuleDepositsPaused ||
+      !stakingModuleData.hasDepositsAllocation;
 
     if (ignoreDeposits) {
       this.logger.warn('Deposits are not available', {
@@ -394,6 +395,7 @@ export class GuardianService implements OnModuleInit {
         alreadyPausedDeposits,
         theftHappened,
         isModuleDepositsPaused: stakingModuleData.isModuleDepositsPaused,
+        hasDepositsAllocation: stakingModuleData.hasDepositsAllocation,
         stakingModuleId,
       });
     }

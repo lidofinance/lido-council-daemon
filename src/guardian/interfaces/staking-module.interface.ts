@@ -12,4 +12,5 @@ export interface StakingModuleData {
   frontRunKeys: RegistryKey[];
   unresolvedDuplicatedKeys: RegistryKey[];
   isModuleDepositsPaused: boolean;
+  hasDepositsAllocation: boolean;
 }

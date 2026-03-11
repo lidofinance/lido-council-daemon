@@ -4,6 +4,7 @@ import { IStakingModuleAbi__factory } from 'generated';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { BlockTag } from '@lido-nestjs/execution';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
+import { BigNumber } from '@ethersproject/bignumber';
 
 @Injectable()
 export class StakingRouterService {
@@ -93,9 +94,43 @@ export class StakingRouterService {
     return !isActive;
   }
 
+  /**
+   * Returns the maximum number of new deposits that can be made to a staking module
+   * given the available depositable ether.
+   */
+  public async getStakingModuleMaxDepositsCount(
+    stakingModuleId: number,
+    maxDepositsValue: BigNumber,
+    blockTag?: BlockTag,
+  ): Promise<number> {
+    const stakingRouterContract =
+      this.repositoryService.getCachedStakingRouterContract();
+
+    const result = await stakingRouterContract.getStakingModuleMaxDepositsCount(
+      stakingModuleId,
+      maxDepositsValue,
+      {
+        blockTag: blockTag as any,
+      },
+    );
+
+    return result.toNumber();
+  }
+
+  /**
+   * Returns the amount of ether available for deposits from the Lido buffer.
+   */
+  public async getDepositableEther(blockTag?: BlockTag): Promise<BigNumber> {
+    const lidoContract = this.repositoryService.getCachedLidoContract();
+
+    return await lidoContract.getDepositableEther({
+      blockTag: blockTag as any,
+    });
+  }
+
   public async getWithdrawalCredentials(blockTag?: BlockTag): Promise<string> {
     const stakingRouterContract =
-      await this.repositoryService.getCachedStakingRouterContract();
+      this.repositoryService.getCachedStakingRouterContract();
 
     return await stakingRouterContract.getWithdrawalCredentials({
       blockTag: blockTag as any,
