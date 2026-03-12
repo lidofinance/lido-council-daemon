@@ -128,32 +128,6 @@ export async function getStakingModulesInfo() {
   };
 }
 
-export async function getModulesWithDepositsCount(): Promise<number> {
-  const locator = getLocator();
-  const stakingRouterAddress = await locator.stakingRouter();
-  const lidoAddress = await locator.lido();
-
-  const stakingRouter = StakingRouterAbi__factory.connect(
-    stakingRouterAddress,
-    testSetupProvider,
-  );
-  const lido = LidoAbi__factory.connect(lidoAddress, testSetupProvider);
-
-  const depositableEther = await lido.getDepositableEther();
-  const modules = await stakingRouter.getStakingModules();
-
-  let count = 0;
-  for (const mod of modules) {
-    const maxDeposits = await stakingRouter.getStakingModuleMaxDepositsCount(
-      mod.id,
-      depositableEther,
-    );
-    if (maxDeposits.gt(0)) count++;
-  }
-
-  return count;
-}
-
 export async function getType(contractAddress: string) {
   const contract = IStakingModuleAbi__factory.connect(
     contractAddress,
