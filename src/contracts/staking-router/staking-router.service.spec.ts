@@ -123,6 +123,43 @@ describe('SecurityService', () => {
         );
       expect(result).toBe(0);
     });
+
+    it('should return 0 on CALL_EXCEPTION revert', async () => {
+      const loggerError = jest
+        .spyOn(stakingRouterService['logger'], 'error')
+        .mockImplementation(() => undefined);
+
+      jest.spyOn(provider, 'call').mockRejectedValue(
+        Object.assign(new Error('MATH_SUB_UNDERFLOW'), {
+          code: 'CALL_EXCEPTION',
+          reason: 'MATH_SUB_UNDERFLOW',
+        }),
+      );
+
+      const result =
+        await stakingRouterService.getStakingModuleMaxDepositsCount(
+          TEST_MODULE_ID,
+          BigNumber.from('32000000000000000000'),
+        );
+      expect(result).toBe(0);
+      expect(loggerError).toHaveBeenCalledWith(
+        'getStakingModuleMaxDepositsCount reverted, assuming 0',
+        { stakingModuleId: TEST_MODULE_ID, reason: 'MATH_SUB_UNDERFLOW' },
+      );
+    });
+
+    it('should rethrow non-CALL_EXCEPTION errors', async () => {
+      jest
+        .spyOn(provider, 'call')
+        .mockRejectedValue(new Error('network timeout'));
+
+      await expect(
+        stakingRouterService.getStakingModuleMaxDepositsCount(
+          TEST_MODULE_ID,
+          BigNumber.from('32000000000000000000'),
+        ),
+      ).rejects.toThrow('network timeout');
+    });
   });
 
   describe('getDepositableEther', () => {

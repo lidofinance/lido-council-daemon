@@ -106,15 +106,30 @@ export class StakingRouterService {
     const stakingRouterContract =
       this.repositoryService.getCachedStakingRouterContract();
 
-    const result = await stakingRouterContract.getStakingModuleMaxDepositsCount(
-      stakingModuleId,
-      maxDepositsValue,
-      {
-        blockTag: blockTag as any,
-      },
-    );
+    // Catching all contract reverts (CALL_EXCEPTION) to prevent a single broken/overallocated
+    // module from blocking deposits for all other healthy modules
+    try {
+      const result =
+        await stakingRouterContract.getStakingModuleMaxDepositsCount(
+          stakingModuleId,
+          maxDepositsValue,
+          {
+            blockTag: blockTag as any,
+          },
+        );
 
-    return result.toNumber();
+      return result.toNumber();
+    } catch (error: unknown) {
+      const err = error as { code?: string; reason?: string };
+      if (err.code === 'CALL_EXCEPTION') {
+        this.logger.error(
+          'getStakingModuleMaxDepositsCount reverted, assuming 0',
+          { stakingModuleId, reason: err.reason },
+        );
+        return 0;
+      }
+      throw error;
+    }
   }
 
   /**
