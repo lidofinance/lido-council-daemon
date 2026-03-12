@@ -150,6 +150,23 @@ describe('SecurityService', () => {
         }),
       );
     });
+
+    it('should rethrow non-CALL_EXCEPTION errors', async () => {
+      jest
+        .spyOn(repositoryService, 'getCachedStakingRouterContract')
+        .mockReturnValue({
+          getStakingModuleMaxDepositsCount: jest
+            .fn()
+            .mockRejectedValue(new Error('network timeout')),
+        } as any);
+
+      await expect(
+        stakingRouterService.getStakingModuleMaxDepositsCount(
+          TEST_MODULE_ID,
+          BigNumber.from('32000000000000000000'),
+        ),
+      ).rejects.toThrow('network timeout');
+    });
   });
 
   describe('getDepositableEther', () => {
