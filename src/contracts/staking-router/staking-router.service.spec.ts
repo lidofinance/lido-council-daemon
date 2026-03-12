@@ -20,6 +20,7 @@ describe('SecurityService', () => {
   let repositoryService: RepositoryService;
   let locatorService: LocatorService;
   let stakingRouterService: StakingRouterService;
+  let logger: any;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -37,9 +38,9 @@ describe('SecurityService', () => {
     locatorService = moduleRef.get(LocatorService);
     stakingRouterService = moduleRef.get(StakingRouterService);
 
-    jest
-      .spyOn(moduleRef.get(WINSTON_MODULE_NEST_PROVIDER), 'log')
-      .mockImplementation(() => undefined);
+    logger = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
+    jest.spyOn(logger, 'log').mockImplementation(() => undefined);
+    jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
 
     mockLocator(locatorService);
     await mockRepository(repositoryService);
@@ -110,10 +111,9 @@ describe('SecurityService', () => {
     it('should return 0 when module has no allocation', async () => {
       jest.spyOn(provider, 'call').mockImplementation(async () => {
         const iface = new Interface(StakingRouterAbi__factory.abi);
-        return iface.encodeFunctionResult(
-          'getStakingModuleMaxDepositsCount',
-          [0],
-        );
+        return iface.encodeFunctionResult('getStakingModuleMaxDepositsCount', [
+          0,
+        ]);
       });
 
       const result =
@@ -124,34 +124,41 @@ describe('SecurityService', () => {
       expect(result).toBe(0);
     });
 
-    it('should return 0 on CALL_EXCEPTION revert', async () => {
-      const loggerError = jest
-        .spyOn(stakingRouterService['logger'], 'error')
-        .mockImplementation(() => undefined);
-
-      jest.spyOn(provider, 'call').mockRejectedValue(
-        Object.assign(new Error('MATH_SUB_UNDERFLOW'), {
-          code: 'CALL_EXCEPTION',
-          reason: 'MATH_SUB_UNDERFLOW',
-        }),
-      );
+    it('should return 0 on MATH_SUB_UNDERFLOW', async () => {
+      jest
+        .spyOn(repositoryService, 'getCachedStakingRouterContract')
+        .mockReturnValue({
+          getStakingModuleMaxDepositsCount: jest.fn().mockRejectedValue({
+            code: 'CALL_EXCEPTION',
+            reason: 'MATH_SUB_UNDERFLOW',
+            message: 'call revert exception: MATH_SUB_UNDERFLOW',
+          }),
+        } as any);
 
       const result =
         await stakingRouterService.getStakingModuleMaxDepositsCount(
           TEST_MODULE_ID,
           BigNumber.from('32000000000000000000'),
         );
+
       expect(result).toBe(0);
-      expect(loggerError).toHaveBeenCalledWith(
-        'getStakingModuleMaxDepositsCount reverted, assuming 0',
-        { stakingModuleId: TEST_MODULE_ID, reason: 'MATH_SUB_UNDERFLOW' },
+      expect(logger.warn).toHaveBeenCalledWith(
+        'Treat staking module allocation underflow as zero',
+        expect.objectContaining({
+          stakingModuleId: TEST_MODULE_ID,
+          maxDepositsValue: '32000000000000000000',
+        }),
       );
     });
 
     it('should rethrow non-CALL_EXCEPTION errors', async () => {
       jest
-        .spyOn(provider, 'call')
-        .mockRejectedValue(new Error('network timeout'));
+        .spyOn(repositoryService, 'getCachedStakingRouterContract')
+        .mockReturnValue({
+          getStakingModuleMaxDepositsCount: jest
+            .fn()
+            .mockRejectedValue(new Error('network timeout')),
+        } as any);
 
       await expect(
         stakingRouterService.getStakingModuleMaxDepositsCount(

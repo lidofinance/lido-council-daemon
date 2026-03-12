@@ -106,8 +106,6 @@ export class StakingRouterService {
     const stakingRouterContract =
       this.repositoryService.getCachedStakingRouterContract();
 
-    // Catching all contract reverts (CALL_EXCEPTION) to prevent a single broken/overallocated
-    // module from blocking deposits for all other healthy modules
     try {
       const result =
         await stakingRouterContract.getStakingModuleMaxDepositsCount(
@@ -119,15 +117,20 @@ export class StakingRouterService {
         );
 
       return result.toNumber();
-    } catch (error: unknown) {
-      const err = error as { code?: string; reason?: string };
-      if (err.code === 'CALL_EXCEPTION') {
-        this.logger.error(
-          'getStakingModuleMaxDepositsCount reverted, assuming 0',
-          { stakingModuleId, reason: err.reason },
-        );
+    } catch (error) {
+      // Reproduced only on fork tests with artificially corrupted module state:
+      // operator count is cut without keeping all module summary/key counters in sync.
+      // This state is not reachable via normal prod flows, but guardian must still
+      // degrade safely: skip deposits for the broken module and continue checks/unvet
+      // for the rest of modules/operators instead of aborting the whole cycle.
+      if (this.isNoAllocationMathUnderflow(error)) {
+        this.logger.warn('Treat staking module allocation underflow as zero', {
+          stakingModuleId,
+          maxDepositsValue: maxDepositsValue.toString(),
+        });
         return 0;
       }
+
       throw error;
     }
   }
@@ -150,5 +153,21 @@ export class StakingRouterService {
     return await stakingRouterContract.getWithdrawalCredentials({
       blockTag: blockTag as any,
     });
+  }
+
+  private isNoAllocationMathUnderflow(error: unknown): boolean {
+    const callError = error as
+      | {
+          code?: string;
+          reason?: string;
+          message?: string;
+        }
+      | undefined;
+
+    return (
+      callError?.code === 'CALL_EXCEPTION' &&
+      (callError.reason === 'MATH_SUB_UNDERFLOW' ||
+        callError.message?.includes('MATH_SUB_UNDERFLOW') === true)
+    );
   }
 }
