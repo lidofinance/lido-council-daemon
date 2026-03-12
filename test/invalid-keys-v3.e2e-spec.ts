@@ -121,6 +121,21 @@ describe('Signature validation e2e test', () => {
     unvetSigningKeys = jest.spyOn(securityService, 'unvetSigningKeys');
   };
 
+  const getNewDepositMessages = (fromCallIndex: number) => {
+    return sendDepositMessage.mock.calls
+      .slice(fromCallIndex)
+      .map(([message]) => message as { stakingModuleId: number });
+  };
+
+  const expectNoDepositsForModule = (moduleId: number, fromCallIndex = 0) => {
+    const newDepositMessages = getNewDepositMessages(fromCallIndex);
+    expect(
+      newDepositMessages.some(
+        (message) => message.stakingModuleId === moduleId,
+      ),
+    ).toBe(false);
+  };
+
   let stakingModulesAddresses: string[];
   let curatedModuleAddress: string;
   let stakingModulesCount: number;
@@ -243,6 +258,7 @@ describe('Signature validation e2e test', () => {
     });
 
     test('Unvetted key will not set module on soft pause', async () => {
+      const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
       await guardianService.handleNewBlock();
 
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
@@ -250,7 +266,7 @@ describe('Signature validation e2e test', () => {
       // 4 - number of modules
       expect(validateKeys).toHaveBeenCalledTimes(stakingModulesCount);
       expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
-      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
+      expectNoDepositsForModule(1, depositCallsBeforeCycle);
     });
 
     test('Increase staking limit', async () => {
@@ -269,6 +285,7 @@ describe('Signature validation e2e test', () => {
 
     test('Unvetting', async () => {
       const currentBlock = await provider.getBlock('latest');
+      const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
@@ -298,12 +315,12 @@ describe('Signature validation e2e test', () => {
         '0x00000000000000000000000000000003',
         expect.any(Object),
       );
+
+      expectNoDepositsForModule(1, depositCallsBeforeCycle);
     });
 
     test('No deposits for module', async () => {
-      expect(sendDepositMessage).toHaveBeenCalledTimes(
-        2 * stakingModulesCount - 1,
-      );
+      expectNoDepositsForModule(1);
     });
 
     test('Check staking limit for operator after unvetting', async () => {
