@@ -166,6 +166,28 @@ describe('Duplicates e2e tests', () => {
     return moduleState;
   };
 
+  const expectDepositsToMatchModuleState = async (
+    moduleId: number,
+    fromCallIndex = 0,
+  ) => {
+    const stakingModulesData = await collectCurrentStakingModulesData();
+    const moduleState = getModuleState(stakingModulesData, moduleId);
+    const newDepositMessages = getNewDepositMessages(fromCallIndex);
+
+    const shouldReceiveDeposits =
+      getModuleIssuesCount(moduleState) === 0 &&
+      !moduleState.isModuleDepositsPaused &&
+      moduleState.hasDepositsAllocation;
+
+    expect(
+      newDepositMessages.some(
+        (message) => message.stakingModuleId === moduleId,
+      ),
+    ).toBe(shouldReceiveDeposits);
+
+    return moduleState;
+  };
+
   const collectCurrentStakingModulesData = async () => {
     const { data: stakingModules, elBlockSnapshot } =
       await keysApiService.getModules();
@@ -359,7 +381,12 @@ describe('Duplicates e2e tests', () => {
 
     test('deposits work', async () => {
       expectDepositsStillWork(firstCycleDepositCalls);
-      expectNoDepositsForModule(1, firstCycleDepositCalls);
+
+      const norState = await expectDepositsToMatchModuleState(
+        1,
+        firstCycleDepositCalls,
+      );
+      expect(getModuleIssuesCount(norState)).toEqual(0);
     });
 
     test('increase staking limit for the first operator', async () => {
@@ -383,7 +410,12 @@ describe('Duplicates e2e tests', () => {
 
     test('deposits work', async () => {
       expectDepositsStillWork(secondCycleDepositCalls);
-      expectNoDepositsForModule(1, secondCycleDepositCalls);
+
+      const norState = await expectDepositsToMatchModuleState(
+        1,
+        secondCycleDepositCalls,
+      );
+      expect(getModuleIssuesCount(norState)).toEqual(0);
     });
 
     test('increase staking limit for the second operator', async () => {
@@ -538,7 +570,12 @@ describe('Duplicates e2e tests', () => {
 
     test('Deposits work', async () => {
       expectDepositsStillWork(firstCycleDepositCalls);
-      expectNoDepositsForModule(1, firstCycleDepositCalls);
+
+      const norState = await expectDepositsToMatchModuleState(
+        1,
+        firstCycleDepositCalls,
+      );
+      expect(getModuleIssuesCount(norState)).toEqual(0);
     });
 
     test('Increase staking limit for the first operator', async () => {
@@ -675,7 +712,12 @@ describe('Duplicates e2e tests', () => {
 
     test('Deposits work', async () => {
       expectDepositsStillWork(firstCycleDepositCalls);
-      expectNoDepositsForModule(1, firstCycleDepositCalls);
+
+      const norState = await expectDepositsToMatchModuleState(
+        1,
+        firstCycleDepositCalls,
+      );
+      expect(getModuleIssuesCount(norState)).toEqual(0);
     });
 
     test('Increase staking limit for the first operator', async () => {
@@ -1003,8 +1045,18 @@ describe('Duplicates e2e tests', () => {
 
     test('deposits work', async () => {
       expectDepositsStillWork(firstCycleDepositCalls);
-      expectNoDepositsForModule(1, firstCycleDepositCalls);
-      expectNoDepositsForModule(2, firstCycleDepositCalls);
+
+      const norState = await expectDepositsToMatchModuleState(
+        1,
+        firstCycleDepositCalls,
+      );
+      const sdvtState = await expectDepositsToMatchModuleState(
+        2,
+        firstCycleDepositCalls,
+      );
+
+      expect(getModuleIssuesCount(norState)).toEqual(0);
+      expect(getModuleIssuesCount(sdvtState)).toEqual(0);
     });
 
     test('increase staking limit for op = 0 of NOR contract', async () => {
