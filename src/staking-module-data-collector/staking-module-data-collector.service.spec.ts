@@ -91,7 +91,7 @@ describe('StakingModuleDataCollectorService', () => {
       );
     });
 
-    it('should cap allocation check at 32 ETH when depositableEther > 32 ETH', async () => {
+    it('should use real depositableEther when greater than 32 ETH', async () => {
       const largeDepositable = ethers.utils.parseEther('320');
       getDepositableEtherSpy.mockResolvedValue(largeDepositable);
 
@@ -103,12 +103,12 @@ describe('StakingModuleDataCollectorService', () => {
 
       expect(getMaxDepositsSpy).toHaveBeenCalledWith(
         mockModule.id,
-        ONE_DEPOSIT,
+        largeDepositable,
         expect.anything(),
       );
     });
 
-    it('should use depositableEther as-is when less than 32 ETH', async () => {
+    it('should floor allocation check at 32 ETH when depositableEther < 32 ETH', async () => {
       const smallDepositable = ethers.utils.parseEther('10');
       getDepositableEtherSpy.mockResolvedValue(smallDepositable);
 
@@ -120,7 +120,7 @@ describe('StakingModuleDataCollectorService', () => {
 
       expect(getMaxDepositsSpy).toHaveBeenCalledWith(
         mockModule.id,
-        smallDepositable,
+        ONE_DEPOSIT,
         expect.anything(),
       );
     });
