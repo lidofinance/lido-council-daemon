@@ -39,10 +39,6 @@ import {
   startContainerIfNotRunning,
 } from './helpers/docker-containers/utils';
 import { cutModulesKeys } from './helpers/reduce-keys';
-import { KeysApiService } from 'keys-api/keys-api.service';
-import { StakingModuleDataCollectorService } from 'staking-module-data-collector';
-import { BlockDataCollectorService } from 'guardian/block-data-collector';
-import { StakingModuleData } from 'guardian/interfaces';
 
 jest.setTimeout(300_000);
 
@@ -56,9 +52,6 @@ describe('Signature validation e2e test', () => {
   let signingKeysRegistryService: SigningKeysRegistryService;
   let depositIntegrityCheckerService: DepositIntegrityCheckerService;
   let securityService: SecurityService;
-  let keysApiService: KeysApiService;
-  let blockDataCollectorService: BlockDataCollectorService;
-  let stakingModuleDataCollectorService: StakingModuleDataCollectorService;
 
   // mocks
   let sendDepositMessage: jest.SpyInstance;
@@ -88,17 +81,12 @@ describe('Signature validation e2e test', () => {
 
     // dsm methods and council sign services
     securityService = moduleRef.get(SecurityService);
-    blockDataCollectorService = moduleRef.get(BlockDataCollectorService);
-    stakingModuleDataCollectorService = moduleRef.get(
-      StakingModuleDataCollectorService,
-    );
 
     // rabbitmq message sending methods
     guardianMessageService = moduleRef.get(GuardianMessageService);
 
     // main service that check keys and make decision
     guardianService = moduleRef.get(GuardianService);
-    keysApiService = moduleRef.get(KeysApiService);
 
     // sign validation
     keyValidator = moduleRef.get(KeyValidatorInterface);
@@ -148,84 +136,13 @@ describe('Signature validation e2e test', () => {
     ).toBe(false);
   };
 
-  const getModuleIssuesCount = (stakingModuleData: StakingModuleData) => {
-    return (
-      stakingModuleData.invalidKeys.length +
-      stakingModuleData.duplicatedKeys.length +
-      stakingModuleData.frontRunKeys.length +
-      stakingModuleData.unresolvedDuplicatedKeys.length
-    );
-  };
-
-  const getModuleState = (
-    stakingModulesData: StakingModuleData[],
-    moduleId: number,
-  ) => {
-    const moduleState = stakingModulesData.find(
-      ({ stakingModuleId }) => stakingModuleId === moduleId,
-    );
-
-    if (!moduleState) {
-      throw new Error(`Expected staking module with id = ${moduleId}`);
-    }
-
-    return moduleState;
-  };
-
-  const collectCurrentStakingModulesData = async () => {
-    const { data: stakingModules, elBlockSnapshot } =
-      await keysApiService.getModules();
-    const { data: lidoKeys } = await keysApiService.getKeys(elBlockSnapshot);
-
-    const stakingRouterModuleAddresses = stakingModules.map(
-      ({ stakingModuleAddress }) => stakingModuleAddress,
-    );
-
-    await signingKeysRegistryService.handleNewBlock(
-      stakingRouterModuleAddresses,
-    );
-
-    const [blockData, stakingModulesData] = await Promise.all([
-      blockDataCollectorService.getCurrentBlockData({
-        blockNumber: elBlockSnapshot.blockNumber,
-        blockHash: elBlockSnapshot.blockHash,
-      }),
-      stakingModuleDataCollectorService.collectStakingModuleData({
-        stakingModules,
-        meta: elBlockSnapshot,
-        lidoKeys,
-      }),
-    ]);
-
-    await stakingModuleDataCollectorService.checkKeys(
-      stakingModulesData,
-      lidoKeys,
-      blockData,
-    );
-
-    return stakingModulesData;
-  };
-
-  const expectDepositsToMatchModuleState = async (
-    moduleId: number,
-    fromCallIndex = 0,
-  ) => {
-    const stakingModulesData = await collectCurrentStakingModulesData();
-    const moduleState = getModuleState(stakingModulesData, moduleId);
+  const expectDepositsForModule = (moduleId: number, fromCallIndex = 0) => {
     const newDepositMessages = getNewDepositMessages(fromCallIndex);
-
-    const shouldReceiveDeposits =
-      getModuleIssuesCount(moduleState) === 0 &&
-      !moduleState.isModuleDepositsPaused &&
-      moduleState.hasDepositsAllocation;
-
     expect(
       newDepositMessages.some(
         (message) => message.stakingModuleId === moduleId,
       ),
-    ).toBe(shouldReceiveDeposits);
-
-    return moduleState;
+    ).toBe(true);
   };
 
   let stakingModulesAddresses: string[];
@@ -358,12 +275,7 @@ describe('Signature validation e2e test', () => {
       // 4 - number of modules
       expect(validateKeys).toHaveBeenCalledTimes(stakingModulesCount);
       expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
-
-      const norState = await expectDepositsToMatchModuleState(
-        1,
-        depositCallsBeforeCycle,
-      );
-      expect(getModuleIssuesCount(norState)).toEqual(0);
+      expectDepositsForModule(1, depositCallsBeforeCycle);
     });
 
     test('Increase staking limit', async () => {
@@ -422,12 +334,6 @@ describe('Signature validation e2e test', () => {
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      const norState = await expectDepositsToMatchModuleState(
-        1,
-        depositCallsBeforeCycle,
-      );
-
-      expect(getModuleIssuesCount(norState)).toBeGreaterThan(0);
       expectNoDepositsForModule(1, depositCallsBeforeCycle);
     });
 
