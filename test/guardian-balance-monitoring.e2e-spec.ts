@@ -139,6 +139,15 @@ describe('Guardian balance ', () => {
     ).toBe(false);
   };
 
+  const expectDepositsForModule = (moduleId: number, fromCallIndex = 0) => {
+    const newDepositMessages = getNewDepositMessages(fromCallIndex);
+    expect(
+      newDepositMessages.some(
+        (message) => message.stakingModuleId === moduleId,
+      ),
+    ).toBe(true);
+  };
+
   let stakingModulesAddresses: string[];
   let curatedModuleAddress: string;
   let stakingModulesCount: number;
@@ -274,7 +283,7 @@ describe('Guardian balance ', () => {
       // 4 - number of modules
       expect(validateKeys).toHaveBeenCalledTimes(stakingModulesCount);
       expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
-      expectNoDepositsForModule(1, depositCallsBeforeCycle);
+      expectDepositsForModule(1, depositCallsBeforeCycle);
     });
 
     test('Increase staking limit', async () => {
@@ -356,7 +365,12 @@ describe('Guardian balance ', () => {
     }, 60_000);
 
     test('No deposits for module', async () => {
-      expectNoDepositsForModule(1);
+      const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
+
+      await guardianService.handleNewBlock();
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+      expectNoDepositsForModule(1, depositCallsBeforeCycle);
     });
 
     test('Check staking limit for operator after unvetting', async () => {

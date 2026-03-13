@@ -47,12 +47,11 @@ export class StakingModuleDataCollectorService {
     const depositableEther =
       await this.stakingRouterService.getDepositableEther(blockTag);
 
-    // Check allocation for at most 1 deposit (32 ETH) to sign only for the most
-    // prioritized staking module, reducing the griefing attack surface (ORC-635).
-    // Ensures we don't sign when depositableEther < 32 ETH (0 deposits possible).
+    // Ensure the most prioritized staking module always receives deposit
+    // messages by using max(depositableEther, 32 ETH) (ORC-635).
     const allocationCheckValue = depositableEther.gt(ONE_DEPOSIT_VALUE)
-      ? ONE_DEPOSIT_VALUE
-      : depositableEther;
+      ? depositableEther
+      : ONE_DEPOSIT_VALUE;
 
     return await Promise.all(
       stakingModules.map(async (stakingModule) => {
