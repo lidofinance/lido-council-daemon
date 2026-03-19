@@ -1,4 +1,4 @@
-import { CHAINS } from '@lido-sdk/constants';
+import { CHAINS } from '@lido-nestjs/constants';
 
 const LOCAL_DEVNET_CHAIN_ID = 32382;
 const PECTRA_5_DEVNET_CHAIN_ID = 7088110746;

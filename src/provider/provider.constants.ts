@@ -1,4 +1,3 @@
-export const ERRORS_LIMIT_EXCEEDED = [-32005, -32064, -32600, -32602];
-export const MAX_TIME_WITHOUT_NEW_BLOCKS_MS = 15 * 60 * 1000;
-
-export const FETCH_EVENTS_RETRY_TIMEOUT_MS = 5_000;
+export const MAIN_PROVIDER_REQUEST_TIMEOUT = 10 * 60 * 1000; // 10 minutes
+// Don't reset provider URL selection, only on error
+export const PROVIDER_RESET_INTERVAL = 60 * 60 * 1000 * 24 * 10; // 10 days

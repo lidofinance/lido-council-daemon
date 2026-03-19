@@ -46,6 +46,7 @@ export const PrometheusRPCRequestsHistogramProvider = makeHistogramProvider({
   name: METRIC_RPC_REQUEST_DURATION,
   help: 'RPC request duration',
   buckets: [0.1, 0.2, 0.3, 0.6, 1, 1.5, 2, 5],
+  labelNames: ['result'] as const,
 });
 
 export const PrometheusRPCErrorsCounterProvider = makeCounterProvider({
@@ -64,6 +65,7 @@ export const PrometheusDataBusRPCRequestsHistogramProvider =
     name: METRIC_DATA_BUS_RPC_REQUEST_DURATION,
     help: 'DataBus RPC request duration',
     buckets: [0.1, 0.2, 0.3, 0.6, 1, 1.5, 2, 5],
+    labelNames: ['result'] as const,
   });
 
 export const PrometheusDataBusRPCErrorsCounterProvider = makeCounterProvider({

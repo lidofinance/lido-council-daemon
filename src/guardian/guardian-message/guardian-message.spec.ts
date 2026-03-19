@@ -5,12 +5,10 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
 import { ConfigModule } from 'common/config';
 import { PrometheusModule } from 'common/prometheus';
-import { MessagesModule, MessagesService } from 'messages';
+import { MessagesService } from 'messages';
 
-import {
-  GuardianMessageModule,
-  GuardianMessageService,
-} from '../guardian-message';
+import { GuardianMessageService } from '../guardian-message';
+import { TransportInterface } from 'transport';
 
 jest.mock('../../transport/stomp/stomp.client');
 
@@ -20,14 +18,24 @@ describe('GuardianService', () => {
   let messagesService: MessagesService;
 
   beforeEach(async () => {
+    const mockTransportService = {
+      publish: jest.fn(),
+    };
+
     const moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot(),
         MockProviderModule.forRoot(),
         LoggerModule,
-        MessagesModule,
-        GuardianMessageModule,
         PrometheusModule,
+      ],
+      providers: [
+        GuardianMessageService,
+        MessagesService,
+        {
+          provide: TransportInterface,
+          useValue: mockTransportService,
+        },
       ],
     }).compile();
 
@@ -63,7 +71,7 @@ describe('GuardianService', () => {
 
       await guardianMessageService.sendMessageFromGuardian(message);
 
-      expect(mockSendMessage).toBeCalledTimes(1);
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
       expect(mockSendMessage).toBeCalledWith(expect.objectContaining(message));
     });
 

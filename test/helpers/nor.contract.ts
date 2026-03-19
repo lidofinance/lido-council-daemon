@@ -1,6 +1,6 @@
 import { Contract } from '@ethersproject/contracts';
 import { curatedAbi } from './curated.abi';
-import { EVM_SCRIPT_EXECUTOR } from './easy-tack';
+import { EVM_SCRIPT_EXECUTOR } from './config';
 import { accountImpersonate, setBalance, testSetupProvider } from './provider';
 
 export class CuratedOnchainV1 {
@@ -55,6 +55,11 @@ export class CuratedOnchainV1 {
     const CHAIN_ID = network.chainId;
 
     const signer_account = EVM_SCRIPT_EXECUTOR[CHAIN_ID];
+    if (!signer_account) {
+      throw new Error(
+        `EVM_SCRIPT_EXECUTOR address not found for chain ID: ${CHAIN_ID}`,
+      );
+    }
 
     await accountImpersonate(signer_account);
     await setBalance(signer_account, 5);

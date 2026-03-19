@@ -5,10 +5,24 @@ import { TEST_SERVER_URL } from '../constants';
 export const testSetupProvider = new JsonRpcProvider(TEST_SERVER_URL);
 
 export const accountImpersonate = async (account: string): Promise<void> => {
+  if (!account || account === 'undefined' || account === 'null') {
+    throw new Error(
+      `Invalid account address provided to accountImpersonate: "${account}". ` +
+        `This usually means an address config is missing for the current chain.`,
+    );
+  }
+
   testSetupProvider.send('hardhat_impersonateAccount', [account]);
 };
 
 export const setBalance = async (account: string, eth: number) => {
+  if (!account || account === 'undefined' || account === 'null') {
+    throw new Error(
+      `Invalid account address provided to setBalance: "${account}". ` +
+        `This usually means an address config is missing for the current chain.`,
+    );
+  }
+
   const amountInWei = ethers.utils.parseEther(eth.toString());
 
   await testSetupProvider.send('hardhat_setBalance', [

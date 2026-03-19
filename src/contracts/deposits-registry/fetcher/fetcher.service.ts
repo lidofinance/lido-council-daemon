@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, LoggerService } from '@nestjs/common';
 import { BlsService } from 'bls';
 import { RepositoryService } from 'contracts/repository';
 import { DepositEventEvent } from 'generated/DepositAbi';
-
-import { ProviderService } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { fetchEventsFallOver } from 'utils/fetch-events-utils';
 import { parseLittleEndian64 } from '../crypto';
 import { DEPLOYMENT_BLOCK_NETWORK } from '../deposits-registry.constants';
 import { DepositEvent, VerifiedDepositEventGroup } from '../interfaces';
@@ -12,9 +13,10 @@ import { DepositTree } from '../sanity-checker/integrity-checker/deposit-tree';
 @Injectable()
 export class DepositsRegistryFetcherService {
   constructor(
-    private providerService: ProviderService,
+    private provider: SimpleFallbackJsonRpcBatchProvider,
     private repositoryService: RepositoryService,
     private blsService: BlsService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
   ) {}
 
   /**
@@ -28,10 +30,11 @@ export class DepositsRegistryFetcherService {
     startBlock: number,
     endBlock: number,
   ): Promise<VerifiedDepositEventGroup> {
-    return await this.providerService.fetchEventsFallOver(
+    return await fetchEventsFallOver(
       startBlock,
       endBlock,
       this.fetchEvents.bind(this),
+      this.logger,
     );
   }
 
@@ -45,13 +48,57 @@ export class DepositsRegistryFetcherService {
     startBlock: number,
     endBlock: number,
   ): Promise<VerifiedDepositEventGroup> {
+    this.logger.log('fetchEvents: getting contract', {
+      startBlock,
+      endBlock,
+    });
     const contract = await this.repositoryService.getCachedDepositContract();
+
+    this.logger.log('fetchEvents: starting queryFilter', {
+      startBlock,
+      endBlock,
+    });
+    const queryStartTime = Date.now();
     const filter = contract.filters.DepositEvent();
     const rawEvents = await contract.queryFilter(filter, startBlock, endBlock);
-    const events = rawEvents.map((rawEvent) => {
+    const queryDurationMs = Date.now() - queryStartTime;
+
+    this.logger.log('fetchEvents: queryFilter completed', {
+      startBlock,
+      endBlock,
+      eventsCount: rawEvents.length,
+      queryDurationMs,
+    });
+
+    if (rawEvents.length === 0) {
+      return { events: [], startBlock, endBlock };
+    }
+
+    this.logger.log('fetchEvents: starting BLS verification', {
+      eventsCount: rawEvents.length,
+    });
+
+    const blsStartTime = Date.now();
+    const events = rawEvents.map((rawEvent, index) => {
+      if (index > 0 && index % 2000 === 0) {
+        const elapsed = Date.now() - blsStartTime;
+        this.logger.log('fetchEvents: BLS verification progress', {
+          processed: index,
+          total: rawEvents.length,
+          elapsedMs: elapsed,
+        });
+      }
       const formatted = this.formatEvent(rawEvent);
       const valid = this.verifyDeposit(formatted);
       return { valid, ...formatted };
+    });
+    const blsDurationMs = Date.now() - blsStartTime;
+
+    const avgPerEvent = blsDurationMs / rawEvents.length;
+    this.logger.log('fetchEvents: BLS verification completed', {
+      eventsCount: rawEvents.length,
+      blsDurationMs,
+      avgPerEventMs: Math.round(avgPerEvent * 100) / 100,
     });
 
     return { events, startBlock, endBlock };
@@ -115,7 +162,8 @@ export class DepositsRegistryFetcherService {
    * @returns block number
    */
   public async getDeploymentBlockByNetwork(): Promise<number> {
-    const chainId = await this.providerService.getChainId();
+    const network = await this.provider.getNetwork();
+    const chainId = network.chainId;
     const address = DEPLOYMENT_BLOCK_NETWORK[chainId];
     if (address == null) throw new Error(`Chain ${chainId} is not supported`);
 

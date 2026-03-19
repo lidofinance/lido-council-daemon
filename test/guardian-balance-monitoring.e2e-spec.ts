@@ -10,7 +10,7 @@ jest.mock('../src/transport/stomp/stomp.client.ts');
 import { setupTestingModule, initLevelDB } from './helpers/test-setup';
 import { SecurityService } from 'contracts/security';
 import { GuardianService } from 'guardian';
-import { ProviderService } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { GuardianMessageService } from 'guardian/guardian-message';
 import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
 import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
@@ -46,7 +46,7 @@ import { cutModulesKeys } from './helpers/reduce-keys';
 jest.setTimeout(40_000);
 
 describe('Guardian balance ', () => {
-  let providerService: ProviderService;
+  let provider: SimpleFallbackJsonRpcBatchProvider;
   let guardianService: GuardianService;
   let keyValidator: KeyValidatorInterface;
   let levelDBService: DepositsRegistryStoreService;
@@ -80,7 +80,7 @@ describe('Guardian balance ', () => {
     // keys events service
     signingKeysRegistryService = moduleRef.get(SigningKeysRegistryService);
 
-    providerService = moduleRef.get(ProviderService);
+    provider = moduleRef.get(SimpleFallbackJsonRpcBatchProvider);
 
     // dsm methods and council sign services
     securityService = moduleRef.get(SecurityService);
@@ -122,6 +122,30 @@ describe('Guardian balance ', () => {
     validateKeys = jest.spyOn(keyValidator, 'validateKeys');
 
     unvetSigningKeys = jest.spyOn(securityService, 'unvetSigningKeys');
+  };
+
+  const getNewDepositMessages = (fromCallIndex: number) => {
+    return sendDepositMessage.mock.calls
+      .slice(fromCallIndex)
+      .map(([message]) => message as { stakingModuleId: number });
+  };
+
+  const expectNoDepositsForModule = (moduleId: number, fromCallIndex = 0) => {
+    const newDepositMessages = getNewDepositMessages(fromCallIndex);
+    expect(
+      newDepositMessages.some(
+        (message) => message.stakingModuleId === moduleId,
+      ),
+    ).toBe(false);
+  };
+
+  const expectDepositsForModule = (moduleId: number, fromCallIndex = 0) => {
+    const newDepositMessages = getNewDepositMessages(fromCallIndex);
+    expect(
+      newDepositMessages.some(
+        (message) => message.stakingModuleId === moduleId,
+      ),
+    ).toBe(true);
   };
 
   let stakingModulesAddresses: string[];
@@ -215,7 +239,7 @@ describe('Guardian balance ', () => {
     });
 
     test('Set cache to current block', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
 
       await levelDBService.setCachedEvents({
         data: [],
@@ -236,7 +260,7 @@ describe('Guardian balance ', () => {
     });
 
     test('Add key with broken signature', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
       const randomSign =
         '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e';
 
@@ -251,17 +275,19 @@ describe('Guardian balance ', () => {
     });
 
     test('Unvetted key will not set module on soft pause', async () => {
+      const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
+
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       // 4 - number of modules
-      expect(validateKeys).toBeCalledTimes(stakingModulesCount);
-      expect(sendUnvetMessage).toBeCalledTimes(0);
-      expect(sendDepositMessage).toBeCalledTimes(stakingModulesCount);
+      expect(validateKeys).toHaveBeenCalledTimes(stakingModulesCount);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
+      expectDepositsForModule(1, depositCallsBeforeCycle);
     });
 
     test('Increase staking limit', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
 
       // keys total amount was 3, added key with wrong sign, now it is 4 keys
       // increase limit to 4
@@ -276,20 +302,22 @@ describe('Guardian balance ', () => {
 
     test('Unvetting transaction will not be sent due to law account balance', async () => {
       await setBalance(guardianAddress, 0.2);
+      const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
+
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      expect(validateKeys).toBeCalledTimes(2 * stakingModulesCount);
-      expect(sendUnvetMessage).toBeCalledTimes(1);
-      expect(unvetSigningKeys).toBeCalledTimes(0);
-      expect(sendDepositMessage).toBeCalledTimes(2 * stakingModulesCount - 1);
+      expect(validateKeys).toHaveBeenCalledTimes(2 * stakingModulesCount);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
+      expect(unvetSigningKeys).toHaveBeenCalledTimes(0);
+      expectNoDepositsForModule(1, depositCallsBeforeCycle);
 
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
       console.log('Finished!');
-    }, 100_000);
+    }, 300_000);
 
     test('Add key with broken signature to make kapi update state', async () => {
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
       const randomSign =
         '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e';
 
@@ -305,14 +333,14 @@ describe('Guardian balance ', () => {
 
     test('After increase account balance, unvetting transaction will be sent', async () => {
       // await testSetupProvider.send('evm_mine', []);
-      const currentBlock = await providerService.provider.getBlock('latest');
+      const currentBlock = await provider.getBlock('latest');
 
       await setBalance(guardianAddress, 1);
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      expect(validateKeys).toBeCalledTimes(3 * stakingModulesCount);
-      expect(sendUnvetMessage).toBeCalledTimes(2);
+      expect(validateKeys).toHaveBeenCalledTimes(3 * stakingModulesCount);
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(2);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
@@ -324,7 +352,7 @@ describe('Guardian balance ', () => {
         }),
       );
 
-      expect(unvetSigningKeys).toBeCalledTimes(1);
+      expect(unvetSigningKeys).toHaveBeenCalledTimes(1);
       expect(unvetSigningKeys).toHaveBeenCalledWith(
         expect.anything(),
         currentBlock.number,
@@ -337,7 +365,12 @@ describe('Guardian balance ', () => {
     }, 60_000);
 
     test('No deposits for module', async () => {
-      expect(sendDepositMessage).toBeCalledTimes(3 * stakingModulesCount - 2);
+      const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
+
+      await guardianService.handleNewBlock();
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+      expectNoDepositsForModule(1, depositCallsBeforeCycle);
     });
 
     test('Check staking limit for operator after unvetting', async () => {

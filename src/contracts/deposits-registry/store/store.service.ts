@@ -7,7 +7,7 @@ import {
   MAX_DEPOSIT_COUNT,
   DB_LAYER_DIR,
 } from './store.constants';
-import { ProviderService } from 'provider';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import {
   VerifiedDepositEvent,
   VerifiedDepositEventsCache,
@@ -24,7 +24,7 @@ export class DepositsRegistryStoreService {
   private cache!: VerifiedDepositEventsCache;
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-    private providerService: ProviderService,
+    private provider: SimpleFallbackJsonRpcBatchProvider,
     @InjectMetric(METRIC_JOB_DURATION)
     private jobDurationMetric: Histogram<string>,
     @Inject(DB_DIR) private cacheDir: string,
@@ -37,9 +37,29 @@ export class DepositsRegistryStoreService {
   ) {}
 
   public async initialize() {
+    this.logger.log('Starting setupLevel...', 'DepositsRegistryStoreService');
     await this.setupLevel();
+    this.logger.log('setupLevel completed', 'DepositsRegistryStoreService');
+
+    this.logger.log(
+      'Starting setupEventsCache...',
+      'DepositsRegistryStoreService',
+    );
     await this.setupEventsCache();
+    this.logger.log(
+      'setupEventsCache completed',
+      'DepositsRegistryStoreService',
+    );
+
+    this.logger.log(
+      'Starting validateAndCleanInconsistentCache...',
+      'DepositsRegistryStoreService',
+    );
     await this.validateAndCleanInconsistentCache();
+    this.logger.log(
+      'validateAndCleanInconsistentCache completed',
+      'DepositsRegistryStoreService',
+    );
   }
 
   /**
@@ -49,10 +69,26 @@ export class DepositsRegistryStoreService {
    * @private
    */
   private async setupLevel() {
-    this.db = new Level(await this.getDBDirPath(), {
+    this.logger.log('Calling getDBDirPath...', 'DepositsRegistryStoreService');
+    const dbPath = await this.getDBDirPath();
+    this.logger.log(
+      `getDBDirPath returned: ${dbPath}`,
+      'DepositsRegistryStoreService',
+    );
+
+    this.logger.log(
+      'Creating Level instance...',
+      'DepositsRegistryStoreService',
+    );
+    this.db = new Level(dbPath, {
       valueEncoding: 'json',
     });
+    this.logger.log('Opening database...', 'DepositsRegistryStoreService');
     await this.db.open();
+    this.logger.log(
+      'Database opened successfully',
+      'DepositsRegistryStoreService',
+    );
   }
 
   /**
@@ -79,7 +115,16 @@ export class DepositsRegistryStoreService {
    * @private
    */
   private async getDBDirPath(): Promise<string> {
-    const chainId = await this.providerService.getChainId();
+    this.logger.log(
+      'Calling provider.getNetwork()...',
+      'DepositsRegistryStoreService',
+    );
+    const network = await this.provider.getNetwork();
+    this.logger.log(
+      `provider.getNetwork() returned: ${JSON.stringify(network)}`,
+      'DepositsRegistryStoreService',
+    );
+    const chainId = network.chainId;
     const networkDir = `chain-${chainId}`;
 
     return join(this.cacheDir, this.cacheLayerDir, networkDir);

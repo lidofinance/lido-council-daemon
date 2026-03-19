@@ -52,6 +52,13 @@ export const computeRoot = async (depositMessage: {
   const CHAIN_ID = network.chainId;
   const forkVersion = GENESIS_FORK_VERSION_BY_CHAIN_ID[CHAIN_ID];
 
+  if (!forkVersion) {
+    throw new Error(
+      `GENESIS_FORK_VERSION not found for chain ID: ${CHAIN_ID}. ` +
+        `Please add the fork version to GENESIS_FORK_VERSION_BY_CHAIN_ID in bls.constants.ts`,
+    );
+  }
+
   const domain = computeDomain(DOMAIN_DEPOSIT, forkVersion, ZERO_HASH);
 
   const signingRoot = computeSigningRoot(

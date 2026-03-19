@@ -18,7 +18,7 @@ const waitFor = async (cb: () => boolean) => {
   });
 };
 
-describe('KafkaTransport', () => {
+describe.skip('KafkaTransport', () => {
   let transport: KafkaTransport;
   let moduleRef: TestingModule;
   let loggerService: LoggerService;

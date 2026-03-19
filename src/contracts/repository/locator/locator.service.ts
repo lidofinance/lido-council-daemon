@@ -1,13 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { LocatorAbi, LocatorAbi__factory } from 'generated';
-import { BlockTag, ProviderService } from 'provider';
+import { BlockTag } from '@lido-nestjs/execution';
+import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { LIDO_LOCATOR_BY_NETWORK } from './locator.constants';
 import { Configuration } from 'common/config';
 
 @Injectable()
 export class LocatorService {
   constructor(
-    private readonly providerService: ProviderService,
+    private readonly provider: SimpleFallbackJsonRpcBatchProvider,
     private readonly config: Configuration,
   ) {}
   private cachedLidoLocatorContract: LocatorAbi | undefined;
@@ -41,20 +42,20 @@ export class LocatorService {
   public async getLidoLocatorAbiContract(): Promise<LocatorAbi> {
     if (this.cachedLidoLocatorContract) return this.cachedLidoLocatorContract;
     const locatorAddress = await this.getLocatorAddress();
-    const provider = this.providerService.provider;
 
     this.cachedLidoLocatorContract = LocatorAbi__factory.connect(
       locatorAddress,
-      provider,
+      this.provider,
     );
     return this.cachedLidoLocatorContract;
   }
 
   /**
-   * Returns Lido locator contract address
+   * Get Lido locator address from config or network
    */
   public async getLocatorAddress(): Promise<string> {
-    const chainId = await this.providerService.getChainId();
+    const network = await this.provider.getNetwork();
+    const chainId = network.chainId;
 
     const address =
       this.config.LOCATOR_DEVNET_ADDRESS || LIDO_LOCATOR_BY_NETWORK[chainId];

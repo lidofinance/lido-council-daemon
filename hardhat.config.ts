@@ -1,12 +1,10 @@
 import { HardhatUserConfig } from 'hardhat/config';
 import * as dotenv from 'dotenv';
+
 dotenv.config();
 
-// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-const RPC_URL = process.env.RPC_URL!;
-// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+const RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:8545';
 const secretKey = process.env.WALLET_PRIVATE_KEY!;
-const CHAIN_ID = process.env.CHAIN_ID || '17000';
 
 const config: HardhatUserConfig = {
   networks: {
@@ -14,7 +12,7 @@ const config: HardhatUserConfig = {
       forking: {
         url: RPC_URL,
       },
-      chainId: parseInt(CHAIN_ID, 10),
+      chainId: 560048,
       accounts: [
         {
           privateKey: secretKey,

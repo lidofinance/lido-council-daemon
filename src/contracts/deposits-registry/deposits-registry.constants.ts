@@ -1,4 +1,4 @@
-import { CHAINS } from '@lido-sdk/constants';
+import { CHAINS } from '@lido-nestjs/constants';
 
 const LOCAL_DEVNET_CHAIN_ID = 32382;
 const PECTRA_5_DEVNET_CHAIN_ID = 7088110746;
@@ -15,12 +15,12 @@ export const DEPLOYMENT_BLOCK_NETWORK = {
 export const DEPOSIT_EVENTS_STEP: {
   [key in CHAINS]?: number;
 } = {
-  [CHAINS.Mainnet]: 10_000,
+  [CHAINS.Mainnet]: 1000,
   [CHAINS.Holesky]: 50,
   [CHAINS.Hoodi]: 50,
 };
 
-export const DEPOSIT_EVENTS_STEP_DEFAULT = 10_000;
+export const DEPOSIT_EVENTS_STEP_DEFAULT = 1000;
 
 export const DEPOSIT_CACHE_DEFAULT = Object.freeze({
   headers: {

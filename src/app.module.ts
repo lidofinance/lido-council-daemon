@@ -5,13 +5,13 @@ import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
 import { GuardianModule } from 'guardian';
-import { ProviderModule } from 'provider';
+import { MainProviderModule } from 'provider/main-provider.module';
 import { HealthModule } from 'health';
 import { RepositoryModule } from 'contracts/repository';
 
 @Module({
   imports: [
-    ProviderModule.forRoot(),
+    MainProviderModule.forRootAsync(),
     ConfigModule.forRoot(),
     PrometheusModule,
     LoggerModule,

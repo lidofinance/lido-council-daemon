@@ -17,6 +17,7 @@ import {
 } from './keys.fixtures';
 import { GENESIS_FORK_VERSION_BY_CHAIN_ID } from 'bls/bls.constants';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { CHAINS } from '@lido-nestjs/constants';
 
 describe('KeysValidationService', () => {
   let keysValidationService: KeysValidationService;
@@ -26,7 +27,10 @@ describe('KeysValidationService', () => {
   const wc =
     '0x010000000000000000000000dc62f9e8c34be08501cdef4ebde0a280f576d762';
 
-  const fork = GENESIS_FORK_VERSION_BY_CHAIN_ID[5];
+  // NOTE: Test fixtures (keys.fixtures.ts) contain key signatures generated for Goerli genesis fork version.
+  // This fork version must match the network returned by MockProvider (see mock-provider.module.ts).
+  // To switch to another network, regenerate all test fixtures with the corresponding genesis fork version.
+  const fork = GENESIS_FORK_VERSION_BY_CHAIN_ID[CHAINS.Goerli];
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -76,8 +80,8 @@ describe('KeysValidationService', () => {
         genesisForkVersion: Buffer.from(fork.buffer),
       }));
 
-      expect(validateKeysFun).toBeCalledTimes(1);
-      expect(validateKeysFun).toBeCalledWith(depositKeyList);
+      expect(validateKeysFun).toHaveBeenCalledTimes(1);
+      expect(validateKeysFun).toHaveBeenCalledWith(depositKeyList);
       expect(result).toEqual([invalidKey1, duplicate, invalidKey2]);
 
       expect(result[0].index).toEqual(invalidKey1.index);
@@ -94,7 +98,7 @@ describe('KeysValidationService', () => {
         wc,
       );
 
-      expect(validateKeysFun).toBeCalledTimes(1);
+      expect(validateKeysFun).toHaveBeenCalledTimes(1);
       expect(validateKeysFun).toBeCalledWith([]);
       expect(newResult).toEqual([invalidKey1, duplicate, invalidKey2]);
     });
@@ -122,7 +126,7 @@ describe('KeysValidationService', () => {
         genesisForkVersion: Buffer.from(fork.buffer),
       }));
 
-      expect(validateKeysFun).toBeCalledTimes(1);
+      expect(validateKeysFun).toHaveBeenCalledTimes(1);
       expect(validateKeysFun).toBeCalledWith(depositKeyList);
       expect(newResult).toEqual([invalidKey1, duplicate]);
     });

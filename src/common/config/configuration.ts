@@ -2,6 +2,8 @@ import { createInterface } from '../di/functions/createInterface';
 import { SASLMechanism } from '../../transport';
 import { ethers } from 'ethers';
 
+export type NonEmptyArray<T> = [T, ...T[]];
+
 export const Configuration = createInterface<Configuration>('Configuration');
 
 export type PubsubService = 'rabbitmq' | 'kafka' | 'evm-chain';
@@ -12,6 +14,9 @@ export interface Configuration {
   LOG_LEVEL: string;
   LOG_FORMAT: string;
   RPC_URL: string;
+  // New array-based configuration with backward compatibility
+  PROVIDERS_URLS?: NonEmptyArray<string>;
+  CHAIN_ID: number;
   WALLET_PRIVATE_KEY: string;
   WALLET_PRIVATE_KEY_FILE: string;
   PUBSUB_SERVICE: PubsubService;
@@ -37,5 +42,8 @@ export interface Configuration {
   WALLET_CRITICAL_BALANCE: ethers.BigNumber;
   EVM_CHAIN_DATA_BUS_ADDRESS: string;
   EVM_CHAIN_DATA_BUS_PROVIDER_URL: string;
+  // New array-based data bus configuration with backward compatibility
+  EVM_CHAIN_DATA_BUS_PROVIDERS_URLS?: NonEmptyArray<string>;
+  EVM_CHAIN_DATA_BUS_CHAIN_ID: number;
   EVM_CHAIN_DATA_BUS_WALLET_MIN_BALANCE: ethers.BigNumber;
 }

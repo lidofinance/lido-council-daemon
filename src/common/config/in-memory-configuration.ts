@@ -8,9 +8,11 @@ import {
   IsString,
   Min,
   ValidateIf,
+  IsArray,
+  ArrayMinSize,
 } from 'class-validator';
 import { Injectable } from '@nestjs/common';
-import { Configuration, PubsubService } from './configuration';
+import { Configuration, PubsubService, NonEmptyArray } from './configuration';
 import { SASLMechanism } from '../../transport';
 import { implementationOf } from '../di/decorators/implementationOf';
 import { ethers, BigNumber } from 'ethers';
@@ -44,6 +46,22 @@ export class InMemoryConfiguration implements Configuration {
   @IsNotEmpty()
   @IsString()
   RPC_URL = '';
+
+  // New array-based provider configuration with backward compatibility
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @Transform(({ value }) =>
+    value?.split(',').map((url: string) => url.replace(/\/$/, '').trim()),
+  )
+  PROVIDERS_URLS?: NonEmptyArray<string>;
+
+  @IsNotEmpty()
+  @IsNumber()
+  @Transform(({ value }) => parseInt(value, 10), {
+    toClassOnly: true,
+  })
+  CHAIN_ID!: number;
 
   @IsString()
   WALLET_PRIVATE_KEY = '';
@@ -171,6 +189,24 @@ export class InMemoryConfiguration implements Configuration {
   @IsNotEmpty()
   @IsString()
   EVM_CHAIN_DATA_BUS_PROVIDER_URL = '';
+
+  // New array-based data bus configuration with backward compatibility
+  @ValidateIf((conf) => conf.PUBSUB_SERVICE === EVM_CHAIN)
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @Transform(({ value }) =>
+    value?.split(',').map((url: string) => url.replace(/\/$/, '').trim()),
+  )
+  EVM_CHAIN_DATA_BUS_PROVIDERS_URLS?: NonEmptyArray<string>;
+
+  @ValidateIf((conf) => conf.PUBSUB_SERVICE === EVM_CHAIN)
+  @IsNotEmpty()
+  @IsNumber()
+  @Transform(({ value }) => parseInt(value, 10), {
+    toClassOnly: true,
+  })
+  EVM_CHAIN_DATA_BUS_CHAIN_ID!: number;
 
   @ValidateIf((conf) => conf.PUBSUB_SERVICE === EVM_CHAIN)
   @IsOptional()

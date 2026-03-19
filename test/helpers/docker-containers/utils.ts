@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as Docker from 'dockerode';
 import * as dotenv from 'dotenv';
+import { CHAIN_ID } from '../config';
 
 dotenv.config();
 
@@ -91,7 +92,6 @@ export async function getContainer(docker: Docker, name: string) {
  */
 async function pullAndCreatePsqlContainer(docker: Docker) {
   const platform = process.env.DOCKER_PLATFORM;
-  const CHAIN_ID = process.env.CHAIN_ID;
   const pgdataPath = path.resolve(`./.volumes/pgdata-${CHAIN_ID}/`);
 
   await pullImage(docker, PSQL_IMAGE, platform);
@@ -146,8 +146,6 @@ async function pullAndCreateKapiContainer(docker: Docker) {
   if (alreadyCreatedContainer) {
     return alreadyCreatedContainer;
   }
-
-  const CHAIN_ID = process.env.CHAIN_ID;
 
   const hostConfig =
     process.platform === 'linux'
@@ -279,4 +277,17 @@ async function waitForContainerRunning(
       (retries * interval) / 1000
     } seconds`,
   );
+}
+
+export async function getContainerLogs(container: Docker.Container) {
+  try {
+    const stream = await container.logs({
+      stdout: true,
+      stderr: true,
+      tail: 50,
+    });
+    console.log(`Container ${container.id} logs:`, stream.toString());
+  } catch (error) {
+    console.error(`Failed to get container logs:`, error);
+  }
 }
