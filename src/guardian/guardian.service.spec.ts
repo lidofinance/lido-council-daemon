@@ -105,6 +105,7 @@ describe('GuardianService', () => {
       duplicatedKeys: [],
       invalidKeys: [],
       frontRunKeys: [],
+      crossTypeKeys: [],
       unresolvedDuplicatedKeys: [],
       isModuleDepositsPaused: false,
       hasDepositsAllocation: true,
