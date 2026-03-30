@@ -39,6 +39,7 @@ const stakingModuleData = {
   blockHash: '',
   isDepositsPaused: false,
   withdrawalCredentials: '0x12',
+  hasDepositsAllocation: true,
 };
 
 describe('StakingModuleGuardService', () => {
@@ -365,8 +366,10 @@ describe('StakingModuleGuardService', () => {
   describe('checkValidatorsHasWrongWC', () => {
     const MODULE_ADDR_01 = '0xModuleAddr01';
     const MODULE_ADDR_02 = '0xModuleAddr02';
-    const WC_01 = '0x010000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
-    const WC_02 = '0x020000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const WC_01 =
+      '0x010000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const WC_02 =
+      '0x020000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
     const makeLidoKey = (
       key: string,
@@ -408,8 +411,16 @@ describe('StakingModuleGuardService', () => {
       const pubkey01 = '0xkey01';
       const pubkey02 = '0xkey02';
       const result = await stakingModuleGuardService.checkValidatorsHasWrongWC(
-        { events: [makeEvent(pubkey01, WC_01, 100, 0), makeEvent(pubkey02, WC_02, 101, 0)] } as any,
-        [makeLidoKey(pubkey01, MODULE_ADDR_01, true),  makeLidoKey(pubkey02, MODULE_ADDR_02, true)],
+        {
+          events: [
+            makeEvent(pubkey01, WC_01, 100, 0),
+            makeEvent(pubkey02, WC_02, 101, 0),
+          ],
+        } as any,
+        [
+          makeLidoKey(pubkey01, MODULE_ADDR_01, true),
+          makeLidoKey(pubkey02, MODULE_ADDR_02, true),
+        ],
         { [MODULE_ADDR_01]: WC_01, [MODULE_ADDR_02]: WC_02 },
       );
       expect(result).toBe(false);
@@ -425,8 +436,6 @@ describe('StakingModuleGuardService', () => {
       );
       expect(result).toBe(false);
     });
-
-  
 
     // 2. Front-run attempt (not theft) on 0x01 — lido deposit first, attacker second
     it('should return false when lido 0x01 deposit is earlier than non-lido deposit', async () => {
@@ -475,7 +484,10 @@ describe('StakingModuleGuardService', () => {
             makeEvent(pubkey02, WC_01, 200, 1),
           ],
         } as any,
-        [makeLidoKey(pubkey01, MODULE_ADDR_01, true), makeLidoKey(pubkey02, MODULE_ADDR_01, true)],
+        [
+          makeLidoKey(pubkey01, MODULE_ADDR_01, true),
+          makeLidoKey(pubkey02, MODULE_ADDR_01, true),
+        ],
         { [MODULE_ADDR_01]: WC_01 },
       );
       expect(result).toBe(true);

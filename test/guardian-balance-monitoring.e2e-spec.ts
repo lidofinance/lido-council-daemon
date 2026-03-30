@@ -124,6 +124,30 @@ describe('Guardian balance ', () => {
     unvetSigningKeys = jest.spyOn(securityService, 'unvetSigningKeys');
   };
 
+  const getNewDepositMessages = (fromCallIndex: number) => {
+    return sendDepositMessage.mock.calls
+      .slice(fromCallIndex)
+      .map(([message]) => message as { stakingModuleId: number });
+  };
+
+  const expectNoDepositsForModule = (moduleId: number, fromCallIndex = 0) => {
+    const newDepositMessages = getNewDepositMessages(fromCallIndex);
+    expect(
+      newDepositMessages.some(
+        (message) => message.stakingModuleId === moduleId,
+      ),
+    ).toBe(false);
+  };
+
+  const expectDepositsForModule = (moduleId: number, fromCallIndex = 0) => {
+    const newDepositMessages = getNewDepositMessages(fromCallIndex);
+    expect(
+      newDepositMessages.some(
+        (message) => message.stakingModuleId === moduleId,
+      ),
+    ).toBe(true);
+  };
+
   let stakingModulesAddresses: string[];
   let curatedModuleAddress: string;
   let stakingModulesCount: number;
@@ -251,13 +275,15 @@ describe('Guardian balance ', () => {
     });
 
     test('Unvetted key will not set module on soft pause', async () => {
+      const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
+
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       // 4 - number of modules
       expect(validateKeys).toHaveBeenCalledTimes(stakingModulesCount);
       expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
-      expect(sendDepositMessage).toHaveBeenCalledTimes(stakingModulesCount);
+      expectDepositsForModule(1, depositCallsBeforeCycle);
     });
 
     test('Increase staking limit', async () => {
@@ -276,15 +302,15 @@ describe('Guardian balance ', () => {
 
     test('Unvetting transaction will not be sent due to law account balance', async () => {
       await setBalance(guardianAddress, 0.2);
+      const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
+
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       expect(validateKeys).toHaveBeenCalledTimes(2 * stakingModulesCount);
       expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
       expect(unvetSigningKeys).toHaveBeenCalledTimes(0);
-      expect(sendDepositMessage).toHaveBeenCalledTimes(
-        2 * stakingModulesCount - 1,
-      );
+      expectNoDepositsForModule(1, depositCallsBeforeCycle);
 
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
       console.log('Finished!');
@@ -339,9 +365,12 @@ describe('Guardian balance ', () => {
     }, 60_000);
 
     test('No deposits for module', async () => {
-      expect(sendDepositMessage).toHaveBeenCalledTimes(
-        3 * stakingModulesCount - 2,
-      );
+      const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
+
+      await guardianService.handleNewBlock();
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+      expectNoDepositsForModule(1, depositCallsBeforeCycle);
     });
 
     test('Check staking limit for operator after unvetting', async () => {

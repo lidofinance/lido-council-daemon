@@ -3,6 +3,7 @@ import { accountImpersonate, testSetupProvider } from './provider';
 import * as dotenv from 'dotenv';
 import {
   IStakingModuleAbi__factory,
+  LidoAbi__factory,
   LocatorAbi__factory,
   StakingRouterAbi__factory,
 } from 'generated';
