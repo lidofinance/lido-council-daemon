@@ -9,11 +9,16 @@ export const SIGNING_KEYS_CACHE_DEFAULT = Object.freeze({
   data: [],
 });
 
-export const EARLIEST_MODULE_DEPLOYMENT_BLOCK_NETWORK: {
-  [key in CHAINS]?: number;
-} = {
+const LOCAL_DEVNET_CHAIN_ID = 32382;
+const PECTRA_5_DEVNET_CHAIN_ID = 7088110746;
+const EPBS_DEVNET_0_CHAIN_ID = 7055777152;
+
+export const EARLIEST_MODULE_DEPLOYMENT_BLOCK_NETWORK = {
   [CHAINS.Mainnet]: 11473216,
   [CHAINS.Holesky]: 0,
+  [LOCAL_DEVNET_CHAIN_ID]: 0,
+  [PECTRA_5_DEVNET_CHAIN_ID]: 0,
+  [EPBS_DEVNET_0_CHAIN_ID]: 0,
   [CHAINS.Hoodi]: 0,
 };
 

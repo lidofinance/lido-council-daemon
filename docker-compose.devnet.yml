@@ -1,0 +1,79 @@
+version: '3.7'
+
+networks:
+  devnet:
+    name: ${DOCKER_NETWORK_NAME}
+    external: true
+
+services:
+  dsm_rabbit:
+    build:
+      context: .
+      dockerfile: Dockerfile.test.yml
+    networks:
+      - devnet
+    ports:
+      - "15674:15674"
+      - "15672:15672"
+
+  council_daemon_1:
+    build: ./
+    networks:
+      - devnet
+    ports:
+      - "127.0.0.1:${PORT_1}:3000"
+    environment:
+      - PORT=3000
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_FORMAT=${LOG_FORMAT}
+      - RPC_URL=${RPC_URL}
+      - WALLET_PRIVATE_KEY=${WALLET_PRIVATE_KEY_1}
+      - KEYS_API_HOST=${KEYS_API_HOST}
+      - KEYS_API_PORT=${KEYS_API_PORT}
+
+      - PUBSUB_SERVICE=${PUBSUB_SERVICE}
+
+      - EVM_CHAIN_DATA_BUS_ADDRESS=${EVM_CHAIN_DATA_BUS_ADDRESS}
+      - EVM_CHAIN_DATA_BUS_PROVIDER_URL=${EVM_CHAIN_DATA_BUS_PROVIDER_URL}
+
+      - RABBITMQ_URL=${RABBITMQ_URL}
+      - RABBITMQ_LOGIN=${RABBITMQ_LOGIN}
+      - RABBITMQ_PASSCODE=${RABBITMQ_PASSCODE}
+
+      - LOCATOR_DEVNET_ADDRESS=${LOCATOR_DEVNET_ADDRESS}
+    volumes:
+       - council_1_cache:/council/cache/
+
+
+  council_daemon_2:
+    build: ./
+    networks:
+      - devnet
+    ports:
+      - "127.0.0.1:${PORT_2}:3000"
+    environment:
+      - PORT=3000
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_FORMAT=${LOG_FORMAT}
+      - RPC_URL=${RPC_URL}
+      - WALLET_PRIVATE_KEY=${WALLET_PRIVATE_KEY_2}
+      - KEYS_API_HOST=${KEYS_API_HOST}
+      - KEYS_API_PORT=${KEYS_API_PORT}
+
+      - PUBSUB_SERVICE=${PUBSUB_SERVICE}
+
+      - EVM_CHAIN_DATA_BUS_ADDRESS=${EVM_CHAIN_DATA_BUS_ADDRESS}
+      - EVM_CHAIN_DATA_BUS_PROVIDER_URL=${EVM_CHAIN_DATA_BUS_PROVIDER_URL}
+
+      - RABBITMQ_URL=${RABBITMQ_URL}
+      - RABBITMQ_LOGIN=${RABBITMQ_LOGIN}
+      - RABBITMQ_PASSCODE=${RABBITMQ_PASSCODE}
+
+      - LOCATOR_DEVNET_ADDRESS=${LOCATOR_DEVNET_ADDRESS}
+    volumes:
+      - council_2_cache:/council/cache/
+
+volumes:
+  council_1_cache:
+  council_2_cache:
+
