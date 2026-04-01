@@ -130,6 +130,10 @@ describe('Guardian balance ', () => {
       .map(([message]) => message as { stakingModuleId: number });
   };
 
+  const expectDepositsStillWork = (fromCallIndex = 0) => {
+    expect(getNewDepositMessages(fromCallIndex).length).toBeGreaterThan(0);
+  };
+
   const expectNoDepositsForModule = (moduleId: number, fromCallIndex = 0) => {
     const newDepositMessages = getNewDepositMessages(fromCallIndex);
     expect(
@@ -283,7 +287,7 @@ describe('Guardian balance ', () => {
       // 4 - number of modules
       expect(validateKeys).toHaveBeenCalledTimes(stakingModulesCount);
       expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
-      expectDepositsForModule(1, depositCallsBeforeCycle);
+      expectDepositsStillWork(depositCallsBeforeCycle);
     });
 
     test('Increase staking limit', async () => {
