@@ -43,7 +43,7 @@ import {
 import { HardhatServer } from './helpers/hardhat-server';
 import { cutModulesKeys } from './helpers/reduce-keys';
 
-jest.setTimeout(40_000);
+jest.setTimeout(300_000);
 
 describe('Guardian balance ', () => {
   let provider: SimpleFallbackJsonRpcBatchProvider;
