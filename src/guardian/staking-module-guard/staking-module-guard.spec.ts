@@ -38,6 +38,7 @@ const stakingModuleData = {
   lastDepositBlock: 0,
   blockHash: '',
   isDepositsPaused: false,
+  hasDepositsAllocation: true,
 };
 
 describe('StakingModuleGuardService', () => {

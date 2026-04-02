@@ -4,6 +4,7 @@ import { IStakingModuleAbi__factory } from 'generated';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { BlockTag } from '@lido-nestjs/execution';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
+import { BigNumber } from '@ethersproject/bignumber';
 
 @Injectable()
 export class StakingRouterService {
@@ -93,12 +94,80 @@ export class StakingRouterService {
     return !isActive;
   }
 
+  /**
+   * Returns the maximum number of new deposits that can be made to a staking module
+   * given the available depositable ether.
+   */
+  public async getStakingModuleMaxDepositsCount(
+    stakingModuleId: number,
+    maxDepositsValue: BigNumber,
+    blockTag?: BlockTag,
+  ): Promise<number> {
+    const stakingRouterContract =
+      this.repositoryService.getCachedStakingRouterContract();
+
+    try {
+      const result =
+        await stakingRouterContract.getStakingModuleMaxDepositsCount(
+          stakingModuleId,
+          maxDepositsValue,
+          {
+            blockTag: blockTag as any,
+          },
+        );
+
+      return result.toNumber();
+    } catch (error) {
+      // Reproduced only on fork tests with artificially corrupted module state:
+      // operator count is cut without keeping all module summary/key counters in sync.
+      // This state is not reachable via normal prod flows, but guardian must still
+      // degrade safely: skip deposits for the broken module and continue checks/unvet
+      // for the rest of modules/operators instead of aborting the whole cycle.
+      if (this.isNoAllocationMathUnderflow(error)) {
+        this.logger.warn('Treat staking module allocation underflow as zero', {
+          stakingModuleId,
+          maxDepositsValue: maxDepositsValue.toString(),
+        });
+        return 0;
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Returns the amount of ether available for deposits from the Lido buffer.
+   */
+  public async getDepositableEther(blockTag?: BlockTag): Promise<BigNumber> {
+    const lidoContract = this.repositoryService.getCachedLidoContract();
+
+    return await lidoContract.getDepositableEther({
+      blockTag: blockTag as any,
+    });
+  }
+
   public async getWithdrawalCredentials(blockTag?: BlockTag): Promise<string> {
     const stakingRouterContract =
-      await this.repositoryService.getCachedStakingRouterContract();
+      this.repositoryService.getCachedStakingRouterContract();
 
     return await stakingRouterContract.getWithdrawalCredentials({
       blockTag: blockTag as any,
     });
+  }
+
+  private isNoAllocationMathUnderflow(error: unknown): boolean {
+    const callError = error as
+      | {
+          code?: string;
+          reason?: string;
+          message?: string;
+        }
+      | undefined;
+
+    return (
+      callError?.code === 'CALL_EXCEPTION' &&
+      (callError.reason === 'MATH_SUB_UNDERFLOW' ||
+        callError.message?.includes('MATH_SUB_UNDERFLOW') === true)
+    );
   }
 }
