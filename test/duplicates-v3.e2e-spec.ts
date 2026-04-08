@@ -1174,12 +1174,16 @@ describe('Duplicates e2e tests', () => {
       expect(Number(op.totalVettedValidators)).toEqual(3);
     });
 
-    test.skip('Deposits again work for first module, but not for second', async () => {
+    test('Deposits again work for first module, but not for second', async () => {
       const norState = getModuleState(thirdCycleModulesState, 1);
       const sdvtState = getModuleState(thirdCycleModulesState, 2);
 
       expect(getModuleIssuesCount(norState)).toEqual(0);
+      expect(norState.isModuleDepositsPaused).toBe(false);
+      expect(norState.vettedUnusedKeys.length).toBeGreaterThan(0);
       expect(getModuleIssuesCount(sdvtState)).toBeGreaterThan(0);
+      expect(sdvtState.duplicatedKeys.length).toBeGreaterThan(0);
+
       expectNoDepositsForModule(2, thirdCycleDepositCalls);
     });
   });
