@@ -10,15 +10,12 @@ import { StakingModuleDataCollectorModule } from './staking-module-data-collecto
 import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { mockLocator } from 'contracts/repository/locator/locator.mock';
 import { mockRepository } from 'contracts/repository/repository.mock';
-import { ethers } from 'ethers';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { CHAINS } from '@lido-nestjs/constants';
 import { getNetwork } from '@ethersproject/networks';
 import { JsonRpcProvider } from '@ethersproject/providers';
 
 jest.mock('../transport/stomp/stomp.client');
-
-const ONE_DEPOSIT = ethers.utils.parseEther('32');
 
 const mockMeta = {
   blockNumber: 100,
@@ -72,76 +69,28 @@ describe('StakingModuleDataCollectorService', () => {
     await mockRepository(repositoryService);
   });
 
-  describe('collectStakingModuleData allocation check value', () => {
-    let getDepositableEtherSpy: jest.SpyInstance;
-    let getMaxDepositsSpy: jest.SpyInstance;
-
-    beforeEach(() => {
+  describe('collectStakingModuleData', () => {
+    it('should collect staking module data', async () => {
       jest
         .spyOn(stakingRouterService, 'isModuleDepositsPaused')
         .mockResolvedValue(false);
 
-      getMaxDepositsSpy = jest
-        .spyOn(stakingRouterService, 'getStakingModuleMaxDepositsCount')
-        .mockResolvedValue(1);
-
-      getDepositableEtherSpy = jest.spyOn(
-        stakingRouterService,
-        'getDepositableEther',
-      );
-    });
-
-    it('should use real depositableEther when greater than 32 ETH', async () => {
-      const largeDepositable = ethers.utils.parseEther('320');
-      getDepositableEtherSpy.mockResolvedValue(largeDepositable);
-
-      await service.collectStakingModuleData({
+      const result = await service.collectStakingModuleData({
         stakingModules: [mockModule] as any,
         meta: mockMeta as any,
         lidoKeys: [],
-        moduleWCMap: {},
+        moduleWCMap: { '0xmodule1': '0xwc1' },
       });
 
-      expect(getMaxDepositsSpy).toHaveBeenCalledWith(
-        mockModule.id,
-        largeDepositable,
-        expect.anything(),
-      );
-    });
-
-    it('should floor allocation check at 32 ETH when depositableEther < 32 ETH', async () => {
-      const smallDepositable = ethers.utils.parseEther('10');
-      getDepositableEtherSpy.mockResolvedValue(smallDepositable);
-
-      await service.collectStakingModuleData({
-        stakingModules: [mockModule] as any,
-        meta: mockMeta as any,
-        lidoKeys: [],
-        moduleWCMap: {},
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        stakingModuleId: mockModule.id,
+        stakingModuleAddress: mockModule.stakingModuleAddress,
+        nonce: mockModule.nonce,
+        blockHash: mockMeta.blockHash,
+        isModuleDepositsPaused: false,
+        withdrawalCredentials: '0xwc1',
       });
-
-      expect(getMaxDepositsSpy).toHaveBeenCalledWith(
-        mockModule.id,
-        ONE_DEPOSIT,
-        expect.anything(),
-      );
-    });
-
-    it('should use 32 ETH when depositableEther is exactly 32 ETH', async () => {
-      getDepositableEtherSpy.mockResolvedValue(ONE_DEPOSIT);
-
-      await service.collectStakingModuleData({
-        stakingModules: [mockModule] as any,
-        meta: mockMeta as any,
-        lidoKeys: [],
-        moduleWCMap: {},
-      });
-
-      expect(getMaxDepositsSpy).toHaveBeenCalledWith(
-        mockModule.id,
-        ONE_DEPOSIT,
-        expect.anything(),
-      );
     });
   });
 });

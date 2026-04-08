@@ -176,8 +176,7 @@ describe('Duplicates e2e tests', () => {
 
     const shouldReceiveDeposits =
       getModuleIssuesCount(moduleState) === 0 &&
-      !moduleState.isModuleDepositsPaused &&
-      moduleState.hasDepositsAllocation;
+      !moduleState.isModuleDepositsPaused;
 
     expect(
       newDepositMessages.some(

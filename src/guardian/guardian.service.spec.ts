@@ -108,23 +108,12 @@ describe('GuardianService', () => {
       crossTypeKeys: [],
       unresolvedDuplicatedKeys: [],
       isModuleDepositsPaused: false,
-      hasDepositsAllocation: true,
       ...overrides,
     });
 
-    it('should ignore deposits when module has no deposits allocation', () => {
+    it('should not ignore deposits when no issues found', () => {
       const result = (guardianService as any).ignoreDeposits(
-        makeModuleData({ hasDepositsAllocation: false }),
-        false,
-        false,
-        1,
-      );
-      expect(result).toBe(true);
-    });
-
-    it('should not ignore deposits when module has deposits allocation', () => {
-      const result = (guardianService as any).ignoreDeposits(
-        makeModuleData({ hasDepositsAllocation: true }),
+        makeModuleData(),
         false,
         false,
         1,
@@ -132,10 +121,9 @@ describe('GuardianService', () => {
       expect(result).toBe(false);
     });
 
-    it('should ignore deposits when module is paused even with allocation', () => {
+    it('should ignore deposits when module is paused', () => {
       const result = (guardianService as any).ignoreDeposits(
         makeModuleData({
-          hasDepositsAllocation: true,
           isModuleDepositsPaused: true,
         }),
         false,
