@@ -20,8 +20,15 @@ import {
   PrometheusDataBusAccountBalanceProvider,
   PrometheusDataBusRPCRequestsHistogramProvider,
   PrometheusJobDurationProvider,
+  PrometheusHttpRpcRequestsTotalProvider,
+  PrometheusHttpRpcBatchSizeProvider,
+  PrometheusHttpRpcResponseSecondsProvider,
+  PrometheusHttpRpcRequestPayloadBytesProvider,
+  PrometheusHttpRpcResponsePayloadBytesProvider,
+  PrometheusRpcRequestTotalProvider,
 } from './prometheus.provider';
 import { METRICS_PREFIX, METRICS_URL } from './prometheus.constants';
+import { RpcMetricsPrometheusService } from './rpc-metrics-prometheus.service';
 
 export const PrometheusModule = PrometheusModuleSource.register({
   path: METRICS_URL,
@@ -52,6 +59,14 @@ const providers = [
   PrometheusInvalidKeysProvider,
   PrometheusUnvetKeysCounterProvider,
   PrometheusJobDurationProvider,
+  // RPC Metrics providers
+  PrometheusHttpRpcRequestsTotalProvider,
+  PrometheusHttpRpcBatchSizeProvider,
+  PrometheusHttpRpcResponseSecondsProvider,
+  PrometheusHttpRpcRequestPayloadBytesProvider,
+  PrometheusHttpRpcResponsePayloadBytesProvider,
+  PrometheusRpcRequestTotalProvider,
+  RpcMetricsPrometheusService,
 ];
 
 PrometheusModule.global = true;
