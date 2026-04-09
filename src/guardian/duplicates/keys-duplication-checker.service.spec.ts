@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { LoggerModule } from 'common/logger';
+import { PrometheusModule } from 'common/prometheus';
 import {
   SigningKeysRegistryModule,
   SigningKeysRegistryService,
@@ -24,6 +25,7 @@ describe('KeysDuplicationCheckerService', () => {
   beforeEach(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
       imports: [
+        PrometheusModule,
         StakingRouterModule,
         RepositoryModule,
         ConfigModule.forRoot(),
