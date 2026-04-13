@@ -2,7 +2,7 @@
 import { toHexString } from '@chainsafe/ssz';
 
 // Constants
-import { SLEEP_FOR_RESULT, pk } from './constants';
+import { SLEEP_FOR_RESULT, pk, sk } from './constants';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -16,10 +16,11 @@ import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store'
 import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
 import { KeyValidatorInterface } from '@lido-nestjs/key-validation';
 
-import { getWalletAddress } from './helpers/deposit';
+import { getWalletAddress, signDeposit } from './helpers/deposit';
 import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 import {
   addGuardians,
+  fillLidoBuffer,
   getGuardians,
   getLidoWC,
   getSecurityContract,
@@ -150,7 +151,9 @@ describe('Signature validation e2e test', () => {
   let stakingModulesCount: number;
   let firstOperator: any;
   let nor: CuratedOnchainV1;
-  const frontrunPK: Uint8Array = pk;
+  const validPK: Uint8Array = pk;
+  let lidoWC: string;
+  let validDepositSignature: Uint8Array;
   let guardianIndex: number;
   let postgresContainer;
   let keysApiContainer;
@@ -166,7 +169,11 @@ describe('Signature validation e2e test', () => {
     await hardhatServer.start();
 
     console.log('Hardhat node is ready. Starting key cutting process...');
-    await cutModulesKeys();
+    await cutModulesKeys(undefined, {
+      opCount: 3,
+      keysCount: 3,
+      depositedCount: 3,
+    });
 
     await startContainerIfNotRunning(keysApiContainer);
 
@@ -197,8 +204,9 @@ describe('Signature validation e2e test', () => {
     nor = new CuratedOnchainV1(curatedModuleAddress);
     const activeOperators = await nor.getActiveOperators();
     firstOperator = activeOperators[0];
-    // create duplicate
-    await getLidoWC();
+    lidoWC = await getLidoWC();
+    const { signature } = await signDeposit(validPK, sk, lidoWC);
+    validDepositSignature = signature;
   }, 360_000);
 
   afterAll(async () => {
@@ -217,7 +225,10 @@ describe('Signature validation e2e test', () => {
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);
       setupMocks();
-    }, 50_000);
+
+      // top up Lido buffer so module 1 gets a deposit allocation
+      await fillLidoBuffer(1);
+    }, 300_000);
 
     afterAll(async () => {
       jest.clearAllMocks();
@@ -251,15 +262,31 @@ describe('Signature validation e2e test', () => {
       });
     });
 
+    test('Add valid key and raise staking limit', async () => {
+      const currentBlock = await provider.getBlock('latest');
+
+      await nor.addSigningKey(
+        firstOperator.index,
+        1,
+        toHexString(validPK),
+        toHexString(validDepositSignature),
+        firstOperator.rewardAddress,
+      );
+      // after cut vetted=3, deposited=3. Bump vetted to 4 to vet the new valid key.
+      await nor.setStakingLimit(firstOperator.index, 4);
+      await waitForNewerBlock(currentBlock.number);
+    });
+
     test('Add key with broken signature', async () => {
       const currentBlock = await provider.getBlock('latest');
+      const brokenPK = new Uint8Array(48).fill(2);
       const randomSign =
         '0x8bf4401a354de243a3716ee2efc0bde1ded56a40e2943ac7c50290bec37e935d6170b21e7c0872f203199386143ef12612a1488a8e9f1cdf1229c382f29c326bcbf6ed6a87d8fbfe0df87dacec6632fc4709d9d338f4cf81e861d942c23bba1e';
 
       await nor.addSigningKey(
         firstOperator.index,
         1,
-        toHexString(frontrunPK),
+        toHexString(brokenPK),
         randomSign,
         firstOperator.rewardAddress,
       );
@@ -283,13 +310,13 @@ describe('Signature validation e2e test', () => {
 
       // keys total amount was 3, added key with wrong sign, now it is 4 keys
       // increase limit to 4
-      await nor.setStakingLimit(firstOperator.index, 4);
+      await nor.setStakingLimit(firstOperator.index, 5);
       await waitForNewerBlock(currentBlock.number);
     });
 
     test('Check staking limit for operator before unvetting', async () => {
       const op = await nor.getOperator(firstOperator.index, false);
-      expect(Number(op.totalVettedValidators)).toEqual(4);
+      expect(Number(op.totalVettedValidators)).toEqual(5);
     });
 
     test('Unvetting', async () => {
@@ -310,7 +337,7 @@ describe('Signature validation e2e test', () => {
           guardianIndex,
           stakingModuleId: 1,
           operatorIds: packNodeOperatorIds([firstOperator.index]),
-          vettedKeysByOperator: '0x00000000000000000000000000000003',
+          vettedKeysByOperator: '0x00000000000000000000000000000004',
         }),
       );
 
@@ -321,7 +348,7 @@ describe('Signature validation e2e test', () => {
         expect.anything(),
         1,
         packNodeOperatorIds([firstOperator.index]),
-        '0x00000000000000000000000000000003',
+        '0x00000000000000000000000000000004',
         expect.any(Object),
       );
 
@@ -339,7 +366,7 @@ describe('Signature validation e2e test', () => {
 
     test('Check staking limit for operator after unvetting', async () => {
       const op = await nor.getOperator(firstOperator.index, false);
-      expect(Number(op.totalVettedValidators)).toEqual(3);
+      expect(Number(op.totalVettedValidators)).toEqual(4);
     });
   });
 });

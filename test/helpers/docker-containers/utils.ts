@@ -6,7 +6,7 @@ import { CHAIN_ID } from '../config';
 dotenv.config();
 
 const POSTGRES_PORT = process.env.POSTGRES_PORT || '5432';
-const KAPI_IMAGE = 'lido-no-keys-service-keys_api:latest'; // temporary, should be staging
+const KAPI_IMAGE = 'lidofinance/lido-keys-api:dev';
 const PSQL_IMAGE = 'postgres:14-alpine';
 const PSQL_CONTAINER = 'e2e_pgdb';
 const KAPI_CONTAINER = 'e2e_keys_api';

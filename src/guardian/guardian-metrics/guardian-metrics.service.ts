@@ -9,6 +9,7 @@ import {
   METRIC_INTERSECTIONS_TOTAL,
   METRIC_INVALID_KEYS_TOTAL,
   METRIC_DUPLICATED_KEYS_TOTAL,
+  METRIC_HISTORICAL_FRONT_RUN_TOTAL,
 } from 'common/prometheus';
 import { Gauge } from 'prom-client';
 
@@ -32,6 +33,9 @@ export class GuardianMetricsService {
 
     @InjectMetric(METRIC_INVALID_KEYS_TOTAL)
     private invalidKeysCounter: Gauge<string>,
+
+    @InjectMetric(METRIC_HISTORICAL_FRONT_RUN_TOTAL)
+    private historicalFrontRunCounter: Gauge<string>,
   ) {}
 
   /**
@@ -168,5 +172,16 @@ export class GuardianMetricsService {
     invalidKeysCount: number,
   ) {
     this.invalidKeysCounter.set({ stakingModuleId }, invalidKeysCount);
+  }
+
+  public collectHistoricalFrontRunMetrics(
+    frontRunCount: number,
+    wrongWCTypeCount: number,
+  ) {
+    this.historicalFrontRunCounter.set({ type: 'front_run' }, frontRunCount);
+    this.historicalFrontRunCounter.set(
+      { type: 'wrong_wc_type' },
+      wrongWCTypeCount,
+    );
   }
 }

@@ -9,6 +9,7 @@ export interface BlockData {
   guardianIndex: number;
   securityVersion: number;
   alreadyPausedDeposits: boolean;
-  violationWCFound: boolean;
+  hasFrontRunning: boolean;
+  hasWrongWCType: boolean;
   walletBalanceCritical: boolean;
 }

@@ -96,7 +96,7 @@ export class StakingRouterService {
     blockTag?: BlockTag,
   ): Promise<boolean> {
     const stakingRouterContract =
-      await this.repositoryService.getCachedStakingRouterContract();
+      this.repositoryService.getCachedStakingRouterContract();
 
     const isActive = await stakingRouterContract.getStakingModuleIsActive(
       stakingModuleId,
