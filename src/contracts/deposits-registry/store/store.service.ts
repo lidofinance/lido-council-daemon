@@ -406,14 +406,18 @@ export class DepositsRegistryStoreService {
   }
 
   /**
-   * Serializes a VerifiedDepositEvent into a JSON string, converting `depositDataRoot` from Uint8Array to an array.
-   * Also tracks the serialized size for cache metrics.
+   * Serializes a VerifiedDepositEvent into a JSON string, converting
+   * `depositDataRoot` from Uint8Array to an array.
    *
    * @param {VerifiedDepositEvent} depositEvent - The deposit event to serialize.
+   * @param {boolean} trackCacheMetrics - Whether to count this record in deposit cache metrics.
    * @returns {string} The serialized JSON string of the deposit event.
    * @public
    */
-  public serializeDepositEvent(depositEvent: VerifiedDepositEvent) {
+  public serializeDepositEvent(
+    depositEvent: VerifiedDepositEvent,
+    trackCacheMetrics = true,
+  ) {
     const { depositDataRoot, ...rest } = depositEvent;
     const value = {
       ...rest,
@@ -421,10 +425,11 @@ export class DepositsRegistryStoreService {
     };
     const serialized = JSON.stringify(value);
 
-    // Track size for metrics
-    this.cacheSizeBytes += Buffer.byteLength(serialized, 'utf8');
-    this.cacheEventCount++;
-    this.updateCacheMetrics();
+    if (trackCacheMetrics) {
+      this.cacheSizeBytes += Buffer.byteLength(serialized, 'utf8');
+      this.cacheEventCount++;
+      this.updateCacheMetrics();
+    }
 
     return serialized;
   }
@@ -473,7 +478,10 @@ export class DepositsRegistryStoreService {
    * @public
    */
   public async insertLastValidEvent(event: VerifiedDepositEvent) {
-    await this.db.put('last-valid-event', this.serializeDepositEvent(event));
+    await this.db.put(
+      'last-valid-event',
+      this.serializeDepositEvent(event, false),
+    );
     this.cache.lastValidEvent = event;
   }
 

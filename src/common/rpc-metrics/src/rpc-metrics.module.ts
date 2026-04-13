@@ -15,10 +15,12 @@ export class RpcMetricsModule {
    * @example
    * ```typescript
    * RpcMetricsModule.forRoot({
-   *   network: 'ethereum',
-   *   chainId: 1,
-   *   layer: 'el',
-   *   providerFactory: () => myProvider,
+   *   providers: [{
+   *     network: 'ethereum',
+   *     chainId: 1,
+   *     layer: 'el',
+   *     providerFactory: () => myProvider,
+   *   }],
    * }, prometheusService)
    * ```
    */
@@ -51,10 +53,12 @@ export class RpcMetricsModule {
    * RpcMetricsModule.forRootAsync({
    *   imports: [ConfigModule, ProviderModule],
    *   useFactory: (configService, providerService) => ({
-   *     network: configService.get('NETWORK'),
-   *     chainId: configService.get('CHAIN_ID'),
-   *     layer: 'el',
-   *     providerFactory: () => providerService.getProvider(),
+   *     providers: [{
+   *       network: configService.get('NETWORK'),
+   *       chainId: configService.get('CHAIN_ID'),
+   *       layer: 'el',
+   *       providerFactory: () => providerService.getProvider(),
+   *     }],
    *   }),
    *   inject: [ConfigService, ProviderService],
    * }, {

@@ -31,6 +31,9 @@ interface ProviderContext {
 
 @Injectable()
 export class RpcMetricsService implements OnModuleInit, OnModuleDestroy {
+  private static readonly PENDING_REQUESTS_CLEANUP_THRESHOLD = 1000;
+  private static readonly PENDING_REQUESTS_MAX_AGE_MS = 5 * 60 * 1000;
+
   private readonly logger = new Logger(RpcMetricsService.name);
   private providerContexts: ProviderContext[] = [];
   private pendingRequests = new Map<
@@ -118,6 +121,7 @@ export class RpcMetricsService implements OnModuleInit, OnModuleDestroy {
   ) {
     const requestKey = this.generateRequestKey(event.request, config);
     this.pendingRequests.set(requestKey, { startTime: Date.now(), config });
+    this.maybeCleanupOldRequests();
   }
 
   private trackResponseTime(
@@ -132,11 +136,9 @@ export class RpcMetricsService implements OnModuleInit, OnModuleDestroy {
       const duration = (Date.now() - pending.startTime) / 1000;
       this.metricsRegistry.httpRpcResponseSeconds.observe(baseLabels, duration);
       this.pendingRequests.delete(requestKey);
-
-      if (this.pendingRequests.size > 1000) {
-        this.cleanupOldRequests();
-      }
     }
+
+    this.maybeCleanupOldRequests();
   }
 
   private trackBatchedResponse(
@@ -330,10 +332,21 @@ export class RpcMetricsService implements OnModuleInit, OnModuleDestroy {
     return `${config.network}:${config.layer}:${ids}`;
   }
 
+  private maybeCleanupOldRequests() {
+    if (
+      this.pendingRequests.size >
+      RpcMetricsService.PENDING_REQUESTS_CLEANUP_THRESHOLD
+    ) {
+      this.cleanupOldRequests();
+    }
+  }
+
   private cleanupOldRequests() {
-    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+    const oldestAllowedStartTime =
+      Date.now() - RpcMetricsService.PENDING_REQUESTS_MAX_AGE_MS;
+
     for (const [key, { startTime }] of this.pendingRequests.entries()) {
-      if (startTime < fiveMinutesAgo) {
+      if (startTime < oldestAllowedStartTime) {
         this.pendingRequests.delete(key);
       }
     }
