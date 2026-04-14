@@ -15,4 +15,4 @@ export const EVM_SCRIPT_EXECUTOR = {
   [CHAINS.Mainnet]: '0xFE5986E06210aC1eCC1aDCafc0cc7f8D63B3F977',
 };
 
-export const CHAIN_ID = 1; //560048;
+export const CHAIN_ID = 560048;
