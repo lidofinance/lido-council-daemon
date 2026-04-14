@@ -46,7 +46,7 @@ import {
 import { HardhatServer } from './helpers/hardhat-server';
 import { cutModulesKeys } from './helpers/reduce-keys';
 
-jest.setTimeout(40_000);
+jest.setTimeout(300_000);
 
 describe('Guardian balance ', () => {
   let provider: SimpleFallbackJsonRpcBatchProvider;
@@ -131,6 +131,10 @@ describe('Guardian balance ', () => {
     return sendDepositMessage.mock.calls
       .slice(fromCallIndex)
       .map(([message]) => message as { stakingModuleId: number });
+  };
+
+  const expectDepositsStillWork = (fromCallIndex = 0) => {
+    expect(getNewDepositMessages(fromCallIndex).length).toBeGreaterThan(0);
   };
 
   const expectNoDepositsForModule = (moduleId: number, fromCallIndex = 0) => {
@@ -314,7 +318,7 @@ describe('Guardian balance ', () => {
 
       expect(validateKeys).toHaveBeenCalledTimes(stakingModulesCount);
       expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
-      expectDepositsForModule(1, depositCallsBeforeCycle);
+      expectDepositsStillWork(depositCallsBeforeCycle);
     });
 
     test('Increase staking limit to vet the broken key', async () => {

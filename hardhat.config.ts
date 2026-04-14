@@ -12,7 +12,7 @@ const config: HardhatUserConfig = {
       forking: {
         url: RPC_URL,
       },
-      chainId: Number(process.env.CHAIN_ID) || 1,
+      chainId: 560048,
       accounts: [
         {
           privateKey: secretKey,

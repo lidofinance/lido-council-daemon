@@ -25,6 +25,19 @@ import {
   METRIC_DATA_BUS_RPC_REQUEST_DURATION,
   METRIC_DATA_BUS_RPC_REQUEST_ERRORS,
   METRIC_JOB_DURATION,
+  METRIC_HTTP_RPC_REQUESTS_TOTAL,
+  METRIC_HTTP_RPC_BATCH_SIZE,
+  METRIC_HTTP_RPC_RESPONSE_SECONDS,
+  METRIC_HTTP_RPC_REQUEST_PAYLOAD_BYTES,
+  METRIC_HTTP_RPC_RESPONSE_PAYLOAD_BYTES,
+  METRIC_RPC_REQUEST_TOTAL,
+  METRIC_NONCE_LATEST,
+  METRIC_NONCE_PENDING,
+  METRIC_NONCE_GAP,
+  METRIC_DEPOSITS_CACHE_BYTES,
+  METRIC_DEPOSITS_CACHE_COUNT,
+  METRIC_SIGNING_KEYS_CACHE_BYTES,
+  METRIC_SIGNING_KEYS_CACHE_COUNT,
 } from './prometheus.constants';
 
 export const PrometheusTransportMessageCounterProvider = makeCounterProvider({
@@ -150,4 +163,103 @@ export const PrometheusJobDurationProvider = makeHistogramProvider({
   help: 'Job duration',
   buckets: [0.1, 0.3, 1, 3, 5, 10, 30, 60, 100, 180, 300],
   labelNames: ['jobName', 'stakingModuleId'] as const,
+});
+
+// RPC Metrics providers
+export const PrometheusHttpRpcRequestsTotalProvider = makeCounterProvider({
+  name: METRIC_HTTP_RPC_REQUESTS_TOTAL,
+  help: 'Total HTTP requests to RPC providers',
+  labelNames: [
+    'network',
+    'layer',
+    'chain_id',
+    'provider',
+    'batched',
+    'response_code',
+    'result',
+  ] as const,
+});
+
+export const PrometheusHttpRpcBatchSizeProvider = makeHistogramProvider({
+  name: METRIC_HTTP_RPC_BATCH_SIZE,
+  help: 'Distribution of JSON-RPC calls bundled in each HTTP request',
+  buckets: [1, 2, 5, 10, 20, 50, 100],
+  labelNames: ['network', 'layer', 'chain_id', 'provider'] as const,
+});
+
+export const PrometheusHttpRpcResponseSecondsProvider = makeHistogramProvider({
+  name: METRIC_HTTP_RPC_RESPONSE_SECONDS,
+  help: 'Distribution of RPC response times in seconds',
+  buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+  labelNames: ['network', 'layer', 'chain_id', 'provider'] as const,
+});
+
+export const PrometheusHttpRpcRequestPayloadBytesProvider =
+  makeHistogramProvider({
+    name: METRIC_HTTP_RPC_REQUEST_PAYLOAD_BYTES,
+    help: 'Distribution of request payload sizes in bytes',
+    buckets: [128, 256, 512, 1024, 2048, 4096, 8192, 16384],
+    labelNames: ['network', 'layer', 'chain_id', 'provider'] as const,
+  });
+
+export const PrometheusHttpRpcResponsePayloadBytesProvider =
+  makeHistogramProvider({
+    name: METRIC_HTTP_RPC_RESPONSE_PAYLOAD_BYTES,
+    help: 'Distribution of response payload sizes in bytes',
+    buckets: [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536],
+    labelNames: ['network', 'layer', 'chain_id', 'provider'] as const,
+  });
+
+export const PrometheusRpcRequestTotalProvider = makeCounterProvider({
+  name: METRIC_RPC_REQUEST_TOTAL,
+  help: 'Total number of individual RPC method calls',
+  labelNames: [
+    'network',
+    'layer',
+    'chain_id',
+    'provider',
+    'method',
+    'result',
+    'rpc_error_code',
+  ] as const,
+});
+
+// Nonce Metrics providers
+export const PrometheusNonceLatestProvider = makeGaugeProvider({
+  name: METRIC_NONCE_LATEST,
+  help: 'Latest confirmed nonce for guardian address',
+  labelNames: ['network'] as const,
+});
+
+export const PrometheusNoncePendingProvider = makeGaugeProvider({
+  name: METRIC_NONCE_PENDING,
+  help: 'Pending nonce for guardian address',
+  labelNames: ['network'] as const,
+});
+
+export const PrometheusNonceGapProvider = makeGaugeProvider({
+  name: METRIC_NONCE_GAP,
+  help: 'Difference between pending and latest nonce',
+  labelNames: ['network'] as const,
+});
+
+// Events Cache Metrics providers
+export const PrometheusDepositsCacheBytesProvider = makeGaugeProvider({
+  name: METRIC_DEPOSITS_CACHE_BYTES,
+  help: 'Memory used by deposits events cache in bytes',
+});
+
+export const PrometheusDepositsCacheCountProvider = makeGaugeProvider({
+  name: METRIC_DEPOSITS_CACHE_COUNT,
+  help: 'Number of deposit events in cache',
+});
+
+export const PrometheusSigningKeysCacheBytesProvider = makeGaugeProvider({
+  name: METRIC_SIGNING_KEYS_CACHE_BYTES,
+  help: 'Memory used by signing keys events cache in bytes',
+});
+
+export const PrometheusSigningKeysCacheCountProvider = makeGaugeProvider({
+  name: METRIC_SIGNING_KEYS_CACHE_COUNT,
+  help: 'Number of signing key events in cache',
 });
