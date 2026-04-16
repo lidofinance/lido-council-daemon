@@ -20,6 +20,7 @@ import {
   METRIC_DUPLICATED_KEYS_TOTAL,
   METRIC_INVALID_KEYS_TOTAL,
   METRIC_UNVET_ATTEMPTS,
+  METRIC_HISTORICAL_FRONT_RUN_TOTAL,
   METRIC_DATA_BUS_ACCOUNT_BALANCE,
   METRIC_DATA_BUS_RPC_REQUEST_DURATION,
   METRIC_DATA_BUS_RPC_REQUEST_ERRORS,
@@ -149,6 +150,12 @@ export const PrometheusInvalidKeysProvider = makeGaugeProvider({
   name: METRIC_INVALID_KEYS_TOTAL,
   help: 'Number of invalid keys',
   labelNames: ['stakingModuleId'] as const,
+});
+
+export const PrometheusHistoricalFrontRunProvider = makeGaugeProvider({
+  name: METRIC_HISTORICAL_FRONT_RUN_TOTAL,
+  help: 'Number of historical front-run and wrong WC type keys',
+  labelNames: ['type'] as const,
 });
 
 export const PrometheusJobDurationProvider = makeHistogramProvider({

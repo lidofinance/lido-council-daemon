@@ -32,6 +32,8 @@ export const METRIC_DUPLICATED_KEYS_TOTAL = `${METRICS_PREFIX}duplicated_keys_to
 
 export const METRIC_INVALID_KEYS_TOTAL = `${METRICS_PREFIX}invalid_keys_total`;
 
+export const METRIC_HISTORICAL_FRONT_RUN_TOTAL = `${METRICS_PREFIX}historical_front_run_total`;
+
 export const METRIC_JOB_DURATION = `${METRICS_PREFIX}handle_job_duration`;
 
 // RPC Metrics

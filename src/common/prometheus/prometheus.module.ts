@@ -20,6 +20,7 @@ import {
   PrometheusDataBusAccountBalanceProvider,
   PrometheusDataBusRPCRequestsHistogramProvider,
   PrometheusJobDurationProvider,
+  PrometheusHistoricalFrontRunProvider,
   PrometheusHttpRpcRequestsTotalProvider,
   PrometheusHttpRpcBatchSizeProvider,
   PrometheusHttpRpcResponseSecondsProvider,
@@ -66,6 +67,7 @@ const providers = [
   PrometheusInvalidKeysProvider,
   PrometheusUnvetKeysCounterProvider,
   PrometheusJobDurationProvider,
+  PrometheusHistoricalFrontRunProvider,
   // RPC Metrics providers
   PrometheusHttpRpcRequestsTotalProvider,
   PrometheusHttpRpcBatchSizeProvider,

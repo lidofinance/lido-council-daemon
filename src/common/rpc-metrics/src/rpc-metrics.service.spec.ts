@@ -63,9 +63,11 @@ describe('RpcMetricsService', () => {
     const metricsRegistry = createMetricsRegistry();
     const service = new RpcMetricsService(options, metricsRegistry);
 
-    expect((service as any).normalizeProvider('https://eth-mainnet.g.alchemy.com/v2/test')).toBe(
-      'alchemy.com',
-    );
+    expect(
+      (service as any).normalizeProvider(
+        'https://eth-mainnet.g.alchemy.com/v2/test',
+      ),
+    ).toBe('alchemy.com');
     expect((service as any).normalizeProvider('https://rpc.ankr.com/eth')).toBe(
       'ankr.com',
     );
@@ -75,12 +77,8 @@ describe('RpcMetricsService', () => {
     expect((service as any).normalizeProvider('https://127.0.0.1:8545')).toBe(
       '127.0.0.1:8545',
     );
-    expect((service as any).normalizeProvider('rpc.ankr.com')).toBe(
-      'ankr.com',
-    );
-    expect((service as any).normalizeProvider('RPC.ANKR.COM')).toBe(
-      'ankr.com',
-    );
+    expect((service as any).normalizeProvider('rpc.ankr.com')).toBe('ankr.com');
+    expect((service as any).normalizeProvider('RPC.ANKR.COM')).toBe('ankr.com');
     expect((service as any).normalizeProvider('LOCALHOST')).toBe('localhost');
     expect((service as any).normalizeProvider('')).toBe('unknown');
     expect((service as any).normalizeProvider('http://[')).toBe('unknown');
@@ -92,8 +90,7 @@ describe('RpcMetricsService', () => {
     const now = 1_000_000;
     const cleanupThreshold =
       (RpcMetricsService as any).PENDING_REQUESTS_CLEANUP_THRESHOLD + 1;
-    const maxAge =
-      (RpcMetricsService as any).PENDING_REQUESTS_MAX_AGE_MS + 1;
+    const maxAge = (RpcMetricsService as any).PENDING_REQUESTS_MAX_AGE_MS + 1;
 
     jest.spyOn(Date, 'now').mockReturnValue(now);
 
@@ -109,7 +106,9 @@ describe('RpcMetricsService', () => {
     );
 
     expect((service as any).pendingRequests.size).toBe(0);
-    expect(metricsRegistry.httpRpcResponseSeconds.observe).not.toHaveBeenCalled();
+    expect(
+      metricsRegistry.httpRpcResponseSeconds.observe,
+    ).not.toHaveBeenCalled();
   });
 
   it('should clean up stale pending requests when a new request starts', () => {
@@ -118,8 +117,7 @@ describe('RpcMetricsService', () => {
     const now = 2_000_000;
     const cleanupThreshold =
       (RpcMetricsService as any).PENDING_REQUESTS_CLEANUP_THRESHOLD + 1;
-    const maxAge =
-      (RpcMetricsService as any).PENDING_REQUESTS_MAX_AGE_MS + 1;
+    const maxAge = (RpcMetricsService as any).PENDING_REQUESTS_MAX_AGE_MS + 1;
     const requestEvent: RpcRequestBatchedEvent = {
       action: 'provider:request-batched',
       domain: 'https://eth-mainnet.g.alchemy.com/v2/test',
@@ -198,9 +196,9 @@ describe('RpcMetricsService', () => {
       expect((service as any).normalizeProvider('127.0.0.1:8545')).toBe(
         '127.0.0.1:8545',
       );
-      expect(
-        (service as any).normalizeProvider('https://127.0.0.1:8545'),
-      ).toBe('127.0.0.1:8545');
+      expect((service as any).normalizeProvider('https://127.0.0.1:8545')).toBe(
+        '127.0.0.1:8545',
+      );
     });
 
     it('should return unknown for empty or malformed urls', () => {
@@ -216,13 +214,11 @@ describe('RpcMetricsService', () => {
       expect((service as any).extractHostname('https://rpc.ankr.com/eth')).toBe(
         'rpc.ankr.com',
       );
+      expect((service as any).extractHostname('https://127.0.0.1:8545')).toBe(
+        '127.0.0.1:8545',
+      );
       expect(
-        (service as any).extractHostname('https://127.0.0.1:8545'),
-      ).toBe('127.0.0.1:8545');
-      expect(
-        (service as any).extractSecondLevelDomain(
-          'eth-mainnet.g.alchemy.com',
-        ),
+        (service as any).extractSecondLevelDomain('eth-mainnet.g.alchemy.com'),
       ).toBe('alchemy.com');
       expect((service as any).extractSecondLevelDomain('RPC.ANKR.COM')).toBe(
         'ankr.com',
