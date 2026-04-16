@@ -141,15 +141,6 @@ describe('Signature validation e2e test', () => {
     ).toBe(false);
   };
 
-  const expectDepositsForModule = (moduleId: number, fromCallIndex = 0) => {
-    const newDepositMessages = getNewDepositMessages(fromCallIndex);
-    expect(
-      newDepositMessages.some(
-        (message) => message.stakingModuleId === moduleId,
-      ),
-    ).toBe(true);
-  };
-
   let stakingModulesAddresses: string[];
   let curatedModuleAddress: string;
   let stakingModulesCount: number;

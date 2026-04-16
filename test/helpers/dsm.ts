@@ -1,5 +1,4 @@
 import { ethers } from 'ethers';
-import { strict as assert } from 'assert';
 import { NO_PRIVKEY_MESSAGE } from '../constants';
 import { LidoAbi__factory, SecurityAbi__factory } from 'generated';
 import { accountImpersonate, setBalance, testSetupProvider } from './provider';

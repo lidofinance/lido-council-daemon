@@ -396,9 +396,6 @@ export class GuardianService implements OnModuleInit {
       stakingModuleData.crossTypeKeys,
     );
 
-    // TODO: no need to check (hasFrontRunning || hasWrongWCType)
-    // alreadyPausedDeposits = true, no need to check hasFrontRunning || hasWrongWCType;
-    // alreadyPausedDeposits = false && ( hasFrontRunning || hasWrongWCType) == true -> pause
     // if neither of this conditions is true, deposits are allowed for module
     const ignoreDeposits =
       keysForUnvetting.length > 0 ||
