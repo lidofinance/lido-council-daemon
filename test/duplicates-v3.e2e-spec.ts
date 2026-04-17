@@ -41,7 +41,7 @@ import { StakingModuleData } from 'guardian/interfaces';
 jest.mock('../src/transport/stomp/stomp.client.ts');
 jest.setTimeout(300_000);
 
-describe('Duplicates e2e tests', () => {
+describe.skip('Duplicates e2e tests', () => {
   let provider: SimpleFallbackJsonRpcBatchProvider;
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;

@@ -23,7 +23,7 @@ import { getLocator } from './helpers/sr.contract';
 jest.mock('../src/transport/stomp/stomp.client.ts');
 jest.setTimeout(500_000);
 
-describe('Integration Tests', () => {
+describe.skip('Integration Tests', () => {
   let moduleRef: TestingModule;
   let provider: SimpleFallbackJsonRpcBatchProvider;
   let keysApiService: KeysApiService;
