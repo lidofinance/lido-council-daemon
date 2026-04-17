@@ -99,6 +99,7 @@ describe('StakingModuleDataCollectorService', () => {
         stakingModules: [mockModule] as any,
         meta: mockMeta as any,
         lidoKeys: [],
+        moduleWCMap: {},
       });
 
       expect(getMaxDepositsSpy).toHaveBeenCalledWith(
@@ -116,6 +117,7 @@ describe('StakingModuleDataCollectorService', () => {
         stakingModules: [mockModule] as any,
         meta: mockMeta as any,
         lidoKeys: [],
+        moduleWCMap: {},
       });
 
       expect(getMaxDepositsSpy).toHaveBeenCalledWith(
@@ -132,6 +134,7 @@ describe('StakingModuleDataCollectorService', () => {
         stakingModules: [mockModule] as any,
         meta: mockMeta as any,
         lidoKeys: [],
+        moduleWCMap: {},
       });
 
       expect(getMaxDepositsSpy).toHaveBeenCalledWith(

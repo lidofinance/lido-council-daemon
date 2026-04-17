@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { MockProviderModule } from 'provider';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
+import { PrometheusModule } from 'common/prometheus';
 import { SigningKeysStoreModule } from './store.module';
 import { SigningKeysStoreService } from './store.service';
 import { cacheMock, eventsMock1, keyMock1 } from './store.fixtures';
@@ -17,6 +18,7 @@ describe('dbService', () => {
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
+        PrometheusModule,
         ConfigModule.forRoot(),
         MockProviderModule.forRoot(),
         SigningKeysStoreModule.register(

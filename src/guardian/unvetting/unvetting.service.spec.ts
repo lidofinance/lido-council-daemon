@@ -93,6 +93,10 @@ describe('UnvettingService', () => {
         securityService,
         'unvetSigningKeys',
       );
+      const getMaxOperatorsPerUnvettingMock = jest.spyOn(
+        securityService,
+        'getMaxOperatorsPerUnvetting',
+      );
       const sendUnvetMessageMock = jest.spyOn(
         guardianMessageService,
         'sendUnvetMessage',
@@ -109,6 +113,7 @@ describe('UnvettingService', () => {
       const stakingModuleData = {
         invalidKeys: mockKeys,
         duplicatedKeys: [],
+        crossTypeKeys: [],
         frontRunKeys: [],
         nonce: 1,
         stakingModuleId: 1,
@@ -118,6 +123,9 @@ describe('UnvettingService', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
+      expect(getMaxOperatorsPerUnvettingMock).toHaveBeenCalledWith({
+        blockHash: '0x1',
+      });
       expect(unvetSigningKeysMock).toHaveBeenCalledTimes(1);
       expect(unvetSigningKeysMock).toBeCalledWith(
         1,
@@ -150,6 +158,10 @@ describe('UnvettingService', () => {
         securityService,
         'unvetSigningKeys',
       );
+      const getMaxOperatorsPerUnvettingMock = jest.spyOn(
+        securityService,
+        'getMaxOperatorsPerUnvetting',
+      );
       const sendUnvetMessageMock = jest.spyOn(
         guardianMessageService,
         'sendUnvetMessage',
@@ -166,6 +178,7 @@ describe('UnvettingService', () => {
       const stakingModuleData = {
         invalidKeys: mockKeys2,
         duplicatedKeys: [],
+        crossTypeKeys: [],
         frontRunKeys: [],
         nonce: 1,
         stakingModuleId: 1,
@@ -175,6 +188,9 @@ describe('UnvettingService', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
+      expect(getMaxOperatorsPerUnvettingMock).toHaveBeenCalledWith({
+        blockHash: '0x1',
+      });
       expect(unvetSigningKeysMock).toHaveBeenCalledTimes(1);
       expect(unvetSigningKeysMock).toBeCalledWith(
         1,

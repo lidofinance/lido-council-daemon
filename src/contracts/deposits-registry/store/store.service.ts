@@ -14,19 +14,30 @@ import {
   VerifiedDepositEventsCacheHeaders,
 } from '../interfaces';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
-import { METRIC_JOB_DURATION } from 'common/prometheus';
-import { Histogram } from 'prom-client';
+import {
+  METRIC_JOB_DURATION,
+  METRIC_DEPOSITS_CACHE_BYTES,
+  METRIC_DEPOSITS_CACHE_COUNT,
+} from 'common/prometheus';
+import { Gauge, Histogram } from 'prom-client';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 @Injectable()
 export class DepositsRegistryStoreService {
   private db!: Level<string, string>;
   private cache!: VerifiedDepositEventsCache;
+  private cacheSizeBytes = 0;
+  private cacheEventCount = 0;
+
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private provider: SimpleFallbackJsonRpcBatchProvider,
     @InjectMetric(METRIC_JOB_DURATION)
     private jobDurationMetric: Histogram<string>,
+    @InjectMetric(METRIC_DEPOSITS_CACHE_BYTES)
+    private depositsCacheBytesGauge: Gauge<string>,
+    @InjectMetric(METRIC_DEPOSITS_CACHE_COUNT)
+    private depositsCacheCountGauge: Gauge<string>,
     @Inject(DB_DIR) private cacheDir: string,
     @Inject(DB_LAYER_DIR) private cacheLayerDir: string,
     @Inject(DB_DEFAULT_VALUE)
@@ -154,9 +165,19 @@ export class DepositsRegistryStoreService {
 
       const data: VerifiedDepositEvent[] = [];
 
+      // Reset counters before loading
+      this.cacheSizeBytes = 0;
+      this.cacheEventCount = 0;
+
       for await (const [, value] of stream) {
+        // Track size from DB value
+        this.cacheSizeBytes += Buffer.byteLength(value, 'utf8');
+        this.cacheEventCount++;
         data.push(this.parseDepositEvent(value));
       }
+
+      this.updateCacheMetrics();
+
       const headers: VerifiedDepositEventsCacheHeaders = JSON.parse(
         await this.db.get('headers'),
       );
@@ -385,19 +406,40 @@ export class DepositsRegistryStoreService {
   }
 
   /**
-   * Serializes a VerifiedDepositEvent into a JSON string, converting `depositDataRoot` from Uint8Array to an array.
+   * Serializes a VerifiedDepositEvent into a JSON string, converting
+   * `depositDataRoot` from Uint8Array to an array.
    *
    * @param {VerifiedDepositEvent} depositEvent - The deposit event to serialize.
+   * @param {boolean} trackCacheMetrics - Whether to count this record in deposit cache metrics.
    * @returns {string} The serialized JSON string of the deposit event.
    * @public
    */
-  public serializeDepositEvent(depositEvent: VerifiedDepositEvent) {
+  public serializeDepositEvent(
+    depositEvent: VerifiedDepositEvent,
+    trackCacheMetrics = true,
+  ) {
     const { depositDataRoot, ...rest } = depositEvent;
     const value = {
       ...rest,
       depositDataRoot: Array.from(depositDataRoot),
     };
-    return JSON.stringify(value);
+    const serialized = JSON.stringify(value);
+
+    if (trackCacheMetrics) {
+      this.cacheSizeBytes += Buffer.byteLength(serialized, 'utf8');
+      this.cacheEventCount++;
+      this.updateCacheMetrics();
+    }
+
+    return serialized;
+  }
+
+  /**
+   * Updates the Prometheus cache metrics
+   */
+  private updateCacheMetrics(): void {
+    this.depositsCacheBytesGauge.set(this.cacheSizeBytes);
+    this.depositsCacheCountGauge.set(this.cacheEventCount);
   }
 
   /**
@@ -436,7 +478,10 @@ export class DepositsRegistryStoreService {
    * @public
    */
   public async insertLastValidEvent(event: VerifiedDepositEvent) {
-    await this.db.put('last-valid-event', this.serializeDepositEvent(event));
+    await this.db.put(
+      'last-valid-event',
+      this.serializeDepositEvent(event, false),
+    );
     this.cache.lastValidEvent = event;
   }
 
@@ -449,6 +494,11 @@ export class DepositsRegistryStoreService {
   public async deleteCache(): Promise<void> {
     await this.db.clear();
     this.cache = this.getDefaultCachedValue();
+
+    // Reset cache metrics
+    this.cacheSizeBytes = 0;
+    this.cacheEventCount = 0;
+    this.updateCacheMetrics();
   }
 
   /**

@@ -38,6 +38,7 @@ const stakingModuleData = {
   lastDepositBlock: 0,
   blockHash: '',
   isDepositsPaused: false,
+  withdrawalCredentials: '0x12',
   hasDepositsAllocation: true,
 };
 
@@ -117,6 +118,7 @@ describe('StakingModuleGuardService', () => {
           isModuleDepositsPaused: false,
           invalidKeys: [],
           duplicatedKeys: [],
+          crossTypeKeys: [],
           frontRunKeys: [],
           unresolvedDuplicatedKeys: [],
         },
@@ -144,6 +146,7 @@ describe('StakingModuleGuardService', () => {
           isModuleDepositsPaused: false,
           invalidKeys: [],
           duplicatedKeys: [],
+          crossTypeKeys: [],
           frontRunKeys: [],
           unresolvedDuplicatedKeys: [],
         },
@@ -169,6 +172,7 @@ describe('StakingModuleGuardService', () => {
           isModuleDepositsPaused: false,
           invalidKeys: [],
           duplicatedKeys: [],
+          crossTypeKeys: [],
           frontRunKeys: [],
           unresolvedDuplicatedKeys: [],
         },
@@ -211,6 +215,7 @@ describe('StakingModuleGuardService', () => {
           isModuleDepositsPaused: false,
           invalidKeys: [],
           duplicatedKeys: [],
+          crossTypeKeys: [],
           frontRunKeys: [],
           unresolvedDuplicatedKeys: [],
         },
@@ -224,6 +229,7 @@ describe('StakingModuleGuardService', () => {
           isModuleDepositsPaused: false,
           invalidKeys: [],
           duplicatedKeys: [],
+          crossTypeKeys: [],
           frontRunKeys: [],
           unresolvedDuplicatedKeys: [],
         },
@@ -256,6 +262,7 @@ describe('StakingModuleGuardService', () => {
           isModuleDepositsPaused: false,
           invalidKeys: [],
           duplicatedKeys: [],
+          crossTypeKeys: [],
           frontRunKeys: [],
           unresolvedDuplicatedKeys: [],
         },
@@ -267,49 +274,400 @@ describe('StakingModuleGuardService', () => {
     });
   });
 
-  describe('excludeEligibleIntersections', () => {
-    const pubkey = '0x1234';
-    const lidoWC = '0x12';
+  describe('getFrontRunAttempts', () => {
+    const pubkey = vettedKeys[0].key;
+    const moduleWC = '0x12';
     const attackerWC = '0x23';
-    const blockData = { blockHash: '0x1234', lidoWC } as any;
+    const otherLidoWC = '0x34';
+    const lidoWCSet = new Set([moduleWC, otherLidoWC]);
 
-    it('should exclude invalid intersections', async () => {
-      // here should be in real test valid deposit
-      // but function ignore it
-      const intersections = [{ valid: false, pubkey, wc: lidoWC } as any];
+    const makeModuleData = () =>
+      ({
+        ...stakingModuleData,
+        withdrawalCredentials: moduleWC,
+        lastChangedBlockHash: '',
+        vettedUnusedKeys: vettedKeys,
+        isModuleDepositsPaused: false,
+        invalidKeys: [],
+        duplicatedKeys: [],
+        crossTypeKeys: [],
+        frontRunKeys: [],
+        unresolvedDuplicatedKeys: [],
+      } as any);
 
-      const filteredIntersections =
-        await stakingModuleGuardService.excludeEligibleIntersections(
+    const makeBlockData = (events: any[]) =>
+      ({ depositedEvents: { events } } as any);
+
+    it('should skip invalid deposit events', () => {
+      const blockData = makeBlockData([
+        { valid: false, pubkey, wc: attackerWC },
+      ]);
+
+      const { frontRunKeys, crossTypeKeys } =
+        stakingModuleGuardService.getFrontRunAttempts(
+          makeModuleData(),
           blockData,
-          intersections,
+          lidoWCSet,
         );
 
-      expect(filteredIntersections).toHaveLength(0);
+      expect(frontRunKeys).toHaveLength(0);
+      expect(crossTypeKeys).toHaveLength(0);
     });
 
-    it('should exclude intersections with lido WC', async () => {
-      const intersections = [{ valid: true, pubkey, wc: lidoWC } as any];
+    it('should skip deposits with module WC', () => {
+      const blockData = makeBlockData([{ valid: true, pubkey, wc: moduleWC }]);
 
-      const filteredIntersections =
-        await stakingModuleGuardService.excludeEligibleIntersections(
+      const { frontRunKeys, crossTypeKeys } =
+        stakingModuleGuardService.getFrontRunAttempts(
+          makeModuleData(),
           blockData,
-          intersections,
+          lidoWCSet,
         );
 
-      expect(filteredIntersections).toHaveLength(0);
+      expect(frontRunKeys).toHaveLength(0);
+      expect(crossTypeKeys).toHaveLength(0);
     });
 
-    it('should not exclude intersections with attacker WC', async () => {
-      const intersections = [{ valid: true, pubkey, wc: attackerWC } as any];
+    it('should detect front-run with attacker WC', () => {
+      const blockData = makeBlockData([
+        { valid: true, pubkey, wc: attackerWC },
+      ]);
 
-      const filteredIntersections =
-        await stakingModuleGuardService.excludeEligibleIntersections(
+      const { frontRunKeys, crossTypeKeys } =
+        stakingModuleGuardService.getFrontRunAttempts(
+          makeModuleData(),
           blockData,
-          intersections,
+          lidoWCSet,
         );
 
-      expect(filteredIntersections).toHaveLength(1);
-      expect(filteredIntersections).toEqual(intersections);
+      expect(frontRunKeys).toHaveLength(1);
+      expect(frontRunKeys[0].key).toBe(pubkey);
+      expect(crossTypeKeys).toHaveLength(0);
+    });
+
+    it('should detect cross-type deposit with other Lido WC', () => {
+      const blockData = makeBlockData([
+        { valid: true, pubkey, wc: otherLidoWC },
+      ]);
+
+      const { frontRunKeys, crossTypeKeys } =
+        stakingModuleGuardService.getFrontRunAttempts(
+          makeModuleData(),
+          blockData,
+          lidoWCSet,
+        );
+
+      expect(frontRunKeys).toHaveLength(0);
+      expect(crossTypeKeys).toHaveLength(1);
+      expect(crossTypeKeys[0].key).toBe(pubkey);
+    });
+  });
+
+  describe('checkHistoricalFrontRun', () => {
+    const MODULE_ADDR_01 = '0xModuleAddr01';
+    const MODULE_ADDR_02 = '0xModuleAddr02';
+    const WC_01 =
+      '0x010000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const WC_02 =
+      '0x020000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const BAD_WC = '0xbadbadbadbad';
+
+    const makeLidoKey = (
+      key: string,
+      moduleAddress: string,
+      used: boolean,
+    ) => ({
+      key,
+      depositSignature: '0xsig',
+      operatorIndex: 0,
+      used,
+      index: 0,
+      moduleAddress,
+      vetted: true,
+    });
+
+    const makeEvent = (
+      pubkey: string,
+      wc: string,
+      blockNumber: number,
+      logIndex: number,
+      valid = true,
+    ) => ({
+      pubkey,
+      wc,
+      blockNumber,
+      logIndex,
+      valid,
+      amount: '32000000000',
+      signature: '0xsig',
+      tx: '0xtx',
+      blockHash: '0xhash',
+      depositCount: 1,
+      depositDataRoot: new Uint8Array(),
+      index: '',
+    });
+
+    it('should return false when earliest deposit has correct 0x01 WC', () => {
+      const result = stakingModuleGuardService.checkHistoricalFrontRun(
+        { events: [makeEvent('0xkey01', WC_01, 100, 0)] } as any,
+        [makeLidoKey('0xkey01', MODULE_ADDR_01, true)],
+        { [MODULE_ADDR_01]: WC_01 },
+      );
+      expect(result).toBe(false);
+    });
+
+    it('should return false when earliest deposit has correct 0x02 WC', () => {
+      const result = stakingModuleGuardService.checkHistoricalFrontRun(
+        { events: [makeEvent('0xkey02', WC_02, 100, 0)] } as any,
+        [makeLidoKey('0xkey02', MODULE_ADDR_02, true)],
+        { [MODULE_ADDR_02]: WC_02 },
+      );
+      expect(result).toBe(false);
+    });
+
+    it('should return false when lido 0x01 deposit is earlier than non-lido deposit', () => {
+      const result = stakingModuleGuardService.checkHistoricalFrontRun(
+        {
+          events: [
+            makeEvent('0xkey01', WC_01, 100, 0),
+            makeEvent('0xkey01', BAD_WC, 200, 0),
+          ],
+        } as any,
+        [makeLidoKey('0xkey01', MODULE_ADDR_01, true)],
+        { [MODULE_ADDR_01]: WC_01 },
+      );
+      expect(result).toBe(false);
+    });
+
+    it('should return false when lido 0x02 deposit is earlier than non-lido deposit', () => {
+      const result = stakingModuleGuardService.checkHistoricalFrontRun(
+        {
+          events: [
+            makeEvent('0xkey02', WC_02, 100, 0),
+            makeEvent('0xkey02', BAD_WC, 200, 0),
+          ],
+        } as any,
+        [makeLidoKey('0xkey02', MODULE_ADDR_02, true)],
+        { [MODULE_ADDR_02]: WC_02 },
+      );
+      expect(result).toBe(false);
+    });
+
+    it('should return true when non-lido deposit is earlier than lido 0x01 deposit (theft)', () => {
+      const result = stakingModuleGuardService.checkHistoricalFrontRun(
+        {
+          events: [
+            makeEvent('0xkey01', BAD_WC, 100, 0),
+            makeEvent('0xkey01', WC_01, 200, 0),
+          ],
+        } as any,
+        [makeLidoKey('0xkey01', MODULE_ADDR_01, true)],
+        { [MODULE_ADDR_01]: WC_01 },
+      );
+      expect(result).toBe(true);
+    });
+
+    it('should return true when non-lido deposit is earlier than lido 0x02 deposit (theft)', () => {
+      const result = stakingModuleGuardService.checkHistoricalFrontRun(
+        {
+          events: [
+            makeEvent('0xkey02', BAD_WC, 100, 0),
+            makeEvent('0xkey02', WC_02, 200, 0),
+          ],
+        } as any,
+        [makeLidoKey('0xkey02', MODULE_ADDR_02, true)],
+        { [MODULE_ADDR_02]: WC_02 },
+      );
+      expect(result).toBe(true);
+    });
+
+    it('should return false when invalid non-lido event is earlier than valid lido event', () => {
+      const result = stakingModuleGuardService.checkHistoricalFrontRun(
+        {
+          events: [
+            makeEvent('0xkey01', BAD_WC, 100, 0, false),
+            makeEvent('0xkey01', WC_01, 200, 0),
+          ],
+        } as any,
+        [makeLidoKey('0xkey01', MODULE_ADDR_01, true)],
+        { [MODULE_ADDR_01]: WC_01 },
+      );
+      expect(result).toBe(false);
+    });
+
+    it('should return false when lido deposit has lower logIndex in same block', () => {
+      const result = stakingModuleGuardService.checkHistoricalFrontRun(
+        {
+          events: [
+            makeEvent('0xkey01', WC_01, 100, 1),
+            makeEvent('0xkey01', BAD_WC, 100, 5),
+          ],
+        } as any,
+        [makeLidoKey('0xkey01', MODULE_ADDR_01, true)],
+        { [MODULE_ADDR_01]: WC_01 },
+      );
+      expect(result).toBe(false);
+    });
+
+    it('should return true when non-lido deposit has lower logIndex in same block (theft)', () => {
+      const result = stakingModuleGuardService.checkHistoricalFrontRun(
+        {
+          events: [
+            makeEvent('0xkey01', BAD_WC, 100, 1),
+            makeEvent('0xkey01', WC_01, 100, 5),
+          ],
+        } as any,
+        [makeLidoKey('0xkey01', MODULE_ADDR_01, true)],
+        { [MODULE_ADDR_01]: WC_01 },
+      );
+      expect(result).toBe(true);
+    });
+
+    it('should return false when earliest deposit has wrong WC type but is lido WC', () => {
+      const result = stakingModuleGuardService.checkHistoricalFrontRun(
+        { events: [makeEvent('0xkey01', WC_02, 100, 0)] } as any,
+        [makeLidoKey('0xkey01', MODULE_ADDR_01, true)],
+        { [MODULE_ADDR_01]: WC_01, [MODULE_ADDR_02]: WC_02 },
+      );
+      expect(result).toBe(false);
+    });
+
+    it('should throw when used key has unknown moduleAddress', () => {
+      expect(() =>
+        stakingModuleGuardService.checkHistoricalFrontRun(
+          { events: [makeEvent('0xkey01', WC_01, 100, 0)] } as any,
+          [makeLidoKey('0xkey01', '0xUnknownModule', true)],
+          { [MODULE_ADDR_01]: WC_01 },
+        ),
+      ).toThrow('Unexpected module address');
+    });
+  });
+
+  describe('checkWrongWCType', () => {
+    const MODULE_ADDR_01 = '0xModuleAddr01';
+    const MODULE_ADDR_02 = '0xModuleAddr02';
+    const WC_01 =
+      '0x010000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const WC_02 =
+      '0x020000000000000000000000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const BAD_WC = '0xbadbadbadbad';
+
+    const makeLidoKey = (
+      key: string,
+      moduleAddress: string,
+      used: boolean,
+    ) => ({
+      key,
+      depositSignature: '0xsig',
+      operatorIndex: 0,
+      used,
+      index: 0,
+      moduleAddress,
+      vetted: true,
+    });
+
+    const makeEvent = (
+      pubkey: string,
+      wc: string,
+      blockNumber: number,
+      logIndex: number,
+      valid = true,
+    ) => ({
+      pubkey,
+      wc,
+      blockNumber,
+      logIndex,
+      valid,
+      amount: '32000000000',
+      signature: '0xsig',
+      tx: '0xtx',
+      blockHash: '0xhash',
+      depositCount: 1,
+      depositDataRoot: new Uint8Array(),
+      index: '',
+    });
+
+    it('should return false when earliest deposit has correct WC for module', () => {
+      const result = stakingModuleGuardService.checkWrongWCType(
+        {
+          events: [
+            makeEvent('0xkey01', WC_01, 100, 0),
+            makeEvent('0xkey02', WC_02, 101, 0),
+          ],
+        } as any,
+        [
+          makeLidoKey('0xkey01', MODULE_ADDR_01, true),
+          makeLidoKey('0xkey02', MODULE_ADDR_02, true),
+        ],
+        { [MODULE_ADDR_01]: WC_01, [MODULE_ADDR_02]: WC_02 },
+      );
+      expect(result).toBe(false);
+    });
+
+    it('should return true when 0x01 module key has earliest deposit with 0x02 WC', () => {
+      const result = stakingModuleGuardService.checkWrongWCType(
+        {
+          events: [
+            makeEvent('0xkey01', WC_02, 100, 0),
+            makeEvent('0xkey01', WC_01, 200, 0),
+          ],
+        } as any,
+        [makeLidoKey('0xkey01', MODULE_ADDR_01, true)],
+        { [MODULE_ADDR_01]: WC_01, [MODULE_ADDR_02]: WC_02 },
+      );
+      expect(result).toBe(true);
+    });
+
+    it('should return true when 0x02 module key has earliest deposit with 0x01 WC', () => {
+      const result = stakingModuleGuardService.checkWrongWCType(
+        {
+          events: [
+            makeEvent('0xkey02', WC_01, 100, 0),
+            makeEvent('0xkey02', WC_02, 200, 0),
+          ],
+        } as any,
+        [makeLidoKey('0xkey02', MODULE_ADDR_02, true)],
+        { [MODULE_ADDR_01]: WC_01, [MODULE_ADDR_02]: WC_02 },
+      );
+      expect(result).toBe(true);
+    });
+
+    it('should return false when earliest deposit has non-lido WC (front-run, not wrong type)', () => {
+      const result = stakingModuleGuardService.checkWrongWCType(
+        {
+          events: [
+            makeEvent('0xkey01', BAD_WC, 100, 0),
+            makeEvent('0xkey01', WC_01, 200, 0),
+          ],
+        } as any,
+        [makeLidoKey('0xkey01', MODULE_ADDR_01, true)],
+        { [MODULE_ADDR_01]: WC_01 },
+      );
+      expect(result).toBe(false);
+    });
+
+    it('should return false when invalid wrong-type event is earlier than valid correct event', () => {
+      const result = stakingModuleGuardService.checkWrongWCType(
+        {
+          events: [
+            makeEvent('0xkey01', WC_02, 100, 0, false),
+            makeEvent('0xkey01', WC_01, 200, 0),
+          ],
+        } as any,
+        [makeLidoKey('0xkey01', MODULE_ADDR_01, true)],
+        { [MODULE_ADDR_01]: WC_01, [MODULE_ADDR_02]: WC_02 },
+      );
+      expect(result).toBe(false);
+    });
+
+    it('should throw when used key has unknown moduleAddress', () => {
+      expect(() =>
+        stakingModuleGuardService.checkWrongWCType(
+          { events: [makeEvent('0xkey01', WC_01, 100, 0)] } as any,
+          [makeLidoKey('0xkey01', '0xUnknownModule', true)],
+          { [MODULE_ADDR_01]: WC_01 },
+        ),
+      ).toThrow('Unexpected module address');
     });
   });
 
