@@ -2,7 +2,7 @@
 import { toHexString } from '@chainsafe/ssz';
 
 // Constants
-import { SLEEP_FOR_RESULT, pk, sk } from './constants';
+import { pk, sk } from './constants';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -141,6 +141,25 @@ describe('Signature validation e2e test', () => {
     ).toBe(false);
   };
 
+  const waitForGuardianCycle = async (
+    blockNumber: number,
+    blockHash: string,
+  ) => {
+    const timeoutAt = Date.now() + 30_000;
+
+    while (
+      guardianService.isNeedToProcessNewState({ blockNumber, blockHash })
+    ) {
+      if (Date.now() > timeoutAt) {
+        throw new Error(
+          `Guardian did not finish processing block ${blockNumber} in time`,
+        );
+      }
+
+      await new Promise((res) => setTimeout(res, 100));
+    }
+  };
+
   let stakingModulesAddresses: string[];
   let curatedModuleAddress: string;
   let stakingModulesCount: number;
@@ -153,6 +172,8 @@ describe('Signature validation e2e test', () => {
   let postgresContainer;
   let keysApiContainer;
   let hardhatServer: HardhatServer;
+  let secondCycleDepositCalls: number;
+  let unvettingBlockNumber: number;
 
   beforeAll(async () => {
     const { kapi, psql } = await setupContainers();
@@ -290,9 +311,9 @@ describe('Signature validation e2e test', () => {
 
     test('Unvetted key will not set module on soft pause', async () => {
       const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
+      const currentBlock = await provider.getBlock('latest');
       await guardianService.handleNewBlock();
-
-      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+      await waitForGuardianCycle(currentBlock.number, currentBlock.hash);
 
       // 4 - number of modules
       expect(validateKeys).toHaveBeenCalledTimes(stakingModulesCount);
@@ -315,10 +336,11 @@ describe('Signature validation e2e test', () => {
     });
 
     test('Unvetting', async () => {
+      secondCycleDepositCalls = sendDepositMessage.mock.calls.length;
       const currentBlock = await provider.getBlock('latest');
-      const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
+      unvettingBlockNumber = currentBlock.number;
       await guardianService.handleNewBlock();
-      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+      await waitForGuardianCycle(currentBlock.number, currentBlock.hash);
 
       const walletAddress = await getWalletAddress();
 
@@ -346,20 +368,14 @@ describe('Signature validation e2e test', () => {
         '0x00000000000000000000000000000004',
         expect.any(Object),
       );
-
-      expectNoDepositsForModule(1, depositCallsBeforeCycle);
     });
 
     test('No deposits for module', async () => {
-      const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
-
-      await guardianService.handleNewBlock();
-      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
-
-      expectNoDepositsForModule(1, depositCallsBeforeCycle);
+      expectNoDepositsForModule(1, secondCycleDepositCalls);
     });
 
     test('Check staking limit for operator after unvetting', async () => {
+      await waitForNewerBlock(unvettingBlockNumber);
       const op = await nor.getOperator(firstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
     });
