@@ -2,6 +2,14 @@ import { solidityKeccak256, hexlify, hexZeroPad } from 'ethers/lib/utils';
 import { BigNumber } from 'ethers';
 import { getLocator, getStakingModules, getType } from './sr.contract';
 import { testSetupProvider } from './provider';
+import {
+  getLegacyModuleExitedCountSlot,
+  getLegacyModuleIndexSlot,
+  getModuleAccountingExitedCount,
+  getModuleAccountingSlot,
+  setModuleAccountingExitedCount,
+  ZERO_STORAGE_VALUE,
+} from './staking-router-storage';
 
 export const CURATED_ONCHAIN_V1_TYPE = 'curated-onchain-v1';
 export const COMMUNITY_ONCHAIN_V1_TYPE = 'community-onchain-v1';
@@ -28,18 +36,6 @@ const ACTIVE_OPERATORS_COUNT_POSITION =
 // _nodeOperators mapping is at sequential slot 0 (AragonApp/Versioned use only unstructured storage),
 // so _nodeOperatorSummary.summarySigningKeysStats.v sits at slot 1.
 const NOR_SUMMARY_SIGNING_KEYS_STATS_SLOT = hexZeroPad(hexlify(1), 32);
-
-// StakingRouter unstructured storage positions.
-const SR_STAKING_MODULES_MAPPING_POSITION = solidityKeccak256(
-  ['string'],
-  ['lido.StakingRouter.stakingModules'],
-);
-const SR_INDICES_MAPPING_POSITION = solidityKeccak256(
-  ['string'],
-  ['lido.StakingRouter.stakingModuleIndicesOneBased'],
-);
-// Offset of StakingModule.exitedValidatorsCount within the struct (slots 0..5).
-const SR_MODULE_EXITED_COUNT_SLOT_OFFSET = 4;
 
 // Helper function to convert decimal number to 16-character hexadecimal string
 const to16 = (decimalNumber: number) => {
@@ -177,8 +173,7 @@ export const cutNorSummary = async (
 };
 
 // SR stores its own exitedValidatorsCount per module. On a mainnet fork it holds huge values,
-// while after cuts NOR summary reports deposited << that — causing underflow at
-// StakingRouter._loadStakingModulesCacheItem: totalDepositedValidators - max(totalExited, stakingModule.exitedValidatorsCount).
+// while after cuts module summary reports deposited << that, causing active validators count underflows.
 export const cutSRModuleExitedCount = async (
   srAddress: string,
   stakingModule,
@@ -192,10 +187,24 @@ export const cutSRModuleExitedCount = async (
     return;
   }
 
-  const indexKeySlot = solidityKeccak256(
-    ['uint256', 'uint256'],
-    [moduleId, SR_INDICES_MAPPING_POSITION],
+  const accountingSlot = getModuleAccountingSlot(moduleId);
+  const accountingValue = await testSetupProvider.getStorageAt(
+    srAddress,
+    accountingSlot,
   );
+
+  if (
+    getModuleAccountingExitedCount(accountingValue).eq(exitedValidatorsCount)
+  ) {
+    await testSetupProvider.send('hardhat_setStorageAt', [
+      srAddress,
+      accountingSlot,
+      setModuleAccountingExitedCount(accountingValue, BigNumber.from(0)),
+    ]);
+    return;
+  }
+
+  const indexKeySlot = getLegacyModuleIndexSlot(moduleId);
   const indexOneBasedHex = await testSetupProvider.getStorageAt(
     srAddress,
     indexKeySlot,
@@ -204,25 +213,26 @@ export const cutSRModuleExitedCount = async (
   if (indexOneBased.isZero()) {
     throw new Error(
       `StakingRouter storage layout mismatch: module ${moduleId} is returned by getStakingModules(), ` +
-        `but the expected stakingModuleIndicesOneBased slot is empty. ` +
+        `but neither the current SRStorage accounting slot nor the legacy stakingModuleIndicesOneBased slot matches it. ` +
         `Cannot reset non-zero exitedValidatorsCount=${exitedValidatorsCount.toString()}. ` +
         `Update reduce-keys.ts storage slot constants for the current StakingRouter implementation.`,
     );
   }
-  const index = indexOneBased.sub(1);
-  const structBase = BigNumber.from(
-    solidityKeccak256(
-      ['uint256', 'uint256'],
-      [index, SR_STAKING_MODULES_MAPPING_POSITION],
-    ),
+  const exitedSlot = getLegacyModuleExitedCountSlot(indexOneBased);
+  const legacyExitedCount = BigNumber.from(
+    await testSetupProvider.getStorageAt(srAddress, exitedSlot),
   );
-  const exitedSlot = structBase
-    .add(SR_MODULE_EXITED_COUNT_SLOT_OFFSET)
-    .toHexString();
+  if (!legacyExitedCount.eq(exitedValidatorsCount)) {
+    throw new Error(
+      `StakingRouter storage layout mismatch: module ${moduleId} is returned by getStakingModules(), ` +
+        `but current SRStorage and legacy storage values do not match exitedValidatorsCount=${exitedValidatorsCount.toString()}. ` +
+        `Observed current SRStorage slot=${accountingValue}, legacy exitedValidatorsCount=${legacyExitedCount.toString()}.`,
+    );
+  }
   await testSetupProvider.send('hardhat_setStorageAt', [
     srAddress,
     exitedSlot,
-    hexZeroPad('0x00', 32),
+    ZERO_STORAGE_VALUE,
   ]);
 };
 

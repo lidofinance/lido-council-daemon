@@ -1,19 +1,14 @@
 import * as dotenv from 'dotenv';
 import { BigNumber, constants, providers, utils } from 'ethers';
 import { LocatorAbi__factory, StakingRouterAbi__factory } from 'generated';
+import {
+  getLegacyModuleExitedCountSlot,
+  getLegacyModuleIndexSlot,
+  getModuleAccountingExitedCount,
+  getModuleAccountingSlot,
+} from './helpers/staking-router-storage';
 
 dotenv.config();
-
-const SR_INDICES_MAPPING_POSITION = utils.solidityKeccak256(
-  ['string'],
-  ['lido.StakingRouter.stakingModuleIndicesOneBased'],
-);
-
-const getModuleIndexSlot = (moduleId: number) =>
-  utils.solidityKeccak256(
-    ['uint256', 'uint256'],
-    [moduleId, SR_INDICES_MAPPING_POSITION],
-  );
 
 const fail = (message: string): never => {
   throw new Error(`E2E preflight failed: ${message}`);
@@ -85,9 +80,21 @@ async function main() {
   );
 
   for (const module of modulesWithExitedValidators) {
+    const moduleExitedCount = BigNumber.from(module.exitedValidatorsCount);
+    const accountingSlotValue = await provider.getStorageAt(
+      stakingRouterAddress,
+      getModuleAccountingSlot(module.id),
+    );
+
+    if (
+      getModuleAccountingExitedCount(accountingSlotValue).eq(moduleExitedCount)
+    ) {
+      continue;
+    }
+
     const indexOneBasedHex = await provider.getStorageAt(
       stakingRouterAddress,
-      getModuleIndexSlot(module.id),
+      getLegacyModuleIndexSlot(module.id),
     );
 
     if (BigNumber.from(indexOneBasedHex).isZero()) {
@@ -96,7 +103,22 @@ async function main() {
           module.id
         } on stakingRouter ${stakingRouterAddress}; getStakingModules() returns it with exitedValidatorsCount=${BigNumber.from(
           module.exitedValidatorsCount,
-        ).toString()}, but the hard-coded stakingModuleIndicesOneBased slot is empty`,
+        ).toString()}, but neither current SRStorage accounting nor legacy stakingModuleIndicesOneBased storage matches it`,
+      );
+    }
+
+    const legacyExitedCount = BigNumber.from(
+      await provider.getStorageAt(
+        stakingRouterAddress,
+        getLegacyModuleExitedCountSlot(BigNumber.from(indexOneBasedHex)),
+      ),
+    );
+
+    if (!legacyExitedCount.eq(moduleExitedCount)) {
+      fail(
+        `reduce-keys.ts found legacy storage for staking module ${
+          module.id
+        } on stakingRouter ${stakingRouterAddress}, but stored exitedValidatorsCount=${legacyExitedCount.toString()} does not match getStakingModules() value ${moduleExitedCount.toString()}`,
       );
     }
   }
