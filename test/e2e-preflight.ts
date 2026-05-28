@@ -7,12 +7,32 @@ import {
   getModuleAccountingExitedCount,
   getModuleAccountingSlot,
 } from './helpers/staking-router-storage';
+import { HardhatServer } from './helpers/hardhat-server';
+import { cutModulesKeys, verifyModulesKeysCut } from './helpers/reduce-keys';
 
 dotenv.config();
+
+const PREFLIGHT_CUT_CONFIG = {
+  opCount: 3,
+  keysCount: 3,
+  depositedCount: 3,
+};
 
 const fail = (message: string): never => {
   throw new Error(`E2E preflight failed: ${message}`);
 };
+
+async function verifyReduceKeysCutOnFork() {
+  const hardhatServer = new HardhatServer();
+  await hardhatServer.start();
+
+  try {
+    await cutModulesKeys(undefined, PREFLIGHT_CUT_CONFIG);
+    await verifyModulesKeysCut(PREFLIGHT_CUT_CONFIG);
+  } finally {
+    await hardhatServer.stop();
+  }
+}
 
 async function main() {
   if (process.env.E2E_SKIP_PREFLIGHT === 'true') {
@@ -122,6 +142,8 @@ async function main() {
       );
     }
   }
+
+  await verifyReduceKeysCutOnFork();
 }
 
 main().catch((error) => {

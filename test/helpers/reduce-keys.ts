@@ -1,5 +1,6 @@
 import { solidityKeccak256, hexlify, hexZeroPad } from 'ethers/lib/utils';
 import { BigNumber } from 'ethers';
+import { IStakingModuleAbi__factory } from 'generated';
 import { getLocator, getStakingModules, getType } from './sr.contract';
 import { testSetupProvider } from './provider';
 import {
@@ -12,6 +13,7 @@ import {
 } from './staking-router-storage';
 
 export const CURATED_ONCHAIN_V1_TYPE = 'curated-onchain-v1';
+export const CURATED_ONCHAIN_V2_TYPE = 'curated-onchain-v2';
 export const COMMUNITY_ONCHAIN_V1_TYPE = 'community-onchain-v1';
 const OPERATORS_COUNT = 3;
 const KEYS_COUNT = 3;
@@ -24,6 +26,24 @@ export type CutConfig = {
   // 0 -> module reports `opCount * keysCount` depositable keys.
   // keysCount -> module reports 0 depositable keys (everything already deposited).
   depositedCount: number;
+};
+
+const isCuratedTypeModule = (type: string) => type === CURATED_ONCHAIN_V1_TYPE;
+
+const isCommunityTypeModule = (type: string) =>
+  type === COMMUNITY_ONCHAIN_V1_TYPE || type === CURATED_ONCHAIN_V2_TYPE;
+
+const verifyBigNumber = (
+  failures: string[],
+  label: string,
+  actual: BigNumber,
+  expected: number,
+) => {
+  if (!actual.eq(BigNumber.from(expected))) {
+    failures.push(
+      `${label}: expected ${expected}, received ${actual.toString()}`,
+    );
+  }
 };
 
 // curated-onchain-v1 operator and keys reducing methods
@@ -293,23 +313,128 @@ export const cutModulesKeys = async (
 
   for (const stakingModule of stakingModules) {
     const type = await getType(stakingModule.stakingModuleAddress);
-    if (type === CURATED_ONCHAIN_V1_TYPE) {
+    if (isCuratedTypeModule(type)) {
       await cutCuratedTypeModuleState(
         stakingModule.stakingModuleAddress,
         opCount,
         keysCount,
         depositedCount,
       );
-    } else if (type === COMMUNITY_ONCHAIN_V1_TYPE) {
+    } else if (isCommunityTypeModule(type)) {
       await cutCommunityTypeModuleNodeOperators(
         stakingModule.stakingModuleAddress,
         opCount,
       );
     } else {
-      continue;
+      throw new Error(
+        `cutModulesKeys does not support staking module ${stakingModule.id} with type ${type}`,
+      );
     }
 
     // Keep SR's stored exited counter consistent with the (much smaller) post-cut module state.
     await cutSRModuleExitedCount(stakingRouterAddress, stakingModule);
+  }
+};
+
+export const verifyModulesKeysCut = async (
+  config: CutConfig = {
+    opCount: OPERATORS_COUNT,
+    keysCount: KEYS_COUNT,
+    depositedCount: DEPOSITED_COUNT,
+  },
+) => {
+  const { opCount, keysCount, depositedCount } = config;
+  const failures: string[] = [];
+  const expectedDepositable = keysCount - depositedCount;
+  const stakingModules = await getStakingModules();
+
+  for (const stakingModule of stakingModules) {
+    const type = await getType(stakingModule.stakingModuleAddress);
+    const moduleLabel = `module ${stakingModule.id} (${type})`;
+    const module = IStakingModuleAbi__factory.connect(
+      stakingModule.stakingModuleAddress,
+      testSetupProvider,
+    );
+
+    if (isCuratedTypeModule(type)) {
+      verifyBigNumber(
+        failures,
+        `${moduleLabel} nodeOperatorsCount`,
+        await module.getNodeOperatorsCount(),
+        opCount,
+      );
+      verifyBigNumber(
+        failures,
+        `${moduleLabel} activeNodeOperatorsCount`,
+        await module.getActiveNodeOperatorsCount(),
+        opCount,
+      );
+
+      const summary = await module.getStakingModuleSummary();
+      verifyBigNumber(
+        failures,
+        `${moduleLabel} summary totalExitedValidators`,
+        summary.totalExitedValidators,
+        0,
+      );
+      verifyBigNumber(
+        failures,
+        `${moduleLabel} summary totalDepositedValidators`,
+        summary.totalDepositedValidators,
+        opCount * depositedCount,
+      );
+      verifyBigNumber(
+        failures,
+        `${moduleLabel} summary depositableValidatorsCount`,
+        summary.depositableValidatorsCount,
+        opCount * expectedDepositable,
+      );
+
+      for (let opId = 0; opId < opCount; opId++) {
+        const operatorSummary = await module.getNodeOperatorSummary(opId);
+        const operatorLabel = `${moduleLabel} operator ${opId}`;
+        verifyBigNumber(
+          failures,
+          `${operatorLabel} totalExitedValidators`,
+          operatorSummary.totalExitedValidators,
+          0,
+        );
+        verifyBigNumber(
+          failures,
+          `${operatorLabel} totalDepositedValidators`,
+          operatorSummary.totalDepositedValidators,
+          depositedCount,
+        );
+        verifyBigNumber(
+          failures,
+          `${operatorLabel} depositableValidatorsCount`,
+          operatorSummary.depositableValidatorsCount,
+          expectedDepositable,
+        );
+      }
+    } else if (isCommunityTypeModule(type)) {
+      verifyBigNumber(
+        failures,
+        `${moduleLabel} nodeOperatorsCount`,
+        await module.getNodeOperatorsCount(),
+        opCount,
+      );
+      verifyBigNumber(
+        failures,
+        `${moduleLabel} activeNodeOperatorsCount`,
+        await module.getActiveNodeOperatorsCount(),
+        opCount,
+      );
+    } else {
+      failures.push(
+        `${moduleLabel}: cutModulesKeys does not support this staking module type`,
+      );
+    }
+  }
+
+  if (failures.length > 0) {
+    throw new Error(
+      `cutModulesKeys verification failed:\n${failures.join('\n')}`,
+    );
   }
 };
