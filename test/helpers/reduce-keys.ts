@@ -181,8 +181,17 @@ export const cutNorSummary = async (
 // StakingRouter._loadStakingModulesCacheItem: totalDepositedValidators - max(totalExited, stakingModule.exitedValidatorsCount).
 export const cutSRModuleExitedCount = async (
   srAddress: string,
-  moduleId: number,
+  stakingModule,
 ) => {
+  const moduleId = stakingModule.id;
+  const exitedValidatorsCount = BigNumber.from(
+    stakingModule.exitedValidatorsCount,
+  );
+
+  if (exitedValidatorsCount.isZero()) {
+    return;
+  }
+
   const indexKeySlot = solidityKeccak256(
     ['uint256', 'uint256'],
     [moduleId, SR_INDICES_MAPPING_POSITION],
@@ -193,7 +202,12 @@ export const cutSRModuleExitedCount = async (
   );
   const indexOneBased = BigNumber.from(indexOneBasedHex);
   if (indexOneBased.isZero()) {
-    throw new Error(`StakingRouter: module ${moduleId} is not registered`);
+    throw new Error(
+      `StakingRouter storage layout mismatch: module ${moduleId} is returned by getStakingModules(), ` +
+        `but the expected stakingModuleIndicesOneBased slot is empty. ` +
+        `Cannot reset non-zero exitedValidatorsCount=${exitedValidatorsCount.toString()}. ` +
+        `Update reduce-keys.ts storage slot constants for the current StakingRouter implementation.`,
+    );
   }
   const index = indexOneBased.sub(1);
   const structBase = BigNumber.from(
@@ -286,6 +300,6 @@ export const cutModulesKeys = async (
     }
 
     // Keep SR's stored exited counter consistent with the (much smaller) post-cut module state.
-    await cutSRModuleExitedCount(stakingRouterAddress, stakingModule.id);
+    await cutSRModuleExitedCount(stakingRouterAddress, stakingModule);
   }
 };

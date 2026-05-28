@@ -337,10 +337,10 @@ describe('Duplicates e2e tests', () => {
       await testSetupProvider.send('evm_revert', [snapshotId]);
       await truncateTables();
 
-      await levelDBService.deleteCache();
-      await signKeyLevelDBService.deleteCache();
-      await levelDBService.close();
-      await signKeyLevelDBService.close();
+      await levelDBService?.deleteCache();
+      await signKeyLevelDBService?.deleteCache();
+      await levelDBService?.close();
+      await signKeyLevelDBService?.close();
     });
 
     test('Set cache to current block', async () => {
@@ -537,10 +537,10 @@ describe('Duplicates e2e tests', () => {
       await testSetupProvider.send('evm_revert', [snapshotId]);
       await truncateTables();
 
-      await levelDBService.deleteCache();
-      await signKeyLevelDBService.deleteCache();
-      await levelDBService.close();
-      await signKeyLevelDBService.close();
+      await levelDBService?.deleteCache();
+      await signKeyLevelDBService?.deleteCache();
+      await levelDBService?.close();
+      await signKeyLevelDBService?.close();
     });
 
     test('Set cache to current block', async () => {
@@ -700,10 +700,10 @@ describe('Duplicates e2e tests', () => {
       await testSetupProvider.send('evm_revert', [snapshotId]);
       await truncateTables();
 
-      await levelDBService.deleteCache();
-      await signKeyLevelDBService.deleteCache();
-      await levelDBService.close();
-      await signKeyLevelDBService.close();
+      await levelDBService?.deleteCache();
+      await signKeyLevelDBService?.deleteCache();
+      await levelDBService?.close();
+      await signKeyLevelDBService?.close();
     });
 
     test('Set cache to current block', async () => {
@@ -856,10 +856,10 @@ describe('Duplicates e2e tests', () => {
       await testSetupProvider.send('evm_revert', [snapshotId]);
       await truncateTables();
 
-      await levelDBService.deleteCache();
-      await signKeyLevelDBService.deleteCache();
-      await levelDBService.close();
-      await signKeyLevelDBService.close();
+      await levelDBService?.deleteCache();
+      await signKeyLevelDBService?.deleteCache();
+      await levelDBService?.close();
+      await signKeyLevelDBService?.close();
     });
 
     test('Set cache to current block', async () => {
@@ -1045,10 +1045,10 @@ describe('Duplicates e2e tests', () => {
       jest.clearAllMocks();
       await testSetupProvider.send('evm_revert', [snapshotId]);
       await truncateTables();
-      await levelDBService.deleteCache();
-      await signKeyLevelDBService.deleteCache();
-      await levelDBService.close();
-      await signKeyLevelDBService.close();
+      await levelDBService?.deleteCache();
+      await signKeyLevelDBService?.deleteCache();
+      await levelDBService?.close();
+      await signKeyLevelDBService?.close();
     });
 
     test('Set cache to current block', async () => {

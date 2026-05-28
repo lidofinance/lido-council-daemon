@@ -1,4 +1,4 @@
-import { ethers, BigNumber } from 'ethers';
+import { ethers } from 'ethers';
 import { accountImpersonate, testSetupProvider } from './provider';
 import * as dotenv from 'dotenv';
 import {
@@ -22,39 +22,7 @@ export function getLocator() {
   return LocatorAbi__factory.connect(locatorAddress, testSetupProvider);
 }
 
-export async function getStakingModules(): Promise<
-  ([
-    number,
-    string,
-    number,
-    number,
-    number,
-    number,
-    string,
-    BigNumber,
-    BigNumber,
-    BigNumber,
-    number,
-    BigNumber,
-    BigNumber,
-    number,
-  ] & {
-    id: number;
-    stakingModuleAddress: string;
-    stakingModuleFee: number;
-    treasuryFee: number;
-    stakeShareLimit: number;
-    status: number;
-    name: string;
-    lastDepositAt: BigNumber;
-    lastDepositBlock: BigNumber;
-    exitedValidatorsCount: BigNumber;
-    priorityExitShareThreshold: number;
-    maxDepositsPerBlock: BigNumber;
-    minDepositBlockDistance: BigNumber;
-    withdrawalCredentialsType: number;
-  })[]
-> {
+export async function getStakingModules() {
   const locator = getLocator();
   const stakingRouterAddress = await locator.stakingRouter();
 
