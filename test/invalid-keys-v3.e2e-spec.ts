@@ -251,10 +251,10 @@ describe('Signature validation e2e test', () => {
       await testSetupProvider.send('evm_revert', [snapshotId]);
       await truncateTables();
 
-      await levelDBService.deleteCache();
-      await signKeyLevelDBService.deleteCache();
-      await levelDBService.close();
-      await signKeyLevelDBService.close();
+      await levelDBService?.deleteCache();
+      await signKeyLevelDBService?.deleteCache();
+      await levelDBService?.close();
+      await signKeyLevelDBService?.close();
     });
 
     test('Set cache to current block', async () => {
