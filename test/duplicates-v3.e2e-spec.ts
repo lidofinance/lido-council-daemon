@@ -933,7 +933,12 @@ describe('Duplicates e2e tests', () => {
 
     test('deposits work', async () => {
       expectDepositsStillWork(firstCycleDepositCalls);
-      expectNoDepositsForModule(2, firstCycleDepositCalls);
+
+      const sdvtState = await expectDepositsToMatchModuleState(
+        2,
+        firstCycleDepositCalls,
+      );
+      expect(getModuleIssuesCount(sdvtState)).toEqual(0);
     });
 
     test('increase staking limit for op = 0', async () => {
@@ -954,7 +959,12 @@ describe('Duplicates e2e tests', () => {
 
     test('deposits work', async () => {
       expectDepositsStillWork(secondCycleDepositCalls);
-      expectNoDepositsForModule(2, secondCycleDepositCalls);
+
+      const sdvtState = await expectDepositsToMatchModuleState(
+        2,
+        secondCycleDepositCalls,
+      );
+      expect(getModuleIssuesCount(sdvtState)).toEqual(0);
     });
 
     test('increase staking limit for the first operator of SDVT contract', async () => {
