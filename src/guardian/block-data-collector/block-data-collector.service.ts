@@ -73,17 +73,17 @@ export class BlockDataCollectorService {
         this.walletService.isBalanceCritical(),
       ]);
 
-      // const theftHappened =
-      //   await this.stakingModuleGuardService.getHistoricalFrontRun(
-      //     depositedEvents,
-      //     lidoWCList,
-      //   );
-      const violationWCFound =
-        await this.stakingModuleGuardService.checkValidatorsHasWrongWC(
+      const hasFrontRunning =
+        this.stakingModuleGuardService.checkHistoricalFrontRun(
           depositedEvents,
           lidoKeys,
           moduleWCMap,
         );
+      const hasWrongWCType = this.stakingModuleGuardService.checkWrongWCType(
+        depositedEvents,
+        lidoKeys,
+        moduleWCMap,
+      );
 
       const alreadyPausedDeposits = await this.alreadyPausedDeposits(blockHash);
 
@@ -103,7 +103,8 @@ export class BlockDataCollectorService {
         guardianIndex,
         securityVersion,
         alreadyPausedDeposits,
-        violationWCFound,
+        hasFrontRunning,
+        hasWrongWCType,
         walletBalanceCritical,
       };
     } catch (error) {

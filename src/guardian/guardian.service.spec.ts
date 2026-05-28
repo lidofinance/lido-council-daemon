@@ -116,6 +116,7 @@ describe('GuardianService', () => {
         makeModuleData(),
         false,
         false,
+        false,
         1,
       );
       expect(result).toBe(false);
@@ -126,6 +127,95 @@ describe('GuardianService', () => {
         makeModuleData({
           isModuleDepositsPaused: true,
         }),
+        false,
+        false,
+        false,
+        1,
+      );
+      expect(result).toBe(true);
+    });
+
+    it('should ignore deposits when hasFrontRunning is true', () => {
+      const result = (guardianService as any).ignoreDeposits(
+        makeModuleData(),
+        true,
+        false,
+        false,
+        1,
+      );
+      expect(result).toBe(true);
+    });
+
+    it('should ignore deposits when hasWrongWCType is true', () => {
+      const result = (guardianService as any).ignoreDeposits(
+        makeModuleData(),
+        false,
+        true,
+        false,
+        1,
+      );
+      expect(result).toBe(true);
+    });
+
+    it('should ignore deposits when alreadyPausedDeposits is true', () => {
+      const result = (guardianService as any).ignoreDeposits(
+        makeModuleData(),
+        false,
+        false,
+        true,
+        1,
+      );
+      expect(result).toBe(true);
+    });
+
+    it('should ignore deposits when there are invalid keys', () => {
+      const result = (guardianService as any).ignoreDeposits(
+        makeModuleData({ invalidKeys: [{ key: '0xk' }] }),
+        false,
+        false,
+        false,
+        1,
+      );
+      expect(result).toBe(true);
+    });
+
+    it('should ignore deposits when there are front-run keys', () => {
+      const result = (guardianService as any).ignoreDeposits(
+        makeModuleData({ frontRunKeys: [{ key: '0xk' }] }),
+        false,
+        false,
+        false,
+        1,
+      );
+      expect(result).toBe(true);
+    });
+
+    it('should ignore deposits when there are duplicated keys', () => {
+      const result = (guardianService as any).ignoreDeposits(
+        makeModuleData({ duplicatedKeys: [{ key: '0xk' }] }),
+        false,
+        false,
+        false,
+        1,
+      );
+      expect(result).toBe(true);
+    });
+
+    it('should ignore deposits when there are cross-type keys', () => {
+      const result = (guardianService as any).ignoreDeposits(
+        makeModuleData({ crossTypeKeys: [{ key: '0xk' }] }),
+        false,
+        false,
+        false,
+        1,
+      );
+      expect(result).toBe(true);
+    });
+
+    it('should ignore deposits when there are unresolved duplicated keys', () => {
+      const result = (guardianService as any).ignoreDeposits(
+        makeModuleData({ unresolvedDuplicatedKeys: [{ key: '0xk' }] }),
+        false,
         false,
         false,
         1,

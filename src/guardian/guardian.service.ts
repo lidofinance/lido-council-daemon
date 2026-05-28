@@ -192,7 +192,10 @@ export class GuardianService implements OnModuleInit {
         lidoKeys,
       );
 
-      if (!blockData.alreadyPausedDeposits && blockData.violationWCFound) {
+      if (
+        !blockData.alreadyPausedDeposits &&
+        (blockData.hasFrontRunning || blockData.hasWrongWCType)
+      ) {
         await this.stakingModuleGuardService.handlePauseV3(blockData);
         return;
       }
@@ -363,7 +366,8 @@ export class GuardianService implements OnModuleInit {
         if (
           this.ignoreDeposits(
             stakingModuleData,
-            blockData.violationWCFound,
+            blockData.hasFrontRunning,
+            blockData.hasWrongWCType,
             blockData.alreadyPausedDeposits,
             stakingModuleData.stakingModuleId,
           )
@@ -381,7 +385,8 @@ export class GuardianService implements OnModuleInit {
 
   private ignoreDeposits(
     stakingModuleData: StakingModuleData,
-    violationWCFound: boolean,
+    hasFrontRunning: boolean,
+    hasWrongWCType: boolean,
     alreadyPausedDeposits: boolean,
     stakingModuleId: number,
   ): boolean {
@@ -396,7 +401,8 @@ export class GuardianService implements OnModuleInit {
       keysForUnvetting.length > 0 ||
       stakingModuleData.unresolvedDuplicatedKeys.length > 0 ||
       alreadyPausedDeposits ||
-      violationWCFound ||
+      hasFrontRunning ||
+      hasWrongWCType ||
       stakingModuleData.isModuleDepositsPaused;
 
     if (ignoreDeposits) {
@@ -404,7 +410,8 @@ export class GuardianService implements OnModuleInit {
         keysForUnvetting: keysForUnvetting.length,
         duplicates: stakingModuleData.unresolvedDuplicatedKeys.length,
         alreadyPausedDeposits,
-        violationWCFound,
+        hasFrontRunning,
+        hasWrongWCType,
         isModuleDepositsPaused: stakingModuleData.isModuleDepositsPaused,
         stakingModuleId,
       });

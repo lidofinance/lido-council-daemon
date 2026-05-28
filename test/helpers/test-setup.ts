@@ -38,7 +38,7 @@ export const setupTestingModule = async () => {
   jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
   jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
   jest.spyOn(loggerService, 'debug').mockImplementation(() => undefined);
-  // jest.spyOn(loggerService, 'error').mockImplementation(() => undefined);
+  jest.spyOn(loggerService, 'error').mockImplementation(() => undefined);
 
   return moduleRef;
 };

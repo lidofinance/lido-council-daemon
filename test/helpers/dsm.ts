@@ -1,5 +1,4 @@
 import { ethers } from 'ethers';
-import { strict as assert } from 'assert';
 import { NO_PRIVKEY_MESSAGE } from '../constants';
 import { LidoAbi__factory, SecurityAbi__factory } from 'generated';
 import { accountImpersonate, setBalance, testSetupProvider } from './provider';
@@ -80,14 +79,17 @@ export async function canDeposit() {
   return res;
 }
 
-export async function deposit(moduleId: number, depositCount = 1) {
+/**
+ * Fill Lido buffer with ETH so that `depositCount` validators can be deposited.
+ * Raises staking limit via DAO and submits ETH to Lido.
+ * Does NOT call lido.deposit() — use `deposit()` for the full flow.
+ */
+export async function fillLidoBuffer(depositCount = 1) {
   const locator = getLocator();
-  const dsm = await locator.depositSecurityModule();
   const lidoAddress = await locator.lido();
   const withdrawalQueueAddress = await locator.withdrawalQueue();
 
   const chainId = CHAIN_ID;
-
   const agent = AGENT[chainId];
   const daoAddress = DAO[chainId];
 
@@ -98,16 +100,13 @@ export async function deposit(moduleId: number, depositCount = 1) {
     throw new Error(`DAO address not found for chain ID: ${chainId}`);
   }
 
-  assert(!!agent, 'Agent address is invalid');
-  assert(!!daoAddress, 'DAO address is invalid');
-
-  await accountImpersonate(dsm);
   await accountImpersonate(agent);
-  await setBalance(dsm, 100);
+  await accountImpersonate(daoAddress);
   await setBalance(agent, 100);
-  const signer = testSetupProvider.getSigner(dsm);
 
-  const lido = LidoAbi__factory.connect(lidoAddress, signer);
+  const agentSigner = testSetupProvider.getSigner(agent);
+  const lido = LidoAbi__factory.connect(lidoAddress, agentSigner);
+  const lidoAgentSigner = LidoAbi__factory.connect(lidoAddress, agentSigner);
 
   const withdrawalQueue = new Contract(
     withdrawalQueueAddress,
@@ -115,14 +114,9 @@ export async function deposit(moduleId: number, depositCount = 1) {
     testSetupProvider,
   );
 
-  const agentSigner = testSetupProvider.getSigner(agent);
-  const lidoAgentSigner = LidoAbi__factory.connect(lidoAddress, agentSigner);
-
   const unfinalizedStETHWei = await withdrawalQueue.unfinalizedStETH();
   const depositableEtherWei = await lido.getBufferedEther();
 
-  // If amount negative, this value show how much eth we need to satisfy withdrawals
-  // If possitive, it is the value we can use for deposits
   const amountForDeposits = depositableEtherWei
     .sub(unfinalizedStETHWei)
     .abs()
@@ -133,19 +127,11 @@ export async function deposit(moduleId: number, depositCount = 1) {
   const aclAbi = [
     'function grantPermission(address _entity, address _app, bytes32 _role)',
   ];
-
-  await accountImpersonate(daoAddress);
-
-  const kernelAbi = [
-    'function acl() view returns (address)',
-    'function APP_MANAGER_ROLE() view returns (bytes32)',
-    'function getAddress() view returns (address)',
-  ];
+  const kernelAbi = ['function acl() view returns (address)'];
 
   const dao = new Contract(daoAddress, kernelAbi, agentSigner);
   const aclAddress = await dao.acl();
   const acl = new Contract(aclAddress, aclAbi, agentSigner);
-
   const stakingControlRole = await lido.STAKING_CONTROL_ROLE();
 
   const grantTx = await acl.grantPermission(
@@ -156,8 +142,8 @@ export async function deposit(moduleId: number, depositCount = 1) {
   await grantTx.wait();
 
   await lidoAgentSigner.setStakingLimit(
-    ethers.utils.parseEther(amountForDepositsInEth), // _maxStakeLimit
-    ethers.utils.parseEther(amountForDepositsInEth), // _stakeLimitIncreasePerBlock
+    ethers.utils.parseEther(amountForDepositsInEth),
+    ethers.utils.parseEther(amountForDepositsInEth),
   );
 
   await new Promise((res) => setTimeout(res, 12000));
@@ -165,6 +151,19 @@ export async function deposit(moduleId: number, depositCount = 1) {
   await transferEther(lidoAddress, amountForDepositsInEth);
 
   await new Promise((res) => setTimeout(res, 12000));
+}
+
+export async function deposit(moduleId: number, depositCount = 1) {
+  const locator = getLocator();
+  const dsm = await locator.depositSecurityModule();
+  const lidoAddress = await locator.lido();
+
+  await accountImpersonate(dsm);
+  await setBalance(dsm, 100);
+  const signer = testSetupProvider.getSigner(dsm);
+  const lido = LidoAbi__factory.connect(lidoAddress, signer);
+
+  await fillLidoBuffer(depositCount);
 
   const tx = await lido.deposit(1, moduleId, new Uint8Array());
   await tx.wait();
