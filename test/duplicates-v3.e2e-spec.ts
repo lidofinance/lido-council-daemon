@@ -37,9 +37,13 @@ import {
 } from './helpers/docker-containers/utils';
 import { cutModulesKeys } from './helpers/reduce-keys';
 import { StakingModuleData } from 'guardian/interfaces';
+import { StakingRouterService } from 'contracts/staking-router';
+import { ethers } from 'ethers';
 
 jest.mock('../src/transport/stomp/stomp.client.ts');
 jest.setTimeout(300_000);
+
+const ONE_DEPOSIT_VALUE = ethers.utils.parseEther('32');
 
 describe('Duplicates e2e tests', () => {
   let provider: SimpleFallbackJsonRpcBatchProvider;
@@ -48,6 +52,7 @@ describe('Duplicates e2e tests', () => {
   let securityService: SecurityService;
   let blockDataCollectorService: BlockDataCollectorService;
   let stakingModuleDataCollectorService: StakingModuleDataCollectorService;
+  let stakingRouterService: StakingRouterService;
 
   let levelDBService: DepositsRegistryStoreService;
   let depositIntegrityCheckerService: DepositIntegrityCheckerService;
@@ -113,6 +118,7 @@ describe('Duplicates e2e tests', () => {
     stakingModuleDataCollectorService = moduleRef.get(
       StakingModuleDataCollectorService,
     );
+    stakingRouterService = moduleRef.get(StakingRouterService);
 
     // keys api servies
     keysApiService = moduleRef.get(KeysApiService);
@@ -167,6 +173,24 @@ describe('Duplicates e2e tests', () => {
     return moduleState;
   };
 
+  const hasDepositsAllocation = async (moduleState: StakingModuleData) => {
+    const blockTag = { blockHash: moduleState.blockHash };
+    const depositableEther = await stakingRouterService.getDepositableEther(
+      blockTag,
+    );
+    const allocationCheckValue = depositableEther.gt(ONE_DEPOSIT_VALUE)
+      ? depositableEther
+      : ONE_DEPOSIT_VALUE;
+    const maxDepositsCount =
+      await stakingRouterService.getStakingModuleMaxDepositsCount(
+        moduleState.stakingModuleId,
+        allocationCheckValue,
+        blockTag,
+      );
+
+    return maxDepositsCount > 0;
+  };
+
   const expectDepositsToMatchModuleState = async (
     moduleId: number,
     fromCallIndex = 0,
@@ -177,7 +201,8 @@ describe('Duplicates e2e tests', () => {
 
     const shouldReceiveDeposits =
       getModuleIssuesCount(moduleState) === 0 &&
-      !moduleState.isModuleDepositsPaused;
+      !moduleState.isModuleDepositsPaused &&
+      (await hasDepositsAllocation(moduleState));
 
     expect(
       newDepositMessages.some(
