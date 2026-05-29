@@ -18,7 +18,7 @@ import { Counter } from 'prom-client';
 import { BlockTag } from '@lido-nestjs/execution';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { WalletService } from 'wallet';
-import { DSM_CONTRACT_SUPPORTED_VERSION } from './security.constants';
+import { DSM_CONTRACT_SUPPORTED_VERSIONS } from './security.constants';
 
 @Injectable()
 export class SecurityService {
@@ -374,13 +374,19 @@ export class SecurityService {
 
     const currentVersion = version.toNumber();
 
-    if (currentVersion !== DSM_CONTRACT_SUPPORTED_VERSION) {
-      this.logger.warn(`Deprecated DSM contract version found: ${version}`, {
+    const isSupportedVersion = DSM_CONTRACT_SUPPORTED_VERSIONS.some(
+      (supportedVersion) => supportedVersion === currentVersion,
+    );
+
+    if (!isSupportedVersion) {
+      this.logger.warn(`Unsupported DSM contract version found: ${version}`, {
         dsmContractAddress: contract.address,
+        supportedVersions: DSM_CONTRACT_SUPPORTED_VERSIONS,
         blockTag,
       });
-      throw new Error(`Deprecated DSM contract version found: ${version}`);
+      throw new Error(`Unsupported DSM contract version found: ${version}`);
     }
+
     return currentVersion;
   }
 

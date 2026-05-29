@@ -9,6 +9,7 @@ import { SecurityAbi__factory } from 'generated';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { Interface } from '@ethersproject/abi';
+import { BigNumber } from '@ethersproject/bignumber';
 import { hexZeroPad } from '@ethersproject/bytes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
@@ -109,6 +110,51 @@ describe('SecurityService', () => {
     it('should return guardian address', async () => {
       const guardianAddress = await securityService.getGuardianAddress();
       expect(isAddress(guardianAddress)).toBeTruthy();
+    });
+  });
+
+  describe('version', () => {
+    const blockTag = { blockHash: hexZeroPad('0x4', 32) };
+
+    const mockContractVersion = (version: number) => {
+      const VERSION = jest.fn().mockResolvedValue(BigNumber.from(version));
+
+      jest.spyOn(securityService, 'getContractWithSigner').mockReturnValue({
+        VERSION,
+        address: address1,
+      } as any);
+
+      return VERSION;
+    };
+
+    it('should allow DSM v3', async () => {
+      const VERSION = mockContractVersion(3);
+
+      await expect(securityService.version(blockTag)).resolves.toBe(3);
+      expect(VERSION).toHaveBeenCalledWith({ blockTag });
+    });
+
+    it('should allow DSM v4', async () => {
+      const VERSION = mockContractVersion(4);
+
+      await expect(securityService.version(blockTag)).resolves.toBe(4);
+      expect(VERSION).toHaveBeenCalledWith({ blockTag });
+    });
+
+    it('should reject unsupported DSM versions', async () => {
+      mockContractVersion(5);
+
+      await expect(securityService.version(blockTag)).rejects.toThrow(
+        'Unsupported DSM contract version found: 5',
+      );
+      expect(loggerService.warn).toHaveBeenCalledWith(
+        'Unsupported DSM contract version found: 5',
+        expect.objectContaining({
+          dsmContractAddress: address1,
+          blockTag,
+          supportedVersions: [3, 4],
+        }),
+      );
     });
   });
 
