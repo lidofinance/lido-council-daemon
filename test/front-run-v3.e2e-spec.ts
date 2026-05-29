@@ -260,10 +260,10 @@ describe('Front-run e2e tests', () => {
       await testSetupProvider.send('evm_revert', [snapshotId]);
       await truncateTables();
 
-      await levelDBService.deleteCache();
-      await signKeyLevelDBService.deleteCache();
-      await levelDBService.close();
-      await signKeyLevelDBService.close();
+      await levelDBService?.deleteCache();
+      await signKeyLevelDBService?.deleteCache();
+      await levelDBService?.close();
+      await signKeyLevelDBService?.close();
     });
 
     test('Set cache to current block', async () => {
@@ -414,10 +414,10 @@ describe('Front-run e2e tests', () => {
       await testSetupProvider.send('evm_revert', [snapshotId]);
       await truncateTables();
 
-      await levelDBService.deleteCache();
-      await signKeyLevelDBService.deleteCache();
-      await levelDBService.close();
-      await signKeyLevelDBService.close();
+      await levelDBService?.deleteCache();
+      await signKeyLevelDBService?.deleteCache();
+      await levelDBService?.close();
+      await signKeyLevelDBService?.close();
     });
 
     test('Set cache to current block', async () => {
@@ -526,10 +526,10 @@ describe('Front-run e2e tests', () => {
       await testSetupProvider.send('evm_revert', [snapshotId]);
       await truncateTables();
 
-      await levelDBService.deleteCache();
-      await signKeyLevelDBService.deleteCache();
-      await levelDBService.close();
-      await signKeyLevelDBService.close();
+      await levelDBService?.deleteCache();
+      await signKeyLevelDBService?.deleteCache();
+      await levelDBService?.close();
+      await signKeyLevelDBService?.close();
     });
 
     test('Set cache to current block', async () => {
@@ -654,10 +654,10 @@ describe('Front-run e2e tests', () => {
       await testSetupProvider.send('evm_revert', [snapshotId]);
       await truncateTables();
 
-      await levelDBService.deleteCache();
-      await signKeyLevelDBService.deleteCache();
-      await levelDBService.close();
-      await signKeyLevelDBService.close();
+      await levelDBService?.deleteCache();
+      await signKeyLevelDBService?.deleteCache();
+      await levelDBService?.close();
+      await signKeyLevelDBService?.close();
     });
 
     const runIf = canRunTests ? test : test.skip;

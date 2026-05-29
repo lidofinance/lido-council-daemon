@@ -1,6 +1,10 @@
 import { ethers } from 'ethers';
 import { NO_PRIVKEY_MESSAGE } from '../constants';
-import { LidoAbi__factory, SecurityAbi__factory } from 'generated';
+import {
+  LidoAbi__factory,
+  SecurityAbi__factory,
+  StakingRouterAbi__factory,
+} from 'generated';
 import { accountImpersonate, setBalance, testSetupProvider } from './provider';
 import { getLocator } from './sr.contract';
 import { Contract } from '@ethersproject/contracts';
@@ -156,16 +160,19 @@ export async function fillLidoBuffer(depositCount = 1) {
 export async function deposit(moduleId: number, depositCount = 1) {
   const locator = getLocator();
   const dsm = await locator.depositSecurityModule();
-  const lidoAddress = await locator.lido();
+  const stakingRouterAddress = await locator.stakingRouter();
 
   await accountImpersonate(dsm);
   await setBalance(dsm, 100);
   const signer = testSetupProvider.getSigner(dsm);
-  const lido = LidoAbi__factory.connect(lidoAddress, signer);
+  const stakingRouter = StakingRouterAbi__factory.connect(
+    stakingRouterAddress,
+    signer,
+  );
 
   await fillLidoBuffer(depositCount);
 
-  const tx = await lido.deposit(1, moduleId, new Uint8Array());
+  const tx = await stakingRouter.deposit(moduleId, new Uint8Array());
   await tx.wait();
 }
 

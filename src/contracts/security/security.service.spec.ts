@@ -9,6 +9,7 @@ import { SecurityAbi__factory } from 'generated';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { Interface } from '@ethersproject/abi';
+import { BigNumber } from '@ethersproject/bignumber';
 import { hexZeroPad } from '@ethersproject/bytes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
@@ -112,6 +113,51 @@ describe('SecurityService', () => {
     });
   });
 
+  describe('version', () => {
+    const blockTag = { blockHash: hexZeroPad('0x4', 32) };
+
+    const mockContractVersion = (version: number) => {
+      const VERSION = jest.fn().mockResolvedValue(BigNumber.from(version));
+
+      jest.spyOn(securityService, 'getContractWithSigner').mockReturnValue({
+        VERSION,
+        address: address1,
+      } as any);
+
+      return VERSION;
+    };
+
+    it('should allow DSM v3', async () => {
+      const VERSION = mockContractVersion(3);
+
+      await expect(securityService.version(blockTag)).resolves.toBe(3);
+      expect(VERSION).toHaveBeenCalledWith({ blockTag });
+    });
+
+    it('should allow DSM v4', async () => {
+      const VERSION = mockContractVersion(4);
+
+      await expect(securityService.version(blockTag)).resolves.toBe(4);
+      expect(VERSION).toHaveBeenCalledWith({ blockTag });
+    });
+
+    it('should reject unsupported DSM versions', async () => {
+      mockContractVersion(5);
+
+      await expect(securityService.version(blockTag)).rejects.toThrow(
+        'Unsupported DSM contract version found: 5',
+      );
+      expect(loggerService.warn).toHaveBeenCalledWith(
+        'Unsupported DSM contract version found: 5',
+        expect.objectContaining({
+          dsmContractAddress: address1,
+          blockTag,
+          supportedVersions: [3, 4],
+        }),
+      );
+    });
+  });
+
   describe('signDepositData', () => {
     it('should add prefix', async () => {
       const prefix = hexZeroPad('0x1', 32);
@@ -130,14 +176,19 @@ describe('SecurityService', () => {
       const mockGetAttestMessagePrefix = jest
         .spyOn(securityService, 'getAttestMessagePrefix')
         .mockImplementation(async () => hexZeroPad('0x1', 32));
+      const mockVersion = jest
+        .spyOn(securityService, 'version')
+        .mockImplementation(async () => 3);
 
       const signDepositData = jest.spyOn(walletService, 'signDepositData');
 
       const signature = await securityService.signDepositData(...args);
 
       expect(mockGetAttestMessagePrefix).toHaveBeenCalledTimes(1);
+      expect(mockVersion).toHaveBeenCalledWith({ blockHash });
       expect(signDepositData).toBeCalledWith({
         prefix,
+        contractVersion: 3,
         depositRoot,
         nonce,
         blockNumber,
@@ -197,6 +248,9 @@ describe('SecurityService', () => {
       const mockGetPauseMessagePrefix = jest
         .spyOn(securityService, 'getPauseMessagePrefix')
         .mockImplementation(async () => hexZeroPad('0x2', 32));
+      const mockVersion = jest
+        .spyOn(securityService, 'version')
+        .mockImplementation(async () => 3);
 
       const signPauseData = jest.spyOn(walletService, 'signPauseDataV3');
 
@@ -205,8 +259,10 @@ describe('SecurityService', () => {
         blockHash,
       );
       expect(mockGetPauseMessagePrefix).toHaveBeenCalledTimes(1);
+      expect(mockVersion).toHaveBeenCalledWith({ blockHash });
       expect(signPauseData).toBeCalledWith({
         blockNumber: 1,
+        contractVersion: 3,
         prefix:
           '0x0000000000000000000000000000000000000000000000000000000000000002',
       });
@@ -238,6 +294,7 @@ describe('SecurityService', () => {
       mockGetPauseMessagePrefix = jest
         .spyOn(securityService, 'getPauseMessagePrefix')
         .mockImplementation(async () => hexZeroPad('0x2', 32));
+      jest.spyOn(securityService, 'version').mockImplementation(async () => 3);
 
       mockPauseDeposits = jest
         .fn()
@@ -299,6 +356,7 @@ describe('SecurityService', () => {
       mockGetPauseMessagePrefix = jest
         .spyOn(securityService, 'getPauseMessagePrefix')
         .mockImplementation(async () => hexZeroPad('0x2', 32));
+      jest.spyOn(securityService, 'version').mockImplementation(async () => 3);
 
       mockPauseDeposits = jest
         .fn()
@@ -348,6 +406,9 @@ describe('SecurityService', () => {
       const mockGetUnvetMessagePrefix = jest
         .spyOn(securityService, 'getUnvetMessagePrefix')
         .mockImplementation(async () => hexZeroPad('0x2', 32));
+      const mockVersion = jest
+        .spyOn(securityService, 'version')
+        .mockImplementation(async () => 3);
 
       const signUnvetData = jest.spyOn(walletService, 'signUnvetData');
 
@@ -360,9 +421,11 @@ describe('SecurityService', () => {
         vettedKeysByOperator,
       );
       expect(mockGetUnvetMessagePrefix).toHaveBeenCalledTimes(1);
+      expect(mockVersion).toHaveBeenCalledWith({ blockHash });
       expect(signUnvetData).toBeCalledWith({
         blockNumber,
         blockHash,
+        contractVersion: 3,
         stakingModuleId,
         nonce,
         operatorIds,
@@ -404,6 +467,7 @@ describe('SecurityService', () => {
       mockGetUnvetMessagePrefix = jest
         .spyOn(securityService, 'getUnvetMessagePrefix')
         .mockImplementation(async () => hexZeroPad('0x2', 32));
+      jest.spyOn(securityService, 'version').mockImplementation(async () => 3);
 
       mockUnvetSigningKeys = jest
         .fn()

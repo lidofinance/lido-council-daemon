@@ -12,9 +12,6 @@ import { METRIC_JOB_DURATION } from 'common/prometheus';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { Histogram } from 'prom-client';
 import { DeepReadonly } from 'common/ts-utils';
-import { ethers } from 'ethers';
-
-const ONE_DEPOSIT_VALUE = ethers.utils.parseEther('32');
 
 type State = {
   stakingModules: SRModule[];
@@ -46,24 +43,8 @@ export class StakingModuleDataCollectorService {
   }: State): Promise<StakingModuleData[]> {
     const blockTag = { blockHash: meta.blockHash };
 
-    const depositableEther =
-      await this.stakingRouterService.getDepositableEther(blockTag);
-
-    // Ensure the most prioritized staking module always receives deposit
-    // messages by using max(depositableEther, 32 ETH) (ORC-635).
-    const allocationCheckValue = depositableEther.gt(ONE_DEPOSIT_VALUE)
-      ? depositableEther
-      : ONE_DEPOSIT_VALUE;
-
     return await Promise.all(
       stakingModules.map(async (stakingModule) => {
-        const maxDepositsCount =
-          await this.stakingRouterService.getStakingModuleMaxDepositsCount(
-            stakingModule.id,
-            allocationCheckValue,
-            blockTag,
-          );
-
         return {
           isModuleDepositsPaused:
             await this.stakingRouterService.isModuleDepositsPaused(
@@ -72,7 +53,6 @@ export class StakingModuleDataCollectorService {
             ),
           withdrawalCredentials:
             moduleWCMap[stakingModule.stakingModuleAddress],
-          hasDepositsAllocation: maxDepositsCount > 0,
           nonce: stakingModule.nonce,
           stakingModuleId: stakingModule.id,
           stakingModuleAddress: stakingModule.stakingModuleAddress,

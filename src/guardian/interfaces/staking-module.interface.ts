@@ -14,5 +14,4 @@ export interface StakingModuleData {
   unresolvedDuplicatedKeys: RegistryKey[];
   withdrawalCredentials: string;
   isModuleDepositsPaused: boolean;
-  hasDepositsAllocation: boolean;
 }

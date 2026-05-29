@@ -84,6 +84,7 @@ describe('WalletService', () => {
       const blockHash = hexZeroPad('0x3', 32);
       const signature = await walletService.signDepositData({
         prefix,
+        contractVersion: 3,
         depositRoot,
         nonce,
         blockNumber,
@@ -98,6 +99,61 @@ describe('WalletService', () => {
           s: expect.any(String),
           v: expect.any(Number),
         }),
+      );
+    });
+
+    it('should sign versioned deposit data for DSM v4', async () => {
+      const prefix = hexZeroPad('0x1', 32);
+      const depositRoot = hexZeroPad('0x2', 32);
+      const nonce = 1;
+      const blockNumber = 1;
+      const blockHash = hexZeroPad('0x3', 32);
+      const signature = await walletService.signDepositData({
+        prefix,
+        contractVersion: 4,
+        depositRoot,
+        nonce,
+        blockNumber,
+        blockHash,
+        stakingModuleId: TEST_MODULE_ID,
+      });
+
+      const messageHash = solidityKeccak256(
+        [
+          'bytes32',
+          'uint256',
+          'uint256',
+          'bytes32',
+          'bytes32',
+          'uint256',
+          'uint256',
+        ],
+        [prefix, 4, blockNumber, blockHash, depositRoot, TEST_MODULE_ID, nonce],
+      );
+
+      expect(recoverAddress(messageHash, signature)).toBe(
+        walletService.address,
+      );
+    });
+  });
+
+  describe('signPauseDataV3', () => {
+    it('should sign versioned pause data for DSM v4', async () => {
+      const prefix = hexZeroPad('0x1', 32);
+      const blockNumber = 1;
+      const signature = await walletService.signPauseDataV3({
+        prefix,
+        contractVersion: 4,
+        blockNumber,
+      });
+
+      const messageHash = solidityKeccak256(
+        ['bytes32', 'uint256', 'uint256'],
+        [prefix, 4, blockNumber],
+      );
+
+      expect(recoverAddress(messageHash, signature)).toBe(
+        walletService.address,
       );
     });
   });
@@ -132,6 +188,7 @@ describe('WalletService', () => {
       // use method underhood that do non-standart data packing
       const signature = await walletService.signUnvetData({
         prefix: UNVET_MESSAGE_PREFIX,
+        contractVersion: 3,
         blockNumber: 1429451,
         blockHash:
           '0x528b085cf0951e7c3003deb40db355cd35c77018f4cdc937bd10783e1c15588c',
@@ -165,6 +222,56 @@ describe('WalletService', () => {
       const signer = recoverAddress(encodedData, signature);
 
       expect(signer).toEqual(walletService.address);
+    });
+
+    it('should sign versioned unvet data for DSM v4', async () => {
+      const UNVET_MESSAGE_PREFIX = createUnvetMessagePrefix(
+        '0xB8ae82F7BFF2553bAF158B7a911DC10162045C53',
+      );
+      const blockNumber = 1429451;
+      const blockHash =
+        '0x528b085cf0951e7c3003deb40db355cd35c77018f4cdc937bd10783e1c15588c';
+      const nonce = 11;
+      const operatorIds = '0x0000000000000000';
+      const vettedKeysByOperator = '0x00000000000000000000000000000032';
+
+      const signature = await walletService.signUnvetData({
+        prefix: UNVET_MESSAGE_PREFIX,
+        contractVersion: 4,
+        blockNumber,
+        blockHash,
+        nonce,
+        stakingModuleId: 1,
+        operatorIds,
+        vettedKeysByOperator,
+      });
+
+      const messageHash = solidityKeccak256(
+        [
+          'bytes32',
+          'uint256',
+          'uint256',
+          'bytes32',
+          'uint256',
+          'uint256',
+          'bytes',
+          'bytes',
+        ],
+        [
+          UNVET_MESSAGE_PREFIX,
+          4,
+          blockNumber,
+          blockHash,
+          1,
+          nonce,
+          operatorIds,
+          vettedKeysByOperator,
+        ],
+      );
+
+      expect(recoverAddress(messageHash, signature)).toBe(
+        walletService.address,
+      );
     });
   });
 

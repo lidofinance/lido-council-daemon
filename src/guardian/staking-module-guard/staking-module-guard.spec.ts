@@ -39,7 +39,6 @@ const stakingModuleData = {
   blockHash: '',
   isDepositsPaused: false,
   withdrawalCredentials: '0x12',
-  hasDepositsAllocation: true,
 };
 
 describe('StakingModuleGuardService', () => {
