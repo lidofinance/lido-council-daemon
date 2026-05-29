@@ -118,10 +118,15 @@ export class SecurityService {
     blockHash: string,
     stakingModuleId: number,
   ): Promise<Signature> {
-    const prefix = await this.getAttestMessagePrefix(blockHash);
+    const blockTag = { blockHash };
+    const [prefix, contractVersion] = await Promise.all([
+      this.getAttestMessagePrefix(blockHash),
+      this.version(blockTag),
+    ]);
 
     return await this.walletService.signDepositData({
       prefix,
+      contractVersion,
       depositRoot,
       nonce,
       blockNumber,
@@ -141,10 +146,15 @@ export class SecurityService {
     blockNumber: number,
     blockHash: string,
   ): Promise<Signature> {
-    const prefix = await this.getPauseMessagePrefix(blockHash);
+    const blockTag = { blockHash };
+    const [prefix, contractVersion] = await Promise.all([
+      this.getPauseMessagePrefix(blockHash),
+      this.version(blockTag),
+    ]);
 
     return await this.walletService.signPauseDataV3({
       prefix,
+      contractVersion,
       blockNumber,
     });
   }
@@ -271,10 +281,15 @@ export class SecurityService {
     operatorIds: string,
     vettedKeysByOperator: string,
   ): Promise<Signature> {
-    const prefix = await this.getUnvetMessagePrefix(blockHash);
+    const blockTag = { blockHash };
+    const [prefix, contractVersion] = await Promise.all([
+      this.getUnvetMessagePrefix(blockHash),
+      this.version(blockTag),
+    ]);
 
     return await this.walletService.signUnvetData({
       prefix,
+      contractVersion,
       blockNumber,
       blockHash,
       stakingModuleId,

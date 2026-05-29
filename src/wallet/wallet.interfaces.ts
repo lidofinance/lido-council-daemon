@@ -1,5 +1,6 @@
 export interface SignDepositDataParams {
   prefix: string;
+  contractVersion: number;
   blockNumber: number;
   blockHash: string;
   depositRoot: string;
@@ -9,6 +10,7 @@ export interface SignDepositDataParams {
 
 export interface SignPauseDataParams {
   prefix: string;
+  contractVersion: number;
   blockNumber: number;
 }
 
@@ -20,6 +22,7 @@ export interface SignModulePauseDataParams {
 
 export interface SignUnvetDataParams {
   prefix: string;
+  contractVersion: number;
   blockNumber: number;
   blockHash: string;
   stakingModuleId: number;
