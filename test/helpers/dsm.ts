@@ -37,6 +37,18 @@ export async function getLidoWC() {
   return await contract.getWithdrawalCredentials();
 }
 
+// Per-module withdrawal credentials: same base WC, but the first byte (type)
+// differs by module (e.g. id 1 -> 0x01..., CMv2 id 5 -> 0x02...).
+export async function getModuleWC(moduleId: number) {
+  const locator = getLocator();
+  const stakingRouterAddress = await locator.stakingRouter();
+  const stakingRouter = StakingRouterAbi__factory.connect(
+    stakingRouterAddress,
+    testSetupProvider,
+  );
+  return await stakingRouter.getStakingModuleWithdrawalCredentials(moduleId);
+}
+
 export async function getGuardians() {
   const contract = await getSecurityContract();
   return await contract.getGuardians();

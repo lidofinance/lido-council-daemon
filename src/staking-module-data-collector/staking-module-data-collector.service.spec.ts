@@ -92,5 +92,69 @@ describe('StakingModuleDataCollectorService', () => {
         withdrawalCredentials: '0xwc1',
       });
     });
+
+    it('buckets vetted-unused keys per module and assigns each module its own WC (0x01 vs 0x02)', async () => {
+      jest
+        .spyOn(stakingRouterService, 'isModuleDepositsPaused')
+        .mockResolvedValue(false);
+
+      const CURATED_ADDR = '0xmodule1';
+      const CMV2_ADDR = '0x87EB69Ae51317405FD285efD2326a4a11f6173b9';
+      const wc01 =
+        '0x010000000000000000000000dc62f9e8c34be08501cdef4ebde0a280f576d762';
+      const wc02 =
+        '0x0200000000000000000000004473dcddbf77679a643bdb654dbd86d67f8d32f2';
+
+      const mkKey = (over: any) => ({
+        key: '0xk',
+        depositSignature: '0xsig',
+        operatorIndex: 0,
+        used: false,
+        vetted: true,
+        index: 0,
+        moduleAddress: CURATED_ADDR,
+        ...over,
+      });
+
+      const curatedKey = mkKey({
+        key: '0xcurated',
+        moduleAddress: CURATED_ADDR,
+      });
+      const cmv2Key = mkKey({ key: '0xcmv2', moduleAddress: CMV2_ADDR });
+      // must be excluded from vettedUnusedKeys
+      const cmv2Used = mkKey({
+        key: '0xused',
+        moduleAddress: CMV2_ADDR,
+        used: true,
+      });
+      const cmv2Unvetted = mkKey({
+        key: '0xunvetted',
+        moduleAddress: CMV2_ADDR,
+        vetted: false,
+      });
+
+      const result = await service.collectStakingModuleData({
+        stakingModules: [
+          { id: 1, nonce: 5, stakingModuleAddress: CURATED_ADDR },
+          { id: 5, nonce: 7, stakingModuleAddress: CMV2_ADDR },
+        ] as any,
+        meta: mockMeta as any,
+        lidoKeys: [curatedKey, cmv2Key, cmv2Used, cmv2Unvetted],
+        moduleWCMap: { [CURATED_ADDR]: wc01, [CMV2_ADDR]: wc02 },
+      });
+
+      const curated = result.find((m) => m.stakingModuleId === 1) as any;
+      const cmv2 = result.find((m) => m.stakingModuleId === 5) as any;
+
+      // each module gets its OWN withdrawal credentials
+      expect(curated.withdrawalCredentials).toBe(wc01);
+      expect(cmv2.withdrawalCredentials).toBe(wc02);
+
+      // keys are bucketed by moduleAddress; only vetted-unused ones survive
+      expect(curated.vettedUnusedKeys.map((k: any) => k.key)).toEqual([
+        '0xcurated',
+      ]);
+      expect(cmv2.vettedUnusedKeys.map((k: any) => k.key)).toEqual(['0xcmv2']);
+    });
   });
 });
