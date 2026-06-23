@@ -33,7 +33,7 @@ export async function getStakingModules() {
   return await contract.getStakingModules();
 }
 
-export async function prioritizeShareLimit(moduleId: number) {
+export async function prioritizeShareLimit(...moduleIds: number[]) {
   const locator = getLocator();
   const stakingRouterAddress = await locator.stakingRouter();
   const network = await testSetupProvider.getNetwork();
@@ -54,14 +54,23 @@ export async function prioritizeShareLimit(moduleId: number) {
 
   const modules = await getStakingModules();
 
+  // 100% in base points
+  const MAX_SHARE_LIMIT = 10000;
+  const prioritized = new Set(moduleIds);
+
   await Promise.all(
     modules.map(async (stakingModule) => {
-      if (stakingModule.id === moduleId) return;
+      const isPrioritized = prioritized.has(stakingModule.id);
+      // give the prioritized module an unlimited (100%) share so it can
+      // deposit, shrink every other module to the minimal share of 1
+      const stakeShareLimit = isPrioritized ? MAX_SHARE_LIMIT : 0;
+      // priorityExitShareThreshold must be >= stakeShareLimit, so bump it too
+      const priorityExitShareThreshold = isPrioritized ? MAX_SHARE_LIMIT : 0;
 
       await contract.updateStakingModule(
         stakingModule.id,
-        1,
-        stakingModule.priorityExitShareThreshold,
+        stakeShareLimit,
+        priorityExitShareThreshold,
         stakingModule.stakingModuleFee,
         stakingModule.treasuryFee,
         stakingModule.maxDepositsPerBlock,
