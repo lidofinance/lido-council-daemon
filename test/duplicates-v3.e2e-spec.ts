@@ -25,7 +25,10 @@ import { waitForNewerBlock, waitKAPIUpdateModulesKeys } from './helpers/kapi';
 import { truncateTables } from './helpers/pg';
 import { CuratedOnchainV1 } from './helpers/nor.contract';
 import { toHexString } from 'contracts/deposits-registry/crypto';
-import { getStakingModulesInfo } from './helpers/sr.contract';
+import {
+  getStakingModulesInfo,
+  prioritizeShareLimit,
+} from './helpers/sr.contract';
 import { StakingModuleDataCollectorService } from 'staking-module-data-collector';
 import { BlockDataCollectorService } from 'guardian/block-data-collector';
 import { SecretKey } from '@chainsafe/blst';
@@ -173,24 +176,6 @@ describe('Duplicates e2e tests', () => {
     return moduleState;
   };
 
-  const hasDepositsAllocation = async (moduleState: StakingModuleData) => {
-    const blockTag = { blockHash: moduleState.blockHash };
-    const depositableEther = await stakingRouterService.getDepositableEther(
-      blockTag,
-    );
-    const allocationCheckValue = depositableEther.gt(ONE_DEPOSIT_VALUE)
-      ? depositableEther
-      : ONE_DEPOSIT_VALUE;
-    const maxDepositsCount =
-      await stakingRouterService.getStakingModuleMaxDepositsCount(
-        moduleState.stakingModuleId,
-        allocationCheckValue,
-        blockTag,
-      );
-
-    return maxDepositsCount > 0;
-  };
-
   const expectDepositsToMatchModuleState = async (
     moduleId: number,
     fromCallIndex = 0,
@@ -201,8 +186,13 @@ describe('Duplicates e2e tests', () => {
 
     const shouldReceiveDeposits =
       getModuleIssuesCount(moduleState) === 0 &&
-      !moduleState.isModuleDepositsPaused &&
-      (await hasDepositsAllocation(moduleState));
+      !moduleState.isModuleDepositsPaused;
+
+    console.log(
+      `shouldReceiveDeposits ${shouldReceiveDeposits} moduleId ${moduleId} issue count:  ${getModuleIssuesCount(
+        moduleState,
+      )}`,
+    );
 
     expect(
       newDepositMessages.some(
@@ -247,6 +237,8 @@ describe('Duplicates e2e tests', () => {
         moduleWCMap,
       }),
     ]);
+
+    console.log('stakingModulesData: ', stakingModulesData);
 
     await stakingModuleDataCollectorService.checkKeys(
       stakingModulesData,
@@ -354,8 +346,11 @@ describe('Duplicates e2e tests', () => {
       await setupTestingServices(moduleRef);
       setupMocks();
 
+      // module 1 has a 0 share on the testnet, prioritize it so deposits work
+      await prioritizeShareLimit(1);
+
       await fillLidoBuffer(1);
-    }, 50_000);
+    }, 60_000);
 
     afterAll(async () => {
       jest.clearAllMocks();
@@ -554,8 +549,11 @@ describe('Duplicates e2e tests', () => {
       await setupTestingServices(moduleRef);
       setupMocks();
 
+      // module 1 has a 0 share on the testnet, prioritize it so deposits work
+      await prioritizeShareLimit(1);
+
       await fillLidoBuffer(1);
-    }, 50_000);
+    }, 60_000);
 
     afterAll(async () => {
       jest.clearAllMocks();
@@ -717,8 +715,11 @@ describe('Duplicates e2e tests', () => {
       await setupTestingServices(moduleRef);
       setupMocks();
 
+      // module 1 has a 0 share on the testnet, prioritize it so deposits work
+      await prioritizeShareLimit(1);
+
       await fillLidoBuffer(1);
-    }, 50_000);
+    }, 60_000);
 
     afterAll(async () => {
       jest.clearAllMocks();
@@ -873,8 +874,12 @@ describe('Duplicates e2e tests', () => {
       await setupTestingServices(moduleRef);
       setupMocks();
 
-      await fillLidoBuffer(1);
-    }, 50_000);
+      // modules 1 and 2 may have a 0 share on the testnet, prioritize both
+      // so deposits work for the curated and sdvt modules
+      await prioritizeShareLimit(1, 2);
+
+      await fillLidoBuffer(2);
+    }, 60_000);
 
     afterAll(async () => {
       jest.clearAllMocks();
@@ -959,11 +964,17 @@ describe('Duplicates e2e tests', () => {
     test('deposits work', async () => {
       expectDepositsStillWork(firstCycleDepositCalls);
 
+      const norState = await expectDepositsToMatchModuleState(
+        1,
+        firstCycleDepositCalls,
+      );
+
       const sdvtState = await expectDepositsToMatchModuleState(
         2,
         firstCycleDepositCalls,
       );
       expect(getModuleIssuesCount(sdvtState)).toEqual(0);
+      expect(getModuleIssuesCount(norState)).toEqual(0);
     });
 
     test('increase staking limit for op = 0', async () => {
@@ -984,12 +995,16 @@ describe('Duplicates e2e tests', () => {
 
     test('deposits work', async () => {
       expectDepositsStillWork(secondCycleDepositCalls);
-
+      const norState = await expectDepositsToMatchModuleState(
+        1,
+        firstCycleDepositCalls,
+      );
       const sdvtState = await expectDepositsToMatchModuleState(
         2,
         secondCycleDepositCalls,
       );
       expect(getModuleIssuesCount(sdvtState)).toEqual(0);
+      expect(getModuleIssuesCount(norState)).toEqual(0);
     });
 
     test('increase staking limit for the first operator of SDVT contract', async () => {
@@ -1073,8 +1088,12 @@ describe('Duplicates e2e tests', () => {
       await setupTestingServices(moduleRef);
       setupMocks();
 
-      await fillLidoBuffer(1);
-    }, 50_000);
+      // modules 1 and 2 may have a 0 share on the testnet, prioritize both
+      // so deposits work for the curated and sdvt modules
+      await prioritizeShareLimit(1, 2);
+
+      await fillLidoBuffer(2);
+    }, 60_000);
 
     afterAll(async () => {
       jest.clearAllMocks();
@@ -1159,11 +1178,12 @@ describe('Duplicates e2e tests', () => {
 
     test('no unvetting', async () => {
       firstCycleDepositCalls = sendDepositMessage.mock.calls.length;
+
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
-    });
+    }, 20_000);
 
     test('deposits work', async () => {
       expectDepositsStillWork(firstCycleDepositCalls);
@@ -1172,6 +1192,7 @@ describe('Duplicates e2e tests', () => {
         1,
         firstCycleDepositCalls,
       );
+
       const sdvtState = await expectDepositsToMatchModuleState(
         2,
         firstCycleDepositCalls,
@@ -1190,8 +1211,6 @@ describe('Duplicates e2e tests', () => {
 
     test('increase staking limit for op = 0 of SDVT contract', async () => {
       const currentBlock = await provider.getBlock('latest');
-      // keys total amount was 3, added key with wrong sign, now it is 4 keys
-      // increase limit to 4
       await sdvt.setStakingLimit(sdvtOperator.index, 4);
       await waitForNewerBlock(currentBlock.number);
     });
@@ -1241,6 +1260,7 @@ describe('Duplicates e2e tests', () => {
 
     test('no deposits for module for both modules', async () => {
       expectNoDepositsForModule(1, secondCycleDepositCalls);
+      // as only one module's unvetting transaction processed at one iteration to prevent race
       expectNoDepositsForModule(2, secondCycleDepositCalls);
     });
 
@@ -1301,9 +1321,10 @@ describe('Duplicates e2e tests', () => {
       expect(getModuleIssuesCount(norState)).toEqual(0);
       expect(norState.isModuleDepositsPaused).toBe(false);
       expect(norState.vettedUnusedKeys.length).toBeGreaterThan(0);
-      expect(getModuleIssuesCount(sdvtState)).toBeGreaterThan(0);
-      expect(sdvtState.duplicatedKeys.length).toBeGreaterThan(0);
+      expect(getModuleIssuesCount(sdvtState)).toEqual(1);
+      expect(sdvtState.duplicatedKeys.length).toEqual(1);
 
+      await expectDepositsToMatchModuleState(1, thirdCycleDepositCalls);
       expectNoDepositsForModule(2, thirdCycleDepositCalls);
     });
   });

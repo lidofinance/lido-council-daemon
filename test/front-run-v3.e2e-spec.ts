@@ -979,7 +979,7 @@ describe('Front-run e2e tests', () => {
   // Unlike wrong-WC-type (used keys → global pause), this is a per-module issue:
   // the daemon unvets the key for that module and does NOT pause. No real Lido
   // deposit is needed (the key stays unused), so there is no canDeposit() gate.
-  describe.only('Cross-type keys', () => {
+  describe('Cross-type keys', () => {
     let snapshotId: number;
     let wrongTypeWC: string;
 
