@@ -17,6 +17,8 @@ describe('buildModuleWc', () => {
   });
 
   it('changes only the type byte, never the account part', () => {
-    expect(buildModuleWc(1, baseWC).slice(4)).toBe(buildModuleWc(2, baseWC).slice(4));
+    expect(buildModuleWc(1, baseWC).slice(4)).toBe(
+      buildModuleWc(2, baseWC).slice(4),
+    );
   });
 });
