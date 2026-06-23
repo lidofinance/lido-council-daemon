@@ -39,7 +39,7 @@ import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { METRIC_JOB_DURATION } from 'common/prometheus';
 import { Histogram } from 'prom-client';
 import { DeepReadonly } from 'common/ts-utils';
-import { utils } from 'ethers';
+import { buildModuleWc } from './withdrawal-credentials';
 import { DsmDepositAllocationAdapterService } from './deposit-allocation';
 
 @Injectable()
@@ -478,13 +478,10 @@ export class GuardianService implements OnModuleInit {
     });
 
     return Object.fromEntries(
-      stakingModules.map((m) => {
-        const typePrefix = utils.hexZeroPad(
-          utils.hexlify(m.withdrawalCredentialsType),
-          1,
-        );
-        return [m.stakingModuleAddress, typePrefix + baseWC.slice(4)];
-      }),
+      stakingModules.map((m) => [
+        m.stakingModuleAddress,
+        buildModuleWc(m.withdrawalCredentialsType, baseWC),
+      ]),
     );
   }
 }

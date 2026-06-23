@@ -82,7 +82,7 @@ async function main() {
     fail(`stakingRouter ${stakingRouterAddress} returned no staking modules`);
   }
 
-  const requiredModuleIds = [1, 2];
+  const requiredModuleIds = [1, 2, 5];
   const missingModuleIds = requiredModuleIds.filter(
     (moduleId) => !modules.some((module) => module.id === moduleId),
   );

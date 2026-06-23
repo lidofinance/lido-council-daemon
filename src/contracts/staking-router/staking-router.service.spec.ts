@@ -185,4 +185,51 @@ describe('SecurityService', () => {
       expect(mockProviderCall).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('getStakingModules withdrawalCredentialsType', () => {
+    const moduleCurated = {
+      id: 1,
+      stakingModuleAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      withdrawalCredentialsType: 2,
+    } as any;
+    const moduleCmv2 = {
+      id: 5,
+      stakingModuleAddress: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      withdrawalCredentialsType: 2,
+    } as any;
+
+    const mockSrContract = (version: number, modules: any[]) =>
+      jest
+        .spyOn(repositoryService, 'getCachedStakingRouterContract')
+        .mockReturnValue({
+          getStakingModules: jest.fn().mockResolvedValue(modules),
+          getContractVersion: jest
+            .fn()
+            .mockResolvedValue(BigNumber.from(version)),
+        } as any);
+
+    it('forces withdrawalCredentialsType = 1 for every module on SR < v4', async () => {
+      // SR v3 has no per-module type in the struct; daemon must default to 0x01
+      mockSrContract(3, [moduleCurated, moduleCmv2]);
+
+      const result = await stakingRouterService.getStakingModules({
+        blockHash: '0x0',
+      });
+
+      expect(result.map((m) => m.withdrawalCredentialsType)).toEqual([1, 1]);
+    });
+
+    it('preserves per-module withdrawalCredentialsType on SR v4', async () => {
+      const v4Curated = { ...moduleCurated, withdrawalCredentialsType: 1 };
+      const v4Cmv2 = { ...moduleCmv2, withdrawalCredentialsType: 2 };
+      mockSrContract(4, [v4Curated, v4Cmv2]);
+
+      const result = await stakingRouterService.getStakingModules({
+        blockHash: '0x0',
+      });
+
+      // CMv2 (id 5) must keep its 0x02 type, curated stays 0x01
+      expect(result.map((m) => m.withdrawalCredentialsType)).toEqual([1, 2]);
+    });
+  });
 });
