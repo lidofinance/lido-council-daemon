@@ -3,7 +3,7 @@ import { LoggerModule } from 'common/logger';
 import { MockProviderModule } from 'provider';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
-import { ConfigModule } from 'common/config';
+import { ConfigModule, Configuration } from 'common/config';
 import { PrometheusModule } from 'common/prometheus';
 import { SecurityModule, SecurityService } from 'contracts/security';
 import { RepositoryModule } from 'contracts/repository';
@@ -47,6 +47,7 @@ describe('StakingModuleGuardService', () => {
   let stakingModuleGuardService: StakingModuleGuardService;
   let guardianMessageService: GuardianMessageService;
   let keysApiService: KeysApiService;
+  let configuration: Configuration;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -82,6 +83,7 @@ describe('StakingModuleGuardService', () => {
     stakingModuleGuardService = moduleRef.get(StakingModuleGuardService);
     guardianMessageService = moduleRef.get(GuardianMessageService);
     keysApiService = moduleRef.get(KeysApiService);
+    configuration = moduleRef.get(Configuration);
 
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
     jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
@@ -540,6 +542,38 @@ describe('StakingModuleGuardService', () => {
         ),
       ).toThrow('Unexpected module address');
     });
+
+    describe('legacy withdrawal credentials (0x00 BLS -> 0x01 rotation)', () => {
+      // mainnet Curated module, checksummed to also cover case-insensitive match
+      const LEGACY_MODULE_ADDR = '0x55032650b14df07b85bF18A3a3eC8E0Af2e028d5';
+      const LEGACY_WC =
+        '0x009690e5d4472c7c0dbdf490425d89862535d2a52fb686333f3a0a9ff5d2125e';
+
+      it('should return false when earliest deposit uses the module legacy WC on mainnet', () => {
+        configuration.CHAIN_ID = 1;
+        const result = stakingModuleGuardService.checkHistoricalFrontRun(
+          {
+            events: [
+              makeEvent('0xkeyLegacy', LEGACY_WC, 50, 0),
+              makeEvent('0xkeyLegacy', WC_01, 200, 0),
+            ],
+          } as any,
+          [makeLidoKey('0xkeyLegacy', LEGACY_MODULE_ADDR, true)],
+          { [LEGACY_MODULE_ADDR]: WC_01 },
+        );
+        expect(result).toBe(false);
+      });
+
+      it('should return true when the same legacy WC is used on a chain without a legacy list', () => {
+        configuration.CHAIN_ID = 560048; // hoodi: no legacy WCs configured
+        const result = stakingModuleGuardService.checkHistoricalFrontRun(
+          { events: [makeEvent('0xkeyLegacy', LEGACY_WC, 50, 0)] } as any,
+          [makeLidoKey('0xkeyLegacy', LEGACY_MODULE_ADDR, true)],
+          { [LEGACY_MODULE_ADDR]: WC_01 },
+        );
+        expect(result).toBe(true);
+      });
+    });
   });
 
   describe('checkWrongWCType', () => {
@@ -667,6 +701,24 @@ describe('StakingModuleGuardService', () => {
           { [MODULE_ADDR_01]: WC_01 },
         ),
       ).toThrow('Unexpected module address');
+    });
+
+    it('should return false when earliest deposit uses the module legacy WC (not wrong type)', () => {
+      const LEGACY_MODULE_ADDR = '0x55032650b14df07b85bF18A3a3eC8E0Af2e028d5';
+      const LEGACY_WC =
+        '0x009690e5d4472c7c0dbdf490425d89862535d2a52fb686333f3a0a9ff5d2125e';
+      configuration.CHAIN_ID = 1;
+      const result = stakingModuleGuardService.checkWrongWCType(
+        {
+          events: [
+            makeEvent('0xkeyLegacy', LEGACY_WC, 50, 0),
+            makeEvent('0xkeyLegacy', WC_01, 200, 0),
+          ],
+        } as any,
+        [makeLidoKey('0xkeyLegacy', LEGACY_MODULE_ADDR, true)],
+        { [LEGACY_MODULE_ADDR]: WC_01 },
+      );
+      expect(result).toBe(false);
     });
   });
 

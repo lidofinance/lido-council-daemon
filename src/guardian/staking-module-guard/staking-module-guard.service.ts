@@ -17,6 +17,8 @@ import { performance } from 'perf_hooks';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { DeepReadonly } from 'common/ts-utils';
+import { Configuration } from 'common/config';
+import { getLegacyModuleWCs } from '../withdrawal-credentials';
 
 @Injectable()
 export class StakingModuleGuardService {
@@ -29,6 +31,7 @@ export class StakingModuleGuardService {
     private guardianMetricsService: GuardianMetricsService,
     private guardianMessageService: GuardianMessageService,
     private keysValidationService: KeysValidationService,
+    private config: Configuration,
   ) {}
 
   private lastContractsStateByModuleId: Record<number, ContractsState | null> =
@@ -60,21 +63,29 @@ export class StakingModuleGuardService {
   }
 
   /**
-   * Build a map of used lido keys to their expected withdrawal credentials
+   * Build a map of used lido keys to the withdrawal credentials that are
+   * acceptable for them: the module's current WC plus any legacy WCs the module
+   * legitimately used in the past (e.g. the pre-Merge 0x00 BLS WC). The earliest
+   * deposit of a used key may still be bound to a legacy WC, so it must be
+   * treated as a valid lido WC and not reported as a front-run.
    */
-  private getUsedKeyExpectedWC(
+  private getUsedKeyAcceptableWCs(
     lidoKeys: DeepReadonly<RegistryKey[]>,
     moduleAddressToWC: DeepReadonly<Record<string, string>>,
-  ): Map<string, string> {
-    const usedKeyExpectedWC = new Map<string, string>();
+  ): Map<string, Set<string>> {
+    const usedKeyAcceptableWCs = new Map<string, Set<string>>();
     for (const key of lidoKeys) {
       if (key.used) {
         const expectedWC = moduleAddressToWC[key.moduleAddress];
         if (!expectedWC) throw new Error('Unexpected module address');
-        usedKeyExpectedWC.set(key.key, expectedWC);
+        const legacyWCs = getLegacyModuleWCs(
+          this.config.CHAIN_ID,
+          key.moduleAddress,
+        );
+        usedKeyAcceptableWCs.set(key.key, new Set([expectedWC, ...legacyWCs]));
       }
     }
-    return usedKeyExpectedWC;
+    return usedKeyAcceptableWCs;
   }
 
   /**
@@ -82,12 +93,12 @@ export class StakingModuleGuardService {
    */
   private getEarliestDeposits(
     depositedEvents: VerifiedDepositEventGroup,
-    usedKeyExpectedWC: Map<string, string>,
+    usedKeyAcceptableWCs: Map<string, Set<string>>,
   ): Map<string, VerifiedDepositEvent> {
     const earliestDeposits = new Map<string, VerifiedDepositEvent>();
     for (const event of depositedEvents.events) {
       if (!event.valid) continue;
-      if (!usedKeyExpectedWC.has(event.pubkey)) continue;
+      if (!usedKeyAcceptableWCs.has(event.pubkey)) continue;
 
       const existing = earliestDeposits.get(event.pubkey);
       if (!existing || this.isFirstEventEarlier(event, existing)) {
@@ -105,18 +116,22 @@ export class StakingModuleGuardService {
     lidoKeys: DeepReadonly<RegistryKey[]>,
     moduleAddressToWC: DeepReadonly<Record<string, string>>,
   ): boolean {
-    const usedKeyExpectedWC = this.getUsedKeyExpectedWC(
+    const usedKeyAcceptableWCs = this.getUsedKeyAcceptableWCs(
       lidoKeys,
       moduleAddressToWC,
     );
     const earliestDeposits = this.getEarliestDeposits(
       depositedEvents,
-      usedKeyExpectedWC,
+      usedKeyAcceptableWCs,
     );
     const lidoWCs = new Set(Object.values(moduleAddressToWC));
 
     const frontRunnedKeys: string[] = [];
     for (const [pubkey, event] of earliestDeposits) {
+      const acceptableWCs = usedKeyAcceptableWCs.get(pubkey);
+      // A legacy WC (e.g. the pre-Merge 0x00 BLS WC) is a valid lido WC even
+      // though the module's current WC has since rotated, so skip it here.
+      if (acceptableWCs?.has(event.wc)) continue;
       if (!lidoWCs.has(event.wc)) {
         frontRunnedKeys.push(pubkey);
       }
@@ -124,7 +139,6 @@ export class StakingModuleGuardService {
 
     this.guardianMetricsService.collectHistoricalFrontRunMetrics(
       frontRunnedKeys.length,
-      0,
     );
 
     if (frontRunnedKeys.length > 0) {
@@ -143,26 +157,28 @@ export class StakingModuleGuardService {
     lidoKeys: DeepReadonly<RegistryKey[]>,
     moduleAddressToWC: DeepReadonly<Record<string, string>>,
   ): boolean {
-    const usedKeyExpectedWC = this.getUsedKeyExpectedWC(
+    const usedKeyAcceptableWCs = this.getUsedKeyAcceptableWCs(
       lidoKeys,
       moduleAddressToWC,
     );
     const earliestDeposits = this.getEarliestDeposits(
       depositedEvents,
-      usedKeyExpectedWC,
+      usedKeyAcceptableWCs,
     );
     const lidoWCs = new Set(Object.values(moduleAddressToWC));
 
     const wrongWCTypeKeys: string[] = [];
     for (const [pubkey, event] of earliestDeposits) {
-      const expectedWC = usedKeyExpectedWC.get(pubkey);
-      if (lidoWCs.has(event.wc) && event.wc !== expectedWC) {
+      const acceptableWCs = usedKeyAcceptableWCs.get(pubkey);
+      // Acceptable WCs (current + legacy) are fine; only a lido WC that is
+      // neither is a wrong-type deposit.
+      if (acceptableWCs?.has(event.wc)) continue;
+      if (lidoWCs.has(event.wc)) {
         wrongWCTypeKeys.push(pubkey);
       }
     }
 
-    this.guardianMetricsService.collectHistoricalFrontRunMetrics(
-      0,
+    this.guardianMetricsService.collectWrongWCTypeMetrics(
       wrongWCTypeKeys.length,
     );
 
