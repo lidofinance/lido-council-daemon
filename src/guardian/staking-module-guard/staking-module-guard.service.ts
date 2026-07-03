@@ -17,6 +17,13 @@ import { performance } from 'perf_hooks';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { KeysApiService } from 'keys-api/keys-api.service';
 import { DeepReadonly } from 'common/ts-utils';
+import { Configuration } from 'common/config';
+import { getLegacyModuleWCs } from '../withdrawal-credentials';
+
+type UsedKeyExpectedWC = {
+  moduleAddress: string;
+  wc: string;
+};
 
 @Injectable()
 export class StakingModuleGuardService {
@@ -29,6 +36,7 @@ export class StakingModuleGuardService {
     private guardianMetricsService: GuardianMetricsService,
     private guardianMessageService: GuardianMessageService,
     private keysValidationService: KeysValidationService,
+    private config: Configuration,
   ) {}
 
   private lastContractsStateByModuleId: Record<number, ContractsState | null> =
@@ -60,21 +68,25 @@ export class StakingModuleGuardService {
   }
 
   /**
-   * Build a map of used lido keys to their expected withdrawal credentials
+   * Build a map of used lido keys to their module WC. Legacy WCs are checked
+   * against their cutoff block later, once the earliest deposit block is known.
    */
-  private getUsedKeyExpectedWC(
+  private getUsedKeyExpectedWCs(
     lidoKeys: DeepReadonly<RegistryKey[]>,
     moduleAddressToWC: DeepReadonly<Record<string, string>>,
-  ): Map<string, string> {
-    const usedKeyExpectedWC = new Map<string, string>();
+  ): Map<string, UsedKeyExpectedWC> {
+    const usedKeyExpectedWCs = new Map<string, UsedKeyExpectedWC>();
     for (const key of lidoKeys) {
       if (key.used) {
         const expectedWC = moduleAddressToWC[key.moduleAddress];
         if (!expectedWC) throw new Error('Unexpected module address');
-        usedKeyExpectedWC.set(key.key, expectedWC);
+        usedKeyExpectedWCs.set(key.key, {
+          moduleAddress: key.moduleAddress,
+          wc: expectedWC,
+        });
       }
     }
-    return usedKeyExpectedWC;
+    return usedKeyExpectedWCs;
   }
 
   /**
@@ -82,12 +94,12 @@ export class StakingModuleGuardService {
    */
   private getEarliestDeposits(
     depositedEvents: VerifiedDepositEventGroup,
-    usedKeyExpectedWC: Map<string, string>,
+    usedKeyExpectedWCs: Map<string, UsedKeyExpectedWC>,
   ): Map<string, VerifiedDepositEvent> {
     const earliestDeposits = new Map<string, VerifiedDepositEvent>();
     for (const event of depositedEvents.events) {
       if (!event.valid) continue;
-      if (!usedKeyExpectedWC.has(event.pubkey)) continue;
+      if (!usedKeyExpectedWCs.has(event.pubkey)) continue;
 
       const existing = earliestDeposits.get(event.pubkey);
       if (!existing || this.isFirstEventEarlier(event, existing)) {
@@ -95,6 +107,22 @@ export class StakingModuleGuardService {
       }
     }
     return earliestDeposits;
+  }
+
+  private hasAcceptableWC(
+    event: VerifiedDepositEvent,
+    expectedWC: UsedKeyExpectedWC,
+  ): boolean {
+    if (event.wc === expectedWC.wc) return true;
+
+    return getLegacyModuleWCs(
+      this.config.CHAIN_ID,
+      expectedWC.moduleAddress,
+    ).some(
+      (legacyWC) =>
+        legacyWC.wc.toLowerCase() === event.wc.toLowerCase() &&
+        event.blockNumber <= legacyWC.validUntilBlock,
+    );
   }
 
   /**
@@ -105,26 +133,31 @@ export class StakingModuleGuardService {
     lidoKeys: DeepReadonly<RegistryKey[]>,
     moduleAddressToWC: DeepReadonly<Record<string, string>>,
   ): boolean {
-    const usedKeyExpectedWC = this.getUsedKeyExpectedWC(
+    const usedKeyExpectedWCs = this.getUsedKeyExpectedWCs(
       lidoKeys,
       moduleAddressToWC,
     );
     const earliestDeposits = this.getEarliestDeposits(
       depositedEvents,
-      usedKeyExpectedWC,
+      usedKeyExpectedWCs,
     );
     const lidoWCs = new Set(Object.values(moduleAddressToWC));
 
     const frontRunnedKeys: string[] = [];
     for (const [pubkey, event] of earliestDeposits) {
-      if (!lidoWCs.has(event.wc)) {
+      const expectedWC = usedKeyExpectedWCs.get(pubkey);
+      if (!expectedWC) continue;
+
+      const hasAcceptableWC = this.hasAcceptableWC(event, expectedWC);
+      const hasUnknownWC = !hasAcceptableWC && !lidoWCs.has(event.wc);
+
+      if (hasUnknownWC) {
         frontRunnedKeys.push(pubkey);
       }
     }
 
     this.guardianMetricsService.collectHistoricalFrontRunMetrics(
       frontRunnedKeys.length,
-      0,
     );
 
     if (frontRunnedKeys.length > 0) {
@@ -143,37 +176,41 @@ export class StakingModuleGuardService {
     lidoKeys: DeepReadonly<RegistryKey[]>,
     moduleAddressToWC: DeepReadonly<Record<string, string>>,
   ): boolean {
-    const usedKeyExpectedWC = this.getUsedKeyExpectedWC(
+    const usedKeyExpectedWCs = this.getUsedKeyExpectedWCs(
       lidoKeys,
       moduleAddressToWC,
     );
     const earliestDeposits = this.getEarliestDeposits(
       depositedEvents,
-      usedKeyExpectedWC,
+      usedKeyExpectedWCs,
     );
     const lidoWCs = new Set(Object.values(moduleAddressToWC));
 
-    const wrongWCTypeKeys: string[] = [];
+    const otherLidoWCsKeys: string[] = [];
     for (const [pubkey, event] of earliestDeposits) {
-      const expectedWC = usedKeyExpectedWC.get(pubkey);
-      if (lidoWCs.has(event.wc) && event.wc !== expectedWC) {
-        wrongWCTypeKeys.push(pubkey);
+      const expectedWC = usedKeyExpectedWCs.get(pubkey);
+      if (!expectedWC) continue;
+
+      const hasAcceptableWC = this.hasAcceptableWC(event, expectedWC);
+      const hasOtherLidoWC = !hasAcceptableWC && lidoWCs.has(event.wc);
+
+      if (hasOtherLidoWC) {
+        otherLidoWCsKeys.push(pubkey);
       }
     }
 
-    this.guardianMetricsService.collectHistoricalFrontRunMetrics(
-      0,
-      wrongWCTypeKeys.length,
+    this.guardianMetricsService.collectWrongWCTypeMetrics(
+      otherLidoWCsKeys.length,
     );
 
-    if (wrongWCTypeKeys.length > 0) {
+    if (otherLidoWCsKeys.length > 0) {
       this.logger.warn(
-        'Found deposited keys with wrong withdrawal credentials type',
-        { wrongWCTypeKeys },
+        'Found deposited keys with other Lido withdrawal credentials',
+        { otherLidoWCsKeys },
       );
     }
 
-    return wrongWCTypeKeys.length > 0;
+    return otherLidoWCsKeys.length > 0;
   }
 
   /**

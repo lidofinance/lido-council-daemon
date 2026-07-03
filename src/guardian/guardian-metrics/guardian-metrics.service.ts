@@ -173,11 +173,11 @@ export class GuardianMetricsService {
     this.invalidKeysCounter.set({ stakingModuleId }, invalidKeysCount);
   }
 
-  public collectHistoricalFrontRunMetrics(
-    frontRunCount: number,
-    wrongWCTypeCount: number,
-  ) {
+  public collectHistoricalFrontRunMetrics(frontRunCount: number) {
     this.historicalFrontRunCounter.set({ type: 'front_run' }, frontRunCount);
+  }
+
+  public collectWrongWCTypeMetrics(wrongWCTypeCount: number) {
     this.historicalFrontRunCounter.set(
       { type: 'wrong_wc_type' },
       wrongWCTypeCount,
