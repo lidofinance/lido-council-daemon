@@ -84,7 +84,6 @@ describe('WalletService', () => {
       const blockHash = hexZeroPad('0x3', 32);
       const signature = await walletService.signDepositData({
         prefix,
-        contractVersion: 3,
         depositRoot,
         nonce,
         blockNumber,
@@ -102,7 +101,7 @@ describe('WalletService', () => {
       );
     });
 
-    it('should sign versioned deposit data for DSM v4', async () => {
+    it('should sign deposit data for DSM v4 without contract version', async () => {
       const prefix = hexZeroPad('0x1', 32);
       const depositRoot = hexZeroPad('0x2', 32);
       const nonce = 1;
@@ -110,7 +109,6 @@ describe('WalletService', () => {
       const blockHash = hexZeroPad('0x3', 32);
       const signature = await walletService.signDepositData({
         prefix,
-        contractVersion: 4,
         depositRoot,
         nonce,
         blockNumber,
@@ -119,16 +117,8 @@ describe('WalletService', () => {
       });
 
       const messageHash = solidityKeccak256(
-        [
-          'bytes32',
-          'uint256',
-          'uint256',
-          'bytes32',
-          'bytes32',
-          'uint256',
-          'uint256',
-        ],
-        [prefix, 4, blockNumber, blockHash, depositRoot, TEST_MODULE_ID, nonce],
+        ['bytes32', 'uint256', 'bytes32', 'bytes32', 'uint256', 'uint256'],
+        [prefix, blockNumber, blockHash, depositRoot, TEST_MODULE_ID, nonce],
       );
 
       expect(recoverAddress(messageHash, signature)).toBe(
@@ -138,18 +128,17 @@ describe('WalletService', () => {
   });
 
   describe('signPauseDataV3', () => {
-    it('should sign versioned pause data for DSM v4', async () => {
+    it('should sign pause data for DSM v4 without contract version', async () => {
       const prefix = hexZeroPad('0x1', 32);
       const blockNumber = 1;
       const signature = await walletService.signPauseDataV3({
         prefix,
-        contractVersion: 4,
         blockNumber,
       });
 
       const messageHash = solidityKeccak256(
-        ['bytes32', 'uint256', 'uint256'],
-        [prefix, 4, blockNumber],
+        ['bytes32', 'uint256'],
+        [prefix, blockNumber],
       );
 
       expect(recoverAddress(messageHash, signature)).toBe(
@@ -188,7 +177,6 @@ describe('WalletService', () => {
       // use method underhood that do non-standart data packing
       const signature = await walletService.signUnvetData({
         prefix: UNVET_MESSAGE_PREFIX,
-        contractVersion: 3,
         blockNumber: 1429451,
         blockHash:
           '0x528b085cf0951e7c3003deb40db355cd35c77018f4cdc937bd10783e1c15588c',
@@ -224,7 +212,7 @@ describe('WalletService', () => {
       expect(signer).toEqual(walletService.address);
     });
 
-    it('should sign versioned unvet data for DSM v4', async () => {
+    it('should sign unvet data for DSM v4 without contract version', async () => {
       const UNVET_MESSAGE_PREFIX = createUnvetMessagePrefix(
         '0xB8ae82F7BFF2553bAF158B7a911DC10162045C53',
       );
@@ -237,7 +225,6 @@ describe('WalletService', () => {
 
       const signature = await walletService.signUnvetData({
         prefix: UNVET_MESSAGE_PREFIX,
-        contractVersion: 4,
         blockNumber,
         blockHash,
         nonce,
@@ -250,7 +237,6 @@ describe('WalletService', () => {
         [
           'bytes32',
           'uint256',
-          'uint256',
           'bytes32',
           'uint256',
           'uint256',
@@ -259,7 +245,6 @@ describe('WalletService', () => {
         ],
         [
           UNVET_MESSAGE_PREFIX,
-          4,
           blockNumber,
           blockHash,
           1,
