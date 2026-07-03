@@ -116,13 +116,13 @@ export async function fillLidoBuffer(depositCount = 1) {
     throw new Error(`DAO address not found for chain ID: ${chainId}`);
   }
 
+  // The Aragon Agent manages DAO ACL permissions on fork/devnet.
   await accountImpersonate(agent);
-  await accountImpersonate(daoAddress);
   await setBalance(agent, 100);
 
   const agentSigner = testSetupProvider.getSigner(agent);
-  const lido = LidoAbi__factory.connect(lidoAddress, agentSigner);
-  const lidoAgentSigner = LidoAbi__factory.connect(lidoAddress, agentSigner);
+  const lido = LidoAbi__factory.connect(lidoAddress, testSetupProvider);
+  const lidoWithAgent = lido.connect(agentSigner);
 
   const withdrawalQueue = new Contract(
     withdrawalQueueAddress,
@@ -157,7 +157,7 @@ export async function fillLidoBuffer(depositCount = 1) {
   );
   await grantTx.wait();
 
-  await lidoAgentSigner.setStakingLimit(
+  await lidoWithAgent.setStakingLimit(
     ethers.utils.parseEther(amountForDepositsInEth),
     ethers.utils.parseEther(amountForDepositsInEth),
   );
