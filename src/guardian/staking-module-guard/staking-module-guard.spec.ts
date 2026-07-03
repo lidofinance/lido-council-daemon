@@ -11,6 +11,7 @@ import { StakingModuleGuardModule } from './staking-module-guard.module';
 import { GuardianMetricsModule } from '../guardian-metrics';
 import { GuardianMessageService } from '../guardian-message';
 import { StakingModuleGuardService } from './staking-module-guard.service';
+import { LEGACY_WITHDRAWAL_CREDENTIALS } from '../withdrawal-credentials';
 
 import { KeysValidationModule } from 'guardian/keys-validation/keys-validation.module';
 import { vettedKeys } from './keys.fixtures';
@@ -548,20 +549,53 @@ describe('StakingModuleGuardService', () => {
       const LEGACY_MODULE_ADDR = '0x55032650b14df07b85bF18A3a3eC8E0Af2e028d5';
       const LEGACY_WC =
         '0x009690e5d4472c7c0dbdf490425d89862535d2a52fb686333f3a0a9ff5d2125e';
+      const LEGACY_VALID_UNTIL_BLOCK =
+        LEGACY_WITHDRAWAL_CREDENTIALS[1][
+          LEGACY_MODULE_ADDR.toLowerCase()
+        ][0].validUntilBlock;
 
       it('should return false when earliest deposit uses the module legacy WC on mainnet', () => {
         configuration.CHAIN_ID = 1;
         const result = stakingModuleGuardService.checkHistoricalFrontRun(
           {
             events: [
-              makeEvent('0xkeyLegacy', LEGACY_WC, 50, 0),
-              makeEvent('0xkeyLegacy', WC_01, 200, 0),
+              makeEvent(
+                '0xkeyLegacy',
+                LEGACY_WC,
+                LEGACY_VALID_UNTIL_BLOCK,
+                0,
+              ),
+              makeEvent(
+                '0xkeyLegacy',
+                WC_01,
+                LEGACY_VALID_UNTIL_BLOCK + 1,
+                0,
+              ),
             ],
           } as any,
           [makeLidoKey('0xkeyLegacy', LEGACY_MODULE_ADDR, true)],
           { [LEGACY_MODULE_ADDR]: WC_01 },
         );
         expect(result).toBe(false);
+      });
+
+      it('should return true when earliest legacy WC deposit is after its cutoff block', () => {
+        configuration.CHAIN_ID = 1;
+        const result = stakingModuleGuardService.checkHistoricalFrontRun(
+          {
+            events: [
+              makeEvent(
+                '0xkeyLegacyAfterCutoff',
+                LEGACY_WC,
+                LEGACY_VALID_UNTIL_BLOCK + 1,
+                0,
+              ),
+            ],
+          } as any,
+          [makeLidoKey('0xkeyLegacyAfterCutoff', LEGACY_MODULE_ADDR, true)],
+          { [LEGACY_MODULE_ADDR]: WC_01 },
+        );
+        expect(result).toBe(true);
       });
 
       it('should return true when the same legacy WC is used on a chain without a legacy list', () => {

@@ -20,6 +20,11 @@ import { DeepReadonly } from 'common/ts-utils';
 import { Configuration } from 'common/config';
 import { getLegacyModuleWCs } from '../withdrawal-credentials';
 
+type UsedKeyExpectedWC = {
+  moduleAddress: string;
+  wc: string;
+};
+
 @Injectable()
 export class StakingModuleGuardService {
   constructor(
@@ -63,29 +68,25 @@ export class StakingModuleGuardService {
   }
 
   /**
-   * Build a map of used lido keys to the withdrawal credentials that are
-   * acceptable for them: the module's current WC plus any legacy WCs the module
-   * legitimately used in the past (e.g. the pre-Merge 0x00 BLS WC). The earliest
-   * deposit of a used key may still be bound to a legacy WC, so it must be
-   * treated as a valid lido WC and not reported as a front-run.
+   * Build a map of used lido keys to their module WC. Legacy WCs are checked
+   * against their cutoff block later, once the earliest deposit block is known.
    */
-  private getUsedKeyAcceptableWCs(
+  private getUsedKeyExpectedWCs(
     lidoKeys: DeepReadonly<RegistryKey[]>,
     moduleAddressToWC: DeepReadonly<Record<string, string>>,
-  ): Map<string, Set<string>> {
-    const usedKeyAcceptableWCs = new Map<string, Set<string>>();
+  ): Map<string, UsedKeyExpectedWC> {
+    const usedKeyExpectedWCs = new Map<string, UsedKeyExpectedWC>();
     for (const key of lidoKeys) {
       if (key.used) {
         const expectedWC = moduleAddressToWC[key.moduleAddress];
         if (!expectedWC) throw new Error('Unexpected module address');
-        const legacyWCs = getLegacyModuleWCs(
-          this.config.CHAIN_ID,
-          key.moduleAddress,
-        );
-        usedKeyAcceptableWCs.set(key.key, new Set([expectedWC, ...legacyWCs]));
+        usedKeyExpectedWCs.set(key.key, {
+          moduleAddress: key.moduleAddress,
+          wc: expectedWC,
+        });
       }
     }
-    return usedKeyAcceptableWCs;
+    return usedKeyExpectedWCs;
   }
 
   /**
@@ -93,12 +94,12 @@ export class StakingModuleGuardService {
    */
   private getEarliestDeposits(
     depositedEvents: VerifiedDepositEventGroup,
-    usedKeyAcceptableWCs: Map<string, Set<string>>,
+    usedKeyExpectedWCs: Map<string, UsedKeyExpectedWC>,
   ): Map<string, VerifiedDepositEvent> {
     const earliestDeposits = new Map<string, VerifiedDepositEvent>();
     for (const event of depositedEvents.events) {
       if (!event.valid) continue;
-      if (!usedKeyAcceptableWCs.has(event.pubkey)) continue;
+      if (!usedKeyExpectedWCs.has(event.pubkey)) continue;
 
       const existing = earliestDeposits.get(event.pubkey);
       if (!existing || this.isFirstEventEarlier(event, existing)) {
@@ -106,6 +107,22 @@ export class StakingModuleGuardService {
       }
     }
     return earliestDeposits;
+  }
+
+  private hasAcceptableWC(
+    event: VerifiedDepositEvent,
+    expectedWC: UsedKeyExpectedWC,
+  ): boolean {
+    if (event.wc === expectedWC.wc) return true;
+
+    return getLegacyModuleWCs(
+      this.config.CHAIN_ID,
+      expectedWC.moduleAddress,
+    ).some(
+      (legacyWC) =>
+        legacyWC.wc.toLowerCase() === event.wc.toLowerCase() &&
+        event.blockNumber <= legacyWC.validUntilBlock,
+    );
   }
 
   /**
@@ -116,23 +133,25 @@ export class StakingModuleGuardService {
     lidoKeys: DeepReadonly<RegistryKey[]>,
     moduleAddressToWC: DeepReadonly<Record<string, string>>,
   ): boolean {
-    const usedKeyAcceptableWCs = this.getUsedKeyAcceptableWCs(
+    const usedKeyExpectedWCs = this.getUsedKeyExpectedWCs(
       lidoKeys,
       moduleAddressToWC,
     );
     const earliestDeposits = this.getEarliestDeposits(
       depositedEvents,
-      usedKeyAcceptableWCs,
+      usedKeyExpectedWCs,
     );
     const lidoWCs = new Set(Object.values(moduleAddressToWC));
 
     const frontRunnedKeys: string[] = [];
     for (const [pubkey, event] of earliestDeposits) {
-      const acceptableWCs = usedKeyAcceptableWCs.get(pubkey);
-      // A legacy WC (e.g. the pre-Merge 0x00 BLS WC) is a valid lido WC even
-      // though the module's current WC has since rotated, so skip it here.
-      if (acceptableWCs?.has(event.wc)) continue;
-      if (!lidoWCs.has(event.wc)) {
+      const expectedWC = usedKeyExpectedWCs.get(pubkey);
+      if (!expectedWC) continue;
+
+      const hasAcceptableWC = this.hasAcceptableWC(event, expectedWC);
+      const hasUnknownWC = !hasAcceptableWC && !lidoWCs.has(event.wc);
+
+      if (hasUnknownWC) {
         frontRunnedKeys.push(pubkey);
       }
     }
@@ -157,39 +176,41 @@ export class StakingModuleGuardService {
     lidoKeys: DeepReadonly<RegistryKey[]>,
     moduleAddressToWC: DeepReadonly<Record<string, string>>,
   ): boolean {
-    const usedKeyAcceptableWCs = this.getUsedKeyAcceptableWCs(
+    const usedKeyExpectedWCs = this.getUsedKeyExpectedWCs(
       lidoKeys,
       moduleAddressToWC,
     );
     const earliestDeposits = this.getEarliestDeposits(
       depositedEvents,
-      usedKeyAcceptableWCs,
+      usedKeyExpectedWCs,
     );
     const lidoWCs = new Set(Object.values(moduleAddressToWC));
 
-    const wrongWCTypeKeys: string[] = [];
+    const otherLidoWCsKeys: string[] = [];
     for (const [pubkey, event] of earliestDeposits) {
-      const acceptableWCs = usedKeyAcceptableWCs.get(pubkey);
-      // Acceptable WCs (current + legacy) are fine; only a lido WC that is
-      // neither is a wrong-type deposit.
-      if (acceptableWCs?.has(event.wc)) continue;
-      if (lidoWCs.has(event.wc)) {
-        wrongWCTypeKeys.push(pubkey);
+      const expectedWC = usedKeyExpectedWCs.get(pubkey);
+      if (!expectedWC) continue;
+
+      const hasAcceptableWC = this.hasAcceptableWC(event, expectedWC);
+      const hasOtherLidoWC = !hasAcceptableWC && lidoWCs.has(event.wc);
+
+      if (hasOtherLidoWC) {
+        otherLidoWCsKeys.push(pubkey);
       }
     }
 
     this.guardianMetricsService.collectWrongWCTypeMetrics(
-      wrongWCTypeKeys.length,
+      otherLidoWCsKeys.length,
     );
 
-    if (wrongWCTypeKeys.length > 0) {
+    if (otherLidoWCsKeys.length > 0) {
       this.logger.warn(
-        'Found deposited keys with wrong withdrawal credentials type',
-        { wrongWCTypeKeys },
+        'Found deposited keys with other Lido withdrawal credentials',
+        { otherLidoWCsKeys },
       );
     }
 
-    return wrongWCTypeKeys.length > 0;
+    return otherLidoWCsKeys.length > 0;
   }
 
   /**
