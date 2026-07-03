@@ -191,38 +191,16 @@ export class WalletService implements OnModuleInit {
    */
   public async signDepositData({
     prefix,
-    contractVersion,
     blockNumber,
     blockHash,
     depositRoot,
     nonce,
     stakingModuleId,
   }: SignDepositDataParams): Promise<Signature> {
-    const encodedData = this.isVersionedDsmMessageHash(contractVersion)
-      ? defaultAbiCoder.encode(
-          [
-            'bytes32',
-            'uint256',
-            'uint256',
-            'bytes32',
-            'bytes32',
-            'uint256',
-            'uint256',
-          ],
-          [
-            prefix,
-            contractVersion,
-            blockNumber,
-            blockHash,
-            depositRoot,
-            stakingModuleId,
-            nonce,
-          ],
-        )
-      : defaultAbiCoder.encode(
-          ['bytes32', 'uint256', 'bytes32', 'bytes32', 'uint256', 'uint256'],
-          [prefix, blockNumber, blockHash, depositRoot, stakingModuleId, nonce],
-        );
+    const encodedData = defaultAbiCoder.encode(
+      ['bytes32', 'uint256', 'bytes32', 'bytes32', 'uint256', 'uint256'],
+      [prefix, blockNumber, blockHash, depositRoot, stakingModuleId, nonce],
+    );
 
     const messageHash = keccak256(encodedData);
     return await this.signMessage(messageHash);
@@ -237,15 +215,12 @@ export class WalletService implements OnModuleInit {
    */
   public async signPauseDataV3({
     prefix,
-    contractVersion,
     blockNumber,
   }: SignPauseDataParams): Promise<Signature> {
-    const encodedData = this.isVersionedDsmMessageHash(contractVersion)
-      ? defaultAbiCoder.encode(
-          ['bytes32', 'uint256', 'uint256'],
-          [prefix, contractVersion, blockNumber],
-        )
-      : defaultAbiCoder.encode(['bytes32', 'uint256'], [prefix, blockNumber]);
+    const encodedData = defaultAbiCoder.encode(
+      ['bytes32', 'uint256'],
+      [prefix, blockNumber],
+    );
 
     const messageHash = keccak256(encodedData);
     return this.signMessage(messageHash);
@@ -287,7 +262,6 @@ export class WalletService implements OnModuleInit {
    */
   public async signUnvetData({
     prefix,
-    contractVersion,
     blockNumber,
     blockHash,
     nonce,
@@ -295,53 +269,29 @@ export class WalletService implements OnModuleInit {
     operatorIds,
     vettedKeysByOperator,
   }: SignUnvetDataParams): Promise<Signature> {
-    const encodedData = this.isVersionedDsmMessageHash(contractVersion)
-      ? utils.solidityPack(
-          [
-            'bytes32',
-            'uint256',
-            'uint256',
-            'bytes32',
-            'uint256',
-            'uint256',
-            'bytes',
-            'bytes',
-          ],
-          [
-            prefix,
-            contractVersion,
-            blockNumber,
-            blockHash,
-            stakingModuleId,
-            nonce,
-            operatorIds,
-            vettedKeysByOperator,
-          ],
-        )
-      : utils.solidityPack(
-          [
-            'bytes32',
-            'uint256',
-            'bytes32',
-            'uint256',
-            'uint256',
-            'bytes',
-            'bytes',
-          ],
-          [
-            prefix,
-            blockNumber,
-            blockHash,
-            stakingModuleId,
-            nonce,
-            operatorIds,
-            vettedKeysByOperator,
-          ],
-        );
+    const encodedData = utils.solidityPack(
+      [
+        'bytes32',
+        'uint256',
+        'bytes32',
+        'uint256',
+        'uint256',
+        'bytes',
+        'bytes',
+      ],
+      [
+        prefix,
+        blockNumber,
+        blockHash,
+        stakingModuleId,
+        nonce,
+        operatorIds,
+        vettedKeysByOperator,
+      ],
+    );
 
     this.logger.debug?.('Sign data:', {
       prefix,
-      contractVersion,
       blockNumber,
       blockHash,
       stakingModuleId,
@@ -359,9 +309,5 @@ export class WalletService implements OnModuleInit {
     });
 
     return this.signMessage(messageHash);
-  }
-
-  private isVersionedDsmMessageHash(contractVersion: number): boolean {
-    return contractVersion >= 4;
   }
 }

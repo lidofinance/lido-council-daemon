@@ -185,10 +185,9 @@ describe('SecurityService', () => {
       const signature = await securityService.signDepositData(...args);
 
       expect(mockGetAttestMessagePrefix).toHaveBeenCalledTimes(1);
-      expect(mockVersion).toHaveBeenCalledWith({ blockHash });
+      expect(mockVersion).not.toHaveBeenCalled();
       expect(signDepositData).toBeCalledWith({
         prefix,
-        contractVersion: 3,
         depositRoot,
         nonce,
         blockNumber,
@@ -259,10 +258,9 @@ describe('SecurityService', () => {
         blockHash,
       );
       expect(mockGetPauseMessagePrefix).toHaveBeenCalledTimes(1);
-      expect(mockVersion).toHaveBeenCalledWith({ blockHash });
+      expect(mockVersion).not.toHaveBeenCalled();
       expect(signPauseData).toBeCalledWith({
         blockNumber: 1,
-        contractVersion: 3,
         prefix:
           '0x0000000000000000000000000000000000000000000000000000000000000002',
       });
@@ -294,7 +292,6 @@ describe('SecurityService', () => {
       mockGetPauseMessagePrefix = jest
         .spyOn(securityService, 'getPauseMessagePrefix')
         .mockImplementation(async () => hexZeroPad('0x2', 32));
-      jest.spyOn(securityService, 'version').mockImplementation(async () => 3);
 
       mockPauseDeposits = jest
         .fn()
@@ -421,11 +418,10 @@ describe('SecurityService', () => {
         vettedKeysByOperator,
       );
       expect(mockGetUnvetMessagePrefix).toHaveBeenCalledTimes(1);
-      expect(mockVersion).toHaveBeenCalledWith({ blockHash });
+      expect(mockVersion).not.toHaveBeenCalled();
       expect(signUnvetData).toBeCalledWith({
         blockNumber,
         blockHash,
-        contractVersion: 3,
         stakingModuleId,
         nonce,
         operatorIds,
@@ -467,7 +463,6 @@ describe('SecurityService', () => {
       mockGetUnvetMessagePrefix = jest
         .spyOn(securityService, 'getUnvetMessagePrefix')
         .mockImplementation(async () => hexZeroPad('0x2', 32));
-      jest.spyOn(securityService, 'version').mockImplementation(async () => 3);
 
       mockUnvetSigningKeys = jest
         .fn()
