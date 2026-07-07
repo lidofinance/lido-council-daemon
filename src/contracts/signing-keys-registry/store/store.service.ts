@@ -6,13 +6,26 @@ import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { SigningKeyEvent } from '../interfaces/event.interface';
 import { SigningKeyEventsCacheHeaders } from '../interfaces/cache.interface';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { InjectMetric } from '@willsoto/nestjs-prometheus';
+import {
+  METRIC_SIGNING_KEYS_CACHE_BYTES,
+  METRIC_SIGNING_KEYS_CACHE_COUNT,
+} from 'common/prometheus';
+import { Gauge } from 'prom-client';
 
 @Injectable()
 export class SigningKeysStoreService {
   private db!: Level<string, string>;
+  private cacheSizeBytes = 0;
+  private cacheEventCount = 0;
+
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private provider: SimpleFallbackJsonRpcBatchProvider,
+    @InjectMetric(METRIC_SIGNING_KEYS_CACHE_BYTES)
+    private signingKeysCacheBytesGauge: Gauge<string>,
+    @InjectMetric(METRIC_SIGNING_KEYS_CACHE_COUNT)
+    private signingKeysCacheCountGauge: Gauge<string>,
     @Inject(DB_DIR) private cacheDir: string,
     @Inject(DB_LAYER_DIR) private cacheLayerDir: string,
     @Inject(DB_DEFAULT_VALUE)
@@ -93,9 +106,19 @@ export class SigningKeysStoreService {
 
       const data: SigningKeyEvent[] = [];
 
+      // Reset counters before loading
+      this.cacheSizeBytes = 0;
+      this.cacheEventCount = 0;
+
       for await (const [, value] of stream) {
+        // Track size from DB value
+        this.cacheSizeBytes += Buffer.byteLength(value, 'utf8');
+        this.cacheEventCount++;
         data.push(this.parseSigningKeyEvent(value));
       }
+
+      this.updateCacheMetrics();
+
       const headers: SigningKeyEventsCacheHeaders = JSON.parse(
         await this.db.get('headers'),
       );
@@ -188,13 +211,29 @@ export class SigningKeysStoreService {
 
   /**
    * Serializes a SigningKeyEvent into a JSON string.
+   * Also tracks the serialized size for cache metrics.
    *
    * @param {SigningKeyEvent} signingKeyEvent - The signing key event to serialize.
    * @returns {string} The serialized JSON string of the signing key event.
    * @public
    */
   public serializeEventData(signingKeyEvent: SigningKeyEvent) {
-    return JSON.stringify(signingKeyEvent);
+    const serialized = JSON.stringify(signingKeyEvent);
+
+    // Track size for metrics
+    this.cacheSizeBytes += Buffer.byteLength(serialized, 'utf8');
+    this.cacheEventCount++;
+    this.updateCacheMetrics();
+
+    return serialized;
+  }
+
+  /**
+   * Updates the Prometheus cache metrics
+   */
+  private updateCacheMetrics(): void {
+    this.signingKeysCacheBytesGauge.set(this.cacheSizeBytes);
+    this.signingKeysCacheCountGauge.set(this.cacheEventCount);
   }
 
   /**
@@ -258,6 +297,11 @@ export class SigningKeysStoreService {
    */
   public async deleteCache(): Promise<void> {
     await this.db.clear();
+
+    // Reset cache metrics
+    this.cacheSizeBytes = 0;
+    this.cacheEventCount = 0;
+    this.updateCacheMetrics();
   }
 
   /**

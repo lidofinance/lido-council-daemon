@@ -1,9 +1,8 @@
-import { ethers, BigNumber } from 'ethers';
+import { ethers } from 'ethers';
 import { accountImpersonate, testSetupProvider } from './provider';
 import * as dotenv from 'dotenv';
 import {
   IStakingModuleAbi__factory,
-  LidoAbi__factory,
   LocatorAbi__factory,
   StakingRouterAbi__factory,
 } from 'generated';
@@ -23,37 +22,7 @@ export function getLocator() {
   return LocatorAbi__factory.connect(locatorAddress, testSetupProvider);
 }
 
-export async function getStakingModules(): Promise<
-  ([
-    number,
-    string,
-    number,
-    number,
-    number,
-    number,
-    string,
-    BigNumber,
-    BigNumber,
-    BigNumber,
-    number,
-    BigNumber,
-    BigNumber,
-  ] & {
-    id: number;
-    stakingModuleAddress: string;
-    stakingModuleFee: number;
-    treasuryFee: number;
-    stakeShareLimit: number;
-    status: number;
-    name: string;
-    lastDepositAt: BigNumber;
-    lastDepositBlock: BigNumber;
-    exitedValidatorsCount: BigNumber;
-    priorityExitShareThreshold: number;
-    maxDepositsPerBlock: BigNumber;
-    minDepositBlockDistance: BigNumber;
-  })[]
-> {
+export async function getStakingModules() {
   const locator = getLocator();
   const stakingRouterAddress = await locator.stakingRouter();
 
@@ -64,7 +33,7 @@ export async function getStakingModules(): Promise<
   return await contract.getStakingModules();
 }
 
-export async function prioritizeShareLimit(moduleId: number) {
+export async function prioritizeShareLimit(...moduleIds: number[]) {
   const locator = getLocator();
   const stakingRouterAddress = await locator.stakingRouter();
   const network = await testSetupProvider.getNetwork();
@@ -85,14 +54,23 @@ export async function prioritizeShareLimit(moduleId: number) {
 
   const modules = await getStakingModules();
 
+  // 100% in base points
+  const MAX_SHARE_LIMIT = 10000;
+  const prioritized = new Set(moduleIds);
+
   await Promise.all(
     modules.map(async (stakingModule) => {
-      if (stakingModule.id === moduleId) return;
+      const isPrioritized = prioritized.has(stakingModule.id);
+      // give the prioritized module an unlimited (100%) share so it can
+      // deposit, shrink every other module to the minimal share of 1
+      const stakeShareLimit = isPrioritized ? MAX_SHARE_LIMIT : 0;
+      // priorityExitShareThreshold must be >= stakeShareLimit, so bump it too
+      const priorityExitShareThreshold = isPrioritized ? MAX_SHARE_LIMIT : 0;
 
       await contract.updateStakingModule(
         stakingModule.id,
-        1,
-        stakingModule.priorityExitShareThreshold,
+        stakeShareLimit,
+        priorityExitShareThreshold,
         stakingModule.stakingModuleFee,
         stakingModule.treasuryFee,
         stakingModule.maxDepositsPerBlock,

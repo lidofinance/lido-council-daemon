@@ -24,8 +24,10 @@ import {
   addGuardians,
   canDeposit,
   deposit,
+  fillLidoBuffer,
   getGuardians,
   getLidoWC,
+  getModuleWC,
   getSecurityContract,
   getSecurityOwner,
 } from './helpers/dsm';
@@ -135,10 +137,6 @@ describe('Front-run e2e tests', () => {
       .map(([message]) => message as { stakingModuleId: number });
   };
 
-  const expectDepositsStillWork = (fromCallIndex = 0) => {
-    expect(getNewDepositMessages(fromCallIndex).length).toBeGreaterThan(0);
-  };
-
   const expectNoDepositsForModule = (moduleId: number, fromCallIndex = 0) => {
     const newDepositMessages = getNewDepositMessages(fromCallIndex);
     expect(
@@ -148,12 +146,24 @@ describe('Front-run e2e tests', () => {
     ).toBe(false);
   };
 
+  const expectDepositsForModule = (moduleId: number, fromCallIndex = 0) => {
+    const newDepositMessages = getNewDepositMessages(fromCallIndex);
+    expect(
+      newDepositMessages.some(
+        (message) => message.stakingModuleId === moduleId,
+      ),
+    ).toBe(true);
+  };
+
   let stakingModulesAddresses: string[];
   let curatedModuleAddress: string;
   let firstOperator: any;
   let nor: CuratedOnchainV1;
   const frontrunPK: Uint8Array = pk;
   const frontrunSK: SecretKey = sk;
+  const validSK: SecretKey = SecretKey.fromKeygen(new Uint8Array(32).fill(7));
+  const validPK: Uint8Array = validSK.toPublicKey().toBytes();
+  let validDepositSignature: Uint8Array;
   let lidoDepositSignature: Uint8Array;
   let guardianIndex: number;
   let lidoWC: string;
@@ -180,7 +190,11 @@ describe('Front-run e2e tests', () => {
     await hardhatServer.start();
 
     console.log('Hardhat node is ready. Starting key cutting process...');
-    await cutModulesKeys();
+    await cutModulesKeys(undefined, {
+      opCount: 3,
+      keysCount: 3,
+      depositedCount: 3,
+    });
 
     await startContainerIfNotRunning(keysApiContainer);
 
@@ -208,7 +222,6 @@ describe('Front-run e2e tests', () => {
     nor = new CuratedOnchainV1(curatedModuleAddress);
     const activeOperators = await nor.getActiveOperators();
     firstOperator = activeOperators[0];
-    // create duplicate
     lidoWC = await getLidoWC();
     const { signature, depositData } = await signDeposit(
       frontrunPK,
@@ -217,6 +230,9 @@ describe('Front-run e2e tests', () => {
     );
     lidoDepositSignature = signature;
     lidoDepositData = depositData;
+
+    const { signature: validSig } = await signDeposit(validPK, validSK, lidoWC);
+    validDepositSignature = validSig;
   }, 360_000);
 
   afterAll(async () => {
@@ -235,6 +251,9 @@ describe('Front-run e2e tests', () => {
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);
       setupMocks();
+
+      // top up Lido buffer so module 1 has allocation for deposits
+      await fillLidoBuffer(2);
     }, 50_000);
 
     afterAll(async () => {
@@ -242,10 +261,10 @@ describe('Front-run e2e tests', () => {
       await testSetupProvider.send('evm_revert', [snapshotId]);
       await truncateTables();
 
-      await levelDBService.deleteCache();
-      await signKeyLevelDBService.deleteCache();
-      await levelDBService.close();
-      await signKeyLevelDBService.close();
+      await levelDBService?.deleteCache();
+      await signKeyLevelDBService?.deleteCache();
+      await levelDBService?.close();
+      await signKeyLevelDBService?.close();
     });
 
     test('Set cache to current block', async () => {
@@ -269,7 +288,21 @@ describe('Front-run e2e tests', () => {
       });
     });
 
-    test('add unused unvetted key', async () => {
+    test('Add valid key and raise staking limit to vet it', async () => {
+      const currentBlock = await provider.getBlock('latest');
+      await nor.addSigningKey(
+        firstOperator.index,
+        1,
+        toHexString(validPK),
+        toHexString(validDepositSignature),
+        firstOperator.rewardAddress,
+      );
+      // after cut vetted=3, deposited=3. Bump vetted to 4 to vet the new valid key.
+      await nor.setStakingLimit(firstOperator.index, 4);
+      await waitForNewerBlock(currentBlock.number);
+    });
+
+    test('Add front-run key (stays unvetted)', async () => {
       const currentBlock = await provider.getBlock('latest');
       await nor.addSigningKey(
         firstOperator.index,
@@ -278,7 +311,6 @@ describe('Front-run e2e tests', () => {
         toHexString(lidoDepositSignature),
         firstOperator.rewardAddress,
       );
-
       await waitForNewerBlock(currentBlock.number);
     });
 
@@ -301,27 +333,25 @@ describe('Front-run e2e tests', () => {
       await waitForNewerBlock(currentBlock.number);
     });
 
-    test('Key is not vetted, module will not be set on soft pause', async () => {
+    test('Front-run key is not vetted, module keeps depositing the valid key', async () => {
       const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
-      expectDepositsStillWork(depositCallsBeforeCycle);
+      expectDepositsForModule(1, depositCallsBeforeCycle);
     });
 
-    test('Increase staking limit', async () => {
+    test('Increase staking limit to vet the front-run key', async () => {
       const currentBlock = await provider.getBlock('latest');
-
-      // keys total amount was 3, added key with wrong sign, now it is 4 keys
-      // increase limit to 4
-      await nor.setStakingLimit(firstOperator.index, 4);
+      // vetted=4, deposited=3, +valid key vetted, +frontrun key unvetted. Bump to 5.
+      await nor.setStakingLimit(firstOperator.index, 5);
       await waitForNewerBlock(currentBlock.number);
     });
 
     test('Check staking limit for curated operator before unvetting', async () => {
       const op = await nor.getOperator(firstOperator.index, false);
-      expect(Number(op.totalVettedValidators)).toEqual(4);
+      expect(Number(op.totalVettedValidators)).toEqual(5);
     });
 
     test('Unvetting', async () => {
@@ -339,10 +369,9 @@ describe('Front-run e2e tests', () => {
           guardianAddress: walletAddress,
           guardianIndex,
           stakingModuleId: 1,
-          // TODO: get rid of use function here
-          // write value, as function can have error
           operatorIds: packNodeOperatorIds([firstOperator.index]),
-          vettedKeysByOperator: '0x00000000000000000000000000000003',
+          // unvet back to 4: keep valid key, drop front-run key
+          vettedKeysByOperator: '0x00000000000000000000000000000004',
         }),
       );
       expectNoDepositsForModule(1, depositCallsBeforeCycle);
@@ -360,9 +389,9 @@ describe('Front-run e2e tests', () => {
       expect(isOnPause).toBe(false);
     });
 
-    test('Check staking limit for sdvt operator after unvetting', async () => {
+    test('Check staking limit for curated operator after unvetting', async () => {
       const op = await nor.getOperator(firstOperator.index, false);
-      expect(Number(op.totalVettedValidators)).toEqual(3);
+      expect(Number(op.totalVettedValidators)).toEqual(4);
     });
   });
 
@@ -376,6 +405,9 @@ describe('Front-run e2e tests', () => {
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);
       setupMocks();
+
+      // top up Lido buffer so module 1 has allocation for deposits
+      await fillLidoBuffer(2);
     }, 50_000);
 
     afterAll(async () => {
@@ -383,10 +415,10 @@ describe('Front-run e2e tests', () => {
       await testSetupProvider.send('evm_revert', [snapshotId]);
       await truncateTables();
 
-      await levelDBService.deleteCache();
-      await signKeyLevelDBService.deleteCache();
-      await levelDBService.close();
-      await signKeyLevelDBService.close();
+      await levelDBService?.deleteCache();
+      await signKeyLevelDBService?.deleteCache();
+      await levelDBService?.close();
+      await signKeyLevelDBService?.close();
     });
 
     test('Set cache to current block', async () => {
@@ -423,9 +455,9 @@ describe('Front-run e2e tests', () => {
       await waitForNewerBlock(currentBlock.number);
     });
 
-    test('Make deposit with lido WC', async () => {
+    test('Make 1 ETH deposit with lido WC (failed attack)', async () => {
       const currentBlock = await provider.getBlock('latest');
-      // Attempt to front run
+      // 1 ETH deposit with legit lidoWC — not a front-run, just griefing attempt
       const { depositData: goodDepositData } = await signDeposit(
         frontrunPK,
         frontrunSK,
@@ -438,14 +470,12 @@ describe('Front-run e2e tests', () => {
 
     test('Increase staking limit', async () => {
       const currentBlock = await provider.getBlock('latest');
-
-      // keys total amount was 3, added key with wrong sign, now it is 4 keys
-      // increase limit to 4
+      // raise vetted 3 → 4 to vet the newly added key
       await nor.setStakingLimit(firstOperator.index, 4);
       await waitForNewerBlock(currentBlock.number);
     });
 
-    test('Check staking limit for sdvt operator before unvetting', async () => {
+    test('Check staking limit for curated operator', async () => {
       const op = await nor.getOperator(firstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
     });
@@ -456,7 +486,7 @@ describe('Front-run e2e tests', () => {
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
       expect(sendUnvetMessage).toHaveBeenCalledTimes(0);
-      expectDepositsStillWork(depositCallsBeforeCycle);
+      expectDepositsForModule(1, depositCallsBeforeCycle);
     });
 
     test('no pause happen', async () => {
@@ -471,7 +501,7 @@ describe('Front-run e2e tests', () => {
       expect(isOnPause).toBe(false);
     });
 
-    test('Check staking limit for sdvt operator after unvetting', async () => {
+    test('Staking limit stays at 4 (no unvetting)', async () => {
       const op = await nor.getOperator(firstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
     });
@@ -487,6 +517,9 @@ describe('Front-run e2e tests', () => {
       const moduleRef = await setupTestingModule();
       await setupTestingServices(moduleRef);
       setupMocks();
+
+      // top up Lido buffer so module 1 has allocation for deposits
+      await fillLidoBuffer(2);
     }, 50_000);
 
     afterAll(async () => {
@@ -494,10 +527,10 @@ describe('Front-run e2e tests', () => {
       await testSetupProvider.send('evm_revert', [snapshotId]);
       await truncateTables();
 
-      await levelDBService.deleteCache();
-      await signKeyLevelDBService.deleteCache();
-      await levelDBService.close();
-      await signKeyLevelDBService.close();
+      await levelDBService?.deleteCache();
+      await signKeyLevelDBService?.deleteCache();
+      await levelDBService?.close();
+      await signKeyLevelDBService?.close();
     });
 
     test('Set cache to current block', async () => {
@@ -537,13 +570,20 @@ describe('Front-run e2e tests', () => {
     test('Make invalid deposit with non-lido wc', async () => {
       const currentBlock = await provider.getBlock('latest');
 
+      // signature signed for amount=0, but deposit is made with amount=1 ETH —
+      // on-chain deposit goes through, but beacon-chain activation is impossible
       const { signature: weirdSign } = await signDeposit(
         frontrunPK,
         frontrunSK,
         BAD_WC,
         0,
       );
-      const { depositData } = await signDeposit(pk, sk, BAD_WC, 1000000000);
+      const { depositData } = await signDeposit(
+        frontrunPK,
+        frontrunSK,
+        BAD_WC,
+        1000000000,
+      );
       await makeDeposit({ ...depositData, signature: weirdSign }, provider, 1);
 
       await waitForNewerBlock(currentBlock.number);
@@ -551,19 +591,20 @@ describe('Front-run e2e tests', () => {
 
     test('Increase staking limit', async () => {
       const currentBlock = await provider.getBlock('latest');
-
-      // keys total amount was 3, added key with wrong sign, now it is 4 keys
-      // increase limit to 4
+      // vet the added key (3 → 4)
       await nor.setStakingLimit(firstOperator.index, 4);
       await waitForNewerBlock(currentBlock.number);
     });
 
-    test('Check staking limit for sdvt operator before unvetting', async () => {
+    test('Check staking limit for curated operator', async () => {
       const op = await nor.getOperator(firstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
     });
 
+    let depositCallsBeforeCycle: number;
+
     test('no unvetting will happen', async () => {
+      depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
@@ -583,10 +624,10 @@ describe('Front-run e2e tests', () => {
     });
 
     test('deposits still work', async () => {
-      expectDepositsStillWork();
+      expectDepositsForModule(1, depositCallsBeforeCycle);
     });
 
-    test('Check staking limit for sdvt operator before unvetting', async () => {
+    test('Staking limit stays at 4 (no unvetting)', async () => {
       const op = await nor.getOperator(firstOperator.index, false);
       expect(Number(op.totalVettedValidators)).toEqual(4);
     });
@@ -614,10 +655,10 @@ describe('Front-run e2e tests', () => {
       await testSetupProvider.send('evm_revert', [snapshotId]);
       await truncateTables();
 
-      await levelDBService.deleteCache();
-      await signKeyLevelDBService.deleteCache();
-      await levelDBService.close();
-      await signKeyLevelDBService.close();
+      await levelDBService?.deleteCache();
+      await signKeyLevelDBService?.deleteCache();
+      await levelDBService?.close();
+      await signKeyLevelDBService?.close();
     });
 
     const runIf = canRunTests ? test : test.skip;
@@ -637,9 +678,7 @@ describe('Front-run e2e tests', () => {
 
     runIf('Increase staking limit', async () => {
       const currentBlock = await provider.getBlock('latest');
-
-      // keys total amount was 3, added key with wrong sign, now it is 4 keys
-      // increase limit to 4
+      // vetted key (3 → 4)
       await nor.setStakingLimit(firstOperator.index, 4);
       await waitForNewerBlock(currentBlock.number);
     });
@@ -763,6 +802,331 @@ describe('Front-run e2e tests', () => {
 
     runIf('Deposits does not work for whole list of modules', () => {
       expect(sendDepositMessage).toHaveBeenCalledTimes(0);
+    });
+  });
+
+  // Wrong WC type: a used Lido key whose earliest deposit carries a VALID Lido WC
+  // but of the wrong type (e.g. a 0x01-module key deposited with the 0x02 WC of
+  // the CMv2 module, id 5). This is distinct from front-running (non-Lido WC) and
+  // must trigger the same global hard pause (pauseDepositsV3).
+  describe('Wrong WC type', () => {
+    let snapshotId: number;
+    let canRunTests = true;
+    let wrongTypeWC: string;
+
+    beforeAll(async () => {
+      snapshotId = await testSetupProvider.send('evm_snapshot', []);
+      await waitKAPIUpdateModulesKeys();
+
+      const moduleRef = await setupTestingModule();
+      await setupTestingServices(moduleRef);
+      setupMocks();
+      canRunTests = await canDeposit();
+      console.log('canRunTests', canRunTests);
+
+      // 0x02-type Lido WC, taken from the CMv2 community module (id 5)
+      wrongTypeWC = await getModuleWC(5);
+    }, 50_000);
+
+    afterAll(async () => {
+      jest.clearAllMocks();
+      await testSetupProvider.send('evm_revert', [snapshotId]);
+      await truncateTables();
+
+      await levelDBService?.deleteCache();
+      await signKeyLevelDBService?.deleteCache();
+      await levelDBService?.close();
+      await signKeyLevelDBService?.close();
+    });
+
+    const runIf = canRunTests ? test : test.skip;
+
+    runIf('module 5 (CMv2) provides a 0x02-type Lido WC', () => {
+      expect(wrongTypeWC.toLowerCase().startsWith('0x02')).toBe(true);
+      // must be a real Lido WC, just of a different type than module 1
+      expect(wrongTypeWC.toLowerCase()).not.toEqual(lidoWC.toLowerCase());
+      expect(wrongTypeWC.slice(4)).toEqual(lidoWC.slice(4));
+    });
+
+    runIf('add unused unvetted key', async () => {
+      const currentBlock = await provider.getBlock('latest');
+      await nor.addSigningKey(
+        firstOperator.index,
+        1,
+        toHexString(frontrunPK),
+        toHexString(lidoDepositSignature),
+        firstOperator.rewardAddress,
+      );
+
+      await waitForNewerBlock(currentBlock.number);
+    });
+
+    runIf('Increase staking limit', async () => {
+      const currentBlock = await provider.getBlock('latest');
+      // vetted key (3 → 4)
+      await nor.setStakingLimit(firstOperator.index, 4);
+      await waitForNewerBlock(currentBlock.number);
+    });
+
+    runIf(
+      'decrease share limit for all modules except curated',
+      async () => {
+        // curated module id - 1
+        await prioritizeShareLimit(1);
+      },
+      60_000,
+    );
+
+    runIf(
+      'deposit lido key',
+      async () => {
+        const currentBlock = await provider.getBlock('latest');
+        await deposit(1);
+        await waitForNewerBlock(currentBlock.number);
+      },
+      60_000,
+    );
+
+    runIf(
+      'Check staking limit for operator that key was deposited',
+      async () => {
+        const currentBlock = await provider.getBlock('latest');
+        const op = await nor.getOperator(firstOperator.index, false);
+        expect(Number(op.totalVettedValidators)).toEqual(4);
+        expect(Number(op.totalAddedValidators)).toEqual(4);
+        expect(Number(op.totalDepositedValidators)).toEqual(4);
+
+        await waitForNewerOrEqBlock(currentBlock.number);
+      },
+    );
+
+    runIf('Check kapi see new used key', async () => {
+      const {
+        data: { keys },
+      } = await keysApiService.getModuleKeys(1, firstOperator.index);
+      expect(keys.length).toBe(4);
+      const lastKeys = keys.find(({ index }) => index === 3);
+      expect(lastKeys?.used).toBe(true);
+    });
+
+    runIf(
+      'Set cache: earliest deposit of used key has Lido WC of wrong type',
+      async () => {
+        const currentBlock = await provider.getBlock('latest');
+        const { signature: wrongTypeSign } = await signDeposit(
+          frontrunPK,
+          frontrunSK,
+          wrongTypeWC,
+        );
+
+        await levelDBService.setCachedEvents({
+          data: [
+            {
+              valid: true,
+              pubkey: toHexString(frontrunPK),
+              amount: '32000000000',
+              wc: wrongTypeWC,
+              signature: toHexString(wrongTypeSign),
+              tx: '0x124',
+              blockHash: currentBlock.hash,
+              blockNumber: currentBlock.number - 8,
+              logIndex: 1,
+              depositCount: 1,
+              depositDataRoot: new Uint8Array(),
+              index: '',
+            },
+          ],
+          headers: {
+            startBlock: currentBlock.number - 10,
+            endBlock: currentBlock.number,
+          },
+        });
+
+        await signingKeysRegistryService.setCachedEvents({
+          data: [],
+          headers: {
+            startBlock: currentBlock.number - 10,
+            endBlock: currentBlock.number,
+            stakingModulesAddresses,
+          },
+        });
+      },
+    );
+
+    runIf('Run council daemon', async () => {
+      await guardianService.handleNewBlock();
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+    });
+
+    runIf('Pause happen', async () => {
+      const securityContract = SecurityAbi__factory.connect(
+        securityModuleAddress,
+        provider,
+      );
+
+      const isOnPause = await securityContract.isDepositsPaused();
+      expect(isOnPause).toBe(true);
+      expect(sendPauseMessage).toHaveBeenCalledTimes(1);
+    });
+
+    runIf('Deposits does not work for whole list of modules', () => {
+      expect(sendDepositMessage).toHaveBeenCalledTimes(0);
+    });
+  });
+
+  // Cross-type keys: a VETTED-UNUSED key in a 0x01 module whose deposit history
+  // carries a VALID Lido WC of another type (e.g. the 0x02 WC of CMv2, id 5).
+  // Unlike wrong-WC-type (used keys → global pause), this is a per-module issue:
+  // the daemon unvets the key for that module and does NOT pause. No real Lido
+  // deposit is needed (the key stays unused), so there is no canDeposit() gate.
+  describe('Cross-type keys', () => {
+    let snapshotId: number;
+    let wrongTypeWC: string;
+
+    beforeAll(async () => {
+      snapshotId = await testSetupProvider.send('evm_snapshot', []);
+      await waitKAPIUpdateModulesKeys();
+
+      const moduleRef = await setupTestingModule();
+      await setupTestingServices(moduleRef);
+      setupMocks();
+
+      // top up Lido buffer so module 1 would have allocation for deposits
+      await fillLidoBuffer(2);
+
+      // 0x02-type Lido WC, taken from the CMv2 community module (id 5)
+      wrongTypeWC = await getModuleWC(5);
+    }, 50_000);
+
+    afterAll(async () => {
+      jest.clearAllMocks();
+      await testSetupProvider.send('evm_revert', [snapshotId]);
+      await truncateTables();
+
+      await levelDBService?.deleteCache();
+      await signKeyLevelDBService?.deleteCache();
+      await levelDBService?.close();
+      await signKeyLevelDBService?.close();
+    });
+
+    test('module 5 (CMv2) provides a 0x02-type Lido WC', () => {
+      expect(wrongTypeWC.toLowerCase().startsWith('0x02')).toBe(true);
+      expect(wrongTypeWC.toLowerCase()).not.toEqual(lidoWC.toLowerCase());
+      expect(wrongTypeWC.slice(4)).toEqual(lidoWC.slice(4));
+    });
+
+    test('Add valid key and raise staking limit to vet it', async () => {
+      const currentBlock = await provider.getBlock('latest');
+      await nor.addSigningKey(
+        firstOperator.index,
+        1,
+        toHexString(validPK),
+        toHexString(validDepositSignature),
+        firstOperator.rewardAddress,
+      );
+      // after cut vetted=3, deposited=3. Bump vetted to 4 to vet the new valid key.
+      await nor.setStakingLimit(firstOperator.index, 4);
+      await waitForNewerBlock(currentBlock.number);
+    });
+
+    test('Add cross-type key and vet it (stays unused)', async () => {
+      const currentBlock = await provider.getBlock('latest');
+      await nor.addSigningKey(
+        firstOperator.index,
+        1,
+        toHexString(frontrunPK),
+        toHexString(lidoDepositSignature),
+        firstOperator.rewardAddress,
+      );
+      // vetted=4 → 5: vet the cross-type key (index 4), still unused
+      await nor.setStakingLimit(firstOperator.index, 5);
+      await waitForNewerBlock(currentBlock.number);
+    });
+
+    test('Check staking limit for curated operator before unvetting', async () => {
+      const op = await nor.getOperator(firstOperator.index, false);
+      expect(Number(op.totalVettedValidators)).toEqual(5);
+    });
+
+    test('Set cache: vetted-unused key has a deposit with wrong-type Lido WC', async () => {
+      const currentBlock = await provider.getBlock('latest');
+      const { signature: wrongTypeSign } = await signDeposit(
+        frontrunPK,
+        frontrunSK,
+        wrongTypeWC,
+      );
+
+      await levelDBService.setCachedEvents({
+        data: [
+          {
+            valid: true,
+            pubkey: toHexString(frontrunPK),
+            amount: '32000000000',
+            wc: wrongTypeWC,
+            signature: toHexString(wrongTypeSign),
+            tx: '0x125',
+            blockHash: currentBlock.hash,
+            blockNumber: currentBlock.number - 8,
+            logIndex: 1,
+            depositCount: 1,
+            depositDataRoot: new Uint8Array(),
+            index: '',
+          },
+        ],
+        headers: {
+          startBlock: currentBlock.number - 10,
+          endBlock: currentBlock.number,
+        },
+      });
+
+      await signingKeysRegistryService.setCachedEvents({
+        data: [],
+        headers: {
+          startBlock: currentBlock.number - 10,
+          endBlock: currentBlock.number,
+          stakingModulesAddresses,
+        },
+      });
+    });
+
+    test('Unvetting of the cross-type key', async () => {
+      const currentBlock = await provider.getBlock('latest');
+      const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
+      await guardianService.handleNewBlock();
+      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
+
+      const walletAddress = await getWalletAddress();
+
+      expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
+      expect(sendUnvetMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          blockNumber: currentBlock.number,
+          guardianAddress: walletAddress,
+          guardianIndex,
+          stakingModuleId: 1,
+          operatorIds: packNodeOperatorIds([firstOperator.index]),
+          // unvet back to 4: keep valid key, drop cross-type key
+          vettedKeysByOperator: '0x00000000000000000000000000000004',
+        }),
+      );
+      expectNoDepositsForModule(1, depositCallsBeforeCycle);
+    }, 50_000);
+
+    test('no pause happen', async () => {
+      expect(sendPauseMessage).toHaveBeenCalledTimes(0);
+
+      const securityContract = SecurityAbi__factory.connect(
+        securityModuleAddress,
+        provider,
+      );
+
+      const isOnPause = await securityContract.isDepositsPaused();
+      expect(isOnPause).toBe(false);
+    });
+
+    test('Check staking limit for curated operator after unvetting', async () => {
+      const op = await nor.getOperator(firstOperator.index, false);
+      expect(Number(op.totalVettedValidators)).toEqual(4);
     });
   });
 });

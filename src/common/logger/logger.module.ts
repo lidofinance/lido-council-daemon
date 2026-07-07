@@ -10,6 +10,7 @@ export const LoggerModule = WinstonModule.forRootAsync({
     level: config.LOG_LEVEL,
     transports: [
       new winston.transports.Console({
+        silent: process.env.E2E_SILENT_LOGS === 'true',
         format:
           config.LOG_FORMAT === 'json'
             ? winston.format.combine(

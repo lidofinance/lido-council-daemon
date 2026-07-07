@@ -14,7 +14,8 @@ import {
 import { Counter, Histogram } from 'prom-client';
 import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 import { WalletService } from 'wallet';
-import { StakingRouterService } from 'contracts/staking-router';
+import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
+import { DeepReadonly } from 'common/ts-utils';
 
 @Injectable()
 export class BlockDataCollectorService {
@@ -32,7 +33,6 @@ export class BlockDataCollectorService {
 
     private depositService: DepositRegistryService,
     private securityService: SecurityService,
-    private stakingRouterService: StakingRouterService,
 
     private stakingModuleGuardService: StakingModuleGuardService,
   ) {}
@@ -45,36 +45,45 @@ export class BlockDataCollectorService {
   public async getCurrentBlockData({
     blockNumber,
     blockHash,
+    moduleWCMap,
+    lidoKeys,
   }: {
     blockNumber: number;
     blockHash: string;
+    moduleWCMap: Record<string, string>;
+    lidoKeys: DeepReadonly<RegistryKey[]>;
   }): Promise<BlockData> {
     const endTimer = this.blockRequestsHistogram.startTimer();
     try {
       const guardianAddress = this.securityService.getGuardianAddress();
+
       const [
         depositRoot,
         depositedEvents,
         guardianIndex,
-        lidoWC,
         securityVersion,
         walletBalanceCritical,
       ] = await Promise.all([
         this.depositService.getDepositRoot({ blockHash }),
         this.depositService.getAllDepositedEvents(blockNumber, blockHash),
         this.securityService.getGuardianIndex({ blockHash }),
-        this.stakingRouterService.getWithdrawalCredentials({ blockHash }),
         this.securityService.version({
           blockHash,
         }),
         this.walletService.isBalanceCritical(),
       ]);
 
-      const theftHappened =
-        await this.stakingModuleGuardService.getHistoricalFrontRun(
+      const hasFrontRunning =
+        this.stakingModuleGuardService.checkHistoricalFrontRun(
           depositedEvents,
-          lidoWC,
+          lidoKeys,
+          moduleWCMap,
         );
+      const hasWrongWCType = this.stakingModuleGuardService.checkWrongWCType(
+        depositedEvents,
+        lidoKeys,
+        moduleWCMap,
+      );
 
       const alreadyPausedDeposits = await this.alreadyPausedDeposits(blockHash);
 
@@ -92,10 +101,10 @@ export class BlockDataCollectorService {
         depositedEvents,
         guardianAddress,
         guardianIndex,
-        lidoWC,
         securityVersion,
         alreadyPausedDeposits,
-        theftHappened,
+        hasFrontRunning,
+        hasWrongWCType,
         walletBalanceCritical,
       };
     } catch (error) {

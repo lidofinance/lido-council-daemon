@@ -8,6 +8,9 @@ import {
   METRIC_DATA_BUS_ACCOUNT_BALANCE,
   METRIC_DATA_BUS_RPC_REQUEST_DURATION,
   METRIC_DATA_BUS_RPC_REQUEST_ERRORS,
+  METRIC_NONCE_LATEST,
+  METRIC_NONCE_PENDING,
+  METRIC_NONCE_GAP,
 } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Counter, Gauge, Histogram, register } from 'prom-client';
@@ -31,6 +34,9 @@ export class DataBusService {
   constructor(
     @InjectMetric(METRIC_DATA_BUS_ACCOUNT_BALANCE)
     private accountBalance: Gauge<string>,
+    @InjectMetric(METRIC_NONCE_LATEST) private nonceLatest: Gauge<string>,
+    @InjectMetric(METRIC_NONCE_PENDING) private noncePending: Gauge<string>,
+    @InjectMetric(METRIC_NONCE_GAP) private nonceGap: Gauge<string>,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     @Inject(DATA_BUS_PRIVATE_KEY) private privateKey: string,
     @Inject(DATA_BUS_ADDRESS) private dataBusAddress: string,
@@ -71,16 +77,27 @@ export class DataBusService {
   }
 
   /**
-   * Monitors the guardian account balance to ensure it is sufficient for transactions.
-   * Updates the account balance metric.
+   * Monitors the guardian account balance and nonce to ensure it is sufficient for transactions.
+   * Updates the account balance and nonce metrics.
    */
   @OneAtTime()
   public async monitorGuardianDataBusBalance() {
-    const balanceWei = await this.getAccountBalance();
+    const [balanceWei, latestNonce, pendingNonce, network] = await Promise.all([
+      this.getAccountBalance(),
+      this.provider.getTransactionCount(this.address, 'latest'),
+      this.provider.getTransactionCount(this.address, 'pending'),
+      this.provider.getNetwork(),
+    ]);
+
     const balanceETH = formatEther(balanceWei);
-    const { chainId } = await this.provider.getNetwork();
+    const { chainId } = network;
     this.accountBalance.set({ chainId }, Number(balanceETH));
     this.isBalanceSufficient(balanceWei, chainId);
+
+    const gap = pendingNonce - latestNonce;
+    this.nonceLatest.labels({ network: 'data-bus' }).set(latestNonce);
+    this.noncePending.labels({ network: 'data-bus' }).set(pendingNonce);
+    this.nonceGap.labels({ network: 'data-bus' }).set(gap);
   }
 
   /**

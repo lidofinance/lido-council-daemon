@@ -12,14 +12,12 @@ import { METRIC_JOB_DURATION } from 'common/prometheus';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { Histogram } from 'prom-client';
 import { DeepReadonly } from 'common/ts-utils';
-import { ethers } from 'ethers';
-
-const ONE_DEPOSIT_VALUE = ethers.utils.parseEther('32');
 
 type State = {
   stakingModules: SRModule[];
   meta: ELBlockSnapshot;
   lidoKeys: DeepReadonly<RegistryKey[]>;
+  moduleWCMap: Record<string, string>;
 };
 
 @Injectable()
@@ -41,34 +39,20 @@ export class StakingModuleDataCollectorService {
     stakingModules,
     meta,
     lidoKeys,
+    moduleWCMap,
   }: State): Promise<StakingModuleData[]> {
     const blockTag = { blockHash: meta.blockHash };
 
-    const depositableEther =
-      await this.stakingRouterService.getDepositableEther(blockTag);
-
-    // Ensure the most prioritized staking module always receives deposit
-    // messages by using max(depositableEther, 32 ETH) (ORC-635).
-    const allocationCheckValue = depositableEther.gt(ONE_DEPOSIT_VALUE)
-      ? depositableEther
-      : ONE_DEPOSIT_VALUE;
-
     return await Promise.all(
       stakingModules.map(async (stakingModule) => {
-        const maxDepositsCount =
-          await this.stakingRouterService.getStakingModuleMaxDepositsCount(
-            stakingModule.id,
-            allocationCheckValue,
-            blockTag,
-          );
-
         return {
           isModuleDepositsPaused:
             await this.stakingRouterService.isModuleDepositsPaused(
               stakingModule.id,
               blockTag,
             ),
-          hasDepositsAllocation: maxDepositsCount > 0,
+          withdrawalCredentials:
+            moduleWCMap[stakingModule.stakingModuleAddress],
           nonce: stakingModule.nonce,
           stakingModuleId: stakingModule.id,
           stakingModuleAddress: stakingModule.stakingModuleAddress,
@@ -81,6 +65,7 @@ export class StakingModuleDataCollectorService {
           duplicatedKeys: [],
           invalidKeys: [],
           frontRunKeys: [],
+          crossTypeKeys: [],
           unresolvedDuplicatedKeys: [],
         };
       }),
@@ -109,12 +94,18 @@ export class StakingModuleDataCollectorService {
 
     await Promise.all(
       stakingModulesData.map(async (stakingModuleData) => {
+        const lidoWCSet = new Set(
+          stakingModulesData.map((m) => m.withdrawalCredentials),
+        );
         // identify keys that were front-run withing vetted unused keys
-        stakingModuleData.frontRunKeys =
+        const { frontRunKeys, crossTypeKeys } =
           this.stakingModuleGuardService.getFrontRunAttempts(
             stakingModuleData,
             blockData,
+            lidoWCSet,
           );
+        stakingModuleData.frontRunKeys = frontRunKeys;
+        stakingModuleData.crossTypeKeys = crossTypeKeys;
 
         const endTimerValidation = this.jobDurationMetric
           .labels({
@@ -127,7 +118,6 @@ export class StakingModuleDataCollectorService {
         stakingModuleData.invalidKeys =
           await this.stakingModuleGuardService.getInvalidKeys(
             stakingModuleData,
-            blockData,
           );
         endTimerValidation();
 
@@ -204,6 +194,7 @@ export class StakingModuleDataCollectorService {
       stakingModuleId,
       blockHash,
       frontRunKeys,
+      crossTypeKeys,
       invalidKeys,
       duplicatedKeys,
       unresolvedDuplicatedKeys,
@@ -211,6 +202,7 @@ export class StakingModuleDataCollectorService {
     this.logger.log('Keys check state', {
       stakingModuleId: stakingModuleId,
       frontRunAttempt: frontRunKeys.length,
+      crossTypeKeys: crossTypeKeys.length,
       invalid: invalidKeys.length,
       duplicated: duplicatedKeys.length,
       unresolvedDuplicated: unresolvedDuplicatedKeys.length,
