@@ -5,6 +5,7 @@ import { BlockData, StakingModuleData } from 'guardian/interfaces';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';
 import { packNodeOperatorIds, packVettedSigningKeysCounts } from './bytes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { BlockTag } from '@lido-nestjs/execution';
 
 type UnvetData = { operatorIds: string; vettedKeysByOperator: string };
 
@@ -40,7 +41,10 @@ export class UnvettingService {
       return;
     }
 
-    const maxOperatorsPerUnvetting = await this.getMaxOperatorsPerUnvetting();
+    const maxOperatorsPerUnvetting = await this.getMaxOperatorsPerUnvetting({
+      blockHash: blockData.blockHash,
+    });
+
     const firstChunk = this.calculateNewStakingLimit(
       invalidKeys,
       maxOperatorsPerUnvetting,
@@ -55,6 +59,7 @@ export class UnvettingService {
     return stakingModuleData.invalidKeys.concat(
       stakingModuleData.duplicatedKeys,
       stakingModuleData.frontRunKeys,
+      stakingModuleData.crossTypeKeys,
     );
   }
 
@@ -149,8 +154,8 @@ export class UnvettingService {
     );
   }
 
-  private async getMaxOperatorsPerUnvetting() {
-    return await this.securityService.getMaxOperatorsPerUnvetting();
+  private async getMaxOperatorsPerUnvetting(blockTag: BlockTag) {
+    return await this.securityService.getMaxOperatorsPerUnvetting(blockTag);
   }
 
   private calculateNewStakingLimit(

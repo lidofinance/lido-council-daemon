@@ -58,4 +58,9 @@ export type SRModule = {
    * Blockhash from the most recent data update
    */
   lastChangedBlockHash: string;
+
+  /**
+   * Withdrawal credentials type: 1 (0x01 legacy withdrawal credentials) or 2 (compounding withdrawal credentials type)
+   */
+  withdrawalCredentialsType: number;
 };

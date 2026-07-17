@@ -43,6 +43,7 @@ export const groupedByModulesOperators: GroupedByModuleOperatorListResponse = {
         active: true,
         lastChangedBlockHash:
           '0x194ac4fd960ed44cb3db53fe1f5a53e983280fd438aeba607ae04f1bb416b4a1',
+        withdrawalCredentialsType: 1,
       },
     },
     {
@@ -75,6 +76,7 @@ export const groupedByModulesOperators: GroupedByModuleOperatorListResponse = {
         active: true,
         lastChangedBlockHash:
           '0x194ac4fd960ed44cb3db53fe1f5a53e983280fd438aeba607ae04f1bb416b4a1',
+        withdrawalCredentialsType: 2,
       },
     },
   ],

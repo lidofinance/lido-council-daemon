@@ -105,42 +105,100 @@ describe('GuardianService', () => {
       duplicatedKeys: [],
       invalidKeys: [],
       frontRunKeys: [],
+      crossTypeKeys: [],
       unresolvedDuplicatedKeys: [],
       isModuleDepositsPaused: false,
-      hasDepositsAllocation: true,
       ...overrides,
     });
 
-    it('should ignore deposits when module has no deposits allocation', () => {
-      const result = (guardianService as any).ignoreDeposits(
-        makeModuleData({ hasDepositsAllocation: false }),
-        false,
-        false,
+    const ignoreDeposits = ({
+      moduleData = {},
+      hasFrontRunning = false,
+      hasWrongWCType = false,
+      alreadyPausedDeposits = false,
+      isDepositBlockedByAllocation = false,
+    }: {
+      moduleData?: Record<string, unknown>;
+      hasFrontRunning?: boolean;
+      hasWrongWCType?: boolean;
+      alreadyPausedDeposits?: boolean;
+      isDepositBlockedByAllocation?: boolean;
+    } = {}) =>
+      (guardianService as any).ignoreDeposits(
+        makeModuleData(moduleData),
+        hasFrontRunning,
+        hasWrongWCType,
+        alreadyPausedDeposits,
         1,
+        isDepositBlockedByAllocation,
       );
-      expect(result).toBe(true);
-    });
 
-    it('should not ignore deposits when module has deposits allocation', () => {
-      const result = (guardianService as any).ignoreDeposits(
-        makeModuleData({ hasDepositsAllocation: true }),
-        false,
-        false,
-        1,
-      );
+    it('should not ignore deposits when no issues found', () => {
+      const result = ignoreDeposits();
       expect(result).toBe(false);
     });
 
-    it('should ignore deposits when module is paused even with allocation', () => {
-      const result = (guardianService as any).ignoreDeposits(
-        makeModuleData({
-          hasDepositsAllocation: true,
+    it('should ignore deposits when DSM allocation policy blocks module', () => {
+      const result = ignoreDeposits({ isDepositBlockedByAllocation: true });
+      expect(result).toBe(true);
+    });
+
+    it('should ignore deposits when module is paused', () => {
+      const result = ignoreDeposits({
+        moduleData: {
           isModuleDepositsPaused: true,
-        }),
-        false,
-        false,
-        1,
-      );
+        },
+      });
+      expect(result).toBe(true);
+    });
+
+    it('should ignore deposits when hasFrontRunning is true', () => {
+      const result = ignoreDeposits({ hasFrontRunning: true });
+      expect(result).toBe(true);
+    });
+
+    it('should ignore deposits when hasWrongWCType is true', () => {
+      const result = ignoreDeposits({ hasWrongWCType: true });
+      expect(result).toBe(true);
+    });
+
+    it('should ignore deposits when alreadyPausedDeposits is true', () => {
+      const result = ignoreDeposits({ alreadyPausedDeposits: true });
+      expect(result).toBe(true);
+    });
+
+    it('should ignore deposits when there are invalid keys', () => {
+      const result = ignoreDeposits({
+        moduleData: { invalidKeys: [{ key: '0xk' }] },
+      });
+      expect(result).toBe(true);
+    });
+
+    it('should ignore deposits when there are front-run keys', () => {
+      const result = ignoreDeposits({
+        moduleData: { frontRunKeys: [{ key: '0xk' }] },
+      });
+      expect(result).toBe(true);
+    });
+
+    it('should ignore deposits when there are duplicated keys', () => {
+      const result = ignoreDeposits({
+        moduleData: { duplicatedKeys: [{ key: '0xk' }] },
+      });
+      expect(result).toBe(true);
+    });
+
+    it('should ignore deposits when there are cross-type keys', () => {
+      const result = ignoreDeposits({
+        moduleData: { crossTypeKeys: [{ key: '0xk' }] },
+      });
+      expect(result).toBe(true);
+    });
+
+    it('should ignore deposits when there are unresolved duplicated keys', () => {
+      const result = ignoreDeposits({
+        moduleData: { unresolvedDuplicatedKeys: [{ key: '0xk' }] },
+      });
       expect(result).toBe(true);
     });
   });

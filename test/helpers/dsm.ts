@@ -1,7 +1,10 @@
 import { ethers } from 'ethers';
-import { strict as assert } from 'assert';
 import { NO_PRIVKEY_MESSAGE } from '../constants';
-import { LidoAbi__factory, SecurityAbi__factory } from 'generated';
+import {
+  LidoAbi__factory,
+  SecurityAbi__factory,
+  StakingRouterAbi__factory,
+} from 'generated';
 import { accountImpersonate, setBalance, testSetupProvider } from './provider';
 import { getLocator } from './sr.contract';
 import { Contract } from '@ethersproject/contracts';
@@ -32,6 +35,18 @@ export async function getLidoWC() {
   const lido = await locator.lido();
   const contract = LidoAbi__factory.connect(lido, testSetupProvider);
   return await contract.getWithdrawalCredentials();
+}
+
+// Per-module withdrawal credentials: same base WC, but the first byte (type)
+// differs by module (e.g. id 1 -> 0x01..., CMv2 id 5 -> 0x02...).
+export async function getModuleWC(moduleId: number) {
+  const locator = getLocator();
+  const stakingRouterAddress = await locator.stakingRouter();
+  const stakingRouter = StakingRouterAbi__factory.connect(
+    stakingRouterAddress,
+    testSetupProvider,
+  );
+  return await stakingRouter.getStakingModuleWithdrawalCredentials(moduleId);
 }
 
 export async function getGuardians() {
@@ -80,14 +95,17 @@ export async function canDeposit() {
   return res;
 }
 
-export async function deposit(moduleId: number, depositCount = 1) {
+/**
+ * Fill Lido buffer with ETH so that `depositCount` validators can be deposited.
+ * Raises staking limit via DAO and submits ETH to Lido.
+ * Does NOT call lido.deposit() — use `deposit()` for the full flow.
+ */
+export async function fillLidoBuffer(depositCount = 1) {
   const locator = getLocator();
-  const dsm = await locator.depositSecurityModule();
   const lidoAddress = await locator.lido();
   const withdrawalQueueAddress = await locator.withdrawalQueue();
 
   const chainId = CHAIN_ID;
-
   const agent = AGENT[chainId];
   const daoAddress = DAO[chainId];
 
@@ -98,16 +116,13 @@ export async function deposit(moduleId: number, depositCount = 1) {
     throw new Error(`DAO address not found for chain ID: ${chainId}`);
   }
 
-  assert(!!agent, 'Agent address is invalid');
-  assert(!!daoAddress, 'DAO address is invalid');
-
-  await accountImpersonate(dsm);
+  // The Aragon Agent manages DAO ACL permissions on fork/devnet.
   await accountImpersonate(agent);
-  await setBalance(dsm, 100);
   await setBalance(agent, 100);
-  const signer = testSetupProvider.getSigner(dsm);
 
-  const lido = LidoAbi__factory.connect(lidoAddress, signer);
+  const agentSigner = testSetupProvider.getSigner(agent);
+  const lido = LidoAbi__factory.connect(lidoAddress, testSetupProvider);
+  const lidoWithAgent = lido.connect(agentSigner);
 
   const withdrawalQueue = new Contract(
     withdrawalQueueAddress,
@@ -115,14 +130,9 @@ export async function deposit(moduleId: number, depositCount = 1) {
     testSetupProvider,
   );
 
-  const agentSigner = testSetupProvider.getSigner(agent);
-  const lidoAgentSigner = LidoAbi__factory.connect(lidoAddress, agentSigner);
-
   const unfinalizedStETHWei = await withdrawalQueue.unfinalizedStETH();
   const depositableEtherWei = await lido.getBufferedEther();
 
-  // If amount negative, this value show how much eth we need to satisfy withdrawals
-  // If possitive, it is the value we can use for deposits
   const amountForDeposits = depositableEtherWei
     .sub(unfinalizedStETHWei)
     .abs()
@@ -133,19 +143,11 @@ export async function deposit(moduleId: number, depositCount = 1) {
   const aclAbi = [
     'function grantPermission(address _entity, address _app, bytes32 _role)',
   ];
-
-  await accountImpersonate(daoAddress);
-
-  const kernelAbi = [
-    'function acl() view returns (address)',
-    'function APP_MANAGER_ROLE() view returns (bytes32)',
-    'function getAddress() view returns (address)',
-  ];
+  const kernelAbi = ['function acl() view returns (address)'];
 
   const dao = new Contract(daoAddress, kernelAbi, agentSigner);
   const aclAddress = await dao.acl();
   const acl = new Contract(aclAddress, aclAbi, agentSigner);
-
   const stakingControlRole = await lido.STAKING_CONTROL_ROLE();
 
   const grantTx = await acl.grantPermission(
@@ -155,9 +157,9 @@ export async function deposit(moduleId: number, depositCount = 1) {
   );
   await grantTx.wait();
 
-  await lidoAgentSigner.setStakingLimit(
-    ethers.utils.parseEther(amountForDepositsInEth), // _maxStakeLimit
-    ethers.utils.parseEther(amountForDepositsInEth), // _stakeLimitIncreasePerBlock
+  await lidoWithAgent.setStakingLimit(
+    ethers.utils.parseEther(amountForDepositsInEth),
+    ethers.utils.parseEther(amountForDepositsInEth),
   );
 
   await new Promise((res) => setTimeout(res, 12000));
@@ -165,8 +167,24 @@ export async function deposit(moduleId: number, depositCount = 1) {
   await transferEther(lidoAddress, amountForDepositsInEth);
 
   await new Promise((res) => setTimeout(res, 12000));
+}
 
-  const tx = await lido.deposit(1, moduleId, new Uint8Array());
+export async function deposit(moduleId: number, depositCount = 1) {
+  const locator = getLocator();
+  const dsm = await locator.depositSecurityModule();
+  const stakingRouterAddress = await locator.stakingRouter();
+
+  await accountImpersonate(dsm);
+  await setBalance(dsm, 100);
+  const signer = testSetupProvider.getSigner(dsm);
+  const stakingRouter = StakingRouterAbi__factory.connect(
+    stakingRouterAddress,
+    signer,
+  );
+
+  await fillLidoBuffer(depositCount);
+
+  const tx = await stakingRouter.deposit(moduleId, new Uint8Array());
   await tx.wait();
 }
 

@@ -66,6 +66,64 @@ describe('dbService', () => {
     expect(resultCache).toEqual(expected);
   });
 
+  describe('cache metrics accounting', () => {
+    it('should not change cache counters when storing only the last valid event', async () => {
+      expect((dbService as any).cacheEventCount).toBe(0);
+      expect((dbService as any).cacheSizeBytes).toBe(0);
+
+      await dbService.insertLastValidEvent(eventMock1);
+
+      expect((dbService as any).cacheEventCount).toBe(0);
+      expect((dbService as any).cacheSizeBytes).toBe(0);
+
+      const result = await dbService.getEventsFromDB();
+      expect(result.data).toEqual([]);
+      expect(result.lastValidEvent).toEqual(eventMock1);
+      expect((dbService as any).cacheEventCount).toBe(0);
+      expect((dbService as any).cacheSizeBytes).toBe(0);
+    });
+
+    it('should track cache counters only for deposit entries', async () => {
+      const expectedCount = cacheMock.data.length;
+      const expectedBytes = cacheMock.data.reduce(
+        (sum, event) =>
+          sum +
+          Buffer.byteLength(
+            dbService.serializeDepositEvent(event, false),
+            'utf8',
+          ),
+        0,
+      );
+
+      await dbService.insertEventsCacheBatch(cacheMock);
+
+      expect((dbService as any).cacheEventCount).toBe(expectedCount);
+      expect((dbService as any).cacheSizeBytes).toBe(expectedBytes);
+    });
+
+    it('should exclude last-valid-event from cache counters after inserting deposits', async () => {
+      const expectedCount = cacheMock.data.length;
+      const expectedBytes = cacheMock.data.reduce(
+        (sum, event) =>
+          sum +
+          Buffer.byteLength(
+            dbService.serializeDepositEvent(event, false),
+            'utf8',
+          ),
+        0,
+      );
+
+      await dbService.insertLastValidEvent({
+        ...eventMock1,
+        depositCount: 999,
+      });
+      await dbService.insertEventsCacheBatch(cacheMock);
+
+      expect((dbService as any).cacheEventCount).toBe(expectedCount);
+      expect((dbService as any).cacheSizeBytes).toBe(expectedBytes);
+    });
+  });
+
   describe('validateAndCleanInconsistentCache', () => {
     const testCases = [
       {

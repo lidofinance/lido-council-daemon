@@ -39,6 +39,8 @@ import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { METRIC_JOB_DURATION } from 'common/prometheus';
 import { Histogram } from 'prom-client';
 import { DeepReadonly } from 'common/ts-utils';
+import { buildModuleWc } from './withdrawal-credentials';
+import { DsmDepositAllocationAdapterService } from './deposit-allocation';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -67,6 +69,7 @@ export class GuardianService implements OnModuleInit {
     private unvettingService: UnvettingService,
 
     private stakingRouterService: StakingRouterService,
+    private depositAllocationAdapter: DsmDepositAllocationAdapterService,
 
     @InjectMetric(METRIC_JOB_DURATION)
     private jobDurationMetric: Histogram<string>,
@@ -191,7 +194,10 @@ export class GuardianService implements OnModuleInit {
         lidoKeys,
       );
 
-      if (!blockData.alreadyPausedDeposits && blockData.theftHappened) {
+      if (
+        !blockData.alreadyPausedDeposits &&
+        (blockData.hasFrontRunning || blockData.hasWrongWCType)
+      ) {
         await this.stakingModuleGuardService.handlePauseV3(blockData);
         return;
       }
@@ -222,10 +228,18 @@ export class GuardianService implements OnModuleInit {
   ) {
     const { blockHash, blockNumber } = meta;
 
+    // Fetch per-module withdrawal credentials once, pass to both services
+    const moduleWCMap = await this.fetchModuleWithdrawalCredentials(
+      stakingModules,
+      blockHash,
+    );
+
     const [blockData, stakingModulesData] = await Promise.all([
       this.blockDataCollectorService.getCurrentBlockData({
         blockHash,
         blockNumber,
+        moduleWCMap,
+        lidoKeys,
       }),
       // Construct the Staking Module data array using information fetched from the Keys API,
       // identifying vetted unused keys and checking the module pause status
@@ -233,6 +247,7 @@ export class GuardianService implements OnModuleInit {
         stakingModules,
         meta,
         lidoKeys,
+        moduleWCMap,
       }),
     ]);
 
@@ -334,6 +349,7 @@ export class GuardianService implements OnModuleInit {
     const keys = moduleData.invalidKeys.concat(
       moduleData.duplicatedKeys,
       moduleData.frontRunKeys,
+      moduleData.crossTypeKeys,
     );
     return keys.length > 0;
   }
@@ -342,8 +358,21 @@ export class GuardianService implements OnModuleInit {
     stakingModulesData: StakingModuleData[],
     blockData: BlockData,
   ) {
+    const modulesWithAllocationState = await Promise.all(
+      stakingModulesData.map(async (stakingModuleData) => ({
+        stakingModuleData,
+        isDepositBlockedByAllocation:
+          await this.depositAllocationAdapter.isDepositBlockedByAllocation(
+            stakingModuleData,
+            blockData.blockHash,
+          ),
+      })),
+    );
+
     await Promise.all(
-      stakingModulesData.map(async (stakingModuleData) => {
+      modulesWithAllocationState.map(async (moduleWithAllocationState) => {
+        const { stakingModuleData, isDepositBlockedByAllocation } =
+          moduleWithAllocationState;
         this.guardianMetricsService.collectMetrics(
           stakingModuleData,
           blockData,
@@ -352,9 +381,11 @@ export class GuardianService implements OnModuleInit {
         if (
           this.ignoreDeposits(
             stakingModuleData,
-            blockData.theftHappened,
+            blockData.hasFrontRunning,
+            blockData.hasWrongWCType,
             blockData.alreadyPausedDeposits,
             stakingModuleData.stakingModuleId,
+            isDepositBlockedByAllocation,
           )
         ) {
           return;
@@ -370,13 +401,16 @@ export class GuardianService implements OnModuleInit {
 
   private ignoreDeposits(
     stakingModuleData: StakingModuleData,
-    theftHappened: boolean,
+    hasFrontRunning: boolean,
+    hasWrongWCType: boolean,
     alreadyPausedDeposits: boolean,
     stakingModuleId: number,
+    isDepositBlockedByAllocation: boolean,
   ): boolean {
     const keysForUnvetting = stakingModuleData.invalidKeys.concat(
       stakingModuleData.frontRunKeys,
       stakingModuleData.duplicatedKeys,
+      stakingModuleData.crossTypeKeys,
     );
 
     // if neither of this conditions is true, deposits are allowed for module
@@ -384,18 +418,20 @@ export class GuardianService implements OnModuleInit {
       keysForUnvetting.length > 0 ||
       stakingModuleData.unresolvedDuplicatedKeys.length > 0 ||
       alreadyPausedDeposits ||
-      theftHappened ||
+      hasFrontRunning ||
+      hasWrongWCType ||
       stakingModuleData.isModuleDepositsPaused ||
-      !stakingModuleData.hasDepositsAllocation;
+      isDepositBlockedByAllocation;
 
     if (ignoreDeposits) {
       this.logger.warn('Deposits are not available', {
         keysForUnvetting: keysForUnvetting.length,
         duplicates: stakingModuleData.unresolvedDuplicatedKeys.length,
         alreadyPausedDeposits,
-        theftHappened,
+        hasFrontRunning,
+        hasWrongWCType,
         isModuleDepositsPaused: stakingModuleData.isModuleDepositsPaused,
-        hasDepositsAllocation: stakingModuleData.hasDepositsAllocation,
+        isDepositBlockedByAllocation,
         stakingModuleId,
       });
     }
@@ -429,5 +465,23 @@ export class GuardianService implements OnModuleInit {
     blockNumber: number;
   }) {
     this.lastProcessedStateMeta = newMeta;
+  }
+
+  private async fetchModuleWithdrawalCredentials(
+    stakingModules: SRModule[],
+    blockHash: string,
+  ): Promise<Record<string, string>> {
+    // Each module's WC differs only in the first byte (withdrawalCredentialsType),
+    // which is available from KAPI via SRModule.
+    const baseWC = await this.stakingRouterService.getWithdrawalCredentials({
+      blockHash,
+    });
+
+    return Object.fromEntries(
+      stakingModules.map((m) => [
+        m.stakingModuleAddress,
+        buildModuleWc(m.withdrawalCredentialsType, baseWC),
+      ]),
+    );
   }
 }

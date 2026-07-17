@@ -4,6 +4,7 @@ import { MockProviderModule } from 'provider';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
+import { PrometheusModule } from 'common/prometheus';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { SigningKeysStoreService, SigningKeysStoreModule } from './store';
 import { mockRepository } from 'contracts/repository/repository.mock';
@@ -31,6 +32,7 @@ describe('SigningKeysRegistryService', () => {
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
+        PrometheusModule,
         ConfigModule.forRoot(),
         MockProviderModule.forRoot(),
         RepositoryModule,
