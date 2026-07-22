@@ -270,15 +270,7 @@ export class WalletService implements OnModuleInit {
     vettedKeysByOperator,
   }: SignUnvetDataParams): Promise<Signature> {
     const encodedData = utils.solidityPack(
-      [
-        'bytes32',
-        'uint256',
-        'bytes32',
-        'uint256',
-        'uint256',
-        'bytes',
-        'bytes',
-      ],
+      ['bytes32', 'uint256', 'bytes32', 'uint256', 'uint256', 'bytes', 'bytes'],
       [
         prefix,
         blockNumber,

@@ -101,6 +101,7 @@ describe('DataBus', () => {
   let variants: ReturnType<typeof getVariants>;
   let hardhatServer: HardhatServer;
   let dsmOwnerAddress: string;
+  let dataBusAddress: string;
   let testStartBlock: number;
 
   const setupServer = async () => {
@@ -154,7 +155,7 @@ describe('DataBus', () => {
     const dataBusContract = await factory.deploy();
     await dataBusContract.deployed();
 
-    const dataBusAddress = dataBusContract.address;
+    dataBusAddress = dataBusContract.address;
     // Create the SDK instance
     sdk = new DataBusClient(dataBusAddress, owner);
   });
