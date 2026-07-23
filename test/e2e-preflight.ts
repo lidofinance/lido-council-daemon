@@ -26,9 +26,9 @@ const fail = (message: string): never => {
 
 async function verifyReduceKeysCutOnFork() {
   const hardhatServer = new HardhatServer();
-  await hardhatServer.start();
 
   try {
+    await hardhatServer.start();
     await cutModulesKeys(undefined, PREFLIGHT_CUT_CONFIG);
     await verifyModulesKeysCut(PREFLIGHT_CUT_CONFIG);
   } finally {
