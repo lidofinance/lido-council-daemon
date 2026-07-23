@@ -40,11 +40,17 @@ describe('DataBus delegation', () => {
 
   it('resolves a DSM guardian from a Data Bus sender filtered by active delegates', async () => {
     const deployer = provider.getSigner(0);
-    const secondDelegate = provider.getSigner(1);
-    const outsider = provider.getSigner(2);
+    const outsider = ethers.Wallet.createRandom().connect(provider);
     const delegateAddress = await deployer.getAddress();
-    const secondDelegateAddress = await secondDelegate.getAddress();
-    const outsiderAddress = await outsider.getAddress();
+    const secondDelegateAddress = ethers.Wallet.createRandom().address;
+    const outsiderAddress = outsider.address;
+
+    await (
+      await deployer.sendTransaction({
+        to: outsiderAddress,
+        value: ethers.utils.parseEther('1'),
+      })
+    ).wait();
 
     const dataBusFactory = new ethers.ContractFactory(
       ['function sendMessage(bytes32 _eventId, bytes _data)'],
