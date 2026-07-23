@@ -7,7 +7,13 @@ import {
   METRIC_UNVET_ATTEMPTS,
 } from 'common/prometheus';
 import { OneAtTime, OneAtTimeCallId } from 'common/decorators';
-import { SecurityAbi } from 'generated';
+import { Configuration } from 'common/config';
+import {
+  DelegationContractAbi,
+  DelegationContractAbi__factory,
+  SecurityAbi,
+  SecurityV5Abi__factory,
+} from 'generated';
 import {
   SecurityDeprecatedPauseAbi,
   SecurityDeprecatedPauseAbi__factory,
@@ -18,7 +24,23 @@ import { Counter } from 'prom-client';
 import { BlockTag } from '@lido-nestjs/execution';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { WalletService } from 'wallet';
-import { DSM_CONTRACT_SUPPORTED_VERSIONS } from './security.constants';
+import {
+  DSM_CONTRACT_SUPPORTED_VERSIONS,
+  DSM_CONTRACT_VERSION_5,
+  ERC1271_INTERFACE_ID,
+} from './security.constants';
+import { constants, utils } from 'ethers';
+
+export type DsmVersion = 3 | 4 | 5;
+
+export interface GuardianExecutionContext {
+  dsmAddress: string;
+  dsmVersion: DsmVersion;
+  delegateAddress: string;
+  guardianAddress: string;
+  guardianIndex: number;
+  mode: 'legacy-eoa' | 'edf';
+}
 
 @Injectable()
 export class SecurityService {
@@ -29,17 +51,108 @@ export class SecurityService {
     private provider: SimpleFallbackJsonRpcBatchProvider,
     private repositoryService: RepositoryService,
     private walletService: WalletService,
+    private config: Configuration,
   ) {}
 
   public async initialize(blockTag: BlockTag): Promise<void> {
-    const guardianIndex = await this.getGuardianIndex(blockTag);
-    const address = this.walletService.address;
+    const context = await this.getGuardianExecutionContext(blockTag);
+    const address = context.guardianAddress;
 
-    if (guardianIndex === -1) {
+    if (context.guardianIndex === -1) {
       this.logger.warn(`Your address is not in the Guardian List`, { address });
     } else {
       this.logger.log(`Your address is in the Guardian List`, { address });
     }
+  }
+
+  public async getGuardianExecutionContext(
+    blockTag: BlockTag,
+  ): Promise<GuardianExecutionContext> {
+    const contract = this.repositoryService.getCachedDSMContract();
+    const dsmAddress = utils.getAddress(contract.address);
+    const dsmVersion = (await this.version(blockTag)) as DsmVersion;
+    const delegateAddress = utils.getAddress(this.walletService.address);
+
+    if (dsmVersion !== DSM_CONTRACT_VERSION_5) {
+      const guardians = await this.getGuardians(blockTag);
+      return {
+        dsmAddress,
+        dsmVersion,
+        delegateAddress,
+        guardianAddress: delegateAddress,
+        guardianIndex: this.findGuardianIndex(guardians, delegateAddress),
+        mode: 'legacy-eoa',
+      };
+    }
+
+    const configuredAddress = this.config.DELEGATION_CONTRACT_ADDRESS;
+    if (!configuredAddress || !utils.isAddress(configuredAddress)) {
+      throw new Error(
+        'DELEGATION_CONTRACT_ADDRESS is required for DSM version 5',
+      );
+    }
+
+    const guardianAddress = utils.getAddress(configuredAddress);
+    if ((await this.provider.getCode(guardianAddress, blockTag)) === '0x') {
+      throw new Error(
+        `No contract code at DELEGATION_CONTRACT_ADDRESS ${guardianAddress}`,
+      );
+    }
+
+    const delegationContract = DelegationContractAbi__factory.connect(
+      guardianAddress,
+      this.provider,
+    );
+    const overrides = { blockTag: blockTag as any };
+    const [effectiveDelegate, terminated, supportsErc1271, guardians] =
+      await Promise.all([
+        delegationContract.getDelegate(overrides),
+        delegationContract.isTerminated(overrides),
+        delegationContract.supportsInterface(ERC1271_INTERFACE_ID, overrides),
+        this.getGuardians(blockTag),
+      ]);
+
+    if (terminated) {
+      throw new Error(`DelegationContract ${guardianAddress} is terminated`);
+    }
+    if (
+      effectiveDelegate === constants.AddressZero ||
+      utils.getAddress(effectiveDelegate) !== delegateAddress
+    ) {
+      throw new Error(
+        `DelegationContract delegate mismatch: expected ${delegateAddress}, received ${effectiveDelegate}`,
+      );
+    }
+    if (!supportsErc1271) {
+      throw new Error(
+        `DelegationContract ${guardianAddress} does not support ERC-1271`,
+      );
+    }
+
+    const guardianIndex = this.findGuardianIndex(guardians, guardianAddress);
+    if (guardianIndex === -1) {
+      throw new Error(
+        `DelegationContract ${guardianAddress} is not a DSM guardian`,
+      );
+    }
+
+    return {
+      dsmAddress,
+      dsmVersion,
+      delegateAddress,
+      guardianAddress,
+      guardianIndex,
+      mode: 'edf',
+    };
+  }
+
+  private findGuardianIndex(
+    guardians: string[],
+    guardianAddress: string,
+  ): number {
+    return guardians.findIndex(
+      (guardian) => guardian.toLowerCase() === guardianAddress.toLowerCase(),
+    );
   }
 
   /**
@@ -52,6 +165,16 @@ export class SecurityService {
     const contractWithSigner = contract.connect(walletWithProvider);
 
     return contractWithSigner;
+  }
+
+  public getDelegationContractWithSigner(
+    context: GuardianExecutionContext,
+  ): DelegationContractAbi {
+    const walletWithProvider = this.walletService.wallet.connect(this.provider);
+    return DelegationContractAbi__factory.connect(
+      context.guardianAddress,
+      walletWithProvider,
+    );
   }
 
   /**
@@ -88,17 +211,15 @@ export class SecurityService {
    * Returns the guardian index in the list
    */
   public async getGuardianIndex(blockTag?: BlockTag): Promise<number> {
-    const guardians = await this.getGuardians(blockTag);
-    const address = this.walletService.address;
-
-    return guardians.indexOf(address);
+    const context = await this.getGuardianExecutionContext(
+      blockTag ?? 'latest',
+    );
+    return context.guardianIndex;
   }
 
-  /**
-   * Returns guardian address
-   */
-  public getGuardianAddress(): string {
-    return this.walletService.address;
+  public async getGuardianAddress(blockTag: BlockTag): Promise<string> {
+    const context = await this.getGuardianExecutionContext(blockTag);
+    return context.guardianAddress;
   }
 
   /**
@@ -117,6 +238,7 @@ export class SecurityService {
     blockNumber: number,
     blockHash: string,
     stakingModuleId: number,
+    context: GuardianExecutionContext,
   ): Promise<Signature> {
     const prefix = await this.getAttestMessagePrefix(blockHash);
 
@@ -127,6 +249,8 @@ export class SecurityService {
       blockNumber,
       blockHash,
       stakingModuleId,
+      dsmVersion: context.dsmVersion,
+      guardianAddress: context.guardianAddress,
     });
   }
 
@@ -140,12 +264,15 @@ export class SecurityService {
   public async signPauseDataV3(
     blockNumber: number,
     blockHash: string,
+    context: GuardianExecutionContext,
   ): Promise<Signature> {
     const prefix = await this.getPauseMessagePrefix(blockHash);
 
     return await this.walletService.signPauseDataV3({
       prefix,
       blockNumber,
+      dsmVersion: context.dsmVersion,
+      guardianAddress: context.guardianAddress,
     });
   }
 
@@ -158,17 +285,30 @@ export class SecurityService {
   public async pauseDepositsV3(
     pauseBlockNumber: number,
     signature: Signature,
+    context: GuardianExecutionContext,
   ): Promise<ContractReceipt> {
     this.logger.warn('Try to pause deposits', { pauseBlockNumber });
     this.pauseAttempts.inc();
 
-    const contract = this.getContractWithSigner();
-
-    const { r, _vs: vs } = signature;
-    const tx = await contract.pauseDeposits(pauseBlockNumber, {
-      r,
-      vs,
-    });
+    const tx =
+      context.mode === 'edf'
+        ? await this.executeDsmCall(
+            context,
+            SecurityV5Abi__factory.createInterface().encodeFunctionData(
+              'pauseDeposits',
+              [
+                pauseBlockNumber,
+                {
+                  guardian: constants.AddressZero,
+                  signature: '0x',
+                },
+              ],
+            ),
+          )
+        : await this.getContractWithSigner().pauseDeposits(pauseBlockNumber, {
+            r: signature.r,
+            vs: signature._vs,
+          });
 
     this.logger.warn('Pause transaction sent', {
       txHash: tx.hash,
@@ -270,6 +410,7 @@ export class SecurityService {
     stakingModuleId: number,
     operatorIds: string,
     vettedKeysByOperator: string,
+    context: GuardianExecutionContext,
   ): Promise<Signature> {
     const prefix = await this.getUnvetMessagePrefix(blockHash);
 
@@ -281,6 +422,8 @@ export class SecurityService {
       nonce,
       operatorIds,
       vettedKeysByOperator,
+      dsmVersion: context.dsmVersion,
+      guardianAddress: context.guardianAddress,
     });
   }
 
@@ -306,6 +449,7 @@ export class SecurityService {
     operatorIds: string,
     vettedKeysByOperator: string,
     signature: Signature,
+    context: GuardianExecutionContext,
   ): Promise<ContractReceipt> {
     this.logger.warn('Try to unvet keys for staking module', {
       stakingModuleId,
@@ -313,21 +457,38 @@ export class SecurityService {
     });
     this.unvetAttempts.inc();
 
-    const contract = this.getContractWithSigner();
-
-    const { r, _vs: vs } = signature;
-    const tx = await contract.unvetSigningKeys(
-      blockNumber,
-      blockHash,
-      stakingModuleId,
-      nonce,
-      operatorIds,
-      vettedKeysByOperator,
-      {
-        r,
-        vs,
-      },
-    );
+    const tx =
+      context.mode === 'edf'
+        ? await this.executeDsmCall(
+            context,
+            SecurityV5Abi__factory.createInterface().encodeFunctionData(
+              'unvetSigningKeys',
+              [
+                blockNumber,
+                blockHash,
+                stakingModuleId,
+                nonce,
+                operatorIds,
+                vettedKeysByOperator,
+                {
+                  guardian: constants.AddressZero,
+                  signature: '0x',
+                },
+              ],
+            ),
+          )
+        : await this.getContractWithSigner().unvetSigningKeys(
+            blockNumber,
+            blockHash,
+            stakingModuleId,
+            nonce,
+            operatorIds,
+            vettedKeysByOperator,
+            {
+              r: signature.r,
+              vs: signature._vs,
+            },
+          );
 
     this.logger.warn('Unvet transaction sent', {
       txHash: tx.hash,
@@ -347,6 +508,20 @@ export class SecurityService {
     });
 
     return receipt;
+  }
+
+  public async executeDsmCall(
+    context: GuardianExecutionContext,
+    calldata: string,
+  ) {
+    if (context.mode !== 'edf') {
+      throw new Error('EDF execution requires an EDF guardian context');
+    }
+
+    const delegationContract = this.getDelegationContractWithSigner(context);
+    return await delegationContract.execute(context.dsmAddress, calldata, {
+      value: 0,
+    });
   }
 
   /**

@@ -55,21 +55,15 @@ export class BlockDataCollectorService {
   }): Promise<BlockData> {
     const endTimer = this.blockRequestsHistogram.startTimer();
     try {
-      const guardianAddress = this.securityService.getGuardianAddress();
-
       const [
         depositRoot,
         depositedEvents,
-        guardianIndex,
-        securityVersion,
+        guardianContext,
         walletBalanceCritical,
       ] = await Promise.all([
         this.depositService.getDepositRoot({ blockHash }),
         this.depositService.getAllDepositedEvents(blockNumber, blockHash),
-        this.securityService.getGuardianIndex({ blockHash }),
-        this.securityService.version({
-          blockHash,
-        }),
+        this.securityService.getGuardianExecutionContext({ blockHash }),
         this.walletService.isBalanceCritical(),
       ]);
 
@@ -99,9 +93,10 @@ export class BlockDataCollectorService {
         blockHash,
         depositRoot,
         depositedEvents,
-        guardianAddress,
-        guardianIndex,
-        securityVersion,
+        guardianContext,
+        guardianAddress: guardianContext.guardianAddress,
+        guardianIndex: guardianContext.guardianIndex,
+        securityVersion: guardianContext.dsmVersion,
         alreadyPausedDeposits,
         hasFrontRunning,
         hasWrongWCType,

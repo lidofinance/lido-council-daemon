@@ -31,8 +31,9 @@ import {
   SignPauseDataParams,
   SignUnvetDataParams,
 } from './wallet.interfaces';
-import { utils } from 'ethers';
 import { Configuration } from 'common/config';
+import { utils } from 'ethers';
+import { DSM_CONTRACT_VERSION_5 } from 'contracts/security/security.constants';
 
 @Injectable()
 export class WalletService implements OnModuleInit {
@@ -196,14 +197,44 @@ export class WalletService implements OnModuleInit {
     depositRoot,
     nonce,
     stakingModuleId,
+    dsmVersion,
+    guardianAddress,
   }: SignDepositDataParams): Promise<Signature> {
-    const encodedData = defaultAbiCoder.encode(
-      ['bytes32', 'uint256', 'bytes32', 'bytes32', 'uint256', 'uint256'],
-      [prefix, blockNumber, blockHash, depositRoot, stakingModuleId, nonce],
-    );
+    const encodedData =
+      dsmVersion === DSM_CONTRACT_VERSION_5
+        ? utils.solidityPack(
+            [
+              'bytes32',
+              'address',
+              'uint256',
+              'bytes32',
+              'bytes32',
+              'uint256',
+              'uint256',
+            ],
+            [
+              prefix,
+              this.requireGuardianAddress(guardianAddress),
+              blockNumber,
+              blockHash,
+              depositRoot,
+              stakingModuleId,
+              nonce,
+            ],
+          )
+        : defaultAbiCoder.encode(
+            ['bytes32', 'uint256', 'bytes32', 'bytes32', 'uint256', 'uint256'],
+            [
+              prefix,
+              blockNumber,
+              blockHash,
+              depositRoot,
+              stakingModuleId,
+              nonce,
+            ],
+          );
 
-    const messageHash = keccak256(encodedData);
-    return await this.signMessage(messageHash);
+    return this.signMessage(keccak256(encodedData));
   }
 
   /**
@@ -216,14 +247,18 @@ export class WalletService implements OnModuleInit {
   public async signPauseDataV3({
     prefix,
     blockNumber,
+    dsmVersion,
+    guardianAddress,
   }: SignPauseDataParams): Promise<Signature> {
-    const encodedData = defaultAbiCoder.encode(
-      ['bytes32', 'uint256'],
-      [prefix, blockNumber],
-    );
+    const encodedData =
+      dsmVersion === DSM_CONTRACT_VERSION_5
+        ? utils.solidityPack(
+            ['bytes32', 'address', 'uint256'],
+            [prefix, this.requireGuardianAddress(guardianAddress), blockNumber],
+          )
+        : defaultAbiCoder.encode(['bytes32', 'uint256'], [prefix, blockNumber]);
 
-    const messageHash = keccak256(encodedData);
-    return this.signMessage(messageHash);
+    return this.signMessage(keccak256(encodedData));
   }
 
   /**
@@ -268,20 +303,9 @@ export class WalletService implements OnModuleInit {
     stakingModuleId,
     operatorIds,
     vettedKeysByOperator,
+    dsmVersion,
+    guardianAddress,
   }: SignUnvetDataParams): Promise<Signature> {
-    const encodedData = utils.solidityPack(
-      ['bytes32', 'uint256', 'bytes32', 'uint256', 'uint256', 'bytes', 'bytes'],
-      [
-        prefix,
-        blockNumber,
-        blockHash,
-        stakingModuleId,
-        nonce,
-        operatorIds,
-        vettedKeysByOperator,
-      ],
-    );
-
     this.logger.debug?.('Sign data:', {
       prefix,
       blockNumber,
@@ -292,6 +316,50 @@ export class WalletService implements OnModuleInit {
       vettedKeysByOperator,
     });
 
+    const encodedData =
+      dsmVersion === DSM_CONTRACT_VERSION_5
+        ? utils.solidityPack(
+            [
+              'bytes32',
+              'address',
+              'uint256',
+              'bytes32',
+              'uint256',
+              'uint256',
+              'bytes',
+              'bytes',
+            ],
+            [
+              prefix,
+              this.requireGuardianAddress(guardianAddress),
+              blockNumber,
+              blockHash,
+              stakingModuleId,
+              nonce,
+              operatorIds,
+              vettedKeysByOperator,
+            ],
+          )
+        : utils.solidityPack(
+            [
+              'bytes32',
+              'uint256',
+              'bytes32',
+              'uint256',
+              'uint256',
+              'bytes',
+              'bytes',
+            ],
+            [
+              prefix,
+              blockNumber,
+              blockHash,
+              stakingModuleId,
+              nonce,
+              operatorIds,
+              vettedKeysByOperator,
+            ],
+          );
     const messageHash = keccak256(encodedData);
 
     this.logger.debug?.('Message hash:', {
@@ -301,5 +369,12 @@ export class WalletService implements OnModuleInit {
     });
 
     return this.signMessage(messageHash);
+  }
+
+  private requireGuardianAddress(guardianAddress?: string): string {
+    if (!guardianAddress || !utils.isAddress(guardianAddress)) {
+      throw new Error('A valid guardian address is required for DSM version 5');
+    }
+    return utils.getAddress(guardianAddress);
   }
 }

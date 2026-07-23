@@ -125,6 +125,47 @@ describe('WalletService', () => {
         walletService.address,
       );
     });
+
+    it('should sign the guardian-bound DSM v5 deposit digest', async () => {
+      const prefix = hexZeroPad('0x1', 32);
+      const depositRoot = hexZeroPad('0x2', 32);
+      const blockHash = hexZeroPad('0x3', 32);
+      const guardianAddress = Wallet.createRandom().address;
+      const signature = await walletService.signDepositData({
+        prefix,
+        depositRoot,
+        nonce: 2,
+        blockNumber: 10,
+        blockHash,
+        stakingModuleId: TEST_MODULE_ID,
+        dsmVersion: 5,
+        guardianAddress,
+      });
+      const messageHash = solidityKeccak256(
+        [
+          'bytes32',
+          'address',
+          'uint256',
+          'bytes32',
+          'bytes32',
+          'uint256',
+          'uint256',
+        ],
+        [
+          prefix,
+          guardianAddress,
+          10,
+          blockHash,
+          depositRoot,
+          TEST_MODULE_ID,
+          2,
+        ],
+      );
+
+      expect(recoverAddress(messageHash, signature)).toBe(
+        walletService.address,
+      );
+    });
   });
 
   describe('signPauseDataV3', () => {
@@ -139,6 +180,25 @@ describe('WalletService', () => {
       const messageHash = solidityKeccak256(
         ['bytes32', 'uint256'],
         [prefix, blockNumber],
+      );
+
+      expect(recoverAddress(messageHash, signature)).toBe(
+        walletService.address,
+      );
+    });
+
+    it('should sign the guardian-bound DSM v5 pause digest', async () => {
+      const prefix = hexZeroPad('0x1', 32);
+      const guardianAddress = Wallet.createRandom().address;
+      const signature = await walletService.signPauseDataV3({
+        prefix,
+        blockNumber: 10,
+        dsmVersion: 5,
+        guardianAddress,
+      });
+      const messageHash = solidityKeccak256(
+        ['bytes32', 'address', 'uint256'],
+        [prefix, guardianAddress, 10],
       );
 
       expect(recoverAddress(messageHash, signature)).toBe(
@@ -256,6 +316,71 @@ describe('WalletService', () => {
 
       expect(recoverAddress(messageHash, signature)).toBe(
         walletService.address,
+      );
+    });
+
+    it('should sign the guardian-bound DSM v5 unvet digest', async () => {
+      const prefix = createUnvetMessagePrefix(
+        '0xB8ae82F7BFF2553bAF158B7a911DC10162045C53',
+      );
+      const blockHash =
+        '0x528b085cf0951e7c3003deb40db355cd35c77018f4cdc937bd10783e1c15588c';
+      const guardianAddress = Wallet.createRandom().address;
+      const operatorIds = '0x0000000000000000';
+      const vettedKeysByOperator = '0x00000000000000000000000000000032';
+      const signature = await walletService.signUnvetData({
+        prefix,
+        blockNumber: 1429451,
+        blockHash,
+        nonce: 11,
+        stakingModuleId: 1,
+        operatorIds,
+        vettedKeysByOperator,
+        dsmVersion: 5,
+        guardianAddress,
+      });
+      const messageHash = solidityKeccak256(
+        [
+          'bytes32',
+          'address',
+          'uint256',
+          'bytes32',
+          'uint256',
+          'uint256',
+          'bytes',
+          'bytes',
+        ],
+        [
+          prefix,
+          guardianAddress,
+          1429451,
+          blockHash,
+          1,
+          11,
+          operatorIds,
+          vettedKeysByOperator,
+        ],
+      );
+
+      expect(recoverAddress(messageHash, signature)).toBe(
+        walletService.address,
+      );
+    });
+
+    it('should reject DSM v5 signing without a guardian address', async () => {
+      await expect(
+        walletService.signUnvetData({
+          prefix: hexZeroPad('0x1', 32),
+          blockNumber: 1,
+          blockHash: hexZeroPad('0x2', 32),
+          nonce: 1,
+          stakingModuleId: 1,
+          operatorIds: '0x0000000000000000',
+          vettedKeysByOperator: '0x00000000000000000000000000000001',
+          dsmVersion: 5,
+        }),
+      ).rejects.toThrow(
+        'A valid guardian address is required for DSM version 5',
       );
     });
   });

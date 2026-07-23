@@ -9,6 +9,7 @@ import {
 } from 'generated';
 import { RepositoryService } from 'contracts/repository';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
+import { SecurityService } from 'contracts/security';
 import { HardhatServer } from './helpers/hardhat-server';
 import {
   deployEdfUpgradeOnFork,
@@ -70,11 +71,36 @@ describe('EDF Locator transition on a Hoodi fork', () => {
     const cachedDsmBefore = repository.getCachedDSMContract().address;
 
     const deployment = await deployEdfUpgradeOnFork(locatorAddress);
+    const securityService = new SecurityService(
+      { inc: jest.fn() } as any,
+      { inc: jest.fn() } as any,
+      logger,
+      provider,
+      repository,
+      {
+        address: deployment.delegateAddress,
+        wallet: { connect: () => provider },
+      } as any,
+      {
+        DELEGATION_CONTRACT_ADDRESS: deployment.delegationContractAddress,
+      } as Configuration,
+    );
+    const contextBefore = await securityService.getGuardianExecutionContext({
+      blockHash: blockBefore.hash,
+    });
 
     expect(cachedDsmBefore).toBe(deployment.previousDsmAddress);
     expect(deployment.dsmAddress).not.toBe(deployment.previousDsmAddress);
     expect(deployment.locatorImplementationAddress).not.toBe(
       deployment.previousLocatorImplementation,
+    );
+    expect(contextBefore).toEqual(
+      expect.objectContaining({
+        dsmAddress: deployment.previousDsmAddress,
+        mode: 'legacy-eoa',
+        guardianAddress: deployment.delegateAddress,
+        delegateAddress: deployment.delegateAddress,
+      }),
     );
 
     const receipt = await deployment.activate();
@@ -98,6 +124,9 @@ describe('EDF Locator transition on a Hoodi fork', () => {
       testSetupProvider,
     );
     const locatorConfigAfter = await readLocatorConfig(locator);
+    const contextAfter = await securityService.getGuardianExecutionContext({
+      blockHash: blockAfter.hash,
+    });
 
     expect(await proxy.proxy__getImplementation()).toBe(
       deployment.locatorImplementationAddress,
@@ -112,6 +141,14 @@ describe('EDF Locator transition on a Hoodi fork', () => {
     expect(repository.getCachedDSMContract().address).toBe(
       deployment.dsmAddress,
     );
+    expect(contextAfter).toEqual({
+      dsmAddress: deployment.dsmAddress,
+      dsmVersion: 5,
+      delegateAddress: deployment.delegateAddress,
+      guardianAddress: deployment.delegationContractAddress,
+      guardianIndex: 0,
+      mode: 'edf',
+    });
 
     for (const key of LOCATOR_CONFIG_KEYS) {
       const expectedAddress =

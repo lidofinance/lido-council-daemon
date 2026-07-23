@@ -1,4 +1,9 @@
-export interface SignDepositDataParams {
+export interface GuardianSigningIdentity {
+  dsmVersion?: 3 | 4 | 5;
+  guardianAddress?: string;
+}
+
+export interface SignDepositDataParams extends GuardianSigningIdentity {
   prefix: string;
   blockNumber: number;
   blockHash: string;
@@ -7,7 +12,7 @@ export interface SignDepositDataParams {
   stakingModuleId: number;
 }
 
-export interface SignPauseDataParams {
+export interface SignPauseDataParams extends GuardianSigningIdentity {
   prefix: string;
   blockNumber: number;
 }
@@ -18,7 +23,7 @@ export interface SignModulePauseDataParams {
   stakingModuleId: number;
 }
 
-export interface SignUnvetDataParams {
+export interface SignUnvetDataParams extends GuardianSigningIdentity {
   prefix: string;
   blockNumber: number;
   blockHash: string;

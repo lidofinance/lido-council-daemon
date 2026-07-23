@@ -117,8 +117,27 @@ describe('DsmDepositAllocationAdapterService', () => {
     ).not.toHaveBeenCalled();
   });
 
+  it('does not block DSM v5 module or call allocation methods', async () => {
+    securityService.version.mockResolvedValue(5);
+    stakingRouterService.getDepositableEther.mockRejectedValue(
+      new Error('should not be called'),
+    );
+    stakingRouterService.getStakingModuleMaxDepositsCount.mockRejectedValue(
+      new Error('should not be called'),
+    );
+
+    const isDepositBlockedByAllocation =
+      await service.isDepositBlockedByAllocation(makeModuleData(1), BLOCK_HASH);
+
+    expect(isDepositBlockedByAllocation).toBe(false);
+    expect(stakingRouterService.getDepositableEther).not.toHaveBeenCalled();
+    expect(
+      stakingRouterService.getStakingModuleMaxDepositsCount,
+    ).not.toHaveBeenCalled();
+  });
+
   it('propagates DSM version validation from SecurityService without wrapping', async () => {
-    const versionError = new Error('Unsupported DSM contract version found: 5');
+    const versionError = new Error('Unsupported DSM contract version found: 6');
     securityService.version.mockRejectedValue(versionError);
 
     await expect(

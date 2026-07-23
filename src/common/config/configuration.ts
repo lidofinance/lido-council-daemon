@@ -38,6 +38,7 @@ export interface Configuration {
   KEYS_API_HOST: string;
   KEYS_API_URL: string;
   LOCATOR_DEVNET_ADDRESS: string;
+  DELEGATION_CONTRACT_ADDRESS?: string;
   WALLET_MIN_BALANCE: ethers.BigNumber;
   WALLET_CRITICAL_BALANCE: ethers.BigNumber;
   EVM_CHAIN_DATA_BUS_ADDRESS: string;

@@ -2,7 +2,7 @@
 import { toHexString } from '@chainsafe/ssz';
 
 // Constants
-import { SLEEP_FOR_RESULT, pk, sk, NO_PRIVKEY_MESSAGE } from './constants';
+import { SLEEP_FOR_RESULT, pk, sk } from './constants';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -17,34 +17,23 @@ import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/sign
 import { KeyValidatorInterface } from '@lido-nestjs/key-validation';
 
 import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
-import {
-  addGuardians,
-  fillLidoBuffer,
-  getGuardians,
-  getLidoWC,
-  getSecurityContract,
-  getSecurityOwner,
-} from './helpers/dsm';
+import { fillLidoBuffer, getLidoWC } from './helpers/dsm';
 import { signDeposit } from './helpers/deposit';
 import { BlsService } from 'bls';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
-import {
-  accountImpersonate,
-  setBalance,
-  testSetupProvider,
-} from './helpers/provider';
+import { setBalance, testSetupProvider } from './helpers/provider';
 import { waitForNewerBlock, waitKAPIUpdateModulesKeys } from './helpers/kapi';
 import { CuratedOnchainV1 } from './helpers/nor.contract';
 import { truncateTables } from './helpers/pg';
 import { packNodeOperatorIds } from 'guardian/unvetting/bytes';
 import { getStakingModulesInfo } from './helpers/sr.contract';
-import { ethers } from 'ethers';
 import {
   setupContainers,
   startContainerIfNotRunning,
 } from './helpers/docker-containers/utils';
 import { HardhatServer } from './helpers/hardhat-server';
 import { cutModulesKeys } from './helpers/reduce-keys';
+import { E2EDsmSetup, setupE2EDsm } from './helpers/dsm-version';
 
 jest.setTimeout(300_000);
 
@@ -164,8 +153,9 @@ describe('Guardian balance ', () => {
   let validDepositSignature: Uint8Array;
   let lidoWC: string;
   let guardianIndex: number;
-  let securityModuleAddress: string;
   let guardianAddress: string;
+  let delegateAddress: string;
+  let dsmSetup: E2EDsmSetup;
 
   let postgresContainer;
   let keysApiContainer;
@@ -180,6 +170,10 @@ describe('Guardian balance ', () => {
 
     hardhatServer = new HardhatServer();
     await hardhatServer.start();
+    dsmSetup = await setupE2EDsm();
+    guardianIndex = dsmSetup.guardianIndex;
+    guardianAddress = dsmSetup.guardianAddress;
+    delegateAddress = dsmSetup.delegateAddress;
 
     console.log('Hardhat node is ready. Starting key cutting process...');
     await cutModulesKeys(undefined, {
@@ -191,21 +185,6 @@ describe('Guardian balance ', () => {
     await startContainerIfNotRunning(keysApiContainer);
 
     await waitKAPIUpdateModulesKeys();
-
-    const securityModule = await getSecurityContract();
-    const securityModuleOwner = await getSecurityOwner();
-    await accountImpersonate(securityModuleOwner);
-    const oldGuardians = await getGuardians();
-    securityModuleAddress = securityModule.address;
-    await addGuardians({
-      securityModuleAddress,
-      securityModuleOwner,
-    });
-
-    const newGuardians = await getGuardians();
-    // TODO: read from contract
-    guardianIndex = newGuardians.length - 1;
-    expect(newGuardians.length).toEqual(oldGuardians.length + 1);
 
     ({ stakingModulesAddresses, curatedModuleAddress } =
       await getStakingModulesInfo());
@@ -220,10 +199,6 @@ describe('Guardian balance ', () => {
     lidoWC = await getLidoWC();
     const { signature } = await signDeposit(validPK, sk, lidoWC);
     validDepositSignature = signature;
-
-    if (!process.env.WALLET_PRIVATE_KEY) throw new Error(NO_PRIVKEY_MESSAGE);
-    const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
-    guardianAddress = wallet.address;
   }, 360_000);
 
   afterAll(async () => {
@@ -333,7 +308,7 @@ describe('Guardian balance ', () => {
     });
 
     test('Unvetting transaction will not be sent due to low account balance', async () => {
-      await setBalance(guardianAddress, 0.2);
+      await setBalance(delegateAddress, 0.2);
       const depositCallsBeforeCycle = sendDepositMessage.mock.calls.length;
 
       await guardianService.handleNewBlock();
@@ -364,7 +339,7 @@ describe('Guardian balance ', () => {
     test('After increase account balance, unvetting transaction will be sent', async () => {
       const currentBlock = await provider.getBlock('latest');
 
-      await setBalance(guardianAddress, 1);
+      await setBalance(delegateAddress, 1);
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
@@ -391,6 +366,7 @@ describe('Guardian balance ', () => {
         packNodeOperatorIds([firstOperator.index]),
         '0x00000000000000000000000000000004',
         expect.any(Object),
+        dsmSetup.context,
       );
     }, 60_000);
 

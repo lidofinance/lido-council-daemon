@@ -300,6 +300,7 @@ export class StakingModuleGuardService {
     const signature = await this.securityService.signPauseDataV3(
       blockNumber,
       blockHash,
+      blockData.guardianContext,
     );
 
     const pauseMessage = {
@@ -318,7 +319,7 @@ export class StakingModuleGuardService {
 
     // Call pause without waiting for completion
     this.securityService
-      .pauseDepositsV3(blockNumber, signature)
+      .pauseDepositsV3(blockNumber, signature, blockData.guardianContext)
       .catch((error) => {
         this.logger.error('Pause trx failed', { blockNumber });
         this.logger.error(error);
@@ -371,6 +372,7 @@ export class StakingModuleGuardService {
       blockNumber,
       blockHash,
       stakingModuleId,
+      blockData.guardianContext,
     );
 
     const depositMessage = {

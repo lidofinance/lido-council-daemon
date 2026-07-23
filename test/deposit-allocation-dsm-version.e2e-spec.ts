@@ -41,6 +41,14 @@ describe('DSM deposit allocation version e2e', () => {
     blockHash: BLOCK_HASH,
     depositRoot: DEPOSIT_ROOT,
     depositedEvents: { events: [] } as any,
+    guardianContext: {
+      dsmAddress: GUARDIAN_ADDRESS,
+      dsmVersion: securityVersion as 3 | 4 | 5,
+      delegateAddress: GUARDIAN_ADDRESS,
+      guardianAddress: GUARDIAN_ADDRESS,
+      guardianIndex: 0,
+      mode: 'legacy-eoa',
+    },
     guardianAddress: GUARDIAN_ADDRESS,
     guardianIndex: 0,
     securityVersion,
@@ -152,6 +160,24 @@ describe('DSM deposit allocation version e2e', () => {
     );
 
     await handleDeposit(3);
+
+    expect(handleCorrectKeys).toHaveBeenCalledTimes(1);
+    expect(stakingRouterService.getDepositableEther).not.toHaveBeenCalled();
+    expect(
+      stakingRouterService.getStakingModuleMaxDepositsCount,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('allows deposits for DSM v5 without calling allocation methods', async () => {
+    securityService.version.mockResolvedValue(5);
+    stakingRouterService.getDepositableEther.mockRejectedValue(
+      new Error('should not be called'),
+    );
+    stakingRouterService.getStakingModuleMaxDepositsCount.mockRejectedValue(
+      new Error('should not be called'),
+    );
+
+    await handleDeposit(5);
 
     expect(handleCorrectKeys).toHaveBeenCalledTimes(1);
     expect(stakingRouterService.getDepositableEther).not.toHaveBeenCalled();

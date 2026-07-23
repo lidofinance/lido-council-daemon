@@ -284,6 +284,57 @@ describe('ConfigLoaderService base spec', () => {
     });
   });
 
+  describe('delegation contract address', () => {
+    const DEFAULTS_WITH_RABBIT = {
+      ...DEFAULTS,
+      RABBITMQ_PASSCODE: 'some-rabbit-passcode',
+    };
+
+    test('should allow an empty address before the DSM v5 upgrade', async () => {
+      const config = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+        DELEGATION_CONTRACT_ADDRESS: '',
+      });
+
+      await expect(
+        validateOrReject(config, {
+          validationError: { target: false, value: false },
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    test('should accept a valid delegation contract address', async () => {
+      const config = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+        DELEGATION_CONTRACT_ADDRESS:
+          '0x1111111111111111111111111111111111111111',
+      });
+
+      await expect(
+        validateOrReject(config, {
+          validationError: { target: false, value: false },
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    test('should reject an invalid delegation contract address', async () => {
+      const config = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+        DELEGATION_CONTRACT_ADDRESS: 'not-an-address',
+      });
+
+      await expect(
+        validateOrReject(config, {
+          validationError: { target: false, value: false },
+        }),
+      ).rejects.toEqual([
+        expect.objectContaining({
+          property: 'DELEGATION_CONTRACT_ADDRESS',
+        }),
+      ]);
+    });
+  });
+
   describe('balance', () => {
     const DEFAULTS_WITH_RABBIT = {
       ...DEFAULTS,

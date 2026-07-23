@@ -25,6 +25,14 @@ describe('UnvettingService', () => {
   const mockGuardianMessageService = {
     sendUnvetMessage: jest.fn().mockImplementation(() => Promise.resolve()),
   };
+  const guardianContext = {
+    dsmAddress: '0x0000000000000000000000000000000000000001',
+    dsmVersion: 3,
+    delegateAddress: '0x0000000000000000000000000000000000000001',
+    guardianAddress: '0x0000000000000000000000000000000000000001',
+    guardianIndex: 1,
+    mode: 'legacy-eoa',
+  };
 
   beforeEach(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
@@ -108,6 +116,7 @@ describe('UnvettingService', () => {
         guardianAddress: '0x1',
         guardianIndex: 1,
         securityVersion: 3,
+        guardianContext,
       } as any;
 
       const stakingModuleData = {
@@ -135,6 +144,7 @@ describe('UnvettingService', () => {
         '0x00000000000000010000000000000002',
         '0x0000000000000000000000000000000000000000000000000000000000000002',
         'somesign',
+        guardianContext,
       );
 
       expect(sendUnvetMessageMock).toHaveBeenCalledTimes(1);
@@ -173,6 +183,7 @@ describe('UnvettingService', () => {
         guardianAddress: '0x1',
         guardianIndex: 1,
         securityVersion: 3,
+        guardianContext,
       } as any;
 
       const stakingModuleData = {
@@ -200,6 +211,7 @@ describe('UnvettingService', () => {
         '0x00000000000000010000000000000002',
         '0x0000000000000000000000000000000000000000000000000000000000000002',
         'somesign',
+        guardianContext,
       );
 
       expect(sendUnvetMessageMock).toHaveBeenCalledTimes(1);

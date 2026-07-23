@@ -5,7 +5,7 @@ import { LoggerModule } from 'common/logger';
 import { MockProviderModule } from 'provider';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { WalletService } from 'wallet';
-import { SecurityAbi__factory } from 'generated';
+import { SecurityAbi__factory, SecurityV5Abi__factory } from 'generated';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { Interface } from '@ethersproject/abi';
@@ -18,6 +18,7 @@ import { SecurityService } from './security.service';
 import { SecurityModule } from './security.module';
 import { mockLocator } from 'contracts/repository/locator/locator.mock';
 import { mockRepository } from 'contracts/repository/repository.mock';
+import { GuardianExecutionContext } from './security.service';
 
 jest.mock('../../transport/stomp/stomp.client');
 
@@ -26,7 +27,23 @@ const TEST_MODULE_ID = 1;
 describe('SecurityService', () => {
   const address1 = hexZeroPad('0x1', 20);
   const address2 = hexZeroPad('0x2', 20);
-  const address3 = hexZeroPad('0x3', 20);
+  const blockTag = { blockHash: hexZeroPad('0x4', 32) };
+  const legacyContext: GuardianExecutionContext = {
+    dsmAddress: address1,
+    dsmVersion: 3,
+    delegateAddress: address1,
+    guardianAddress: address1,
+    guardianIndex: 0,
+    mode: 'legacy-eoa',
+  };
+  const edfContext: GuardianExecutionContext = {
+    dsmAddress: address1,
+    dsmVersion: 5,
+    delegateAddress: address1,
+    guardianAddress: address2,
+    guardianIndex: 0,
+    mode: 'edf',
+  };
 
   let securityService: SecurityService;
   let provider: SimpleFallbackJsonRpcBatchProvider;
@@ -79,18 +96,10 @@ describe('SecurityService', () => {
   });
 
   describe('getGuardianIndex', () => {
-    beforeEach(() => {
-      const guardians = [address1, address2];
-
-      jest
-        .spyOn(securityService, 'getGuardians')
-        .mockImplementation(async () => guardians);
-    });
-
     it('should return guardian index', async () => {
       jest
-        .spyOn(walletService, 'address', 'get')
-        .mockImplementation(() => address1);
+        .spyOn(securityService, 'getGuardianExecutionContext')
+        .mockResolvedValue(legacyContext);
 
       const guardianIndex = await securityService.getGuardianIndex();
       expect(guardianIndex).toEqual(0);
@@ -98,8 +107,8 @@ describe('SecurityService', () => {
 
     it('should return -1 if address is not in the list', async () => {
       jest
-        .spyOn(walletService, 'address', 'get')
-        .mockImplementation(() => address3);
+        .spyOn(securityService, 'getGuardianExecutionContext')
+        .mockResolvedValue({ ...legacyContext, guardianIndex: -1 });
 
       const guardianIndex = await securityService.getGuardianIndex();
       expect(guardianIndex).toBe(-1);
@@ -108,14 +117,17 @@ describe('SecurityService', () => {
 
   describe('getGuardianAddress', () => {
     it('should return guardian address', async () => {
-      const guardianAddress = await securityService.getGuardianAddress();
+      jest
+        .spyOn(securityService, 'getGuardianExecutionContext')
+        .mockResolvedValue(legacyContext);
+      const guardianAddress = await securityService.getGuardianAddress(
+        blockTag,
+      );
       expect(isAddress(guardianAddress)).toBeTruthy();
     });
   });
 
   describe('version', () => {
-    const blockTag = { blockHash: hexZeroPad('0x4', 32) };
-
     const mockContractVersion = (version: number) => {
       const VERSION = jest.fn().mockResolvedValue(BigNumber.from(version));
 
@@ -141,18 +153,25 @@ describe('SecurityService', () => {
       expect(VERSION).toHaveBeenCalledWith({ blockTag });
     });
 
+    it('should allow DSM v5', async () => {
+      const VERSION = mockContractVersion(5);
+
+      await expect(securityService.version(blockTag)).resolves.toBe(5);
+      expect(VERSION).toHaveBeenCalledWith({ blockTag });
+    });
+
     it('should reject unsupported DSM versions', async () => {
-      mockContractVersion(5);
+      mockContractVersion(6);
 
       await expect(securityService.version(blockTag)).rejects.toThrow(
-        'Unsupported DSM contract version found: 5',
+        'Unsupported DSM contract version found: 6',
       );
       expect(loggerService.warn).toHaveBeenCalledWith(
-        'Unsupported DSM contract version found: 5',
+        'Unsupported DSM contract version found: 6',
         expect.objectContaining({
           dsmContractAddress: address1,
           blockTag,
-          supportedVersions: [3, 4],
+          supportedVersions: [3, 4, 5],
         }),
       );
     });
@@ -182,7 +201,10 @@ describe('SecurityService', () => {
 
       const signDepositData = jest.spyOn(walletService, 'signDepositData');
 
-      const signature = await securityService.signDepositData(...args);
+      const signature = await securityService.signDepositData(
+        ...args,
+        legacyContext,
+      );
 
       expect(mockGetAttestMessagePrefix).toHaveBeenCalledTimes(1);
       expect(mockVersion).not.toHaveBeenCalled();
@@ -193,6 +215,8 @@ describe('SecurityService', () => {
         blockNumber,
         blockHash,
         stakingModuleId: TEST_MODULE_ID,
+        dsmVersion: 3,
+        guardianAddress: address1,
       });
       expect(signature).toEqual(
         expect.objectContaining({
@@ -256,6 +280,7 @@ describe('SecurityService', () => {
       const signature = await securityService.signPauseDataV3(
         blockNumber,
         blockHash,
+        legacyContext,
       );
       expect(mockGetPauseMessagePrefix).toHaveBeenCalledTimes(1);
       expect(mockVersion).not.toHaveBeenCalled();
@@ -263,6 +288,8 @@ describe('SecurityService', () => {
         blockNumber: 1,
         prefix:
           '0x0000000000000000000000000000000000000000000000000000000000000002',
+        dsmVersion: 3,
+        guardianAddress: address1,
       });
       expect(signature).toEqual(
         expect.objectContaining({
@@ -365,11 +392,19 @@ describe('SecurityService', () => {
           () => ({ pauseDeposits: mockPauseDeposits } as any),
         );
 
-      signature = await securityService.signPauseDataV3(blockNumber, blockHash);
+      signature = await securityService.signPauseDataV3(
+        blockNumber,
+        blockHash,
+        legacyContext,
+      );
     });
 
     it('should call contract method', async () => {
-      await securityService.pauseDepositsV3(blockNumber, signature);
+      await securityService.pauseDepositsV3(
+        blockNumber,
+        signature,
+        legacyContext,
+      );
 
       expect(mockPauseDeposits).toHaveBeenCalledTimes(1);
       expect(mockWait).toHaveBeenCalledTimes(1);
@@ -379,14 +414,95 @@ describe('SecurityService', () => {
 
     it('should exit if the previous call is not completed', async () => {
       await Promise.all([
-        securityService.pauseDepositsV3(blockNumber, signature),
-        securityService.pauseDepositsV3(blockNumber, signature),
+        securityService.pauseDepositsV3(blockNumber, signature, legacyContext),
+        securityService.pauseDepositsV3(blockNumber, signature, legacyContext),
       ]);
 
       expect(mockPauseDeposits).toHaveBeenCalledTimes(1);
       expect(mockWait).toHaveBeenCalledTimes(1);
       expect(mockGetPauseMessagePrefix).toHaveBeenCalledTimes(1);
       expect(mockGetContractWithSigner).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('EDF execution routing', () => {
+    const hash = hexZeroPad('0x1', 32);
+    const blockHash = hexZeroPad('0x3', 32);
+
+    it('should route DSM v5 pause through DelegationContract.execute', async () => {
+      const wait = jest.fn().mockResolvedValue(undefined);
+      const execute = jest
+        .fn()
+        .mockResolvedValue({ wait, hash } as unknown as never);
+      jest
+        .spyOn(securityService, 'getDelegationContractWithSigner')
+        .mockReturnValue({ execute } as any);
+
+      await securityService.pauseDepositsV3(
+        10,
+        walletService.signMessage(hash),
+        edfContext,
+      );
+
+      const expectedCalldata =
+        SecurityV5Abi__factory.createInterface().encodeFunctionData(
+          'pauseDeposits',
+          [
+            10,
+            {
+              guardian: hexZeroPad('0x0', 20),
+              signature: '0x',
+            },
+          ],
+        );
+      expect(execute).toHaveBeenCalledWith(address1, expectedCalldata, {
+        value: 0,
+      });
+      expect(wait).toHaveBeenCalledTimes(1);
+    });
+
+    it('should route DSM v5 unvet through DelegationContract.execute', async () => {
+      const wait = jest.fn().mockResolvedValue(undefined);
+      const execute = jest
+        .fn()
+        .mockResolvedValue({ wait, hash } as unknown as never);
+      jest
+        .spyOn(securityService, 'getDelegationContractWithSigner')
+        .mockReturnValue({ execute } as any);
+      const operatorIds = '0x0000000000000001';
+      const vettedKeysByOperator = '0x00000000000000000000000000000002';
+
+      await securityService.unvetSigningKeys(
+        1,
+        10,
+        blockHash,
+        1,
+        operatorIds,
+        vettedKeysByOperator,
+        walletService.signMessage(hash),
+        edfContext,
+      );
+
+      const expectedCalldata =
+        SecurityV5Abi__factory.createInterface().encodeFunctionData(
+          'unvetSigningKeys',
+          [
+            10,
+            blockHash,
+            1,
+            1,
+            operatorIds,
+            vettedKeysByOperator,
+            {
+              guardian: hexZeroPad('0x0', 20),
+              signature: '0x',
+            },
+          ],
+        );
+      expect(execute).toHaveBeenCalledWith(address1, expectedCalldata, {
+        value: 0,
+      });
+      expect(wait).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -416,6 +532,7 @@ describe('SecurityService', () => {
         stakingModuleId,
         operatorIds,
         vettedKeysByOperator,
+        legacyContext,
       );
       expect(mockGetUnvetMessagePrefix).toHaveBeenCalledTimes(1);
       expect(mockVersion).not.toHaveBeenCalled();
@@ -428,6 +545,8 @@ describe('SecurityService', () => {
         vettedKeysByOperator,
         prefix:
           '0x0000000000000000000000000000000000000000000000000000000000000002',
+        dsmVersion: 3,
+        guardianAddress: address1,
       });
       expect(signature).toEqual(
         expect.objectContaining({
@@ -481,6 +600,7 @@ describe('SecurityService', () => {
         stakingModuleId,
         operatorIds,
         vettedKeysByOperator,
+        legacyContext,
       );
     });
 
@@ -493,6 +613,7 @@ describe('SecurityService', () => {
         operatorIds,
         vettedKeysByOperator,
         signature,
+        legacyContext,
       );
 
       expect(mockUnvetSigningKeys).toHaveBeenCalledTimes(1);
@@ -511,6 +632,7 @@ describe('SecurityService', () => {
           operatorIds,
           vettedKeysByOperator,
           signature,
+          legacyContext,
         ),
         securityService.unvetSigningKeys(
           nonce,
@@ -520,6 +642,7 @@ describe('SecurityService', () => {
           operatorIds,
           vettedKeysByOperator,
           signature,
+          legacyContext,
         ),
       ]);
 

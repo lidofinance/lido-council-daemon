@@ -21,19 +21,15 @@ import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/sign
 import { GuardianMessageService } from 'guardian/guardian-message';
 import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 import {
-  addGuardians,
   canDeposit,
   deposit,
   fillLidoBuffer,
-  getGuardians,
   getLidoWC,
   getModuleWC,
-  getSecurityContract,
-  getSecurityOwner,
 } from './helpers/dsm';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
 import { BlsService } from 'bls';
-import { getWalletAddress, makeDeposit, signDeposit } from './helpers/deposit';
+import { makeDeposit, signDeposit } from './helpers/deposit';
 import { CuratedOnchainV1 } from './helpers/nor.contract';
 import {
   waitForNewerBlock,
@@ -41,7 +37,7 @@ import {
   waitKAPIUpdateModulesKeys,
 } from './helpers/kapi';
 import { truncateTables } from './helpers/pg';
-import { accountImpersonate, testSetupProvider } from './helpers/provider';
+import { testSetupProvider } from './helpers/provider';
 import { SecretKey } from '@chainsafe/blst';
 import {
   getStakingModulesInfo,
@@ -54,6 +50,7 @@ import {
 } from './helpers/docker-containers/utils';
 import { HardhatServer } from './helpers/hardhat-server';
 import { cutModulesKeys } from './helpers/reduce-keys';
+import { E2EDsmSetup, setupE2EDsm } from './helpers/dsm-version';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -174,6 +171,7 @@ describe('Front-run e2e tests', () => {
     amount: number;
   };
   let securityModuleAddress: string;
+  let dsmSetup: E2EDsmSetup;
 
   let postgresContainer;
   let keysApiContainer;
@@ -188,6 +186,9 @@ describe('Front-run e2e tests', () => {
 
     hardhatServer = new HardhatServer();
     await hardhatServer.start();
+    dsmSetup = await setupE2EDsm();
+    guardianIndex = dsmSetup.guardianIndex;
+    securityModuleAddress = dsmSetup.dsmAddress;
 
     console.log('Hardhat node is ready. Starting key cutting process...');
     await cutModulesKeys(undefined, {
@@ -199,21 +200,6 @@ describe('Front-run e2e tests', () => {
     await startContainerIfNotRunning(keysApiContainer);
 
     await waitKAPIUpdateModulesKeys();
-
-    const securityModule = await getSecurityContract();
-    const securityModuleOwner = await getSecurityOwner();
-    await accountImpersonate(securityModuleOwner);
-    const oldGuardians = await getGuardians();
-    securityModuleAddress = securityModule.address;
-    await addGuardians({
-      securityModuleAddress,
-      securityModuleOwner,
-    });
-
-    const newGuardians = await getGuardians();
-    // TODO: read from contract
-    guardianIndex = newGuardians.length - 1;
-    expect(newGuardians.length).toEqual(oldGuardians.length + 1);
 
     ({ stakingModulesAddresses, curatedModuleAddress } =
       await getStakingModulesInfo());
@@ -360,13 +346,11 @@ describe('Front-run e2e tests', () => {
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      const walletAddress = await getWalletAddress();
-
       expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
-          guardianAddress: walletAddress,
+          guardianAddress: dsmSetup.guardianAddress,
           guardianIndex,
           stakingModuleId: 1,
           operatorIds: packNodeOperatorIds([firstOperator.index]),
@@ -1095,13 +1079,11 @@ describe('Front-run e2e tests', () => {
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      const walletAddress = await getWalletAddress();
-
       expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
-          guardianAddress: walletAddress,
+          guardianAddress: dsmSetup.guardianAddress,
           guardianIndex,
           stakingModuleId: 1,
           operatorIds: packNodeOperatorIds([firstOperator.index]),

@@ -4,7 +4,10 @@ import { ethers } from 'ethers';
 import { SecurityService } from 'contracts/security';
 import { StakingRouterService } from 'contracts/staking-router';
 import { StakingModuleData } from 'guardian/interfaces';
-import { DSM_CONTRACT_VERSION_4 } from 'contracts/security/security.constants';
+import {
+  DSM_CONTRACT_VERSION_4,
+  DSM_CONTRACT_VERSION_5,
+} from 'contracts/security/security.constants';
 
 const ONE_DEPOSIT_VALUE = ethers.utils.parseEther('32');
 
@@ -22,7 +25,10 @@ export class DsmDepositAllocationAdapterService {
     const blockTag = { blockHash };
     const securityVersion = await this.securityService.version(blockTag);
 
-    if (securityVersion === DSM_CONTRACT_VERSION_4) {
+    if (
+      securityVersion === DSM_CONTRACT_VERSION_4 ||
+      securityVersion === DSM_CONTRACT_VERSION_5
+    ) {
       return false;
     }
 

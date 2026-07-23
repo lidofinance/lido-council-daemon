@@ -10,6 +10,7 @@ import {
   ValidateIf,
   IsArray,
   ArrayMinSize,
+  IsEthereumAddress,
 } from 'class-validator';
 import { Injectable } from '@nestjs/common';
 import { Configuration, PubsubService, NonEmptyArray } from './configuration';
@@ -169,6 +170,10 @@ export class InMemoryConfiguration implements Configuration {
   @IsOptional()
   @IsString()
   LOCATOR_DEVNET_ADDRESS = '';
+
+  @ValidateIf((_conf, value) => value !== undefined && value !== '')
+  @IsEthereumAddress()
+  DELEGATION_CONTRACT_ADDRESS = '';
 
   @IsOptional()
   @TransformToWei()

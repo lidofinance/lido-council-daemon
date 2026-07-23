@@ -1,7 +1,7 @@
 // Constants
 import { SLEEP_FOR_RESULT, pk, sk } from './constants';
 import { setupTestingModule, initLevelDB } from './helpers/test-setup';
-import { getWalletAddress, signDeposit } from './helpers/deposit';
+import { signDeposit } from './helpers/deposit';
 import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
@@ -10,17 +10,10 @@ import { KeysApiService } from 'keys-api/keys-api.service';
 import { SecurityService } from 'contracts/security';
 import { GuardianMessageService } from 'guardian/guardian-message';
 import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
-import {
-  addGuardians,
-  fillLidoBuffer,
-  getGuardians,
-  getLidoWC,
-  getSecurityContract,
-  getSecurityOwner,
-} from './helpers/dsm';
+import { fillLidoBuffer, getLidoWC } from './helpers/dsm';
 import { BlsService } from 'bls';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
-import { accountImpersonate, testSetupProvider } from './helpers/provider';
+import { testSetupProvider } from './helpers/provider';
 import { waitForNewerBlock, waitKAPIUpdateModulesKeys } from './helpers/kapi';
 import { truncateTables } from './helpers/pg';
 import { CuratedOnchainV1 } from './helpers/nor.contract';
@@ -40,6 +33,7 @@ import {
 } from './helpers/docker-containers/utils';
 import { cutModulesKeys } from './helpers/reduce-keys';
 import { StakingModuleData } from 'guardian/interfaces';
+import { E2EDsmSetup, setupE2EDsm } from './helpers/dsm-version';
 
 jest.mock('../src/transport/stomp/stomp.client.ts');
 jest.setTimeout(300_000);
@@ -258,6 +252,7 @@ describe('Duplicates e2e tests', () => {
   const validPK: Uint8Array = validSK.toPublicKey().toBytes();
   let validDepositSignature: Uint8Array;
   let guardianIndex: number;
+  let dsmSetup: E2EDsmSetup;
   let lidoWC: string;
 
   let postgresContainer;
@@ -273,6 +268,8 @@ describe('Duplicates e2e tests', () => {
 
     hardhatServer = new HardhatServer();
     await hardhatServer.start();
+    dsmSetup = await setupE2EDsm();
+    guardianIndex = dsmSetup.guardianIndex;
 
     console.log('Hardhat node is ready. Starting key cutting process...');
     await cutModulesKeys(undefined, {
@@ -284,19 +281,6 @@ describe('Duplicates e2e tests', () => {
     await startContainerIfNotRunning(keysApiContainer);
 
     await waitKAPIUpdateModulesKeys();
-
-    const securityModule = await getSecurityContract();
-    const securityModuleOwner = await getSecurityOwner();
-    await accountImpersonate(securityModuleOwner);
-    const oldGuardians = await getGuardians();
-    await addGuardians({
-      securityModuleAddress: securityModule.address,
-      securityModuleOwner,
-    });
-    const newGuardians = await getGuardians();
-    // TODO: read from contract by address
-    guardianIndex = newGuardians.length - 1;
-    expect(newGuardians.length).toEqual(oldGuardians.length + 1);
 
     ({ stakingModulesAddresses, curatedModuleAddress, sdvtModuleAddress } =
       await getStakingModulesInfo());
@@ -488,14 +472,12 @@ describe('Duplicates e2e tests', () => {
       await guardianService.handleNewBlock();
       await waitForNewerBlock(currentBlock.number);
 
-      const walletAddress = await getWalletAddress();
-
       // unvetting for second module
       expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
-          guardianAddress: walletAddress,
+          guardianAddress: dsmSetup.guardianAddress,
           guardianIndex: guardianIndex,
           stakingModuleId: 1,
           operatorIds: packNodeOperatorIds([curatedSecondOperator.index]),
@@ -512,6 +494,7 @@ describe('Duplicates e2e tests', () => {
         packNodeOperatorIds([curatedSecondOperator.index]),
         '0x00000000000000000000000000000003',
         expect.any(Object),
+        dsmSetup.context,
       );
     }, 60_000);
 
@@ -659,13 +642,11 @@ describe('Duplicates e2e tests', () => {
       const currentBlock = await provider.getBlock('latest');
       await guardianService.handleNewBlock();
       await waitForNewerBlock(currentBlock.number);
-      const walletAddress = await getWalletAddress();
-
       expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
-          guardianAddress: walletAddress,
+          guardianAddress: dsmSetup.guardianAddress,
           guardianIndex: guardianIndex,
           stakingModuleId: 1,
           operatorIds: packNodeOperatorIds([curatedFirstOperator.index]),
@@ -683,6 +664,7 @@ describe('Duplicates e2e tests', () => {
         packNodeOperatorIds([curatedFirstOperator.index]),
         '0x00000000000000000000000000000004',
         expect.any(Object),
+        dsmSetup.context,
       );
     });
 
@@ -818,13 +800,11 @@ describe('Duplicates e2e tests', () => {
       await guardianService.handleNewBlock();
       await waitForNewerBlock(currentBlock.number);
 
-      const walletAddress = await getWalletAddress();
-
       expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
-          guardianAddress: walletAddress,
+          guardianAddress: dsmSetup.guardianAddress,
           guardianIndex: guardianIndex,
           stakingModuleId: 1,
           operatorIds: packNodeOperatorIds([curatedFirstOperator.index]),
@@ -841,6 +821,7 @@ describe('Duplicates e2e tests', () => {
         packNodeOperatorIds([curatedFirstOperator.index]),
         '0x00000000000000000000000000000005',
         expect.any(Object),
+        dsmSetup.context,
       );
     });
 
@@ -1025,14 +1006,12 @@ describe('Duplicates e2e tests', () => {
       await guardianService.handleNewBlock();
       await waitForNewerBlock(currentBlock.number);
 
-      const walletAddress = await getWalletAddress();
-
       // unvetting for second module
       expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
-          guardianAddress: walletAddress,
+          guardianAddress: dsmSetup.guardianAddress,
           guardianIndex: guardianIndex,
           stakingModuleId: 2,
           operatorIds: packNodeOperatorIds([sdvtOperator.index]),
@@ -1049,6 +1028,7 @@ describe('Duplicates e2e tests', () => {
         packNodeOperatorIds([sdvtOperator.index]),
         '0x00000000000000000000000000000003',
         expect.any(Object),
+        dsmSetup.context,
       );
     });
 
@@ -1225,14 +1205,12 @@ describe('Duplicates e2e tests', () => {
       await guardianService.handleNewBlock();
       await waitForNewerBlock(currentBlock.number);
 
-      const walletAddress = await getWalletAddress();
-
       // within-operator duplicates in nor: drop higher-index dup at index=5, keep index=4
       expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
-          guardianAddress: walletAddress,
+          guardianAddress: dsmSetup.guardianAddress,
           guardianIndex,
           stakingModuleId: 1,
           operatorIds: packNodeOperatorIds([curatedFirstOperator.index]),
@@ -1249,6 +1227,7 @@ describe('Duplicates e2e tests', () => {
         packNodeOperatorIds([curatedFirstOperator.index]),
         '0x00000000000000000000000000000005',
         expect.any(Object),
+        dsmSetup.context,
       );
     });
 
@@ -1275,15 +1254,13 @@ describe('Duplicates e2e tests', () => {
       await guardianService.handleNewBlock();
       await waitForNewerBlock(currentBlock.number);
 
-      const walletAddress = await getWalletAddress();
-
       // unvetting for second module
       // it is already second unvetting during test
       expect(sendUnvetMessage).toHaveBeenCalledTimes(2);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
-          guardianAddress: walletAddress,
+          guardianAddress: dsmSetup.guardianAddress,
           guardianIndex,
           stakingModuleId: 2,
           operatorIds: packNodeOperatorIds([sdvtOperator.index]),
@@ -1300,6 +1277,7 @@ describe('Duplicates e2e tests', () => {
         packNodeOperatorIds([sdvtOperator.index]),
         '0x00000000000000000000000000000003',
         expect.any(Object),
+        dsmSetup.context,
       );
     });
 
