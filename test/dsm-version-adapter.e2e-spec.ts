@@ -101,7 +101,9 @@ describe('DSM version E2E adapter', () => {
   it('connects the daemon delegate through the selected guardian mode', async () => {
     if (setup.version === 4) {
       expect(setup.guardianAddress).toBe(setup.delegateAddress);
-      expect(process.env.DELEGATION_CONTRACT_ADDRESS).toBeUndefined();
+      expect(process.env.DELEGATION_CONTRACT_ADDRESS).toBe(
+        '0x0000000000000000000000000000000000000001',
+      );
       return;
     }
 

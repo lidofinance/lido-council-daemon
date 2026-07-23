@@ -9,12 +9,11 @@ export class HardhatServer {
   // Method to start Hardhat and wait until it's ready
   public async start() {
     return new Promise<void>((resolve, reject) => {
-      this.hardhatProcess = spawn(process.execPath, [
-        HARDHAT_CLI_PATH,
-        'node',
-        '--hostname',
-        '0.0.0.0',
-      ]);
+      this.hardhatProcess = spawn(
+        process.execPath,
+        [HARDHAT_CLI_PATH, 'node', '--hostname', '0.0.0.0'],
+        { env: { ...process.env } },
+      );
 
       if (!this.hardhatProcess) {
         return reject(new Error('Failed to start Hardhat process'));

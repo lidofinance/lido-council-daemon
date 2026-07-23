@@ -171,7 +171,6 @@ export class InMemoryConfiguration implements Configuration {
   @IsString()
   LOCATOR_DEVNET_ADDRESS = '';
 
-  @ValidateIf((_conf, value) => value !== undefined && value !== '')
   @IsEthereumAddress()
   DELEGATION_CONTRACT_ADDRESS = '';
 

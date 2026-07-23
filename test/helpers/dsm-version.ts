@@ -42,8 +42,6 @@ export async function setupE2EDsm(): Promise<E2EDsmSetup> {
 }
 
 async function setupDsmV4(delegateAddress: string): Promise<E2EDsmSetup> {
-  delete process.env.DELEGATION_CONTRACT_ADDRESS;
-
   const locator = getLocator();
   const dsmAddress = utils.getAddress(await locator.depositSecurityModule());
   const dsm = SecurityAbi__factory.connect(dsmAddress, testSetupProvider);

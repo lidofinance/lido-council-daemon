@@ -13,6 +13,7 @@ const FAKE_FS = {
 const DEFAULTS = {
   RPC_URL: 'some-rpc-url',
   CHAIN_ID: '1',
+  DELEGATION_CONTRACT_ADDRESS: '0x1111111111111111111111111111111111111111',
   RABBITMQ_URL: 'some-rabbit-url',
   RABBITMQ_LOGIN: 'some-rabbit-login',
   KEYS_API_URL: 'keys-api',
@@ -290,7 +291,7 @@ describe('ConfigLoaderService base spec', () => {
       RABBITMQ_PASSCODE: 'some-rabbit-passcode',
     };
 
-    test('should allow an empty address before the DSM v5 upgrade', async () => {
+    test('should reject an empty delegation contract address', async () => {
       const config = plainToClass(InMemoryConfiguration, {
         ...DEFAULTS_WITH_RABBIT,
         DELEGATION_CONTRACT_ADDRESS: '',
@@ -300,7 +301,11 @@ describe('ConfigLoaderService base spec', () => {
         validateOrReject(config, {
           validationError: { target: false, value: false },
         }),
-      ).resolves.toBeUndefined();
+      ).rejects.toEqual([
+        expect.objectContaining({
+          property: 'DELEGATION_CONTRACT_ADDRESS',
+        }),
+      ]);
     });
 
     test('should accept a valid delegation contract address', async () => {
