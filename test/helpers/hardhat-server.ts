@@ -1,5 +1,6 @@
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 
+const HARDHAT_CLI_PATH = require.resolve('hardhat/internal/cli/bootstrap');
 const DEFAULT_START_TIMEOUT_MS = 60_000;
 
 export class HardhatServer {
@@ -9,12 +10,13 @@ export class HardhatServer {
   // Method to start Hardhat and wait until it's ready
   public async start(timeoutMs = DEFAULT_START_TIMEOUT_MS) {
     return new Promise<void>((resolve, reject) => {
-      this.hardhatProcess = spawn('npx', [
-        'hardhat',
-        'node',
-        '--hostname',
-        '0.0.0.0',
-      ]);
+      this.hardhatProcess = spawn(
+        process.execPath,
+        [HARDHAT_CLI_PATH, 'node', '--hostname', '0.0.0.0'],
+        {
+          env: { ...process.env },
+        },
+      );
 
       if (!this.hardhatProcess) {
         return reject(new Error('Failed to start Hardhat process'));

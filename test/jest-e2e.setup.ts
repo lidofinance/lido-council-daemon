@@ -8,6 +8,10 @@ if (process.env.CHAIN_ID === undefined) {
   process.env.CHAIN_ID = '560048';
 }
 
+if (!process.env.KEYS_API_URL) {
+  process.env.KEYS_API_URL = 'http://127.0.0.1:3000';
+}
+
 if (process.env.WALLET_PRIVATE_KEY === undefined) {
   process.env.WALLET_PRIVATE_KEY = Wallet.createRandom().privateKey;
 }

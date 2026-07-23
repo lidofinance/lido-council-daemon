@@ -7,6 +7,7 @@ import {
   OssifiableProxyAbi__factory,
   SecurityAbi__factory,
   SecurityV5Abi__factory,
+  StakingRouterAbi__factory,
 } from 'generated';
 import * as delegationFactoryFixture from '../fixtures/contracts/delegation-factory.bytecode.json';
 import * as depositSecurityModuleV5Fixture from '../fixtures/contracts/deposit-security-module-v5.bytecode.json';
@@ -188,8 +189,33 @@ export async function deployEdfUpgradeOnFork(
       const transaction = await proxyWithAdmin.proxy__upgradeTo(
         locatorImplementationDeployment.address,
       );
+      await transaction.wait();
 
-      return await transaction.wait();
+      const stakingRouter = StakingRouterAbi__factory.connect(
+        locatorConfigBefore.stakingRouter,
+        testSetupProvider,
+      );
+      const unvettingRole = await stakingRouter.STAKING_MODULE_UNVETTING_ROLE();
+      const roleAdmin = await stakingRouter.getRoleAdmin(unvettingRole);
+      const roleAdminAddress = await stakingRouter.getRoleMember(roleAdmin, 0);
+      await accountImpersonate(roleAdminAddress);
+      await setBalance(roleAdminAddress, 10);
+
+      const stakingRouterWithAdmin = stakingRouter.connect(
+        testSetupProvider.getSigner(roleAdminAddress),
+      );
+      await (
+        await stakingRouterWithAdmin.revokeRole(
+          unvettingRole,
+          previousDsmAddress,
+        )
+      ).wait();
+
+      const grantReceipt = await (
+        await stakingRouterWithAdmin.grantRole(unvettingRole, dsm.address)
+      ).wait();
+
+      return grantReceipt;
     },
   };
 }

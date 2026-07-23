@@ -1,5 +1,5 @@
 import * as dotenv from 'dotenv';
-import { BigNumber, constants, providers, utils } from 'ethers';
+import { BigNumber, constants, providers, utils, Wallet } from 'ethers';
 import { LocatorAbi__factory, StakingRouterAbi__factory } from 'generated';
 import {
   getLegacyModuleExitedCountSlot,
@@ -13,6 +13,10 @@ import { getE2EDsmVersion } from './helpers/dsm-version';
 import { LIDO_LOCATOR_BY_NETWORK } from 'contracts/repository/locator/locator.constants';
 
 dotenv.config();
+
+if (process.env.WALLET_PRIVATE_KEY === undefined) {
+  process.env.WALLET_PRIVATE_KEY = Wallet.createRandom().privateKey;
+}
 
 const PREFLIGHT_CUT_CONFIG = {
   opCount: 3,

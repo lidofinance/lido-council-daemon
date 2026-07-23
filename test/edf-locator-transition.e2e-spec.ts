@@ -6,6 +6,7 @@ import {
   LocatorAbi__factory,
   OssifiableProxyAbi__factory,
   SecurityV5Abi__factory,
+  StakingRouterAbi__factory,
 } from 'generated';
 import { RepositoryService } from 'contracts/repository';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
@@ -71,6 +72,11 @@ describe('EDF Locator transition on a Hoodi fork', () => {
     const cachedDsmBefore = repository.getCachedDSMContract().address;
 
     const deployment = await deployEdfUpgradeOnFork(locatorAddress);
+    const stakingRouter = StakingRouterAbi__factory.connect(
+      deployment.locatorConfigBefore.stakingRouter,
+      testSetupProvider,
+    );
+    const unvettingRole = await stakingRouter.STAKING_MODULE_UNVETTING_ROLE();
     const securityService = new SecurityService(
       { inc: jest.fn() } as any,
       { inc: jest.fn() } as any,
@@ -94,6 +100,12 @@ describe('EDF Locator transition on a Hoodi fork', () => {
     expect(deployment.locatorImplementationAddress).not.toBe(
       deployment.previousLocatorImplementation,
     );
+    expect(
+      await stakingRouter.hasRole(unvettingRole, deployment.previousDsmAddress),
+    ).toBe(true);
+    expect(
+      await stakingRouter.hasRole(unvettingRole, deployment.dsmAddress),
+    ).toBe(false);
     expect(contextBefore).toEqual(
       expect.objectContaining({
         dsmAddress: deployment.previousDsmAddress,
@@ -138,6 +150,12 @@ describe('EDF Locator transition on a Hoodi fork', () => {
     expect(await delegationContract.getDelegate()).toBe(
       deployment.delegateAddress,
     );
+    expect(
+      await stakingRouter.hasRole(unvettingRole, deployment.previousDsmAddress),
+    ).toBe(false);
+    expect(
+      await stakingRouter.hasRole(unvettingRole, deployment.dsmAddress),
+    ).toBe(true);
     expect(repository.getCachedDSMContract().address).toBe(
       deployment.dsmAddress,
     );
