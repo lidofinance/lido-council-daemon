@@ -240,7 +240,7 @@ describe('Front-run e2e tests', () => {
 
       // top up Lido buffer so module 1 has allocation for deposits
       await fillLidoBuffer(2);
-    }, 50_000);
+    });
 
     afterAll(async () => {
       jest.clearAllMocks();
@@ -392,7 +392,7 @@ describe('Front-run e2e tests', () => {
 
       // top up Lido buffer so module 1 has allocation for deposits
       await fillLidoBuffer(2);
-    }, 50_000);
+    });
 
     afterAll(async () => {
       jest.clearAllMocks();
@@ -504,7 +504,7 @@ describe('Front-run e2e tests', () => {
 
       // top up Lido buffer so module 1 has allocation for deposits
       await fillLidoBuffer(2);
-    }, 50_000);
+    });
 
     afterAll(async () => {
       jest.clearAllMocks();
@@ -632,7 +632,7 @@ describe('Front-run e2e tests', () => {
       setupMocks();
       canRunTests = await canDeposit();
       console.log('canRunTests', canRunTests);
-    }, 50_000);
+    });
 
     afterAll(async () => {
       jest.clearAllMocks();
@@ -810,7 +810,7 @@ describe('Front-run e2e tests', () => {
 
       // 0x02-type Lido WC, taken from the CMv2 community module (id 5)
       wrongTypeWC = await getModuleWC(5);
-    }, 50_000);
+    });
 
     afterAll(async () => {
       jest.clearAllMocks();
@@ -980,7 +980,7 @@ describe('Front-run e2e tests', () => {
 
       // 0x02-type Lido WC, taken from the CMv2 community module (id 5)
       wrongTypeWC = await getModuleWC(5);
-    }, 50_000);
+    });
 
     afterAll(async () => {
       jest.clearAllMocks();
