@@ -1,12 +1,13 @@
 import { CHAINS } from '@lido-nestjs/constants';
 
-export const DEPLOYMENT_BLOCK_NETWORK: {
-  [key in CHAINS]?: number;
-} = {
+const LOCAL_DEVNET_CHAIN_ID = 32382;
+
+export const DEPLOYMENT_BLOCK_NETWORK = {
   [CHAINS.Mainnet]: 11052984,
   [CHAINS.Goerli]: 4367322,
   [CHAINS.Holesky]: 0,
   [CHAINS.Hoodi]: 0,
+  [LOCAL_DEVNET_CHAIN_ID]: 0,
 };
 
 export const DEPOSIT_EVENTS_STEP: {

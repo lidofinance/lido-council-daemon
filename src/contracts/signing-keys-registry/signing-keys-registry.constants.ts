@@ -9,12 +9,13 @@ export const SIGNING_KEYS_CACHE_DEFAULT = Object.freeze({
   data: [],
 });
 
-export const EARLIEST_MODULE_DEPLOYMENT_BLOCK_NETWORK: {
-  [key in CHAINS]?: number;
-} = {
+const LOCAL_DEVNET_CHAIN_ID = 32382;
+
+export const EARLIEST_MODULE_DEPLOYMENT_BLOCK_NETWORK = {
   [CHAINS.Mainnet]: 11473216,
   [CHAINS.Holesky]: 0,
   [CHAINS.Hoodi]: 0,
+  [LOCAL_DEVNET_CHAIN_ID]: 0,
 };
 
 // will make a gap in case of reorganization
