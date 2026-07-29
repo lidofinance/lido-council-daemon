@@ -57,6 +57,7 @@ export class SecurityService {
   public async initialize(blockTag: BlockTag): Promise<void> {
     const context = await this.getGuardianExecutionContext(blockTag);
     const address = context.guardianAddress;
+    await this.walletService.monitorGuardianBalance();
 
     if (context.guardianIndex === -1) {
       this.logger.warn(`Your address is not in the Guardian List`, { address });

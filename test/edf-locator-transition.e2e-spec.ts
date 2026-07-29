@@ -440,6 +440,81 @@ describe('EDF Locator transition on a Hoodi fork', () => {
     }
   });
 
+  it('fails closed for an unconfigured or terminated active delegate', async () => {
+    const locatorAddress = getLocator().address;
+    const activeDelegate = Wallet.createRandom();
+    const configuredDelegate = Wallet.createRandom();
+    await setBalance(activeDelegate.address, 100);
+
+    const deployment = await deployEdfUpgradeOnFork(
+      locatorAddress,
+      activeDelegate.connect(testSetupProvider),
+    );
+    const enactReceipt = await deployment.activate();
+    const blockAfterEnact = await testSetupProvider.getBlock(
+      enactReceipt.blockNumber,
+    );
+
+    let moduleRef: TestingModule | undefined;
+    try {
+      moduleRef = await Test.createTestingModule({
+        imports: [
+          TestProviderModule.forRoot(),
+          ConfigModule.forRoot(),
+          PrometheusModule,
+          LoggerModule,
+          RepositoryModule,
+          SecurityModule,
+        ],
+      })
+        .overrideProvider(DELEGATE_PRIVATE_KEYS)
+        .useValue([configuredDelegate.privateKey])
+        .compile();
+
+      const config = moduleRef.get(Configuration);
+      config.LOCATOR_DEVNET_ADDRESS = locatorAddress;
+      config.DELEGATION_CONTRACT_ADDRESS = deployment.delegationContractAddress;
+
+      const repository = moduleRef.get(RepositoryService);
+      const securityService = moduleRef.get(SecurityService);
+      await repository.initCachedContracts({
+        blockHash: blockAfterEnact.hash,
+      });
+
+      await expect(
+        securityService.getGuardianExecutionContext({
+          blockHash: blockAfterEnact.hash,
+        }),
+      ).rejects.toThrow(
+        `No configured delegate private key matches active delegate ${activeDelegate.address}`,
+      );
+
+      const delegationContract = DelegationContractAbi__factory.connect(
+        deployment.delegationContractAddress,
+        testSetupProvider,
+      );
+      const delegationOwner = await delegationContract.owner();
+      await accountImpersonate(delegationOwner);
+      await setBalance(delegationOwner, 10);
+      await (
+        await delegationContract
+          .connect(testSetupProvider.getSigner(delegationOwner))
+          .terminate()
+      ).wait();
+
+      const blockAfterTermination = await testSetupProvider.getBlock('latest');
+      await expect(
+        securityService.getGuardianExecutionContext({
+          blockHash: blockAfterTermination.hash,
+        }),
+      ).rejects.toThrow(
+        `DelegationContract ${deployment.delegationContractAddress} is terminated`,
+      );
+    } finally {
+      await moduleRef?.close();
+    }
+  });
+
   it('publishes every message type with the active wallet across v4 enact and delegate rotation', async () => {
     const locatorAddress = getLocator().address;
     const legacyWallet = new Wallet(process.env.WALLET_PRIVATE_KEY as string);

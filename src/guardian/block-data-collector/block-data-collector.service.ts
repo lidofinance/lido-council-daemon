@@ -55,17 +55,15 @@ export class BlockDataCollectorService {
   }): Promise<BlockData> {
     const endTimer = this.blockRequestsHistogram.startTimer();
     try {
-      const [
-        depositRoot,
-        depositedEvents,
-        guardianContext,
-        walletBalanceCritical,
-      ] = await Promise.all([
-        this.depositService.getDepositRoot({ blockHash }),
-        this.depositService.getAllDepositedEvents(blockNumber, blockHash),
-        this.securityService.getGuardianExecutionContext({ blockHash }),
-        this.walletService.isBalanceCritical(),
-      ]);
+      const [depositRoot, depositedEvents, guardianContext] = await Promise.all(
+        [
+          this.depositService.getDepositRoot({ blockHash }),
+          this.depositService.getAllDepositedEvents(blockNumber, blockHash),
+          this.securityService.getGuardianExecutionContext({ blockHash }),
+        ],
+      );
+      const walletBalanceCritical =
+        await this.walletService.isBalanceCritical();
 
       const hasFrontRunning =
         this.stakingModuleGuardService.checkHistoricalFrontRun(

@@ -19,7 +19,7 @@ import {
   METRIC_NONCE_GAP,
 } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { Gauge, register } from 'prom-client';
+import { Gauge } from 'prom-client';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import {
   DELEGATE_PRIVATE_KEYS,
@@ -50,16 +50,8 @@ export class WalletService implements OnModuleInit {
     protected readonly config: Configuration,
   ) {}
 
-  async onModuleInit() {
-    const guardianAddress = this.address;
-    register.setDefaultLabels({ guardianAddress });
-
-    try {
-      await this.monitorGuardianBalance();
-      this.subscribeToEthereumUpdates();
-    } catch (error) {
-      this.logger.error(error);
-    }
+  onModuleInit() {
+    this.subscribeToEthereumUpdates();
   }
 
   /**
@@ -82,28 +74,32 @@ export class WalletService implements OnModuleInit {
    */
   @OneAtTime()
   public async monitorGuardianBalance() {
+    const delegateAddress = this.address;
     const [balanceWei, latestNonce, pendingNonce] = await Promise.all([
-      this.getAccountBalance(),
-      this.provider.getTransactionCount(this.address, 'latest'),
-      this.provider.getTransactionCount(this.address, 'pending'),
+      this.getAccountBalance(delegateAddress),
+      this.provider.getTransactionCount(delegateAddress, 'latest'),
+      this.provider.getTransactionCount(delegateAddress, 'pending'),
     ]);
 
     const balanceETH = formatEther(balanceWei);
-    this.accountBalance.set(Number(balanceETH));
+    this.accountBalance.set({ delegateAddress }, Number(balanceETH));
     this.isBalanceSufficient(balanceWei);
 
     const gap = pendingNonce - latestNonce;
-    this.nonceLatest.labels({ network: 'ethereum' }).set(latestNonce);
-    this.noncePending.labels({ network: 'ethereum' }).set(pendingNonce);
-    this.nonceGap.labels({ network: 'ethereum' }).set(gap);
+    const labels = { network: 'ethereum', delegateAddress };
+    this.nonceLatest.labels(labels).set(latestNonce);
+    this.noncePending.labels(labels).set(pendingNonce);
+    this.nonceGap.labels(labels).set(gap);
   }
 
   /**
    * Retrieves the account balance in Wei.
    * @returns The account balance in Wei.
    */
-  public async getAccountBalance(): Promise<BigNumber> {
-    return await this.provider.getBalance(this.address);
+  public async getAccountBalance(
+    walletAddress = this.address,
+  ): Promise<BigNumber> {
+    return await this.provider.getBalance(walletAddress);
   }
 
   /**

@@ -13,6 +13,7 @@ import { DELEGATE_PRIVATE_KEYS, WALLET_PRIVATE_KEY } from './wallet.constants';
 import { WalletService } from './wallet.service';
 import {
   keccak256,
+  parseEther,
   recoverAddress,
   solidityKeccak256,
   solidityPack,
@@ -63,6 +64,56 @@ describe('WalletService', () => {
       walletService.subscribeToEthereumUpdates();
       expect(mockOn).toHaveBeenCalledTimes(1);
       expect(mockOn).toBeCalledWith('block', expect.any(Function));
+    });
+  });
+
+  describe('monitorGuardianBalance', () => {
+    it('records balance and nonce metrics for the selected delegate', async () => {
+      walletService.selectDelegateWallet(secondDelegateWallet.address);
+      jest.spyOn(provider, 'getBalance').mockResolvedValue(parseEther('1'));
+      jest
+        .spyOn(provider, 'getTransactionCount')
+        .mockImplementation(async (_address, blockTag) =>
+          blockTag === 'latest' ? 3 : 5,
+        );
+      const accountBalanceSet = jest.spyOn(
+        (walletService as any).accountBalance,
+        'set',
+      );
+      const nonceLatestLabels = jest
+        .spyOn((walletService as any).nonceLatest, 'labels')
+        .mockReturnValue({ set: jest.fn() });
+      const noncePendingLabels = jest
+        .spyOn((walletService as any).noncePending, 'labels')
+        .mockReturnValue({ set: jest.fn() });
+      const nonceGapLabels = jest
+        .spyOn((walletService as any).nonceGap, 'labels')
+        .mockReturnValue({ set: jest.fn() });
+
+      await walletService.monitorGuardianBalance();
+
+      expect(provider.getBalance).toHaveBeenCalledWith(
+        secondDelegateWallet.address,
+      );
+      expect(provider.getTransactionCount).toHaveBeenCalledWith(
+        secondDelegateWallet.address,
+        'latest',
+      );
+      expect(provider.getTransactionCount).toHaveBeenCalledWith(
+        secondDelegateWallet.address,
+        'pending',
+      );
+      expect(accountBalanceSet).toHaveBeenCalledWith(
+        { delegateAddress: secondDelegateWallet.address },
+        1,
+      );
+      const labels = {
+        network: 'ethereum',
+        delegateAddress: secondDelegateWallet.address,
+      };
+      expect(nonceLatestLabels).toHaveBeenCalledWith(labels);
+      expect(noncePendingLabels).toHaveBeenCalledWith(labels);
+      expect(nonceGapLabels).toHaveBeenCalledWith(labels);
     });
   });
 

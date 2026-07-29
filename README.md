@@ -7,6 +7,7 @@ The Lido Council Daemon monitors deposit contract keys and compares them to Lido
 - [Environment Variables](#environment-variables)
   - [Data Bus Transports](#data-bus-transports)
   - [Wallet Private Key](#wallet-private-key)
+  - [DSM v5 Delegation](#dsm-v5-delegation)
   - [Keys-API Configuration](#keys-api-configuration)
 - [Example ENV Config File](#example-env-config-file)
 - [Running the Application](#running-the-application)
@@ -22,9 +23,11 @@ The Lido Council Daemon monitors deposit contract keys and compares them to Lido
 Several environment variables must be set for the daemon to function properly. These variables include Data Bus Transports settings, wallet private key, and Keys-API configuration.
 
 ### Data Bus Transports
+
 You need to install one of the transports
 
 #### RabbitMQ
+
 ```env
 ...
 PUBSUB_SERVICE=rabbitmq
@@ -36,6 +39,7 @@ RABBITMQ_PASSCODE=<rabbitmq password>
 ```
 
 #### EVM Chain transport
+
 ```env
 ...
 PUBSUB_SERVICE=evm-chain
@@ -45,6 +49,9 @@ EVM_CHAIN_DATA_BUS_PROVIDER_URL=<evm chain node url>
 ...
 ```
 
+The EVM Chain transport sends transactions from the active wallet. It uses the
+legacy wallet with DSM v3/v4 and the active delegate wallet with DSM v5.
+
 ### Wallet Private Key
 
 ```env
@@ -53,7 +60,30 @@ WALLET_PRIVATE_KEY=<wallet private key>
 ...
 ```
 
-In production, the private key is required. If omitted, a random key will be generated, and the daemon will run in test mode. Ensure the account balance has enough ETH to send transactions. The daemon does not spend funds in regular mode, and transactions are sent only if a potential attack is detected. 1 ETH is sufficient.
+`WALLET_PRIVATE_KEY` is the guardian key for DSM v3/v4. Keep it configured
+during the migration. If it is omitted, the daemon generates a random key for
+test use.
+
+### DSM v5 Delegation
+
+```env
+DELEGATION_CONTRACT_ADDRESS=<delegation contract address>
+DELEGATE_PRIVATE_KEYS=<current delegate private key>,<planned delegate private key>
+```
+
+`DELEGATION_CONTRACT_ADDRESS` is the DSM guardian identity for DSM v5.
+`DELEGATE_PRIVATE_KEYS` contains the current and planned delegate keys. Do not
+add the owner key.
+
+For every DSM v5 block snapshot, the daemon reads the effective delegate from
+the delegation contract. It selects the matching key from
+`DELEGATE_PRIVATE_KEYS`. After a rotation becomes active, the daemon switches
+to the new key without a restart or config reload.
+
+The daemon stops the cycle if no configured key matches. It also stops if the
+delegate is revoked or the delegation contract is terminated. Each delegate
+account needs enough ETH on the execution layer. If the EVM Chain transport is
+enabled, it also needs funds on the Data Bus chain.
 
 ### Keys-API Configuration
 
@@ -108,6 +138,9 @@ RABBITMQ_PASSCODE=test
 # Make sure there are enough ETH on the balance to send a transaction to stop the protocol
 WALLET_PRIVATE_KEY=0x0000000000000000000000000000000000000000000000000000000000000001
 
+DELEGATE_PRIVATE_KEYS=0x0000000000000000000000000000000000000000000000000000000000000002,0x0000000000000000000000000000000000000000000000000000000000000003
+DELEGATION_CONTRACT_ADDRESS=0x0000000000000000000000000000000000000004
+
 KEYS_API_HOST=http://keys_api_service_api
 
 # Keys API
@@ -128,9 +161,11 @@ KEYS_API_DB_USER=test
 KEYS_API_DB_PASSWORD=test
 
 ```
+
 </details>
 
 ## Running the Application
+
 At this point, it is most convenient to run the application with docker-compose. Below is a configuration template for running the entire application:
 
 <details>
@@ -182,6 +217,8 @@ services:
       - LOG_FORMAT=${LOG_FORMAT}
       - RPC_URL=${RPC_URL}
       - WALLET_PRIVATE_KEY=${WALLET_PRIVATE_KEY}
+      - DELEGATE_PRIVATE_KEYS=${DELEGATE_PRIVATE_KEYS}
+      - DELEGATION_CONTRACT_ADDRESS=${DELEGATION_CONTRACT_ADDRESS}
       - KEYS_API_HOST=http://keys_api_service_api
       - KEYS_API_PORT=3001
       - PUBSUB_SERVICE=rabbitmq
@@ -194,6 +231,7 @@ services:
       - ./.volumes/cache/:/council/cache/
 
 ```
+
 </details>
 
 ### Run with Docker-Compose
@@ -205,6 +243,7 @@ docker-compose up -d
 ```
 
 Next, we can read the log:
+
 ```bash
 docker-compose logs -f
 ```
@@ -278,10 +317,11 @@ $ yarn start
 $ yarn start:dev
 ```
 
-
 ## Prometheus Metrics
 
 Prometheus metrics are exposed via HTTP `/metrics` endpoint.
+Wallet balance and nonce metrics use the `delegateAddress` label. The label
+changes when the effective DSM v5 delegate changes.
 
 ## Cache
 

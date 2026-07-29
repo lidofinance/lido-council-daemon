@@ -11,7 +11,9 @@ import {
   IsArray,
   ArrayMinSize,
   IsEthereumAddress,
-  Matches,
+  Validate,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
 } from 'class-validator';
 import { Injectable } from '@nestjs/common';
 import { Configuration, PubsubService, NonEmptyArray } from './configuration';
@@ -23,6 +25,24 @@ import { TransformToWei } from 'common/decorators/transform-to-wei';
 const RABBITMQ = 'rabbitmq';
 const KAFKA = 'kafka';
 const EVM_CHAIN = 'evm-chain';
+
+@ValidatorConstraint({ name: 'isEthereumPrivateKey', async: false })
+class IsEthereumPrivateKey implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    if (typeof value !== 'string') return false;
+
+    try {
+      new ethers.Wallet(value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  defaultMessage(): string {
+    return 'each value in DELEGATE_PRIVATE_KEYS must be a valid Ethereum private key';
+  }
+}
 
 @Injectable()
 @implementationOf(Configuration)
@@ -73,7 +93,7 @@ export class InMemoryConfiguration implements Configuration {
 
   @IsOptional()
   @IsArray()
-  @Matches(/^0x[0-9a-fA-F]{64}$/, { each: true })
+  @Validate(IsEthereumPrivateKey, [], { each: true })
   @Transform(({ value }) => {
     if (Array.isArray(value)) return value;
     if (!value) return [];

@@ -371,6 +371,17 @@ describe('ConfigLoaderService base spec', () => {
         expect.objectContaining({ property: 'DELEGATE_PRIVATE_KEYS' }),
       ]);
     });
+
+    test('should reject a zero private key', async () => {
+      const config = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+        DELEGATE_PRIVATE_KEYS: `0x${'0'.repeat(64)}`,
+      });
+
+      await expect(configLoaderService.loadSecrets(config)).rejects.toEqual([
+        expect.objectContaining({ property: 'DELEGATE_PRIVATE_KEYS' }),
+      ]);
+    });
   });
 
   describe('balance', () => {

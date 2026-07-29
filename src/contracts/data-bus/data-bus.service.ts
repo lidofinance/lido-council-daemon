@@ -13,7 +13,7 @@ import {
   METRIC_NONCE_GAP,
 } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { Counter, Gauge, Histogram, register } from 'prom-client';
+import { Counter, Gauge, Histogram } from 'prom-client';
 import {
   DATA_BUS_ADDRESS,
   DATA_BUS_BALANCE_UPDATE_BLOCK_RATE,
@@ -52,9 +52,6 @@ export class DataBusService {
   async initialize() {
     this.provider = this.dataBusProvider;
 
-    const guardianAddress = this.address;
-    register.setDefaultLabels({ guardianAddress });
-
     await this.monitorGuardianDataBusBalance();
     this.subscribeToEVMChainUpdates();
   }
@@ -80,31 +77,35 @@ export class DataBusService {
    */
   @OneAtTime()
   public async monitorGuardianDataBusBalance() {
+    const delegateAddress = this.address;
     const [balanceWei, latestNonce, pendingNonce, network] = await Promise.all([
-      this.getAccountBalance(),
-      this.provider.getTransactionCount(this.address, 'latest'),
-      this.provider.getTransactionCount(this.address, 'pending'),
+      this.getAccountBalance(delegateAddress),
+      this.provider.getTransactionCount(delegateAddress, 'latest'),
+      this.provider.getTransactionCount(delegateAddress, 'pending'),
       this.provider.getNetwork(),
     ]);
 
     const balanceETH = formatEther(balanceWei);
     const { chainId } = network;
-    this.accountBalance.set({ chainId }, Number(balanceETH));
+    this.accountBalance.set({ chainId, delegateAddress }, Number(balanceETH));
     this.isBalanceSufficient(balanceWei, chainId);
 
     const gap = pendingNonce - latestNonce;
-    this.nonceLatest.labels({ network: 'data-bus' }).set(latestNonce);
-    this.noncePending.labels({ network: 'data-bus' }).set(pendingNonce);
-    this.nonceGap.labels({ network: 'data-bus' }).set(gap);
+    const labels = { network: 'data-bus', delegateAddress };
+    this.nonceLatest.labels(labels).set(latestNonce);
+    this.noncePending.labels(labels).set(pendingNonce);
+    this.nonceGap.labels(labels).set(gap);
   }
 
   /**
    * Retrieves the account balance in Wei.
    * @returns The account balance in Wei.
    */
-  public async getAccountBalance(): Promise<BigNumber> {
+  public async getAccountBalance(
+    walletAddress = this.address,
+  ): Promise<BigNumber> {
     const provider = this.provider;
-    return await provider.getBalance(this.address);
+    return await provider.getBalance(walletAddress);
   }
 
   /**
