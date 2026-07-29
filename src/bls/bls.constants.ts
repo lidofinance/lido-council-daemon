@@ -23,8 +23,6 @@ export const GENESIS_FORK_VERSION_DEVNET = Version.fromJson('0x10000038');
 export const GENESIS_FORK_VERSION_DEVNET_PECTRA5 = Version.fromJson('0x10710240');
 export const GENESIS_FORK_VERSION_DEVNET_EPBS0 = Version.fromJson('0x10898744');
 export const GENESIS_FORK_VERSION_HOODI = Version.fromJson('0x10000910');
-// TODO: temporary solution
-export const GENESIS_FORK_VERSION_DEVNET = Version.fromJson('0x00000000');
 
 export const ZERO_HASH = Buffer.alloc(32, 0);
 
@@ -40,6 +38,4 @@ export const GENESIS_FORK_VERSION_BY_CHAIN_ID = {
   [PECTRA_5_DEVNET_CHAIN_ID]: GENESIS_FORK_VERSION_DEVNET_PECTRA5,
   [EPBS_DEVNET_0_CHAIN_ID]: GENESIS_FORK_VERSION_DEVNET_EPBS0,
   [CHAINS.Hoodi]: GENESIS_FORK_VERSION_HOODI,
-  // TODO: temporary solution
-  [32382]: GENESIS_FORK_VERSION_DEVNET,
 };
