@@ -429,6 +429,12 @@ describe('SecurityService', () => {
     const hash = hexZeroPad('0x1', 32);
     const blockHash = hexZeroPad('0x3', 32);
 
+    beforeEach(() => {
+      jest
+        .spyOn(walletService, 'selectDelegateWallet')
+        .mockImplementation(() => undefined);
+    });
+
     it('should route DSM v5 pause through DelegationContract.execute', async () => {
       const wait = jest.fn().mockResolvedValue(undefined);
       const execute = jest

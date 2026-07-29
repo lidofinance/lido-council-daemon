@@ -11,6 +11,7 @@ import {
   IsArray,
   ArrayMinSize,
   IsEthereumAddress,
+  Matches,
 } from 'class-validator';
 import { Injectable } from '@nestjs/common';
 import { Configuration, PubsubService, NonEmptyArray } from './configuration';
@@ -69,6 +70,16 @@ export class InMemoryConfiguration implements Configuration {
 
   @IsString()
   WALLET_PRIVATE_KEY_FILE = '';
+
+  @IsOptional()
+  @IsArray()
+  @Matches(/^0x[0-9a-fA-F]{64}$/, { each: true })
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) return value;
+    if (!value) return [];
+    return value.split(',').map((privateKey: string) => privateKey.trim());
+  })
+  DELEGATE_PRIVATE_KEYS: string[] = [];
 
   @IsString()
   KAFKA_CLIENT_ID = '';

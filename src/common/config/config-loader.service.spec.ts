@@ -340,6 +340,39 @@ describe('ConfigLoaderService base spec', () => {
     });
   });
 
+  describe('delegate private keys', () => {
+    const DEFAULTS_WITH_RABBIT = {
+      ...DEFAULTS,
+      RABBITMQ_PASSCODE: 'some-rabbit-passcode',
+    };
+    const privateKeys = [
+      '0x0000000000000000000000000000000000000000000000000000000000000001',
+      '0x0000000000000000000000000000000000000000000000000000000000000002',
+    ];
+
+    test('should parse comma-separated private keys', async () => {
+      const config = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+        DELEGATE_PRIVATE_KEYS: privateKeys.join(','),
+      });
+
+      await expect(configLoaderService.loadSecrets(config)).resolves.toEqual(
+        expect.objectContaining({ DELEGATE_PRIVATE_KEYS: privateKeys }),
+      );
+    });
+
+    test('should reject an invalid private key', async () => {
+      const config = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+        DELEGATE_PRIVATE_KEYS: 'invalid',
+      });
+
+      await expect(configLoaderService.loadSecrets(config)).rejects.toEqual([
+        expect.objectContaining({ property: 'DELEGATE_PRIVATE_KEYS' }),
+      ]);
+    });
+  });
+
   describe('balance', () => {
     const DEFAULTS_WITH_RABBIT = {
       ...DEFAULTS,

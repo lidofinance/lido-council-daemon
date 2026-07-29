@@ -22,6 +22,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Gauge, register } from 'prom-client';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import {
+  DELEGATE_PRIVATE_KEYS,
   WALLET_BALANCE_UPDATE_BLOCK_RATE,
   WALLET_PRIVATE_KEY,
 } from './wallet.constants';
@@ -44,6 +45,7 @@ export class WalletService implements OnModuleInit {
     @InjectMetric(METRIC_NONCE_GAP) private nonceGap: Gauge<string>,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     @Inject(WALLET_PRIVATE_KEY) private privateKey: string,
+    @Inject(DELEGATE_PRIVATE_KEYS) private delegatePrivateKeys: string[],
     private provider: SimpleFallbackJsonRpcBatchProvider,
     protected readonly config: Configuration,
   ) {}
@@ -147,7 +149,12 @@ export class WalletService implements OnModuleInit {
    * using a private key as a standard Externally Owned Account (EOA)
    */
   public get wallet(): Wallet {
-    if (this.cachedWallet) return this.cachedWallet;
+    if (this.activeWallet) return this.activeWallet;
+    return this.legacyWallet;
+  }
+
+  private get legacyWallet(): Wallet {
+    if (this.cachedLegacyWallet) return this.cachedLegacyWallet;
 
     if (!this.privateKey) {
       this.logger.warn(
@@ -157,11 +164,40 @@ export class WalletService implements OnModuleInit {
       this.privateKey = Wallet.createRandom().privateKey;
     }
 
-    this.cachedWallet = new Wallet(this.privateKey);
-    return this.cachedWallet;
+    this.cachedLegacyWallet = new Wallet(this.privateKey);
+    return this.cachedLegacyWallet;
   }
 
-  private cachedWallet: Wallet | null = null;
+  private activeWallet: Wallet | null = null;
+  private cachedLegacyWallet: Wallet | null = null;
+  private cachedDelegateWallets: Wallet[] | null = null;
+
+  public selectLegacyWallet(): void {
+    this.activeWallet = this.legacyWallet;
+  }
+
+  public selectDelegateWallet(delegateAddress: string): void {
+    const normalizedAddress = utils.getAddress(delegateAddress);
+    const wallet = this.delegateWallets.find(
+      (candidate) => candidate.address === normalizedAddress,
+    );
+
+    if (!wallet) {
+      throw new Error(
+        `No configured delegate private key matches active delegate ${normalizedAddress}`,
+      );
+    }
+
+    this.activeWallet = wallet;
+  }
+
+  private get delegateWallets(): Wallet[] {
+    if (this.cachedDelegateWallets) return this.cachedDelegateWallets;
+    this.cachedDelegateWallets = (this.delegatePrivateKeys ?? []).map(
+      (privateKey) => new Wallet(privateKey),
+    );
+    return this.cachedDelegateWallets;
+  }
 
   /**
    * Guardian wallet address

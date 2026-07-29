@@ -17,7 +17,6 @@ import { Counter, Gauge, Histogram, register } from 'prom-client';
 import {
   DATA_BUS_ADDRESS,
   DATA_BUS_BALANCE_UPDATE_BLOCK_RATE,
-  DATA_BUS_PRIVATE_KEY,
 } from './data-bus.constants';
 
 import { Configuration } from 'common/config';
@@ -26,10 +25,11 @@ import { MessageRequiredFields } from 'messages';
 import { DSMMessageSender } from './dsm-message-sender.client';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { DATA_BUS_PROVIDER_TOKEN } from 'provider/data-bus-provider.module';
+import { WalletService } from 'wallet';
 
 @Injectable()
 export class DataBusService {
-  private dsmMessageSender!: DSMMessageSender;
+  private readonly dsmMessageSenders = new Map<string, DSMMessageSender>();
   private provider!: SimpleFallbackJsonRpcBatchProvider;
   constructor(
     @InjectMetric(METRIC_DATA_BUS_ACCOUNT_BALANCE)
@@ -38,8 +38,8 @@ export class DataBusService {
     @InjectMetric(METRIC_NONCE_PENDING) private noncePending: Gauge<string>,
     @InjectMetric(METRIC_NONCE_GAP) private nonceGap: Gauge<string>,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-    @Inject(DATA_BUS_PRIVATE_KEY) private privateKey: string,
     @Inject(DATA_BUS_ADDRESS) private dataBusAddress: string,
+    private walletService: WalletService,
     protected readonly config: Configuration,
     @Inject(getToken(METRIC_DATA_BUS_RPC_REQUEST_DURATION))
     private rpcReqDurationMetric: Histogram<string>,
@@ -55,8 +55,6 @@ export class DataBusService {
     const guardianAddress = this.address;
     register.setDefaultLabels({ guardianAddress });
 
-    const dataBusClient = new DataBusClient(this.dataBusAddress, this.wallet);
-    this.dsmMessageSender = new DSMMessageSender(dataBusClient);
     await this.monitorGuardianDataBusBalance();
     this.subscribeToEVMChainUpdates();
   }
@@ -140,21 +138,20 @@ export class DataBusService {
    * using a private key as a standard Externally Owned Account (EOA)
    */
   private get wallet(): Wallet {
-    if (this.cachedWallet) return this.cachedWallet;
-
-    if (!this.privateKey) {
-      this.logger.warn(
-        'Private key is not provided, a random address will be generated for the test run',
-      );
-
-      this.privateKey = Wallet.createRandom().privateKey;
-    }
-
-    this.cachedWallet = new Wallet(this.privateKey, this.provider);
-    return this.cachedWallet;
+    return this.walletService.wallet.connect(this.provider);
   }
 
-  private cachedWallet: Wallet | null = null;
+  private get dsmMessageSender(): DSMMessageSender {
+    const wallet = this.wallet;
+    const cachedSender = this.dsmMessageSenders.get(wallet.address);
+    if (cachedSender) return cachedSender;
+
+    const dataBusClient = new DataBusClient(this.dataBusAddress, wallet);
+    const sender = new DSMMessageSender(dataBusClient);
+    this.dsmMessageSenders.set(wallet.address, sender);
+
+    return sender;
+  }
 
   /**
    * Guardian wallet address

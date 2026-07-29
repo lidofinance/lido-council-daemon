@@ -56,6 +56,7 @@ describe('DSM version E2E adapter', () => {
       { labels: jest.fn().mockReturnThis(), set: jest.fn() } as any,
       logger,
       process.env.WALLET_PRIVATE_KEY as string,
+      [process.env.WALLET_PRIVATE_KEY as string],
       provider,
       config,
     );

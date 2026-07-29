@@ -19,6 +19,7 @@ export interface Configuration {
   CHAIN_ID: number;
   WALLET_PRIVATE_KEY: string;
   WALLET_PRIVATE_KEY_FILE: string;
+  DELEGATE_PRIVATE_KEYS: string[];
   PUBSUB_SERVICE: PubsubService;
   KAFKA_CLIENT_ID: string;
   BROKER_TOPIC: string;

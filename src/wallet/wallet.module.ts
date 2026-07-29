@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, Configuration } from 'common/config';
-import { WALLET_PRIVATE_KEY } from './wallet.constants';
+import { DELEGATE_PRIVATE_KEYS, WALLET_PRIVATE_KEY } from './wallet.constants';
 import { WalletService } from './wallet.service';
 
 @Module({
@@ -11,6 +11,13 @@ import { WalletService } from './wallet.service';
       provide: WALLET_PRIVATE_KEY,
       useFactory: async (config: Configuration) => {
         return config.WALLET_PRIVATE_KEY;
+      },
+      inject: [Configuration],
+    },
+    {
+      provide: DELEGATE_PRIVATE_KEYS,
+      useFactory: async (config: Configuration) => {
+        return config.DELEGATE_PRIVATE_KEYS;
       },
       inject: [Configuration],
     },

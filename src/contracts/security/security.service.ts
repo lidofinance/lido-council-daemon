@@ -71,9 +71,10 @@ export class SecurityService {
     const contract = this.repositoryService.getCachedDSMContract();
     const dsmAddress = utils.getAddress(contract.address);
     const dsmVersion = (await this.version(blockTag)) as DsmVersion;
-    const delegateAddress = utils.getAddress(this.walletService.address);
 
     if (dsmVersion !== DSM_CONTRACT_VERSION_5) {
+      this.walletService.selectLegacyWallet();
+      const delegateAddress = utils.getAddress(this.walletService.address);
       const guardians = await this.getGuardians(blockTag);
       return {
         dsmAddress,
@@ -115,14 +116,12 @@ export class SecurityService {
     if (terminated) {
       throw new Error(`DelegationContract ${guardianAddress} is terminated`);
     }
-    if (
-      effectiveDelegate === constants.AddressZero ||
-      utils.getAddress(effectiveDelegate) !== delegateAddress
-    ) {
+    if (effectiveDelegate === constants.AddressZero) {
       throw new Error(
-        `DelegationContract delegate mismatch: expected ${delegateAddress}, received ${effectiveDelegate}`,
+        `DelegationContract ${guardianAddress} has no active delegate`,
       );
     }
+    const delegateAddress = utils.getAddress(effectiveDelegate);
     if (!supportsErc1271) {
       throw new Error(
         `DelegationContract ${guardianAddress} does not support ERC-1271`,
@@ -135,6 +134,8 @@ export class SecurityService {
         `DelegationContract ${guardianAddress} is not a DSM guardian`,
       );
     }
+
+    this.walletService.selectDelegateWallet(delegateAddress);
 
     return {
       dsmAddress,
@@ -170,6 +171,7 @@ export class SecurityService {
   public getDelegationContractWithSigner(
     context: GuardianExecutionContext,
   ): DelegationContractAbi {
+    this.selectWallet(context);
     const walletWithProvider = this.walletService.wallet.connect(this.provider);
     return DelegationContractAbi__factory.connect(
       context.guardianAddress,
@@ -241,6 +243,7 @@ export class SecurityService {
     context: GuardianExecutionContext,
   ): Promise<Signature> {
     const prefix = await this.getAttestMessagePrefix(blockHash);
+    this.selectWallet(context);
 
     return await this.walletService.signDepositData({
       prefix,
@@ -267,6 +270,7 @@ export class SecurityService {
     context: GuardianExecutionContext,
   ): Promise<Signature> {
     const prefix = await this.getPauseMessagePrefix(blockHash);
+    this.selectWallet(context);
 
     return await this.walletService.signPauseDataV3({
       prefix,
@@ -289,6 +293,7 @@ export class SecurityService {
   ): Promise<ContractReceipt> {
     this.logger.warn('Try to pause deposits', { pauseBlockNumber });
     this.pauseAttempts.inc();
+    this.selectWallet(context);
 
     const tx =
       context.mode === 'edf'
@@ -413,6 +418,7 @@ export class SecurityService {
     context: GuardianExecutionContext,
   ): Promise<Signature> {
     const prefix = await this.getUnvetMessagePrefix(blockHash);
+    this.selectWallet(context);
 
     return await this.walletService.signUnvetData({
       prefix,
@@ -456,6 +462,7 @@ export class SecurityService {
       blockNumber,
     });
     this.unvetAttempts.inc();
+    this.selectWallet(context);
 
     const tx =
       context.mode === 'edf'
@@ -522,6 +529,14 @@ export class SecurityService {
     return await delegationContract.execute(context.dsmAddress, calldata, {
       value: 0,
     });
+  }
+
+  private selectWallet(context: GuardianExecutionContext): void {
+    if (context.mode === 'edf') {
+      this.walletService.selectDelegateWallet(context.delegateAddress);
+      return;
+    }
+    this.walletService.selectLegacyWallet();
   }
 
   /**

@@ -9,7 +9,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { MockProviderModule } from 'provider';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { WalletModule } from 'wallet';
-import { WALLET_PRIVATE_KEY } from './wallet.constants';
+import { DELEGATE_PRIVATE_KEYS, WALLET_PRIVATE_KEY } from './wallet.constants';
 import { WalletService } from './wallet.service';
 import {
   keccak256,
@@ -22,6 +22,8 @@ const TEST_MODULE_ID = 1;
 
 describe('WalletService', () => {
   const wallet = Wallet.createRandom();
+  const firstDelegateWallet = Wallet.createRandom();
+  const secondDelegateWallet = Wallet.createRandom();
   let walletService: WalletService;
   let provider: SimpleFallbackJsonRpcBatchProvider;
   let loggerService: LoggerService;
@@ -38,6 +40,11 @@ describe('WalletService', () => {
     })
       .overrideProvider(WALLET_PRIVATE_KEY)
       .useValue(wallet.privateKey)
+      .overrideProvider(DELEGATE_PRIVATE_KEYS)
+      .useValue([
+        firstDelegateWallet.privateKey,
+        secondDelegateWallet.privateKey,
+      ])
       .compile();
 
     walletService = moduleRef.get(WalletService);
@@ -66,6 +73,33 @@ describe('WalletService', () => {
 
     it('should cache instance', async () => {
       expect(walletService.wallet).toBe(walletService.wallet);
+    });
+
+    it('should select a configured delegate wallet', () => {
+      walletService.selectDelegateWallet(secondDelegateWallet.address);
+      const messageHash = hexZeroPad('0x1', 32);
+
+      expect(walletService.wallet.address).toBe(secondDelegateWallet.address);
+      expect(
+        recoverAddress(messageHash, walletService.signMessage(messageHash)),
+      ).toBe(secondDelegateWallet.address);
+    });
+
+    it('should switch back to the legacy wallet', () => {
+      walletService.selectDelegateWallet(firstDelegateWallet.address);
+      walletService.selectLegacyWallet();
+
+      expect(walletService.wallet.address).toBe(wallet.address);
+    });
+
+    it('should reject an active delegate without a configured key', () => {
+      const unknownDelegate = Wallet.createRandom();
+
+      expect(() =>
+        walletService.selectDelegateWallet(unknownDelegate.address),
+      ).toThrow(
+        `No configured delegate private key matches active delegate ${unknownDelegate.address}`,
+      );
     });
   });
 
