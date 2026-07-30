@@ -203,6 +203,33 @@ describe('GuardianService', () => {
     });
   });
 
+  it.each([
+    ['legacy-eoa', 4],
+    ['edf', 5],
+  ] as const)('logs %s guardian mode', (mode, dsmVersion) => {
+    const context = {
+      delegateAddress: '0x0000000000000000000000000000000000000001',
+      dsmAddress: '0x0000000000000000000000000000000000000002',
+      dsmVersion,
+      guardianAddress: '0x0000000000000000000000000000000000000003',
+      guardianIndex: 0,
+      mode,
+    };
+
+    (guardianService as any).lastGuardianExecutionContext = context;
+    (guardianService as any).logGuardianExecutionMode();
+
+    expect(loggerService.log).toHaveBeenCalledWith(
+      `Guardian execution mode: ${mode}`,
+      {
+        delegateAddress: context.delegateAddress,
+        dsmAddress: context.dsmAddress,
+        dsmVersion,
+        guardianAddress: context.guardianAddress,
+      },
+    );
+  });
+
   it('should exit if the previous call is not completed', async () => {
     // OneAtTime test
     const getOperatorsAndModulesMock = jest

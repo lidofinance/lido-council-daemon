@@ -9,6 +9,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { DepositRegistryService } from 'contracts/deposits-registry';
 import { SecurityService } from 'contracts/security';
+import type { GuardianExecutionContext } from 'contracts/security';
 import { RepositoryService } from 'contracts/repository';
 import {
   GUARDIAN_DEPOSIT_JOB_DURATION_MS,
@@ -46,6 +47,7 @@ import { DsmDepositAllocationAdapterService } from './deposit-allocation';
 export class GuardianService implements OnModuleInit {
   protected lastProcessedStateMeta?: { blockHash: string; blockNumber: number };
   private lastPingBlock?: number;
+  private lastGuardianExecutionContext?: GuardianExecutionContext;
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER)
     private logger: LoggerService,
@@ -164,7 +166,10 @@ export class GuardianService implements OnModuleInit {
         blockNumber,
       });
 
-      if (!isNewBlock) return;
+      if (!isNewBlock) {
+        this.logGuardianExecutionMode();
+        return;
+      }
 
       const stakingModulesCount = stakingModules.length;
 
@@ -194,6 +199,9 @@ export class GuardianService implements OnModuleInit {
         lidoKeys,
       );
 
+      this.lastGuardianExecutionContext = blockData.guardianContext;
+      this.logGuardianExecutionMode();
+
       if (
         !blockData.alreadyPausedDeposits &&
         (blockData.hasFrontRunning || blockData.hasWrongWCType)
@@ -219,6 +227,18 @@ export class GuardianService implements OnModuleInit {
     } finally {
       this.logger.log('End of pause processing by Guardian');
     }
+  }
+
+  private logGuardianExecutionMode(): void {
+    const context = this.lastGuardianExecutionContext;
+    if (!context) return;
+
+    this.logger.log(`Guardian execution mode: ${context.mode}`, {
+      delegateAddress: context.delegateAddress,
+      dsmAddress: context.dsmAddress,
+      dsmVersion: context.dsmVersion,
+      guardianAddress: context.guardianAddress,
+    });
   }
 
   private async collectData(
