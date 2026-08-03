@@ -12,6 +12,7 @@ import {
   ArrayMinSize,
   IsEthereumAddress,
   Validate,
+  ValidationArguments,
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
@@ -39,8 +40,8 @@ class IsEthereumPrivateKey implements ValidatorConstraintInterface {
     }
   }
 
-  defaultMessage(): string {
-    return 'each value in DELEGATE_PRIVATE_KEYS must be a valid Ethereum private key';
+  defaultMessage(args?: ValidationArguments): string {
+    return `${args?.property ?? 'value'} must be a valid Ethereum private key`;
   }
 }
 
@@ -91,15 +92,24 @@ export class InMemoryConfiguration implements Configuration {
   @IsString()
   WALLET_PRIVATE_KEY_FILE = '';
 
-  @IsOptional()
-  @IsArray()
-  @Validate(IsEthereumPrivateKey, [], { each: true })
-  @Transform(({ value }) => {
-    if (Array.isArray(value)) return value;
-    if (!value) return [];
-    return value.split(',').map((privateKey: string) => privateKey.trim());
-  })
-  DELEGATE_PRIVATE_KEYS: string[] = [];
+  /**
+   * DSM v5 delegate keys: the current delegate and the planned next one, so a
+   * rotation needs no restart. Each key follows the WALLET_PRIVATE_KEY pattern:
+   * a plain env value or a `_FILE` path to a secret.
+   */
+  @ValidateIf((conf) => conf.DELEGATE_PRIVATE_KEY !== '')
+  @Validate(IsEthereumPrivateKey)
+  DELEGATE_PRIVATE_KEY = '';
+
+  @IsString()
+  DELEGATE_PRIVATE_KEY_FILE = '';
+
+  @ValidateIf((conf) => conf.DELEGATE_PRIVATE_KEY_2 !== '')
+  @Validate(IsEthereumPrivateKey)
+  DELEGATE_PRIVATE_KEY_2 = '';
+
+  @IsString()
+  DELEGATE_PRIVATE_KEY_2_FILE = '';
 
   @IsString()
   KAFKA_CLIENT_ID = '';

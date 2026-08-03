@@ -15,8 +15,8 @@ if (!process.env.KEYS_API_URL) {
 if (process.env.WALLET_PRIVATE_KEY === undefined) {
   process.env.WALLET_PRIVATE_KEY = Wallet.createRandom().privateKey;
 }
-if (process.env.DELEGATE_PRIVATE_KEYS === undefined) {
-  process.env.DELEGATE_PRIVATE_KEYS = process.env.WALLET_PRIVATE_KEY;
+if (process.env.DELEGATE_PRIVATE_KEY === undefined) {
+  process.env.DELEGATE_PRIVATE_KEY = process.env.WALLET_PRIVATE_KEY;
 }
 
 if (process.env.DELEGATION_CONTRACT_ADDRESS === undefined) {

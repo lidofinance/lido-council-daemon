@@ -17,7 +17,10 @@ import { WalletService } from './wallet.service';
     {
       provide: DELEGATE_PRIVATE_KEYS,
       useFactory: async (config: Configuration) => {
-        return config.DELEGATE_PRIVATE_KEYS;
+        return [
+          config.DELEGATE_PRIVATE_KEY,
+          config.DELEGATE_PRIVATE_KEY_2,
+        ].filter(Boolean);
       },
       inject: [Configuration],
     },

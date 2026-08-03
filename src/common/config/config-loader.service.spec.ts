@@ -350,36 +350,68 @@ describe('ConfigLoaderService base spec', () => {
       '0x0000000000000000000000000000000000000000000000000000000000000002',
     ];
 
-    test('should parse comma-separated private keys', async () => {
+    test('should accept the two named keys', async () => {
       const config = plainToClass(InMemoryConfiguration, {
         ...DEFAULTS_WITH_RABBIT,
-        DELEGATE_PRIVATE_KEYS: privateKeys.join(','),
+        DELEGATE_PRIVATE_KEY: privateKeys[0],
+        DELEGATE_PRIVATE_KEY_2: privateKeys[1],
       });
 
       await expect(configLoaderService.loadSecrets(config)).resolves.toEqual(
-        expect.objectContaining({ DELEGATE_PRIVATE_KEYS: privateKeys }),
+        expect.objectContaining({
+          DELEGATE_PRIVATE_KEY: privateKeys[0],
+          DELEGATE_PRIVATE_KEY_2: privateKeys[1],
+        }),
+      );
+    });
+
+    test('should accept only the first key', async () => {
+      const config = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+        DELEGATE_PRIVATE_KEY: privateKeys[0],
+      });
+
+      await expect(configLoaderService.loadSecrets(config)).resolves.toEqual(
+        expect.objectContaining({
+          DELEGATE_PRIVATE_KEY: privateKeys[0],
+          DELEGATE_PRIVATE_KEY_2: '',
+        }),
+      );
+    });
+
+    test('should read a key from the file specified by the _FILE variant', async () => {
+      const config = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+        DELEGATE_PRIVATE_KEY_FILE: 'some-path',
+      });
+      jest
+        .spyOn(configLoaderService, 'readFile')
+        .mockImplementation(async () => privateKeys[0]);
+
+      await expect(configLoaderService.loadSecrets(config)).resolves.toEqual(
+        expect.objectContaining({ DELEGATE_PRIVATE_KEY: privateKeys[0] }),
       );
     });
 
     test('should reject an invalid private key', async () => {
       const config = plainToClass(InMemoryConfiguration, {
         ...DEFAULTS_WITH_RABBIT,
-        DELEGATE_PRIVATE_KEYS: 'invalid',
+        DELEGATE_PRIVATE_KEY: 'invalid',
       });
 
       await expect(configLoaderService.loadSecrets(config)).rejects.toEqual([
-        expect.objectContaining({ property: 'DELEGATE_PRIVATE_KEYS' }),
+        expect.objectContaining({ property: 'DELEGATE_PRIVATE_KEY' }),
       ]);
     });
 
     test('should reject a zero private key', async () => {
       const config = plainToClass(InMemoryConfiguration, {
         ...DEFAULTS_WITH_RABBIT,
-        DELEGATE_PRIVATE_KEYS: `0x${'0'.repeat(64)}`,
+        DELEGATE_PRIVATE_KEY_2: `0x${'0'.repeat(64)}`,
       });
 
       await expect(configLoaderService.loadSecrets(config)).rejects.toEqual([
-        expect.objectContaining({ property: 'DELEGATE_PRIVATE_KEYS' }),
+        expect.objectContaining({ property: 'DELEGATE_PRIVATE_KEY_2' }),
       ]);
     });
   });
