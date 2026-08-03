@@ -822,7 +822,9 @@ describe('EDF Locator transition on a Hoodi fork', () => {
       );
 
       await (
-        await delegationContractWithOwner.assignDelegate(secondDelegate.address)
+        await delegationContractWithOwner.nominateDelegate(
+          secondDelegate.address,
+        )
       ).wait();
       const [, activeFrom] =
         await delegationContractWithOwner.getPendingDelegate();

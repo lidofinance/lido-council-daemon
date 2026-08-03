@@ -22,19 +22,6 @@
   },
   {
     "type": "function",
-    "name": "assignDelegate",
-    "inputs": [
-      {
-        "name": "delegate",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "execute",
     "inputs": [
       {
@@ -140,6 +127,19 @@
   },
   {
     "type": "function",
+    "name": "nominateDelegate",
+    "inputs": [
+      {
+        "name": "delegate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "owner",
     "inputs": [],
     "outputs": [
@@ -154,6 +154,13 @@
   {
     "type": "function",
     "name": "revokeDelegate",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revokeNomination",
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -218,9 +225,45 @@
   },
   {
     "type": "event",
+    "name": "InitialDelegateSet",
+    "inputs": [
+      {
+        "name": "newDelegate",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "NominationRevoked",
+    "inputs": [
+      {
+        "name": "revokedNomination",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Terminated",
     "inputs": [],
     "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "AlreadyDelegate",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AlreadyPendingDelegate",
+    "inputs": []
   },
   {
     "type": "error",
@@ -230,6 +273,11 @@
   {
     "type": "error",
     "name": "ContractTerminated",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoPendingDelegate",
     "inputs": []
   },
   {
@@ -245,11 +293,6 @@
   {
     "type": "error",
     "name": "OwnerCannotBeDelegate",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "TargetNotContract",
     "inputs": []
   },
   {
