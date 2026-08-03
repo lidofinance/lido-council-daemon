@@ -58,18 +58,44 @@ const OPERATOR_IDS = '0x0000000000000001';
 const VETTED_KEYS_BY_OPERATOR = '0x00000000000000000000000000000002';
 const ERC1271_MAGIC_VALUE = '0x1626ba7e';
 const ERC1271_INVALID_VALUE = '0xffffffff';
-const DATA_BUS_EVENT_NAMES = [
-  'MessageDepositV1',
-  'MessagePauseV3',
-  'MessageUnvetV1',
-  'MessagePingV1',
-];
-
 interface SignedMessages {
   deposit: { digest: string; signature: Signature };
   pause: { digest: string; signature: Signature };
   unvet: { digest: string; signature: Signature };
 }
+
+/**
+ * The signature layout is part of the event signature, so each layout hashes to
+ * its own topic and the two event sets coexist on the bus. v3/v4 publish the
+ * EIP-2098 compact pair, which is what `Signature { r, vs }` in those contracts
+ * takes; v5 publishes the 65-byte blob its guardian's ERC-1271 check accepts.
+ */
+const BUS_EVENTS_BY_DSM_VERSION: Record<
+  number,
+  Record<keyof SignedMessages, string>
+> = {
+  4: {
+    deposit: 'MessageDepositV1',
+    pause: 'MessagePauseV3',
+    unvet: 'MessageUnvetV1',
+  },
+  5: {
+    deposit: 'MessageDepositV2',
+    pause: 'MessagePauseV4',
+    unvet: 'MessageUnvetV2',
+  },
+};
+
+/**
+ * The signature bytes each message carries once it has been through the bus:
+ * the compact pair on v3/v4, the blob on v5. These assertions therefore run
+ * against what a relayer really reads, not against the in-memory signature the
+ * daemon still holds.
+ */
+type PublishedSignatures = Record<
+  keyof SignedMessages,
+  string | { r: string; vs: string }
+>;
 
 async function ensureLegacyGuardian(
   dsmAddress: string,
@@ -195,7 +221,7 @@ async function publishAllMessagesAndExpectSender(
   blockHash: string,
   messages: SignedMessages,
   expectedSender: string,
-): Promise<void> {
+): Promise<PublishedSignatures> {
   const fromBlock = (await testSetupProvider.getBlockNumber()) + 1;
 
   await guardianMessageService.sendDepositMessage({
@@ -207,6 +233,7 @@ async function publishAllMessagesAndExpectSender(
     guardianIndex: context.guardianIndex,
     signature: messages.deposit.signature,
     stakingModuleId: STAKING_MODULE_ID,
+    dsmVersion: context.dsmVersion,
   });
   await guardianMessageService.sendPauseMessageV3({
     blockNumber,
@@ -214,6 +241,7 @@ async function publishAllMessagesAndExpectSender(
     guardianAddress: context.guardianAddress,
     guardianIndex: context.guardianIndex,
     signature: messages.pause.signature,
+    dsmVersion: context.dsmVersion,
   });
   await guardianMessageService.sendUnvetMessage({
     nonce: NONCE,
@@ -225,6 +253,7 @@ async function publishAllMessagesAndExpectSender(
     operatorIds: OPERATOR_IDS,
     vettedKeysByOperator: VETTED_KEYS_BY_OPERATOR,
     signature: messages.unvet.signature,
+    dsmVersion: context.dsmVersion,
   });
   await guardianMessageService.sendMessageFromGuardian({
     type: MessageType.PING,
@@ -234,11 +263,34 @@ async function publishAllMessagesAndExpectSender(
     stakingModuleIds: [STAKING_MODULE_ID],
   });
 
+  const busEvents = BUS_EVENTS_BY_DSM_VERSION[context.dsmVersion];
+  if (!busEvents) {
+    throw new Error(`No bus events mapped for DSM v${context.dsmVersion}`);
+  }
+  const expectedNames = [
+    busEvents.deposit,
+    busEvents.pause,
+    busEvents.unvet,
+    'MessagePingV1',
+  ];
+
   const events = await dataBusClient.getAll(fromBlock);
-  expect(events.map(({ name }) => name)).toEqual(DATA_BUS_EVENT_NAMES);
+  expect(events.map(({ name }) => name)).toEqual(expectedNames);
   expect(
     events.map(({ guardianAddress }) => utils.getAddress(guardianAddress)),
-  ).toEqual(DATA_BUS_EVENT_NAMES.map(() => expectedSender));
+  ).toEqual(expectedNames.map(() => expectedSender));
+
+  const published = Object.fromEntries(
+    (Object.keys(busEvents) as Array<keyof SignedMessages>).map((key) => {
+      const event = events.find(({ name }) => name === busEvents[key]);
+      if (!event || !('signature' in event.data)) {
+        throw new Error(`No bus signature for the ${key} message`);
+      }
+      return [key, event.data.signature] as const;
+    }),
+  ) as PublishedSignatures;
+
+  return published;
 }
 
 function expectRecoveredSigner(
@@ -252,31 +304,55 @@ function expectRecoveredSigner(
   }
 }
 
-async function expectValidErc1271Signatures(
-  delegationContract: ReturnType<typeof DelegationContractAbi__factory.connect>,
-  messages: SignedMessages,
-): Promise<void> {
-  for (const message of Object.values(messages)) {
-    expect(
-      await delegationContract.isValidSignature(
-        message.digest,
-        utils.joinSignature(message.signature),
-      ),
-    ).toBe(ERC1271_MAGIC_VALUE);
-  }
+/**
+ * The bytes the signer produced, laid out as `r || s || v`. A plain
+ * concatenation of fields the daemon already holds — no derivation, so the
+ * contract stays the only thing deciding whether the layout is acceptable.
+ */
+function signerSignatureBytes(signature: Signature): string {
+  return utils.hexConcat([
+    signature.r,
+    signature.s,
+    utils.hexlify(signature.v),
+  ]);
 }
 
-async function expectInvalidErc1271Signatures(
+/**
+ * The EIP-2098 compact pair DSM v3/v4 take. The EDF DelegationContract is on
+ * OpenZeppelin 5.x and rejects this layout, so it is here only to prove that the
+ * rejection is about the layout and not about the delegate or the digest.
+ */
+function compactSignatureBytes(signature: Signature): string {
+  return utils.hexConcat([signature.r, signature._vs]);
+}
+
+async function expectErc1271Verdicts(
   delegationContract: ReturnType<typeof DelegationContractAbi__factory.connect>,
   messages: SignedMessages,
+  published: PublishedSignatures,
+  expectedVerdict: string,
 ): Promise<void> {
-  for (const message of Object.values(messages)) {
-    expect(
-      await delegationContract.isValidSignature(
-        message.digest,
-        utils.joinSignature(message.signature),
-      ),
-    ).toBe(ERC1271_INVALID_VALUE);
+  for (const key of Object.keys(messages) as Array<keyof SignedMessages>) {
+    const { digest, signature } = messages[key];
+
+    // What a relayer reads off a v5 message, forwarded untouched. The contract
+    // decides, and the bus must therefore publish a layout it accepts.
+    const relayed = published[key];
+    if (typeof relayed !== 'string') {
+      throw new Error(`Expected a v5 signature blob for the ${key} message`);
+    }
+    expect(utils.hexDataLength(relayed)).toBe(65);
+    expect(relayed).toBe(signerSignatureBytes(signature));
+    expect(await delegationContract.isValidSignature(digest, relayed)).toBe(
+      expectedVerdict,
+    );
+
+    // The same key and digest in the compact layout are always refused.
+    const compact = compactSignatureBytes(signature);
+    expect(utils.hexDataLength(compact)).toBe(64);
+    expect(await delegationContract.isValidSignature(digest, compact)).toBe(
+      ERC1271_INVALID_VALUE,
+    );
   }
 }
 
@@ -651,11 +727,7 @@ describe('EDF Locator transition on a Hoodi fork', () => {
         blockAfterEnact.hash,
       );
       expectRecoveredSigner(firstDelegateMessages, firstDelegate.address);
-      await expectValidErc1271Signatures(
-        delegationContract,
-        firstDelegateMessages,
-      );
-      await publishAllMessagesAndExpectSender(
+      const firstDelegatePublished = await publishAllMessagesAndExpectSender(
         guardianMessageService,
         dataBusClient,
         firstDelegateContext,
@@ -664,6 +736,12 @@ describe('EDF Locator transition on a Hoodi fork', () => {
         firstDelegateMessages,
         firstDelegate.address,
       );
+      await expectErc1271Verdicts(
+        delegationContract,
+        firstDelegateMessages,
+        firstDelegatePublished,
+        ERC1271_MAGIC_VALUE,
+      );
       await pauseDepositsAndExpectOnChain(
         securityService,
         firstDelegateContext,
@@ -671,6 +749,55 @@ describe('EDF Locator transition on a Hoodi fork', () => {
         firstDelegateMessages.pause.signature,
         firstDelegate.address,
       );
+      await ensureDepositsUnpaused(deployment.dsmAddress);
+
+      // The pull path: a relayer that holds no guardian seat forwards the
+      // published pause, so DSM v5 has to verify the signature instead of
+      // authorizing by `msg.sender`. Both attempts below forward bytes as they
+      // are; the contracts decide.
+      const relayer = Wallet.createRandom().connect(testSetupProvider);
+      await setBalance(relayer.address, 100);
+      const relayedDsm = SecurityV5Abi__factory.connect(
+        deployment.dsmAddress,
+        relayer,
+      );
+      expect(await relayedDsm.isGuardian(relayer.address)).toBe(false);
+
+      // The compact layout DSM v3/v4 use. DSM v5 forwards the blob to the
+      // guardian's ERC-1271 check, which is on OpenZeppelin 5.x and rejects it,
+      // so a relayer that published a v5 message in the old shape could not act.
+      // `callStatic` is used so ethers decodes the custom error through the DSM
+      // ABI; a sent transaction reverts the same way but reports only the raw
+      // selector `0x8baa579f` from the gas estimate.
+      await expect(
+        relayedDsm.callStatic.pauseDeposits(blockAfterEnact.number, {
+          guardian: deployment.delegationContractAddress,
+          signature: compactSignatureBytes(
+            firstDelegateMessages.pause.signature,
+          ),
+        }),
+      ).rejects.toThrow(/InvalidSignature/);
+      expect(await relayedDsm.isDepositsPaused()).toBe(false);
+
+      // What the bus published for this v5 message, forwarded untouched.
+      const relayedPauseSignature = firstDelegatePublished.pause;
+      if (typeof relayedPauseSignature !== 'string') {
+        throw new Error('Expected a v5 signature blob for the pause message');
+      }
+      const relayedReceipt = await (
+        await relayedDsm.pauseDeposits(blockAfterEnact.number, {
+          guardian: deployment.delegationContractAddress,
+          signature: relayedPauseSignature,
+        })
+      ).wait();
+
+      expect(relayedReceipt.from).toBe(relayer.address);
+      expect(await relayedDsm.isDepositsPaused()).toBe(true);
+      await expect(relayedDsm.queryFilter(
+        relayedDsm.filters.DepositsPaused(deployment.delegationContractAddress),
+        relayedReceipt.blockNumber,
+        relayedReceipt.blockNumber,
+      )).resolves.toHaveLength(1);
       await ensureDepositsUnpaused(deployment.dsmAddress);
 
       const delegationOwner = await delegationContract.owner();
@@ -723,15 +850,7 @@ describe('EDF Locator transition on a Hoodi fork', () => {
         blockAfterRotation.hash,
       );
       expectRecoveredSigner(secondDelegateMessages, secondDelegate.address);
-      await expectValidErc1271Signatures(
-        delegationContract,
-        secondDelegateMessages,
-      );
-      await expectInvalidErc1271Signatures(
-        delegationContract,
-        firstDelegateMessages,
-      );
-      await publishAllMessagesAndExpectSender(
+      const secondDelegatePublished = await publishAllMessagesAndExpectSender(
         guardianMessageService,
         dataBusClient,
         secondDelegateContext,
@@ -739,6 +858,19 @@ describe('EDF Locator transition on a Hoodi fork', () => {
         blockAfterRotation.hash,
         secondDelegateMessages,
         secondDelegate.address,
+      );
+      await expectErc1271Verdicts(
+        delegationContract,
+        secondDelegateMessages,
+        secondDelegatePublished,
+        ERC1271_MAGIC_VALUE,
+      );
+      // The rotated-out delegate's own signatures stop validating.
+      await expectErc1271Verdicts(
+        delegationContract,
+        firstDelegateMessages,
+        firstDelegatePublished,
+        ERC1271_INVALID_VALUE,
       );
       await pauseDepositsAndExpectOnChain(
         securityService,

@@ -160,6 +160,7 @@ describe('UnvettingService', () => {
         vettedKeysByOperator:
           '0x0000000000000000000000000000000000000000000000000000000000000002',
         signature: 'somesign',
+        dsmVersion: guardianContext.dsmVersion,
       });
     });
 
@@ -226,6 +227,7 @@ describe('UnvettingService', () => {
         vettedKeysByOperator:
           '0x0000000000000000000000000000000000000000000000000000000000000002',
         signature: 'somesign',
+        dsmVersion: guardianContext.dsmVersion,
       });
     });
   });

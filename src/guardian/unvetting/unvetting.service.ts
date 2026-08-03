@@ -127,6 +127,7 @@ export class UnvettingService {
       operatorIds,
       vettedKeysByOperator,
       signature,
+      dsmVersion: blockData.guardianContext.dsmVersion,
     });
   }
 

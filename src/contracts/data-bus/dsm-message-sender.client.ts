@@ -1,23 +1,28 @@
-import { formatBytes32String } from 'ethers/lib/utils';
+import { Signature } from '@ethersproject/bytes';
+import { formatBytes32String, hexConcat, hexlify } from 'ethers/lib/utils';
 import {
   MessageDeposit,
+  MessagePauseV3 as OGMessagePauseV3,
   MessageRequiredFields,
   MessageType,
   MessageUnvet,
-  MessagePauseV2 as OGMessagePauseV2,
-  MessagePauseV3 as OGMessagePauseV3,
 } from 'messages/interfaces';
 import { DataBusClient } from './data-bus.client';
 import { Mutex } from './utils';
 import {
   MessageDepositV1,
+  MessageDepositV2,
   MessagePauseV3,
-  MessagePauseV2,
-  MessageUnvetV1,
+  MessagePauseV4,
   MessagePingV1,
+  MessageUnvetV1,
+  MessageUnvetV2,
   MessagesNames,
   MessagesTypes,
 } from './data-bus.serializer';
+
+/** DSM v5 is the first version whose guardian verifies through ERC-1271. */
+const DSM_CONTRACT_VERSION_5 = 5;
 
 interface MessagePing {
   type: MessageType.PING;
@@ -29,6 +34,22 @@ interface MessagePing {
 type MessageMeta = {
   app: { version: string };
 };
+
+/** The EIP-2098 compact pair `Signature { bytes32 r; bytes32 vs; }` in v3/v4. */
+function compactSignature(signature: Signature) {
+  return { r: signature.r, vs: signature._vs };
+}
+
+/**
+ * 65 bytes, `r || s || v`. DSM v5 forwards `GuardianSignature.signature` to the
+ * guardian's ERC-1271 `isValidSignature` byte for byte, and that guardian is an
+ * EDF DelegationContract on OpenZeppelin 5.x, whose `ECDSA` accepts this layout
+ * only. Publishing the compact pair on a v5 message would leave every relayer
+ * holding bytes the DSM cannot accept.
+ */
+function signatureBlob(signature: Signature): string {
+  return hexConcat([signature.r, signature.s, hexlify(signature.v)]);
+}
 
 export class DSMMessageSender {
   private dataBusClient: DataBusClient;
@@ -50,11 +71,17 @@ export class DSMMessageSender {
     }
   }
 
+  private isDsmV5(message: MessageRequiredFields): boolean {
+    return message.dsmVersion === DSM_CONTRACT_VERSION_5;
+  }
+
   private transformMessage(
     message: MessageRequiredFields & MessageMeta,
   ): MessagesTypes {
     const { app: appMeta } = message;
     const app = { version: formatBytes32String(appMeta.version) };
+    const isV5 = this.isDsmV5(message);
+
     switch (message.type) {
       case MessageType.DEPOSIT: {
         const {
@@ -66,54 +93,49 @@ export class DSMMessageSender {
           signature,
         } = message as MessageDeposit & MessageMeta;
 
-        const output: MessageDepositV1 = {
+        const payload = {
           blockNumber,
           blockHash,
           depositRoot,
           stakingModuleId,
           nonce,
-          signature: {
-            r: signature.r,
-            vs: signature._vs, // Assuming vs is signature._vs
-          },
           app,
+        };
+
+        if (isV5) {
+          const output: MessageDepositV2 = {
+            ...payload,
+            signature: signatureBlob(signature),
+          };
+          return output;
+        }
+
+        const output: MessageDepositV1 = {
+          ...payload,
+          signature: compactSignature(signature),
         };
         return output;
       }
 
       case MessageType.PAUSE: {
-        if (this.isPauseMessageV2(message.type, message)) {
-          // MessagePauseV2
-          const { blockNumber, blockHash, signature, stakingModuleId } =
-            message as OGMessagePauseV2;
+        const { blockNumber, blockHash, signature } =
+          message as OGMessagePauseV3 & MessageMeta;
 
-          const output: MessagePauseV2 = {
-            blockNumber,
-            blockHash,
-            signature: {
-              r: signature.r,
-              vs: signature._vs,
-            },
-            stakingModuleId,
-            app,
-          };
-          return output;
-        } else {
-          // MessagePauseV3
-          const { blockNumber, blockHash, signature } =
-            message as OGMessagePauseV3 & MessageMeta;
+        const payload = { blockNumber, blockHash, app };
 
-          const output: MessagePauseV3 = {
-            blockNumber,
-            blockHash,
-            signature: {
-              r: signature.r,
-              vs: signature._vs,
-            },
-            app,
+        if (isV5) {
+          const output: MessagePauseV4 = {
+            ...payload,
+            signature: signatureBlob(signature),
           };
           return output;
         }
+
+        const output: MessagePauseV3 = {
+          ...payload,
+          signature: compactSignature(signature),
+        };
+        return output;
       }
 
       case MessageType.UNVET: {
@@ -127,18 +149,27 @@ export class DSMMessageSender {
           signature,
         } = message as MessageUnvet & MessageMeta;
 
-        const output: MessageUnvetV1 = {
+        const payload = {
           blockNumber,
           blockHash,
           stakingModuleId,
           nonce,
           operatorIds,
           vettedKeysByOperator,
-          signature: {
-            r: signature.r,
-            vs: signature._vs,
-          },
           app,
+        };
+
+        if (isV5) {
+          const output: MessageUnvetV2 = {
+            ...payload,
+            signature: signatureBlob(signature),
+          };
+          return output;
+        }
+
+        const output: MessageUnvetV1 = {
+          ...payload,
+          signature: compactSignature(signature),
         };
         return output;
       }
@@ -157,26 +188,28 @@ export class DSMMessageSender {
     }
   }
 
-  private isPauseMessageV2(
+  private getEventName(
     messageType: MessageType,
-    message,
-  ): message is OGMessagePauseV2 {
-    return (
-      messageType === MessageType.PAUSE && message.stakingModuleId !== undefined
-    );
-  }
-
-  private getEventName(messageType: MessageType, message): MessagesNames {
-    const eventNameMap: Record<MessageType, MessagesNames> = {
-      [MessageType.DEPOSIT]: 'MessageDepositV1',
-      [MessageType.PAUSE]: 'MessagePauseV3',
-      [MessageType.PING]: 'MessagePingV1',
-      [MessageType.UNVET]: 'MessageUnvetV1',
-    };
-
-    if (this.isPauseMessageV2(messageType, message)) {
-      return 'MessagePauseV2';
-    }
+    message: MessageRequiredFields,
+  ): MessagesNames {
+    // The signature layout is part of the event signature, so each layout hashes
+    // to its own topic. The v4 and v5 events therefore coexist on the bus and a
+    // consumer never mis-decodes one as the other.
+    const eventNameMap: Record<MessageType, MessagesNames> = this.isDsmV5(
+      message,
+    )
+      ? {
+          [MessageType.DEPOSIT]: 'MessageDepositV2',
+          [MessageType.PAUSE]: 'MessagePauseV4',
+          [MessageType.PING]: 'MessagePingV1',
+          [MessageType.UNVET]: 'MessageUnvetV2',
+        }
+      : {
+          [MessageType.DEPOSIT]: 'MessageDepositV1',
+          [MessageType.PAUSE]: 'MessagePauseV3',
+          [MessageType.PING]: 'MessagePingV1',
+          [MessageType.UNVET]: 'MessageUnvetV1',
+        };
 
     return eventNameMap[messageType];
   }

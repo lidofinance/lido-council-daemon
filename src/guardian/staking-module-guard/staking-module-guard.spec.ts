@@ -193,7 +193,10 @@ describe('StakingModuleGuardService', () => {
       depositRoot: '0x1',
       blockNumber: 1,
     };
-    const blockData = { ...currentContractState } as any;
+    const blockData = {
+      ...currentContractState,
+      guardianContext: { dsmVersion: 4 },
+    } as any;
 
     it('should check contracts state', async () => {
       const mockSendMessageFromGuardian = jest

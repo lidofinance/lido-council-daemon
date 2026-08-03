@@ -309,6 +309,7 @@ export class StakingModuleGuardService {
       blockNumber,
       blockHash,
       signature,
+      dsmVersion: blockData.guardianContext.dsmVersion,
     };
 
     this.logger.warn('Suspicious case detected, initialize the module pause', {
@@ -384,6 +385,7 @@ export class StakingModuleGuardService {
       guardianIndex,
       signature,
       stakingModuleId,
+      dsmVersion: blockData.guardianContext.dsmVersion,
     };
 
     this.logger.log('No problems found', {

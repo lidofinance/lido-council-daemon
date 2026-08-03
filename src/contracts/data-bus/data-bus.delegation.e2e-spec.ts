@@ -9,7 +9,7 @@ import * as dataBusFixture from '../../../test/fixtures/contracts/data-bus.bytec
 import * as delegationContractFixture from '../../../test/fixtures/contracts/delegation-contract.bytecode.json';
 import * as depositSecurityModuleV5Fixture from '../../../test/fixtures/contracts/deposit-security-module-v5.bytecode.json';
 import { DataBusClient } from './data-bus.client';
-import { MessageDepositV1 } from './data-bus.serializer';
+import { MessageDepositV2 } from './data-bus.serializer';
 import { TEST_SERVER_PORT } from './utils/constants';
 
 jest.setTimeout(40_000);
@@ -126,17 +126,14 @@ describe('DataBus delegation', () => {
     ]);
 
     const block = await provider.getBlock('latest');
-    const messageName = 'MessageDepositV1' as const;
-    const message: MessageDepositV1 = {
+    const messageName = 'MessageDepositV2' as const;
+    const message: MessageDepositV2 = {
       blockNumber: block.number,
       blockHash: block.hash,
       depositRoot: ethers.constants.HashZero,
       stakingModuleId: 1,
       nonce: 1,
-      signature: {
-        r: ethers.constants.HashZero,
-        vs: ethers.constants.HashZero,
-      },
+      signature: '0x' + '0'.repeat(130),
       app: { version: ethers.constants.HashZero },
     };
 
