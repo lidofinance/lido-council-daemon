@@ -12,11 +12,6 @@ import {
   DelegationContractAbi,
   DelegationContractAbi__factory,
   SecurityAbi,
-  SecurityV5Abi__factory,
-} from 'generated';
-import {
-  SecurityDeprecatedPauseAbi,
-  SecurityDeprecatedPauseAbi__factory,
 } from 'generated';
 import { RepositoryService } from 'contracts/repository';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
@@ -29,6 +24,7 @@ import {
   DSM_CONTRACT_VERSION_5,
   ERC1271_INTERFACE_ID,
 } from './security.constants';
+import { DsmTxDeps, getDsmStrategy } from './dsm-version.strategy';
 import { constants, utils } from 'ethers';
 
 export type DsmVersion = 3 | 4 | 5;
@@ -181,24 +177,6 @@ export class SecurityService {
   }
 
   /**
-   * Returns an instance of the deprecated v2 security contract with only the `pause` method.
-   */
-  public getContractWithSignerDeprecated(): SecurityDeprecatedPauseAbi {
-    const contract = this.repositoryService.getCachedDSMContract();
-
-    const oldContract = SecurityDeprecatedPauseAbi__factory.connect(
-      contract.address,
-      this.provider,
-    );
-
-    const wallet = this.walletService.wallet;
-    const walletWithProvider = wallet.connect(this.provider);
-    const contractWithSigner = oldContract.connect(walletWithProvider);
-
-    return contractWithSigner;
-  }
-
-  /**
    * Returns the guardian list from the contract
    */
   public async getGuardians(blockTag?: BlockTag): Promise<string[]> {
@@ -294,27 +272,12 @@ export class SecurityService {
   ): Promise<ContractReceipt> {
     this.logger.warn('Try to pause deposits', { pauseBlockNumber });
     this.pauseAttempts.inc();
-    this.selectWallet(context);
 
-    const tx =
-      context.mode === 'edf'
-        ? await this.executeDsmCall(
-            context,
-            SecurityV5Abi__factory.createInterface().encodeFunctionData(
-              'pauseDeposits',
-              [
-                pauseBlockNumber,
-                {
-                  guardian: constants.AddressZero,
-                  signature: '0x',
-                },
-              ],
-            ),
-          )
-        : await this.getContractWithSigner().pauseDeposits(pauseBlockNumber, {
-            r: signature.r,
-            vs: signature._vs,
-          });
+    const tx = await getDsmStrategy(context.dsmVersion).sendPause(
+      this.getTxDeps(context),
+      pauseBlockNumber,
+      signature,
+    );
 
     this.logger.warn('Pause transaction sent', {
       txHash: tx.hash,
@@ -327,71 +290,6 @@ export class SecurityService {
     this.logger.warn('Block confirmation received for the pause tx', {
       pauseBlockNumber,
       txHash: tx.hash,
-    });
-
-    return receipt;
-  }
-
-  /**
-   * Signs a message to pause deposits, including the pause prefix from the contract.
-   *
-   * @param blockNumber - The block number, included as part of the message for signing.
-   * @param blockHash - The block hash, used to fetch the pause prefix.
-   * @param stakingModuleId - The staking module ID, included as part of the message for signing.
-   * @returns Signature for pausing deposits.
-   */
-  public async signPauseDataV2(
-    blockNumber: number,
-    blockHash: string,
-    stakingModuleId: number,
-  ): Promise<Signature> {
-    const prefix = await this.getPauseMessagePrefix(blockHash);
-
-    return await this.walletService.signPauseDataV2({
-      prefix,
-      blockNumber,
-      stakingModuleId,
-    });
-  }
-
-  /**
-   * Sends a transaction to pause deposits
-   * @param blockNumber - the block number for which the message is signed
-   * @param stakingModuleId - target staking module id
-   * @param signature - message signature
-   */
-  @OneAtTime()
-  public async pauseDepositsV2(
-    blockNumber: number,
-    @OneAtTimeCallId stakingModuleId: number,
-    signature: Signature,
-  ): Promise<ContractReceipt> {
-    this.logger.warn('Try to pause deposits', { stakingModuleId, blockNumber });
-    this.pauseAttempts.inc();
-
-    const contract = this.getContractWithSignerDeprecated();
-
-    const { r, _vs: vs } = signature;
-    const tx = await contract.pauseDeposits(blockNumber, stakingModuleId, {
-      r,
-      vs,
-    });
-
-    this.logger.warn('Pause transaction sent', {
-      txHash: tx.hash,
-      blockNumber,
-      stakingModuleId,
-    });
-    this.logger.warn('Waiting for block confirmation', {
-      blockNumber,
-      stakingModuleId,
-    });
-
-    const receipt = await tx.wait();
-
-    this.logger.warn('Block confirmation received', {
-      blockNumber,
-      stakingModuleId,
     });
 
     return receipt;
@@ -463,40 +361,19 @@ export class SecurityService {
       blockNumber,
     });
     this.unvetAttempts.inc();
-    this.selectWallet(context);
 
-    const tx =
-      context.mode === 'edf'
-        ? await this.executeDsmCall(
-            context,
-            SecurityV5Abi__factory.createInterface().encodeFunctionData(
-              'unvetSigningKeys',
-              [
-                blockNumber,
-                blockHash,
-                stakingModuleId,
-                nonce,
-                operatorIds,
-                vettedKeysByOperator,
-                {
-                  guardian: constants.AddressZero,
-                  signature: '0x',
-                },
-              ],
-            ),
-          )
-        : await this.getContractWithSigner().unvetSigningKeys(
-            blockNumber,
-            blockHash,
-            stakingModuleId,
-            nonce,
-            operatorIds,
-            vettedKeysByOperator,
-            {
-              r: signature.r,
-              vs: signature._vs,
-            },
-          );
+    const tx = await getDsmStrategy(context.dsmVersion).sendUnvet(
+      this.getTxDeps(context),
+      {
+        nonce,
+        blockNumber,
+        blockHash,
+        stakingModuleId,
+        operatorIds,
+        vettedKeysByOperator,
+      },
+      signature,
+    );
 
     this.logger.warn('Unvet transaction sent', {
       txHash: tx.hash,
@@ -518,22 +395,21 @@ export class SecurityService {
     return receipt;
   }
 
-  public async executeDsmCall(
-    context: GuardianExecutionContext,
-    calldata: string,
-  ) {
-    if (context.mode !== 'edf') {
-      throw new Error('EDF execution requires an EDF guardian context');
-    }
-
-    const delegationContract = this.getDelegationContractWithSigner(context);
-    return await delegationContract.execute(context.dsmAddress, calldata, {
-      value: 0,
-    });
+  /**
+   * Selects the wallet the strategy signs with and hands it every dependency a
+   * direct DSM transaction can need. The strategy decides which one it uses.
+   */
+  private getTxDeps(context: GuardianExecutionContext): DsmTxDeps {
+    this.selectWallet(context);
+    return {
+      dsm: this.getContractWithSigner(),
+      delegation: () => this.getDelegationContractWithSigner(context),
+      dsmAddress: context.dsmAddress,
+    };
   }
 
   private selectWallet(context: GuardianExecutionContext): void {
-    if (context.mode === 'edf') {
+    if (getDsmStrategy(context.dsmVersion).signer === 'delegate') {
       this.walletService.selectDelegateWallet(context.delegateAddress);
       return;
     }

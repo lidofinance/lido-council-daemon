@@ -1,6 +1,4 @@
-import { defaultAbiCoder } from '@ethersproject/abi';
 import { Signature } from '@ethersproject/bytes';
-import { keccak256 } from '@ethersproject/keccak256';
 import { formatEther } from '@ethersproject/units';
 import { Wallet } from '@ethersproject/wallet';
 import { BigNumber } from '@ethersproject/bignumber';
@@ -28,13 +26,12 @@ import {
 } from './wallet.constants';
 import {
   SignDepositDataParams,
-  SignModulePauseDataParams,
   SignPauseDataParams,
   SignUnvetDataParams,
 } from './wallet.interfaces';
 import { Configuration } from 'common/config';
 import { utils } from 'ethers';
-import { DSM_CONTRACT_VERSION_5 } from 'contracts/security/security.constants';
+import { getDsmStrategy } from 'contracts/security/dsm-version.strategy';
 
 @Injectable()
 export class WalletService implements OnModuleInit {
@@ -212,201 +209,50 @@ export class WalletService implements OnModuleInit {
   }
 
   /**
-   * Signs a message to deposit buffered ethers
-   * @param signDepositDataParams - parameters for signing deposit message
-   * @param signDepositDataParams.prefix - unique prefix from the contract for this type of message
-   * @param signDepositDataParams.depositRoot - current deposit root from the deposit contract
-   * @param signDepositDataParams.nonce - current index of keys operations from the registry contract
-   * @param signDepositDataParams.blockNumber - current block number
-   * @param signDepositDataParams.blockHash - current block hash
-   * @param signDepositDataParams.stakingModuleId - target module id
+   * Signs a message to deposit buffered ethers. The digest layout is owned by
+   * the DSM version strategy.
+   * @param params - parameters for signing deposit message
    * @returns signature
    */
-  public async signDepositData({
-    prefix,
-    blockNumber,
-    blockHash,
-    depositRoot,
-    nonce,
-    stakingModuleId,
-    dsmVersion,
-    guardianAddress,
-  }: SignDepositDataParams): Promise<Signature> {
-    const encodedData =
-      dsmVersion === DSM_CONTRACT_VERSION_5
-        ? utils.solidityPack(
-            [
-              'bytes32',
-              'address',
-              'uint256',
-              'bytes32',
-              'bytes32',
-              'uint256',
-              'uint256',
-            ],
-            [
-              prefix,
-              this.requireGuardianAddress(guardianAddress),
-              blockNumber,
-              blockHash,
-              depositRoot,
-              stakingModuleId,
-              nonce,
-            ],
-          )
-        : defaultAbiCoder.encode(
-            ['bytes32', 'uint256', 'bytes32', 'bytes32', 'uint256', 'uint256'],
-            [
-              prefix,
-              blockNumber,
-              blockHash,
-              depositRoot,
-              stakingModuleId,
-              nonce,
-            ],
-          );
-
-    return this.signMessage(keccak256(encodedData));
-  }
-
-  /**
-   * Signs a message to pause deposits
-   * @param signPauseDataParams - parameters for signing pause message
-   * @param signPauseDataParams.prefix - unique prefix from the contract for this type of message
-   * @param signPauseDataParams.blockNumber - block number that is signed
-   * @returns signature
-   */
-  public async signPauseDataV3({
-    prefix,
-    blockNumber,
-    dsmVersion,
-    guardianAddress,
-  }: SignPauseDataParams): Promise<Signature> {
-    const encodedData =
-      dsmVersion === DSM_CONTRACT_VERSION_5
-        ? utils.solidityPack(
-            ['bytes32', 'address', 'uint256'],
-            [prefix, this.requireGuardianAddress(guardianAddress), blockNumber],
-          )
-        : defaultAbiCoder.encode(['bytes32', 'uint256'], [prefix, blockNumber]);
-
-    return this.signMessage(keccak256(encodedData));
-  }
-
-  /**
-   * Signs a message to pause deposits
-   * @param signPauseDataParams - parameters for signing pause message
-   * @param signPauseDataParams.prefix - unique prefix from the contract for this type of message
-   * @param signPauseDataParams.blockNumber - block number that is signed
-   * @param signPauseDataParams.stakingModuleId - target staking module id
-   * @returns signature
-   */
-  public async signPauseDataV2({
-    prefix,
-    blockNumber,
-    stakingModuleId,
-  }: SignModulePauseDataParams): Promise<Signature> {
-    const encodedData = defaultAbiCoder.encode(
-      ['bytes32', 'uint256', 'uint256'],
-      [prefix, blockNumber, stakingModuleId],
+  public async signDepositData(
+    params: SignDepositDataParams,
+  ): Promise<Signature> {
+    return this.signMessage(
+      getDsmStrategy(params.dsmVersion).depositDigest(params),
     );
-
-    const messageHash = keccak256(encodedData);
-    return this.signMessage(messageHash);
   }
 
   /**
-   * Sign a message to unvet signing keys
-   * @param signUnvetDataParams - parameters for signing unvet message
-   * @param signUnvetDataParams.prefix - unique prefix from the contract for this type of message
-   * @param signUnvetDataParams.blockNumber - block number that is signed
-   * @param signUnvetDataParams.blockHash - current block hash
-   * @param signUnvetDataParams.nonce - current index of keys operations from the registry contract
-   * @param signUnvetDataParams.stakingModuleId - target staking module id
-   * @param signDepositDataParams.operatorIds - list of operators ids for unvetting
-   * @param signDepositDataParams.vettedKeysByOperator - list of new values for vetted validators amount for operator
-   * @returns
+   * Signs a message to pause deposits. The digest layout is owned by the DSM
+   * version strategy.
+   * @param params - parameters for signing pause message
+   * @returns signature
    */
-  public async signUnvetData({
-    prefix,
-    blockNumber,
-    blockHash,
-    nonce,
-    stakingModuleId,
-    operatorIds,
-    vettedKeysByOperator,
-    dsmVersion,
-    guardianAddress,
-  }: SignUnvetDataParams): Promise<Signature> {
-    this.logger.debug?.('Sign data:', {
-      prefix,
-      blockNumber,
-      blockHash,
-      stakingModuleId,
-      nonce,
-      operatorIds,
-      vettedKeysByOperator,
-    });
+  public async signPauseDataV3(
+    params: SignPauseDataParams,
+  ): Promise<Signature> {
+    return this.signMessage(
+      getDsmStrategy(params.dsmVersion).pauseDigest(params),
+    );
+  }
 
-    const encodedData =
-      dsmVersion === DSM_CONTRACT_VERSION_5
-        ? utils.solidityPack(
-            [
-              'bytes32',
-              'address',
-              'uint256',
-              'bytes32',
-              'uint256',
-              'uint256',
-              'bytes',
-              'bytes',
-            ],
-            [
-              prefix,
-              this.requireGuardianAddress(guardianAddress),
-              blockNumber,
-              blockHash,
-              stakingModuleId,
-              nonce,
-              operatorIds,
-              vettedKeysByOperator,
-            ],
-          )
-        : utils.solidityPack(
-            [
-              'bytes32',
-              'uint256',
-              'bytes32',
-              'uint256',
-              'uint256',
-              'bytes',
-              'bytes',
-            ],
-            [
-              prefix,
-              blockNumber,
-              blockHash,
-              stakingModuleId,
-              nonce,
-              operatorIds,
-              vettedKeysByOperator,
-            ],
-          );
-    const messageHash = keccak256(encodedData);
+  /**
+   * Sign a message to unvet signing keys. The digest layout is owned by the DSM
+   * version strategy.
+   * @param params - parameters for signing unvet message
+   * @returns signature
+   */
+  public async signUnvetData(params: SignUnvetDataParams): Promise<Signature> {
+    this.logger.debug?.('Sign data:', { ...params });
+
+    const messageHash = getDsmStrategy(params.dsmVersion).unvetDigest(params);
 
     this.logger.debug?.('Message hash:', {
       messageHash,
-      blockHash,
-      blockNumber,
+      blockHash: params.blockHash,
+      blockNumber: params.blockNumber,
     });
 
     return this.signMessage(messageHash);
-  }
-
-  private requireGuardianAddress(guardianAddress?: string): string {
-    if (!guardianAddress || !utils.isAddress(guardianAddress)) {
-      throw new Error('A valid guardian address is required for DSM version 5');
-    }
-    return utils.getAddress(guardianAddress);
   }
 }

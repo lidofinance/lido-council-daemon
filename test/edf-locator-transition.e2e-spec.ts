@@ -793,11 +793,15 @@ describe('EDF Locator transition on a Hoodi fork', () => {
 
       expect(relayedReceipt.from).toBe(relayer.address);
       expect(await relayedDsm.isDepositsPaused()).toBe(true);
-      await expect(relayedDsm.queryFilter(
-        relayedDsm.filters.DepositsPaused(deployment.delegationContractAddress),
-        relayedReceipt.blockNumber,
-        relayedReceipt.blockNumber,
-      )).resolves.toHaveLength(1);
+      await expect(
+        relayedDsm.queryFilter(
+          relayedDsm.filters.DepositsPaused(
+            deployment.delegationContractAddress,
+          ),
+          relayedReceipt.blockNumber,
+          relayedReceipt.blockNumber,
+        ),
+      ).resolves.toHaveLength(1);
       await ensureDepositsUnpaused(deployment.dsmAddress);
 
       const delegationOwner = await delegationContract.owner();

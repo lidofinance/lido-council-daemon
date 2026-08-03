@@ -17,12 +17,6 @@ export interface SignPauseDataParams extends GuardianSigningIdentity {
   blockNumber: number;
 }
 
-export interface SignModulePauseDataParams {
-  prefix: string;
-  blockNumber: number;
-  stakingModuleId: number;
-}
-
 export interface SignUnvetDataParams extends GuardianSigningIdentity {
   prefix: string;
   blockNumber: number;

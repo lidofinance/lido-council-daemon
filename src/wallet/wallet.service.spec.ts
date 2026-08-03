@@ -292,27 +292,6 @@ describe('WalletService', () => {
     });
   });
 
-  describe('signPauseDataV2', () => {
-    it('should sign pause data', async () => {
-      const prefix = hexZeroPad('0x1', 32);
-      const blockNumber = 1;
-      const signature = await walletService.signPauseDataV2({
-        prefix,
-        blockNumber,
-        stakingModuleId: TEST_MODULE_ID,
-      });
-
-      expect(signature).toEqual(
-        expect.objectContaining({
-          _vs: expect.any(String),
-          r: expect.any(String),
-          s: expect.any(String),
-          v: expect.any(Number),
-        }),
-      );
-    });
-  });
-
   describe('signUnvetData', () => {
     it('should return valid signature', async () => {
       const UNVET_MESSAGE_PREFIX = createUnvetMessagePrefix(
