@@ -30,7 +30,7 @@ describe('SecurityService', () => {
   const blockTag = { blockHash: hexZeroPad('0x4', 32) };
   const legacyContext: GuardianExecutionContext = {
     dsmAddress: address1,
-    dsmVersion: 3,
+    dsmVersion: 4,
     delegateAddress: address1,
     guardianAddress: address1,
     guardianIndex: 0,
@@ -139,11 +139,12 @@ describe('SecurityService', () => {
       return VERSION;
     };
 
-    it('should allow DSM v3', async () => {
-      const VERSION = mockContractVersion(3);
+    it('should reject DSM v3', async () => {
+      mockContractVersion(3);
 
-      await expect(securityService.version(blockTag)).resolves.toBe(3);
-      expect(VERSION).toHaveBeenCalledWith({ blockTag });
+      await expect(securityService.version(blockTag)).rejects.toThrow(
+        'Unsupported DSM contract version found: 3',
+      );
     });
 
     it('should allow DSM v4', async () => {
@@ -171,7 +172,7 @@ describe('SecurityService', () => {
         expect.objectContaining({
           dsmContractAddress: address1,
           blockTag,
-          supportedVersions: [3, 4, 5],
+          supportedVersions: [4, 5],
         }),
       );
     });
@@ -215,7 +216,7 @@ describe('SecurityService', () => {
         blockNumber,
         blockHash,
         stakingModuleId: TEST_MODULE_ID,
-        dsmVersion: 3,
+        dsmVersion: 4,
         guardianAddress: address1,
       });
       expect(signature).toEqual(
@@ -254,7 +255,7 @@ describe('SecurityService', () => {
         blockNumber: 1,
         prefix:
           '0x0000000000000000000000000000000000000000000000000000000000000002',
-        dsmVersion: 3,
+        dsmVersion: 4,
         guardianAddress: address1,
       });
       expect(signature).toEqual(
@@ -456,7 +457,7 @@ describe('SecurityService', () => {
         vettedKeysByOperator,
         prefix:
           '0x0000000000000000000000000000000000000000000000000000000000000002',
-        dsmVersion: 3,
+        dsmVersion: 4,
         guardianAddress: address1,
       });
       expect(signature).toEqual(

@@ -41,7 +41,6 @@ import { METRIC_JOB_DURATION } from 'common/prometheus';
 import { Histogram } from 'prom-client';
 import { DeepReadonly } from 'common/ts-utils';
 import { buildModuleWc } from './withdrawal-credentials';
-import { DsmDepositAllocationAdapterService } from './deposit-allocation';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -71,7 +70,6 @@ export class GuardianService implements OnModuleInit {
     private unvettingService: UnvettingService,
 
     private stakingRouterService: StakingRouterService,
-    private depositAllocationAdapter: DsmDepositAllocationAdapterService,
 
     @InjectMetric(METRIC_JOB_DURATION)
     private jobDurationMetric: Histogram<string>,
@@ -378,21 +376,8 @@ export class GuardianService implements OnModuleInit {
     stakingModulesData: StakingModuleData[],
     blockData: BlockData,
   ) {
-    const modulesWithAllocationState = await Promise.all(
-      stakingModulesData.map(async (stakingModuleData) => ({
-        stakingModuleData,
-        isDepositBlockedByAllocation:
-          await this.depositAllocationAdapter.isDepositBlockedByAllocation(
-            stakingModuleData,
-            blockData.blockHash,
-          ),
-      })),
-    );
-
     await Promise.all(
-      modulesWithAllocationState.map(async (moduleWithAllocationState) => {
-        const { stakingModuleData, isDepositBlockedByAllocation } =
-          moduleWithAllocationState;
+      stakingModulesData.map(async (stakingModuleData) => {
         this.guardianMetricsService.collectMetrics(
           stakingModuleData,
           blockData,
@@ -405,7 +390,6 @@ export class GuardianService implements OnModuleInit {
             blockData.hasWrongWCType,
             blockData.alreadyPausedDeposits,
             stakingModuleData.stakingModuleId,
-            isDepositBlockedByAllocation,
           )
         ) {
           return;
@@ -425,7 +409,6 @@ export class GuardianService implements OnModuleInit {
     hasWrongWCType: boolean,
     alreadyPausedDeposits: boolean,
     stakingModuleId: number,
-    isDepositBlockedByAllocation: boolean,
   ): boolean {
     const keysForUnvetting = stakingModuleData.invalidKeys.concat(
       stakingModuleData.frontRunKeys,
@@ -440,8 +423,7 @@ export class GuardianService implements OnModuleInit {
       alreadyPausedDeposits ||
       hasFrontRunning ||
       hasWrongWCType ||
-      stakingModuleData.isModuleDepositsPaused ||
-      isDepositBlockedByAllocation;
+      stakingModuleData.isModuleDepositsPaused;
 
     if (ignoreDeposits) {
       this.logger.warn('Deposits are not available', {
@@ -451,7 +433,6 @@ export class GuardianService implements OnModuleInit {
         hasFrontRunning,
         hasWrongWCType,
         isModuleDepositsPaused: stakingModuleData.isModuleDepositsPaused,
-        isDepositBlockedByAllocation,
         stakingModuleId,
       });
     }

@@ -27,7 +27,7 @@ describe('UnvettingService', () => {
   };
   const guardianContext = {
     dsmAddress: '0x0000000000000000000000000000000000000001',
-    dsmVersion: 3,
+    dsmVersion: 4,
     delegateAddress: '0x0000000000000000000000000000000000000001',
     guardianAddress: '0x0000000000000000000000000000000000000001',
     guardianIndex: 1,

@@ -27,7 +27,7 @@ import {
 import { DsmTxDeps, getDsmStrategy } from './dsm-version.strategy';
 import { constants, utils } from 'ethers';
 
-export type DsmVersion = 3 | 4 | 5;
+export type DsmVersion = 4 | 5;
 
 export interface GuardianExecutionContext {
   dsmAddress: string;

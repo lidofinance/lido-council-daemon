@@ -116,13 +116,11 @@ describe('GuardianService', () => {
       hasFrontRunning = false,
       hasWrongWCType = false,
       alreadyPausedDeposits = false,
-      isDepositBlockedByAllocation = false,
     }: {
       moduleData?: Record<string, unknown>;
       hasFrontRunning?: boolean;
       hasWrongWCType?: boolean;
       alreadyPausedDeposits?: boolean;
-      isDepositBlockedByAllocation?: boolean;
     } = {}) =>
       (guardianService as any).ignoreDeposits(
         makeModuleData(moduleData),
@@ -130,17 +128,11 @@ describe('GuardianService', () => {
         hasWrongWCType,
         alreadyPausedDeposits,
         1,
-        isDepositBlockedByAllocation,
       );
 
     it('should not ignore deposits when no issues found', () => {
       const result = ignoreDeposits();
       expect(result).toBe(false);
-    });
-
-    it('should ignore deposits when DSM allocation policy blocks module', () => {
-      const result = ignoreDeposits({ isDepositBlockedByAllocation: true });
-      expect(result).toBe(true);
     });
 
     it('should ignore deposits when module is paused', () => {

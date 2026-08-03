@@ -23,7 +23,7 @@ import { DSM_CONTRACT_VERSION_5 } from './security.constants';
  * pause/unvet transaction reaches the DSM. Every other module asks the strategy
  * instead of branching on the version itself.
  *
- * v3/v4 — the guardian is the signing EOA. Digests bind no guardian address,
+ * v4 — the guardian is the signing EOA. Digests bind no guardian address,
  * the DSM takes the EIP-2098 compact pair as `Signature { r, vs }`, and the
  * daemon calls the DSM directly from the legacy wallet.
  *
@@ -37,7 +37,7 @@ import { DSM_CONTRACT_VERSION_5 } from './security.constants';
  * argument, so an empty one is sent.
  */
 
-/** The compact pair on v3/v4, the 65-byte blob on v5. */
+/** The compact pair on v4, the 65-byte blob on v5. */
 export type WireSignature = { r: string; vs: string } | string;
 
 export interface DsmTxDeps {
@@ -103,7 +103,7 @@ const EMPTY_GUARDIAN_SIGNATURE = {
   signature: '0x',
 };
 
-const legacyStrategy: DsmVersionStrategy = {
+const v4Strategy: DsmVersionStrategy = {
   signer: 'legacy',
 
   depositDigest({
@@ -319,5 +319,5 @@ const v5Strategy: DsmVersionStrategy = {
 
 /** The single version switch. Everything else asks the returned strategy. */
 export function getDsmStrategy(dsmVersion?: number): DsmVersionStrategy {
-  return dsmVersion === DSM_CONTRACT_VERSION_5 ? v5Strategy : legacyStrategy;
+  return dsmVersion === DSM_CONTRACT_VERSION_5 ? v5Strategy : v4Strategy;
 }

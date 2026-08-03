@@ -10,7 +10,7 @@ const BigNumberSchema = z
 
 /**
  * The EIP-2098 compact pair, which is what `Signature { bytes32 r; bytes32 vs; }`
- * in DSM v3/v4 takes. Carried by the v1/v3 events.
+ * in DSM v4 takes. Carried by the v1/v3 events.
  */
 const SignatureSchema = z.object({
   r: z.string(),

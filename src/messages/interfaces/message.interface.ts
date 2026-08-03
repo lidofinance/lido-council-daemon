@@ -6,7 +6,7 @@ export interface MessageRequiredFields {
   guardianIndex: number;
   /**
    * Version of the DSM this message is signed for. It selects the event, because
-   * v3/v4 take the compact `(r, vs)` pair while v5 takes the 65-byte blob its
+   * v4 takes the compact `(r, vs)` pair while v5 takes the 65-byte blob its
    * guardian's ERC-1271 check accepts. Consumers read the same fact from
    * `DepositSecurityModule.VERSION()`.
    */

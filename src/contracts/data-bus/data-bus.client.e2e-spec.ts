@@ -23,7 +23,7 @@ jest.setTimeout(40_000);
 export const randomInt = (min: number, max: number) =>
   Math.floor(Math.random() * (max - min + 1)) + min;
 
-/** The compact pair DSM v3/v4 take. */
+/** The compact pair DSM v4 takes. */
 const COMPACT_SIGNATURE = {
   r: '0x' + '0'.repeat(64),
   vs: '0x' + '0'.repeat(64),
@@ -301,7 +301,7 @@ describe('DataBus', () => {
     expect(event).toEqual(allEvents[0]);
   });
 
-  // The DSM v3/v4 events stay live while those contracts are supported.
+  // The DSM v4 events stay live while that contract is supported.
 
   it('should measure gas for the v4 deposit message', async () => {
     const messageName = 'MessageDepositV1' as const;

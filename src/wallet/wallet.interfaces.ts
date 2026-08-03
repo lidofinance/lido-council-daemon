@@ -1,5 +1,5 @@
 export interface GuardianSigningIdentity {
-  dsmVersion?: 3 | 4 | 5;
+  dsmVersion?: 4 | 5;
   guardianAddress?: string;
 }
 
