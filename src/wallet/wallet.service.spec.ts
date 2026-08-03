@@ -253,11 +253,11 @@ describe('WalletService', () => {
     });
   });
 
-  describe('signPauseDataV3', () => {
+  describe('signPauseData', () => {
     it('should sign pause data for DSM v4 without contract version', async () => {
       const prefix = hexZeroPad('0x1', 32);
       const blockNumber = 1;
-      const signature = await walletService.signPauseDataV3({
+      const signature = await walletService.signPauseData({
         prefix,
         blockNumber,
       });
@@ -275,7 +275,7 @@ describe('WalletService', () => {
     it('should sign the guardian-bound DSM v5 pause digest', async () => {
       const prefix = hexZeroPad('0x1', 32);
       const guardianAddress = Wallet.createRandom().address;
-      const signature = await walletService.signPauseDataV3({
+      const signature = await walletService.signPauseData({
         prefix,
         blockNumber: 10,
         dsmVersion: 5,

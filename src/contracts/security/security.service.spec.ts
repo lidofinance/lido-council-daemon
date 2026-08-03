@@ -229,7 +229,7 @@ describe('SecurityService', () => {
     });
   });
 
-  describe('signPauseDataV3', () => {
+  describe('signPauseData', () => {
     it('should add prefix', async () => {
       const blockNumber = 1;
       const blockHash = '0x';
@@ -241,9 +241,9 @@ describe('SecurityService', () => {
         .spyOn(securityService, 'version')
         .mockImplementation(async () => 3);
 
-      const signPauseData = jest.spyOn(walletService, 'signPauseDataV3');
+      const signPauseData = jest.spyOn(walletService, 'signPauseData');
 
-      const signature = await securityService.signPauseDataV3(
+      const signature = await securityService.signPauseData(
         blockNumber,
         blockHash,
         legacyContext,
@@ -268,7 +268,7 @@ describe('SecurityService', () => {
     });
   });
 
-  describe('pauseDepositsV3', () => {
+  describe('pauseDeposits', () => {
     const hash = hexZeroPad('0x1', 32);
     const blockNumber = 10;
     const blockHash = '0x';
@@ -297,7 +297,7 @@ describe('SecurityService', () => {
           () => ({ pauseDeposits: mockPauseDeposits } as any),
         );
 
-      signature = await securityService.signPauseDataV3(
+      signature = await securityService.signPauseData(
         blockNumber,
         blockHash,
         legacyContext,
@@ -305,7 +305,7 @@ describe('SecurityService', () => {
     });
 
     it('should call contract method', async () => {
-      await securityService.pauseDepositsV3(
+      await securityService.pauseDeposits(
         blockNumber,
         signature,
         legacyContext,
@@ -319,8 +319,8 @@ describe('SecurityService', () => {
 
     it('should exit if the previous call is not completed', async () => {
       await Promise.all([
-        securityService.pauseDepositsV3(blockNumber, signature, legacyContext),
-        securityService.pauseDepositsV3(blockNumber, signature, legacyContext),
+        securityService.pauseDeposits(blockNumber, signature, legacyContext),
+        securityService.pauseDeposits(blockNumber, signature, legacyContext),
       ]);
 
       expect(mockPauseDeposits).toHaveBeenCalledTimes(1);
@@ -349,7 +349,7 @@ describe('SecurityService', () => {
         .spyOn(securityService, 'getDelegationContractWithSigner')
         .mockReturnValue({ execute } as any);
 
-      await securityService.pauseDepositsV3(
+      await securityService.pauseDeposits(
         10,
         walletService.signMessage(hash),
         edfContext,

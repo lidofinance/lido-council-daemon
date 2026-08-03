@@ -243,7 +243,7 @@ export class SecurityService {
    * @param blockHash - The block hash, used to fetch the pause prefix.
    * @returns Signature for pausing deposits.
    */
-  public async signPauseDataV3(
+  public async signPauseData(
     blockNumber: number,
     blockHash: string,
     context: GuardianExecutionContext,
@@ -251,7 +251,7 @@ export class SecurityService {
     const prefix = await this.getPauseMessagePrefix(blockHash);
     this.selectWallet(context);
 
-    return await this.walletService.signPauseDataV3({
+    return await this.walletService.signPauseData({
       prefix,
       blockNumber,
       dsmVersion: context.dsmVersion,
@@ -265,7 +265,7 @@ export class SecurityService {
    * @param signature - message signature
    */
   @OneAtTime()
-  public async pauseDepositsV3(
+  public async pauseDeposits(
     pauseBlockNumber: number,
     signature: Signature,
     context: GuardianExecutionContext,

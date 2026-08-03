@@ -163,7 +163,7 @@ async function signAllMessages(
       STAKING_MODULE_ID,
       context,
     );
-    const pauseSignature = await securityService.signPauseDataV3(
+    const pauseSignature = await securityService.signPauseData(
       blockNumber,
       blockHash,
       context,
@@ -202,7 +202,7 @@ async function pauseDepositsAndExpectOnChain(
   );
   expect(await dsm.isDepositsPaused()).toBe(false);
 
-  const receipt = await securityService.pauseDepositsV3(
+  const receipt = await securityService.pauseDeposits(
     blockNumber,
     signature,
     context,
@@ -235,7 +235,7 @@ async function publishAllMessagesAndExpectSender(
     stakingModuleId: STAKING_MODULE_ID,
     dsmVersion: context.dsmVersion,
   });
-  await guardianMessageService.sendPauseMessageV3({
+  await guardianMessageService.sendPauseMessage({
     blockNumber,
     blockHash,
     guardianAddress: context.guardianAddress,

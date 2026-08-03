@@ -293,11 +293,11 @@ export class StakingModuleGuardService {
     return intersections;
   }
 
-  public async handlePauseV3(blockData: BlockData): Promise<void> {
+  public async handlePause(blockData: BlockData): Promise<void> {
     const { blockNumber, blockHash, guardianAddress, guardianIndex } =
       blockData;
 
-    const signature = await this.securityService.signPauseDataV3(
+    const signature = await this.securityService.signPauseData(
       blockNumber,
       blockHash,
       blockData.guardianContext,
@@ -320,13 +320,13 @@ export class StakingModuleGuardService {
 
     // Call pause without waiting for completion
     this.securityService
-      .pauseDepositsV3(blockNumber, signature, blockData.guardianContext)
+      .pauseDeposits(blockNumber, signature, blockData.guardianContext)
       .catch((error) => {
         this.logger.error('Pause trx failed', { blockNumber });
         this.logger.error(error);
       });
 
-    await this.guardianMessageService.sendPauseMessageV3(pauseMessage);
+    await this.guardianMessageService.sendPauseMessage(pauseMessage);
   }
 
   /**

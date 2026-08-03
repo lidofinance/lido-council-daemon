@@ -38,7 +38,7 @@ export interface MessageApp {
   name?: string;
 }
 
-export interface MessagePauseV3 extends MessageRequiredFields {
+export interface MessagePause extends MessageRequiredFields {
   blockNumber: number;
   blockHash: string;
   signature: Signature;

@@ -110,7 +110,7 @@ describe('Front-run e2e tests', () => {
       .spyOn(guardianMessageService, 'pingMessageBroker')
       .mockImplementation(() => Promise.resolve());
     sendPauseMessage = jest
-      .spyOn(guardianMessageService, 'sendPauseMessageV3')
+      .spyOn(guardianMessageService, 'sendPauseMessage')
       .mockImplementation(() => Promise.resolve());
     sendUnvetMessage = jest
       .spyOn(guardianMessageService, 'sendUnvetMessage')
@@ -792,7 +792,7 @@ describe('Front-run e2e tests', () => {
   // Wrong WC type: a used Lido key whose earliest deposit carries a VALID Lido WC
   // but of the wrong type (e.g. a 0x01-module key deposited with the 0x02 WC of
   // the CMv2 module, id 5). This is distinct from front-running (non-Lido WC) and
-  // must trigger the same global hard pause (pauseDepositsV3).
+  // must trigger the same global hard pause (pauseDeposits).
   describe('Wrong WC type', () => {
     let snapshotId: number;
     let canRunTests = true;

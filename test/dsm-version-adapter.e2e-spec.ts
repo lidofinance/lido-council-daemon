@@ -119,7 +119,7 @@ describe('DSM version E2E adapter', () => {
 
   it('executes a privileged DSM call through the selected guardian mode', async () => {
     const block = await provider.getBlock('latest');
-    const signature = await securityService.signPauseDataV3(
+    const signature = await securityService.signPauseData(
       block.number,
       block.hash,
       setup.context,
@@ -127,11 +127,7 @@ describe('DSM version E2E adapter', () => {
 
     expect(await securityService.isDepositsPaused()).toBe(false);
 
-    await securityService.pauseDepositsV3(
-      block.number,
-      signature,
-      setup.context,
-    );
+    await securityService.pauseDeposits(block.number, signature, setup.context);
 
     expect(await securityService.isDepositsPaused()).toBe(true);
   });

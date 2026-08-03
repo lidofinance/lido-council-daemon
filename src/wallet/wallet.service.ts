@@ -228,9 +228,7 @@ export class WalletService implements OnModuleInit {
    * @param params - parameters for signing pause message
    * @returns signature
    */
-  public async signPauseDataV3(
-    params: SignPauseDataParams,
-  ): Promise<Signature> {
+  public async signPauseData(params: SignPauseDataParams): Promise<Signature> {
     return this.signMessage(
       getDsmStrategy(params.dsmVersion).pauseDigest(params),
     );

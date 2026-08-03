@@ -1,7 +1,7 @@
 import { formatBytes32String } from 'ethers/lib/utils';
 import {
   MessageDeposit,
-  MessagePauseV3 as OGMessagePauseV3,
+  MessagePause,
   MessageRequiredFields,
   MessageType,
   MessageUnvet,
@@ -87,8 +87,8 @@ export class DSMMessageSender {
       }
 
       case MessageType.PAUSE: {
-        const { blockNumber, blockHash, signature } =
-          message as OGMessagePauseV3 & MessageMeta;
+        const { blockNumber, blockHash, signature } = message as MessagePause &
+          MessageMeta;
 
         const output: MessagePauseV3 | MessagePauseV4 = {
           blockNumber,

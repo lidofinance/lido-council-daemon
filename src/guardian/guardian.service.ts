@@ -206,7 +206,7 @@ export class GuardianService implements OnModuleInit {
         !blockData.alreadyPausedDeposits &&
         (blockData.hasFrontRunning || blockData.hasWrongWCType)
       ) {
-        await this.stakingModuleGuardService.handlePauseV3(blockData);
+        await this.stakingModuleGuardService.handlePause(blockData);
         return;
       }
 

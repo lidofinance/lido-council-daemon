@@ -3,7 +3,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import {
   MessageDeposit,
   MessageMeta,
-  MessagePauseV3,
+  MessagePause,
   MessageRequiredFields,
   MessagesService,
   MessageType,
@@ -55,7 +55,7 @@ export class GuardianMessageService {
    * Sends a pause message of version 3 to the message broker
    * @param message - MessagePause object
    */
-  public sendPauseMessageV3(message: Omit<MessagePauseV3, 'type'>) {
+  public sendPauseMessage(message: Omit<MessagePause, 'type'>) {
     return this.sendMessageFromGuardian({
       ...message,
       type: MessageType.PAUSE,
