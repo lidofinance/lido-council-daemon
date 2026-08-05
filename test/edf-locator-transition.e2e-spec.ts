@@ -21,11 +21,7 @@ import {
   SecurityModule,
   SecurityService,
 } from 'contracts/security';
-import {
-  DELEGATE_PRIVATE_KEYS,
-  WALLET_PRIVATE_KEY,
-  WalletService,
-} from 'wallet';
+import { WALLET_PRIVATE_KEYS, WalletService } from 'wallet';
 import { TestProviderModule } from 'provider';
 import {
   GuardianMessageModule,
@@ -543,7 +539,7 @@ describe('EDF Locator transition on a Hoodi fork', () => {
           SecurityModule,
         ],
       })
-        .overrideProvider(DELEGATE_PRIVATE_KEYS)
+        .overrideProvider(WALLET_PRIVATE_KEYS)
         .useValue([configuredDelegate.privateKey])
         .compile();
 
@@ -562,7 +558,7 @@ describe('EDF Locator transition on a Hoodi fork', () => {
           blockHash: blockAfterEnact.hash,
         }),
       ).rejects.toThrow(
-        `No configured delegate private key matches active delegate ${activeDelegate.address}`,
+        `No configured wallet private key matches active delegate ${activeDelegate.address}`,
       );
 
       const delegationContract = DelegationContractAbi__factory.connect(
@@ -635,10 +631,12 @@ describe('EDF Locator transition on a Hoodi fork', () => {
           GuardianMessageModule,
         ],
       })
-        .overrideProvider(WALLET_PRIVATE_KEY)
-        .useValue(legacyWallet.privateKey)
-        .overrideProvider(DELEGATE_PRIVATE_KEYS)
-        .useValue([firstDelegate.privateKey, secondDelegate.privateKey])
+        .overrideProvider(WALLET_PRIVATE_KEYS)
+        .useValue([
+          legacyWallet.privateKey,
+          firstDelegate.privateKey,
+          secondDelegate.privateKey,
+        ])
         .compile();
 
       const config = moduleRef.get(Configuration);

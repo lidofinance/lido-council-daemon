@@ -9,7 +9,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { MockProviderModule } from 'provider';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { WalletModule } from 'wallet';
-import { DELEGATE_PRIVATE_KEYS, WALLET_PRIVATE_KEY } from './wallet.constants';
+import { WALLET_PRIVATE_KEYS } from './wallet.constants';
 import { WalletService } from './wallet.service';
 import {
   keccak256,
@@ -39,10 +39,9 @@ describe('WalletService', () => {
         WalletModule,
       ],
     })
-      .overrideProvider(WALLET_PRIVATE_KEY)
-      .useValue(wallet.privateKey)
-      .overrideProvider(DELEGATE_PRIVATE_KEYS)
+      .overrideProvider(WALLET_PRIVATE_KEYS)
       .useValue([
+        wallet.privateKey,
         firstDelegateWallet.privateKey,
         secondDelegateWallet.privateKey,
       ])
@@ -149,7 +148,7 @@ describe('WalletService', () => {
       expect(() =>
         walletService.selectDelegateWallet(unknownDelegate.address),
       ).toThrow(
-        `No configured delegate private key matches active delegate ${unknownDelegate.address}`,
+        `No configured wallet private key matches active delegate ${unknownDelegate.address}`,
       );
     });
   });

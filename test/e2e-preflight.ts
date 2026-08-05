@@ -17,9 +17,6 @@ dotenv.config();
 if (process.env.WALLET_PRIVATE_KEY === undefined) {
   process.env.WALLET_PRIVATE_KEY = Wallet.createRandom().privateKey;
 }
-if (process.env.DELEGATE_PRIVATE_KEY === undefined) {
-  process.env.DELEGATE_PRIVATE_KEY = process.env.WALLET_PRIVATE_KEY;
-}
 
 const PREFLIGHT_CUT_CONFIG = {
   opCount: 3,

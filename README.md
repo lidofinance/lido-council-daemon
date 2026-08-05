@@ -50,7 +50,7 @@ EVM_CHAIN_DATA_BUS_PROVIDER_URL=<evm chain node url>
 ```
 
 The EVM Chain transport sends transactions from the active wallet. It uses the
-legacy wallet with DSM v3/v4 and the active delegate wallet with DSM v5.
+legacy wallet with DSM v4 and the active delegate wallet with DSM v5.
 
 ### Wallet Private Key
 
@@ -60,25 +60,26 @@ WALLET_PRIVATE_KEY=<wallet private key>
 ...
 ```
 
-`WALLET_PRIVATE_KEY` is the guardian key for DSM v3/v4. Keep it configured
-during the migration. If it is omitted, the daemon generates a random key for
-test use.
+`WALLET_PRIVATE_KEY` is the guardian key for DSM v4 and the current
+delegate key for DSM v5. Keep it configured during the migration. If it is
+omitted, the daemon generates a random key for test use.
 
 ### DSM v5 Delegation
 
 ```env
 DELEGATION_CONTRACT_ADDRESS=<delegation contract address>
-DELEGATE_PRIVATE_KEYS=<current delegate private key>,<planned delegate private key>
+WALLET_PRIVATE_KEY=<current delegate private key>
+WALLET_PRIVATE_KEY_2=<planned delegate private key>
 ```
 
 `DELEGATION_CONTRACT_ADDRESS` is the DSM guardian identity for DSM v5.
-`DELEGATE_PRIVATE_KEYS` contains the current and planned delegate keys. Do not
-add the owner key.
+`WALLET_PRIVATE_KEY` and `WALLET_PRIVATE_KEY_2` form the wallet pool: the
+current delegate key and the planned next one. Do not add the owner key.
 
 For every DSM v5 block snapshot, the daemon reads the effective delegate from
-the delegation contract. It selects the matching key from
-`DELEGATE_PRIVATE_KEYS`. After a rotation becomes active, the daemon switches
-to the new key without a restart or config reload.
+the delegation contract. It selects the matching key from the wallet pool.
+After a rotation becomes active, the daemon switches to the new key without a
+restart or config reload.
 
 The daemon stops the cycle if no configured key matches. It also stops if the
 delegate is revoked or the delegation contract is terminated. Each delegate
@@ -138,7 +139,7 @@ RABBITMQ_PASSCODE=test
 # Make sure there are enough ETH on the balance to send a transaction to stop the protocol
 WALLET_PRIVATE_KEY=0x0000000000000000000000000000000000000000000000000000000000000001
 
-DELEGATE_PRIVATE_KEYS=0x0000000000000000000000000000000000000000000000000000000000000002,0x0000000000000000000000000000000000000000000000000000000000000003
+WALLET_PRIVATE_KEY_2=0x0000000000000000000000000000000000000000000000000000000000000002
 DELEGATION_CONTRACT_ADDRESS=0x0000000000000000000000000000000000000004
 
 KEYS_API_HOST=http://keys_api_service_api
@@ -217,7 +218,7 @@ services:
       - LOG_FORMAT=${LOG_FORMAT}
       - RPC_URL=${RPC_URL}
       - WALLET_PRIVATE_KEY=${WALLET_PRIVATE_KEY}
-      - DELEGATE_PRIVATE_KEYS=${DELEGATE_PRIVATE_KEYS}
+      - WALLET_PRIVATE_KEY_2=${WALLET_PRIVATE_KEY_2}
       - DELEGATION_CONTRACT_ADDRESS=${DELEGATION_CONTRACT_ADDRESS}
       - KEYS_API_HOST=http://keys_api_service_api
       - KEYS_API_PORT=3001

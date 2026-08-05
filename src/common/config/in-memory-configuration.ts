@@ -86,30 +86,27 @@ export class InMemoryConfiguration implements Configuration {
   })
   CHAIN_ID!: number;
 
+  /**
+   * Pool of two equal wallet keys. The daemon decides on every block which
+   * one to sign with: on DSM v4 it takes the first key (legacy guardian
+   * EOA); on DSM v5 it reads the effective delegate from the delegation
+   * contract and takes whichever key matches it. So a migration or a delegate
+   * rotation needs no restart, and after it completes the retired key is
+   * simply removed from the pool. Each key is a plain env value or a `_FILE`
+   * path to a secret.
+   */
   @IsString()
   WALLET_PRIVATE_KEY = '';
 
   @IsString()
   WALLET_PRIVATE_KEY_FILE = '';
 
-  /**
-   * DSM v5 delegate keys: the current delegate and the planned next one, so a
-   * rotation needs no restart. Each key follows the WALLET_PRIVATE_KEY pattern:
-   * a plain env value or a `_FILE` path to a secret.
-   */
-  @ValidateIf((conf) => conf.DELEGATE_PRIVATE_KEY !== '')
+  @ValidateIf((conf) => conf.WALLET_PRIVATE_KEY_2 !== '')
   @Validate(IsEthereumPrivateKey)
-  DELEGATE_PRIVATE_KEY = '';
+  WALLET_PRIVATE_KEY_2 = '';
 
   @IsString()
-  DELEGATE_PRIVATE_KEY_FILE = '';
-
-  @ValidateIf((conf) => conf.DELEGATE_PRIVATE_KEY_2 !== '')
-  @Validate(IsEthereumPrivateKey)
-  DELEGATE_PRIVATE_KEY_2 = '';
-
-  @IsString()
-  DELEGATE_PRIVATE_KEY_2_FILE = '';
+  WALLET_PRIVATE_KEY_2_FILE = '';
 
   @IsString()
   KAFKA_CLIENT_ID = '';
