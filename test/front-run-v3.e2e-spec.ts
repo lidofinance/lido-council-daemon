@@ -26,6 +26,7 @@ import {
   fillLidoBuffer,
   getLidoWC,
   getModuleWC,
+  waitForDepositsPaused,
 } from './helpers/dsm';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
 import { BlsService } from 'bls';
@@ -770,7 +771,6 @@ describe('Front-run e2e tests', () => {
 
     runIf('Run council daemon', async () => {
       await guardianService.handleNewBlock();
-      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
     });
 
     runIf('Pause happen', async () => {
@@ -779,6 +779,7 @@ describe('Front-run e2e tests', () => {
         provider,
       );
 
+      await waitForDepositsPaused(securityContract);
       const isOnPause = await securityContract.isDepositsPaused();
       expect(isOnPause).toBe(true);
       expect(sendPauseMessage).toHaveBeenCalledTimes(1);
@@ -939,7 +940,6 @@ describe('Front-run e2e tests', () => {
 
     runIf('Run council daemon', async () => {
       await guardianService.handleNewBlock();
-      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
     });
 
     runIf('Pause happen', async () => {
@@ -948,6 +948,7 @@ describe('Front-run e2e tests', () => {
         provider,
       );
 
+      await waitForDepositsPaused(securityContract);
       const isOnPause = await securityContract.isDepositsPaused();
       expect(isOnPause).toBe(true);
       expect(sendPauseMessage).toHaveBeenCalledTimes(1);
