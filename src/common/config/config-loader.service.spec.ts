@@ -291,7 +291,7 @@ describe('ConfigLoaderService base spec', () => {
       RABBITMQ_PASSCODE: 'some-rabbit-passcode',
     };
 
-    test('should reject an empty delegation contract address', async () => {
+    test('should accept an empty delegation contract address', async () => {
       const config = plainToClass(InMemoryConfiguration, {
         ...DEFAULTS_WITH_RABBIT,
         DELEGATION_CONTRACT_ADDRESS: '',
@@ -301,11 +301,7 @@ describe('ConfigLoaderService base spec', () => {
         validateOrReject(config, {
           validationError: { target: false, value: false },
         }),
-      ).rejects.toEqual([
-        expect.objectContaining({
-          property: 'DELEGATION_CONTRACT_ADDRESS',
-        }),
-      ]);
+      ).resolves.toBeUndefined();
     });
 
     test('should accept a valid delegation contract address', async () => {

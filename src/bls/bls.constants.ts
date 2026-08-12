@@ -1,5 +1,6 @@
 import { CHAINS } from '@lido-nestjs/constants';
 import { ByteVectorType, UintNumberType } from '@chainsafe/ssz';
+import { LOCAL_DEVNET_CHAIN_ID } from 'common/chains';
 
 export const Bytes4 = new ByteVectorType(4);
 export const Bytes48 = new ByteVectorType(48);
@@ -23,8 +24,6 @@ export const GENESIS_FORK_VERSION_HOODI = Version.fromJson('0x10000910');
 export const GENESIS_FORK_VERSION_DEVNET = Version.fromJson('0x10000038');
 
 export const ZERO_HASH = Buffer.alloc(32, 0);
-
-const LOCAL_DEVNET_CHAIN_ID = 32382;
 
 export const GENESIS_FORK_VERSION_BY_CHAIN_ID = {
   [CHAINS.Mainnet]: GENESIS_FORK_VERSION_MAINNET,

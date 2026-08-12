@@ -1,6 +1,5 @@
 import { CHAINS } from '@lido-nestjs/constants';
-
-const LOCAL_DEVNET_CHAIN_ID = 32382;
+import { LOCAL_DEVNET_CHAIN_ID } from 'common/chains';
 
 export const MESSAGE_TOPIC_PREFIX_BY_NETWORK = {
   [CHAINS.Mainnet]: 'mainnet',

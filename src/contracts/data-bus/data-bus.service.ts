@@ -161,11 +161,11 @@ export class DataBusService {
     return this.wallet.address;
   }
 
-  public publish(
+  public async publish(
     message: MessageRequiredFields & { app: { version: string } },
   ) {
     try {
-      return this.dsmMessageSender.sendMessage(message);
+      return await this.dsmMessageSender.sendMessage(message);
     } catch (error: any) {
       this.logger.error(
         `An error occurred when sending a message using Data Bus`,

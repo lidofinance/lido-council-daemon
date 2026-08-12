@@ -189,21 +189,6 @@ export class SecurityService {
   }
 
   /**
-   * Returns the guardian index in the list
-   */
-  public async getGuardianIndex(blockTag?: BlockTag): Promise<number> {
-    const context = await this.getGuardianExecutionContext(
-      blockTag ?? 'latest',
-    );
-    return context.guardianIndex;
-  }
-
-  public async getGuardianAddress(blockTag: BlockTag): Promise<string> {
-    const context = await this.getGuardianExecutionContext(blockTag);
-    return context.guardianAddress;
-  }
-
-  /**
    * Signs a message to deposit buffered ethers with the prefix from the contract
    *
    * @param depositRoot: Root of deposit contract

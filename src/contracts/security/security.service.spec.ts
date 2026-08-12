@@ -1,11 +1,14 @@
-import { isAddress } from '@ethersproject/address';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { MockProviderModule } from 'provider';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { WalletService } from 'wallet';
-import { SecurityAbi__factory, SecurityV5Abi__factory } from 'generated';
+import {
+  DelegationContractAbi__factory,
+  SecurityAbi__factory,
+  SecurityV5Abi__factory,
+} from 'generated';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { Interface } from '@ethersproject/abi';
@@ -92,38 +95,6 @@ describe('SecurityService', () => {
       const guardians = await securityService.getGuardians();
       expect(guardians).toEqual(expected);
       expect(mockProviderCall).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe('getGuardianIndex', () => {
-    it('should return guardian index', async () => {
-      jest
-        .spyOn(securityService, 'getGuardianExecutionContext')
-        .mockResolvedValue(legacyContext);
-
-      const guardianIndex = await securityService.getGuardianIndex();
-      expect(guardianIndex).toEqual(0);
-    });
-
-    it('should return -1 if address is not in the list', async () => {
-      jest
-        .spyOn(securityService, 'getGuardianExecutionContext')
-        .mockResolvedValue({ ...legacyContext, guardianIndex: -1 });
-
-      const guardianIndex = await securityService.getGuardianIndex();
-      expect(guardianIndex).toBe(-1);
-    });
-  });
-
-  describe('getGuardianAddress', () => {
-    it('should return guardian address', async () => {
-      jest
-        .spyOn(securityService, 'getGuardianExecutionContext')
-        .mockResolvedValue(legacyContext);
-      const guardianAddress = await securityService.getGuardianAddress(
-        blockTag,
-      );
-      expect(isAddress(guardianAddress)).toBeTruthy();
     });
   });
 
@@ -328,6 +299,75 @@ describe('SecurityService', () => {
       expect(mockWait).toHaveBeenCalledTimes(1);
       expect(mockGetPauseMessagePrefix).toHaveBeenCalledTimes(1);
       expect(mockGetContractWithSigner).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('getGuardianExecutionContext fail-closed (v5)', () => {
+    const delegationAddress = hexZeroPad('0x5', 20);
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    const mockV5 = ({
+      configuredAddress = delegationAddress,
+      code = '0x1234',
+      supportsErc1271 = true,
+      guardians = [delegationAddress],
+    } = {}) => {
+      jest.spyOn(securityService, 'version').mockResolvedValue(5);
+      (securityService as any).config.DELEGATION_CONTRACT_ADDRESS =
+        configuredAddress;
+      jest.spyOn(provider, 'getCode').mockResolvedValue(code);
+      jest.spyOn(DelegationContractAbi__factory, 'connect').mockReturnValue({
+        getDelegate: jest.fn().mockResolvedValue(address1),
+        isTerminated: jest.fn().mockResolvedValue(false),
+        supportsInterface: jest.fn().mockResolvedValue(supportsErc1271),
+      } as any);
+      jest.spyOn(securityService, 'getGuardians').mockResolvedValue(guardians);
+      jest
+        .spyOn(walletService, 'selectDelegateWallet')
+        .mockImplementation(() => undefined);
+    };
+
+    it('should throw if DELEGATION_CONTRACT_ADDRESS is not set', async () => {
+      mockV5({ configuredAddress: '' });
+
+      await expect(
+        securityService.getGuardianExecutionContext(blockTag),
+      ).rejects.toThrow('DELEGATION_CONTRACT_ADDRESS is required');
+    });
+
+    it('should throw if DELEGATION_CONTRACT_ADDRESS is not an address', async () => {
+      mockV5({ configuredAddress: 'not-an-address' });
+
+      await expect(
+        securityService.getGuardianExecutionContext(blockTag),
+      ).rejects.toThrow('DELEGATION_CONTRACT_ADDRESS is required');
+    });
+
+    it('should throw if there is no code at the delegation address', async () => {
+      mockV5({ code: '0x' });
+
+      await expect(
+        securityService.getGuardianExecutionContext(blockTag),
+      ).rejects.toThrow('No contract code at DELEGATION_CONTRACT_ADDRESS');
+    });
+
+    it('should throw if the delegation contract lacks ERC-1271 support', async () => {
+      mockV5({ supportsErc1271: false });
+
+      await expect(
+        securityService.getGuardianExecutionContext(blockTag),
+      ).rejects.toThrow('does not support ERC-1271');
+    });
+
+    it('should throw if the delegation contract is not a DSM guardian', async () => {
+      mockV5({ guardians: [address1] });
+
+      await expect(
+        securityService.getGuardianExecutionContext(blockTag),
+      ).rejects.toThrow('is not a DSM guardian');
     });
   });
 

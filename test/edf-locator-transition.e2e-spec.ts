@@ -62,7 +62,7 @@ interface SignedMessages {
 
 /**
  * The signature layout is part of the event signature, so each layout hashes to
- * its own topic and the two event sets coexist on the bus. v3/v4 publish the
+ * its own topic and the two event sets coexist on the bus. v4 publishes the
  * EIP-2098 compact pair, which is what `Signature { r, vs }` in those contracts
  * takes; v5 publishes the 65-byte blob its guardian's ERC-1271 check accepts.
  */
@@ -84,7 +84,7 @@ const BUS_EVENTS_BY_DSM_VERSION: Record<
 
 /**
  * The signature bytes each message carries once it has been through the bus:
- * the compact pair on v3/v4, the blob on v5. These assertions therefore run
+ * the compact pair on v4, the blob on v5. These assertions therefore run
  * against what a relayer really reads, not against the in-memory signature the
  * daemon still holds.
  */
@@ -314,7 +314,7 @@ function signerSignatureBytes(signature: Signature): string {
 }
 
 /**
- * The EIP-2098 compact pair DSM v3/v4 take. The EDF DelegationContract is on
+ * The EIP-2098 compact pair DSM v4 takes. The EDF DelegationContract is on
  * OpenZeppelin 5.x and rejects this layout, so it is here only to prove that the
  * rejection is about the layout and not about the delegate or the digest.
  */
@@ -761,7 +761,7 @@ describe('EDF Locator transition on a Hoodi fork', () => {
       );
       expect(await relayedDsm.isGuardian(relayer.address)).toBe(false);
 
-      // The compact layout DSM v3/v4 use. DSM v5 forwards the blob to the
+      // The compact layout DSM v4 uses. DSM v5 forwards the blob to the
       // guardian's ERC-1271 check, which is on OpenZeppelin 5.x and rejects it,
       // so a relayer that published a v5 message in the old shape could not act.
       // `callStatic` is used so ethers decodes the custom error through the DSM

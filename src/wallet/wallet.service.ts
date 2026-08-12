@@ -177,7 +177,9 @@ export class WalletService implements OnModuleInit {
       privateKeys.push(Wallet.createRandom().privateKey);
     }
 
-    this.cachedWallets = privateKeys.map((privateKey) => new Wallet(privateKey));
+    this.cachedWallets = privateKeys.map(
+      (privateKey) => new Wallet(privateKey),
+    );
     return this.cachedWallets;
   }
 

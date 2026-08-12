@@ -1,4 +1,5 @@
 import { CHAINS } from '@lido-nestjs/constants';
+import { LOCAL_DEVNET_CHAIN_ID } from 'common/chains';
 
 export const SIGNING_KEYS_CACHE_DEFAULT = Object.freeze({
   headers: {
@@ -8,8 +9,6 @@ export const SIGNING_KEYS_CACHE_DEFAULT = Object.freeze({
   },
   data: [],
 });
-
-const LOCAL_DEVNET_CHAIN_ID = 32382;
 
 export const EARLIEST_MODULE_DEPLOYMENT_BLOCK_NETWORK = {
   [CHAINS.Mainnet]: 11473216,

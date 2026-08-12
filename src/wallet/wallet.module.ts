@@ -10,10 +10,9 @@ import { WalletService } from './wallet.service';
     {
       provide: WALLET_PRIVATE_KEYS,
       useFactory: async (config: Configuration) => {
-        return [
-          config.WALLET_PRIVATE_KEY,
-          config.WALLET_PRIVATE_KEY_2,
-        ].filter(Boolean);
+        return [config.WALLET_PRIVATE_KEY, config.WALLET_PRIVATE_KEY_2].filter(
+          Boolean,
+        );
       },
       inject: [Configuration],
     },
