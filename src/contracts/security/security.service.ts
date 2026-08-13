@@ -53,6 +53,8 @@ export class SecurityService {
   public async initialize(
     blockTag: BlockTag,
   ): Promise<GuardianExecutionContext> {
+    await this.logEdfReadiness(blockTag);
+
     const context = await this.getGuardianExecutionContext(blockTag);
     const address = context.guardianAddress;
     await this.walletService.monitorGuardianBalance();
@@ -64,6 +66,98 @@ export class SecurityService {
     }
 
     return context;
+  }
+
+  /**
+   * Reports whether the configured delegation contract can be used after the
+   * DSM switches to v5. This diagnostic must never block legacy DSM startup.
+   */
+  public async logEdfReadiness(blockTag: BlockTag): Promise<void> {
+    const configuredAddress = this.config.DELEGATION_CONTRACT_ADDRESS;
+    let configuredWalletAddresses: string[] = [];
+
+    const notReady = (
+      reason: string,
+      delegationContractAddress = configuredAddress,
+      delegateAddress?: string,
+    ) => {
+      this.logger.warn('EDF setup is not ready', {
+        reason,
+        delegationContractAddress,
+        delegateAddress,
+        configuredWalletAddresses,
+      });
+    };
+
+    try {
+      configuredWalletAddresses = this.walletService.addresses;
+
+      if (!configuredAddress) {
+        notReady('DELEGATION_CONTRACT_ADDRESS is not configured');
+        return;
+      }
+      if (!utils.isAddress(configuredAddress)) {
+        notReady('DELEGATION_CONTRACT_ADDRESS is not a valid address');
+        return;
+      }
+
+      const delegationContractAddress = utils.getAddress(configuredAddress);
+      if (
+        (await this.provider.getCode(delegationContractAddress, blockTag)) ===
+        '0x'
+      ) {
+        notReady(
+          'No contract code at DELEGATION_CONTRACT_ADDRESS',
+          delegationContractAddress,
+        );
+        return;
+      }
+
+      const delegationContract = DelegationContractAbi__factory.connect(
+        delegationContractAddress,
+        this.provider,
+      );
+      const effectiveDelegate = await delegationContract.getDelegate({
+        blockTag: blockTag as any,
+      });
+      if (
+        !utils.isAddress(effectiveDelegate) ||
+        effectiveDelegate === constants.AddressZero
+      ) {
+        notReady(
+          'DelegationContract has no valid active delegate',
+          delegationContractAddress,
+          effectiveDelegate,
+        );
+        return;
+      }
+
+      const delegateAddress = utils.getAddress(effectiveDelegate);
+      const hasDelegateWallet = configuredWalletAddresses.some(
+        (walletAddress) =>
+          walletAddress.toLowerCase() === delegateAddress.toLowerCase(),
+      );
+      if (!hasDelegateWallet) {
+        notReady(
+          'No configured wallet matches the active delegate',
+          delegationContractAddress,
+          delegateAddress,
+        );
+        return;
+      }
+
+      this.logger.log('EDF setup is ready', {
+        delegationContractAddress,
+        delegateAddress,
+        configuredWalletAddresses,
+      });
+    } catch (error) {
+      notReady(
+        `EDF readiness check failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   public async getGuardianExecutionContext(

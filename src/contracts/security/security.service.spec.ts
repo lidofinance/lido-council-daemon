@@ -149,6 +149,131 @@ describe('SecurityService', () => {
     });
   });
 
+  describe('logEdfReadiness', () => {
+    const delegationAddress = hexZeroPad('0x5', 20);
+
+    beforeEach(() => {
+      jest
+        .spyOn(walletService, 'addresses', 'get')
+        .mockReturnValue([address1, address2]);
+    });
+
+    it('should report missing configuration without throwing', async () => {
+      (securityService as any).config.DELEGATION_CONTRACT_ADDRESS = '';
+
+      await expect(
+        securityService.logEdfReadiness(blockTag),
+      ).resolves.toBeUndefined();
+      expect(loggerService.warn).toHaveBeenCalledWith(
+        'EDF setup is not ready',
+        expect.objectContaining({
+          reason: 'DELEGATION_CONTRACT_ADDRESS is not configured',
+        }),
+      );
+    });
+
+    it('should report an invalid configured address without throwing', async () => {
+      (securityService as any).config.DELEGATION_CONTRACT_ADDRESS =
+        'not-an-address';
+
+      await expect(
+        securityService.logEdfReadiness(blockTag),
+      ).resolves.toBeUndefined();
+      expect(loggerService.warn).toHaveBeenCalledWith(
+        'EDF setup is not ready',
+        expect.objectContaining({
+          reason: 'DELEGATION_CONTRACT_ADDRESS is not a valid address',
+        }),
+      );
+    });
+
+    it('should report a contract without code', async () => {
+      (securityService as any).config.DELEGATION_CONTRACT_ADDRESS =
+        delegationAddress;
+      jest.spyOn(provider, 'getCode').mockResolvedValue('0x');
+
+      await securityService.logEdfReadiness(blockTag);
+
+      expect(loggerService.warn).toHaveBeenCalledWith(
+        'EDF setup is not ready',
+        expect.objectContaining({
+          reason: 'No contract code at DELEGATION_CONTRACT_ADDRESS',
+          delegationContractAddress: delegationAddress,
+        }),
+      );
+    });
+
+    it('should report an invalid active delegate', async () => {
+      (securityService as any).config.DELEGATION_CONTRACT_ADDRESS =
+        delegationAddress;
+      jest.spyOn(provider, 'getCode').mockResolvedValue('0x1234');
+      jest.spyOn(DelegationContractAbi__factory, 'connect').mockReturnValue({
+        getDelegate: jest.fn().mockResolvedValue(hexZeroPad('0x0', 20)),
+      } as any);
+
+      await securityService.logEdfReadiness(blockTag);
+
+      expect(loggerService.warn).toHaveBeenCalledWith(
+        'EDF setup is not ready',
+        expect.objectContaining({
+          reason: 'DelegationContract has no valid active delegate',
+        }),
+      );
+    });
+
+    it('should report a delegate without a configured wallet', async () => {
+      (securityService as any).config.DELEGATION_CONTRACT_ADDRESS =
+        delegationAddress;
+      jest.spyOn(provider, 'getCode').mockResolvedValue('0x1234');
+      jest.spyOn(DelegationContractAbi__factory, 'connect').mockReturnValue({
+        getDelegate: jest.fn().mockResolvedValue(delegationAddress),
+      } as any);
+
+      await securityService.logEdfReadiness(blockTag);
+
+      expect(loggerService.warn).toHaveBeenCalledWith(
+        'EDF setup is not ready',
+        expect.objectContaining({
+          reason: 'No configured wallet matches the active delegate',
+          delegateAddress: delegationAddress,
+        }),
+      );
+    });
+
+    it('should report a ready EDF setup', async () => {
+      (securityService as any).config.DELEGATION_CONTRACT_ADDRESS =
+        delegationAddress;
+      jest.spyOn(provider, 'getCode').mockResolvedValue('0x1234');
+      jest.spyOn(DelegationContractAbi__factory, 'connect').mockReturnValue({
+        getDelegate: jest.fn().mockResolvedValue(address2),
+      } as any);
+
+      await securityService.logEdfReadiness(blockTag);
+
+      expect(loggerService.log).toHaveBeenCalledWith('EDF setup is ready', {
+        delegationContractAddress: delegationAddress,
+        delegateAddress: address2,
+        configuredWalletAddresses: [address1, address2],
+      });
+    });
+
+    it('should turn an RPC error into a warning', async () => {
+      (securityService as any).config.DELEGATION_CONTRACT_ADDRESS =
+        delegationAddress;
+      jest.spyOn(provider, 'getCode').mockRejectedValue(new Error('RPC down'));
+
+      await expect(
+        securityService.logEdfReadiness(blockTag),
+      ).resolves.toBeUndefined();
+      expect(loggerService.warn).toHaveBeenCalledWith(
+        'EDF setup is not ready',
+        expect.objectContaining({
+          reason: 'EDF readiness check failed: RPC down',
+        }),
+      );
+    });
+  });
+
   describe('signDepositData', () => {
     it('should add prefix', async () => {
       const prefix = hexZeroPad('0x1', 32);
