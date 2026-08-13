@@ -209,6 +209,7 @@ export class InMemoryConfiguration implements Configuration {
   @IsString()
   LOCATOR_DEVNET_ADDRESS = '';
 
+  @ValidateIf((conf) => conf.DELEGATION_CONTRACT_ADDRESS !== '')
   @IsEthereumAddress()
   DELEGATION_CONTRACT_ADDRESS = '';
 
