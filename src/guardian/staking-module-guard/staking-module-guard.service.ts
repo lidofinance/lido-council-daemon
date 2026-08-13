@@ -293,13 +293,14 @@ export class StakingModuleGuardService {
     return intersections;
   }
 
-  public async handlePauseV3(blockData: BlockData): Promise<void> {
+  public async handlePause(blockData: BlockData): Promise<void> {
     const { blockNumber, blockHash, guardianAddress, guardianIndex } =
       blockData;
 
-    const signature = await this.securityService.signPauseDataV3(
+    const signature = await this.securityService.signPauseData(
       blockNumber,
       blockHash,
+      blockData.guardianContext,
     );
 
     const pauseMessage = {
@@ -308,6 +309,7 @@ export class StakingModuleGuardService {
       blockNumber,
       blockHash,
       signature,
+      dsmVersion: blockData.guardianContext.dsmVersion,
     };
 
     this.logger.warn('Suspicious case detected, initialize the module pause', {
@@ -318,13 +320,13 @@ export class StakingModuleGuardService {
 
     // Call pause without waiting for completion
     this.securityService
-      .pauseDepositsV3(blockNumber, signature)
+      .pauseDeposits(blockNumber, signature, blockData.guardianContext)
       .catch((error) => {
         this.logger.error('Pause trx failed', { blockNumber });
         this.logger.error(error);
       });
 
-    await this.guardianMessageService.sendPauseMessageV3(pauseMessage);
+    await this.guardianMessageService.sendPauseMessage(pauseMessage);
   }
 
   /**
@@ -371,6 +373,7 @@ export class StakingModuleGuardService {
       blockNumber,
       blockHash,
       stakingModuleId,
+      blockData.guardianContext,
     );
 
     const depositMessage = {
@@ -382,6 +385,7 @@ export class StakingModuleGuardService {
       guardianIndex,
       signature,
       stakingModuleId,
+      dsmVersion: blockData.guardianContext.dsmVersion,
     };
 
     this.logger.log('No problems found', {

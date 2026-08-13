@@ -61,6 +61,10 @@ export class ConfigLoaderService {
       config,
       'WALLET_PRIVATE_KEY',
     );
+    config.WALLET_PRIVATE_KEY_2 = await this.loadEnvOrFile(
+      config,
+      'WALLET_PRIVATE_KEY_2',
+    );
 
     await validateOrReject(config, {
       validationError: { target: false, value: false },

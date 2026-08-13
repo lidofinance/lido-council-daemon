@@ -5,12 +5,14 @@ import { TEST_SERVER_PORT } from './utils/constants';
 import { DataBusClient } from './data-bus.client';
 import {
   MessageDepositV1,
-  MessagePauseV2,
+  MessageDepositV2,
   MessagePauseV3,
+  MessagePauseV4,
   MessagePingV1,
   MessagesDataMap,
   MessagesNames,
   MessageUnvetV1,
+  MessageUnvetV2,
 } from './data-bus.serializer';
 import { HardhatServer } from '../../../test/helpers/hardhat-server';
 import { accountImpersonate, setBalance } from '../../../test/helpers/provider';
@@ -20,6 +22,15 @@ jest.setTimeout(40_000);
 
 export const randomInt = (min: number, max: number) =>
   Math.floor(Math.random() * (max - min + 1)) + min;
+
+/** The compact pair DSM v4 takes. */
+const COMPACT_SIGNATURE = {
+  r: '0x' + '0'.repeat(64),
+  vs: '0x' + '0'.repeat(64),
+};
+
+/** 65 bytes, the layout DSM v5 forwards to the guardian's ERC-1271 check. */
+const SIGNATURE_BLOB = '0x' + '0'.repeat(130);
 
 const getVariants = (block: Block) => {
   const messages = [
@@ -38,7 +49,7 @@ const getVariants = (block: Block) => {
         depositRoot: '0x' + '0'.repeat(64),
         stakingModuleId: randomInt(1, 5),
         nonce: randomInt(1, 100),
-        signature: { r: '0x' + '0'.repeat(64), vs: '0x' + '0'.repeat(64) },
+        signature: COMPACT_SIGNATURE,
         app: { version: '0x' + '0'.repeat(64) },
       },
     },
@@ -55,17 +66,7 @@ const getVariants = (block: Block) => {
         vettedKeysByOperator: formatBytes32String(
           'keys' + randomInt(1, 10).toString(),
         ),
-        signature: { r: '0x' + '0'.repeat(64), vs: '0x' + '0'.repeat(64) },
-        app: { version: '0x' + '0'.repeat(64) },
-      },
-    },
-    {
-      name: 'MessagePauseV2' as const,
-      data: {
-        blockNumber: block.number,
-        blockHash: block.hash as string,
-        signature: { r: '0x' + '0'.repeat(64), vs: '0x' + '0'.repeat(64) },
-        stakingModuleId: randomInt(1, 5),
+        signature: COMPACT_SIGNATURE,
         app: { version: '0x' + '0'.repeat(64) },
       },
     },
@@ -74,7 +75,45 @@ const getVariants = (block: Block) => {
       data: {
         blockNumber: block.number,
         blockHash: block.hash as string,
-        signature: { r: '0x' + '0'.repeat(64), vs: '0x' + '0'.repeat(64) },
+        signature: COMPACT_SIGNATURE,
+        app: { version: '0x' + '0'.repeat(64) },
+      },
+    },
+    {
+      name: 'MessageDepositV2' as const,
+      data: {
+        blockNumber: block.number,
+        blockHash: block.hash as string,
+        depositRoot: '0x' + '0'.repeat(64),
+        stakingModuleId: randomInt(1, 5),
+        nonce: randomInt(1, 100),
+        signature: SIGNATURE_BLOB,
+        app: { version: '0x' + '0'.repeat(64) },
+      },
+    },
+    {
+      name: 'MessageUnvetV2' as const,
+      data: {
+        blockNumber: block.number,
+        blockHash: block.hash as string,
+        stakingModuleId: randomInt(1, 5),
+        nonce: randomInt(1, 100),
+        operatorIds: formatBytes32String(
+          'operator' + randomInt(1, 10).toString(),
+        ),
+        vettedKeysByOperator: formatBytes32String(
+          'keys' + randomInt(1, 10).toString(),
+        ),
+        signature: SIGNATURE_BLOB,
+        app: { version: '0x' + '0'.repeat(64) },
+      },
+    },
+    {
+      name: 'MessagePauseV4' as const,
+      data: {
+        blockNumber: block.number,
+        blockHash: block.hash as string,
+        signature: SIGNATURE_BLOB,
         app: { version: '0x' + '0'.repeat(64) },
       },
     },
@@ -101,6 +140,7 @@ describe('DataBus', () => {
   let variants: ReturnType<typeof getVariants>;
   let hardhatServer: HardhatServer;
   let dsmOwnerAddress: string;
+  let dataBusAddress: string;
   let testStartBlock: number;
 
   const setupServer = async () => {
@@ -154,7 +194,7 @@ describe('DataBus', () => {
     const dataBusContract = await factory.deploy();
     await dataBusContract.deployed();
 
-    const dataBusAddress = dataBusContract.address;
+    dataBusAddress = dataBusContract.address;
     // Create the SDK instance
     sdk = new DataBusClient(dataBusAddress, owner);
   });
@@ -191,8 +231,8 @@ describe('DataBus', () => {
   });
 
   it('should measure gas for sendDepositMessage', async () => {
-    const messageName = 'MessageDepositV1' as const;
-    const dataVariant: MessageDepositV1 = getVariant(messageName, variants);
+    const messageName = 'MessageDepositV2' as const;
+    const dataVariant: MessageDepositV2 = getVariant(messageName, variants);
 
     const tx = await sdk.sendMessage(messageName, dataVariant);
 
@@ -216,8 +256,8 @@ describe('DataBus', () => {
   });
 
   it('should measure gas for sendUnvetMessage', async () => {
-    const messageName = 'MessageUnvetV1' as const;
-    const dataVariant: MessageUnvetV1 = getVariant(messageName, variants);
+    const messageName = 'MessageUnvetV2' as const;
+    const dataVariant: MessageUnvetV2 = getVariant(messageName, variants);
 
     const tx = await sdk.sendMessage(messageName, dataVariant);
 
@@ -228,7 +268,7 @@ describe('DataBus', () => {
 
     expect(gasUsed.toNumber()).toBeLessThanOrEqual(34024);
 
-    const events = await sdk.get('MessageUnvetV1', testStartBlock - 1);
+    const events = await sdk.get('MessageUnvetV2', testStartBlock - 1);
     const [event] = events;
 
     expect(event.data).toEqual(dataVariant);
@@ -238,39 +278,16 @@ describe('DataBus', () => {
     expect(event).toEqual(allEvents[0]);
   });
 
-  it('should measure gas for sendPauseMessageV2', async () => {
-    const messageName = 'MessagePauseV2';
-    const dataVariant: MessagePauseV2 = getVariant(messageName, variants);
+  it('should measure gas for sendPauseMessage', async () => {
+    const messageName = 'MessagePauseV4' as const;
+    const dataVariant: MessagePauseV4 = getVariant(messageName, variants);
 
     const tx = await sdk.sendMessage(messageName, dataVariant as any);
 
     const receipt = await tx.wait();
     const { gasUsed } = receipt;
 
-    console.log('Gas used for sendPauseMessageV2:', gasUsed.toString());
-
-    expect(gasUsed.toNumber()).toBeLessThanOrEqual(31858);
-
-    const events = await sdk.get(messageName, testStartBlock - 1);
-    const [event] = events;
-
-    expect(event.data).toEqual(dataVariant);
-    expect(event.guardianAddress).toEqual(await owner.getAddress());
-
-    const allEvents = await sdk.getAll(testStartBlock - 1);
-    expect(event).toEqual(allEvents[0]);
-  });
-
-  it('should measure gas for sendPauseMessageV3', async () => {
-    const messageName = 'MessagePauseV3' as const;
-    const dataVariant: MessagePauseV3 = getVariant(messageName, variants);
-
-    const tx = await sdk.sendMessage(messageName, dataVariant as any);
-
-    const receipt = await tx.wait();
-    const { gasUsed } = receipt;
-
-    console.log('Gas used for sendPauseMessageV3:', gasUsed.toString());
+    console.log('Gas used for sendPauseMessage:', gasUsed.toString());
 
     expect(gasUsed.toNumber()).toBeLessThanOrEqual(30213);
 
@@ -282,5 +299,55 @@ describe('DataBus', () => {
 
     const allEvents = await sdk.getAll(testStartBlock - 1);
     expect(event).toEqual(allEvents[0]);
+  });
+
+  // The DSM v4 events stay live while that contract is supported.
+
+  it('should measure gas for the v4 deposit message', async () => {
+    const messageName = 'MessageDepositV1' as const;
+    const dataVariant: MessageDepositV1 = getVariant(messageName, variants);
+
+    const tx = await sdk.sendMessage(messageName, dataVariant);
+    const { gasUsed } = await tx.wait();
+
+    console.log('Gas used for the v4 deposit message:', gasUsed.toString());
+    expect(gasUsed.toNumber()).toBeLessThanOrEqual(31858);
+
+    const [event] = await sdk.get(messageName, testStartBlock - 1);
+
+    expect(event.data).toEqual(dataVariant);
+    expect(event.guardianAddress).toEqual(await owner.getAddress());
+  });
+
+  it('should measure gas for the v4 unvet message', async () => {
+    const messageName = 'MessageUnvetV1' as const;
+    const dataVariant: MessageUnvetV1 = getVariant(messageName, variants);
+
+    const tx = await sdk.sendMessage(messageName, dataVariant);
+    const { gasUsed } = await tx.wait();
+
+    console.log('Gas used for the v4 unvet message:', gasUsed.toString());
+    expect(gasUsed.toNumber()).toBeLessThanOrEqual(34024);
+
+    const [event] = await sdk.get(messageName, testStartBlock - 1);
+
+    expect(event.data).toEqual(dataVariant);
+    expect(event.guardianAddress).toEqual(await owner.getAddress());
+  });
+
+  it('should measure gas for the v4 pause message', async () => {
+    const messageName = 'MessagePauseV3' as const;
+    const dataVariant: MessagePauseV3 = getVariant(messageName, variants);
+
+    const tx = await sdk.sendMessage(messageName, dataVariant as any);
+    const { gasUsed } = await tx.wait();
+
+    console.log('Gas used for the v4 pause message:', gasUsed.toString());
+    expect(gasUsed.toNumber()).toBeLessThanOrEqual(30213);
+
+    const [event] = await sdk.get(messageName, testStartBlock - 1);
+
+    expect(event.data).toEqual(dataVariant);
+    expect(event.guardianAddress).toEqual(await owner.getAddress());
   });
 });

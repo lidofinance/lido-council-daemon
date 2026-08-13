@@ -70,8 +70,8 @@ export const PrometheusRPCErrorsCounterProvider = makeCounterProvider({
 
 export const PrometheusDataBusAccountBalanceProvider = makeGaugeProvider({
   name: METRIC_DATA_BUS_ACCOUNT_BALANCE,
-  help: 'DataBus guardian account balance',
-  labelNames: ['chainId'] as const,
+  help: 'DataBus publisher account balance',
+  labelNames: ['chainId', 'delegateAddress'] as const,
 });
 
 export const PrometheusDataBusRPCRequestsHistogramProvider =
@@ -89,7 +89,8 @@ export const PrometheusDataBusRPCErrorsCounterProvider = makeCounterProvider({
 
 export const PrometheusAccountBalanceProvider = makeGaugeProvider({
   name: METRIC_ACCOUNT_BALANCE,
-  help: 'Guardian account balance',
+  help: 'Delegate account balance',
+  labelNames: ['delegateAddress'] as const,
 });
 
 export const PrometheusBlockDataRequestsProvider = makeHistogramProvider({
@@ -227,20 +228,20 @@ export const PrometheusRpcRequestTotalProvider = makeCounterProvider({
 // Nonce Metrics providers
 export const PrometheusNonceLatestProvider = makeGaugeProvider({
   name: METRIC_NONCE_LATEST,
-  help: 'Latest confirmed nonce for guardian address',
-  labelNames: ['network'] as const,
+  help: 'Latest confirmed nonce for delegate address',
+  labelNames: ['network', 'delegateAddress'] as const,
 });
 
 export const PrometheusNoncePendingProvider = makeGaugeProvider({
   name: METRIC_NONCE_PENDING,
-  help: 'Pending nonce for guardian address',
-  labelNames: ['network'] as const,
+  help: 'Pending nonce for delegate address',
+  labelNames: ['network', 'delegateAddress'] as const,
 });
 
 export const PrometheusNonceGapProvider = makeGaugeProvider({
   name: METRIC_NONCE_GAP,
   help: 'Difference between pending and latest nonce',
-  labelNames: ['network'] as const,
+  labelNames: ['network', 'delegateAddress'] as const,
 });
 
 // Events Cache Metrics providers

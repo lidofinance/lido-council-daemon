@@ -9,6 +9,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { DepositRegistryService } from 'contracts/deposits-registry';
 import { SecurityService } from 'contracts/security';
+import type { GuardianExecutionContext } from 'contracts/security';
 import { RepositoryService } from 'contracts/repository';
 import {
   GUARDIAN_DEPOSIT_JOB_DURATION_MS,
@@ -40,12 +41,12 @@ import { METRIC_JOB_DURATION } from 'common/prometheus';
 import { Histogram } from 'prom-client';
 import { DeepReadonly } from 'common/ts-utils';
 import { buildModuleWc } from './withdrawal-credentials';
-import { DsmDepositAllocationAdapterService } from './deposit-allocation';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
   protected lastProcessedStateMeta?: { blockHash: string; blockNumber: number };
   private lastPingBlock?: number;
+  private lastGuardianExecutionContext?: GuardianExecutionContext;
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER)
     private logger: LoggerService,
@@ -69,7 +70,6 @@ export class GuardianService implements OnModuleInit {
     private unvettingService: UnvettingService,
 
     private stakingRouterService: StakingRouterService,
-    private depositAllocationAdapter: DsmDepositAllocationAdapterService,
 
     @InjectMetric(METRIC_JOB_DURATION)
     private jobDurationMetric: Histogram<string>,
@@ -164,7 +164,10 @@ export class GuardianService implements OnModuleInit {
         blockNumber,
       });
 
-      if (!isNewBlock) return;
+      if (!isNewBlock) {
+        this.logGuardianExecutionMode();
+        return;
+      }
 
       const stakingModulesCount = stakingModules.length;
 
@@ -194,11 +197,14 @@ export class GuardianService implements OnModuleInit {
         lidoKeys,
       );
 
+      this.lastGuardianExecutionContext = blockData.guardianContext;
+      this.logGuardianExecutionMode();
+
       if (
         !blockData.alreadyPausedDeposits &&
         (blockData.hasFrontRunning || blockData.hasWrongWCType)
       ) {
-        await this.stakingModuleGuardService.handlePauseV3(blockData);
+        await this.stakingModuleGuardService.handlePause(blockData);
         return;
       }
 
@@ -219,6 +225,18 @@ export class GuardianService implements OnModuleInit {
     } finally {
       this.logger.log('End of pause processing by Guardian');
     }
+  }
+
+  private logGuardianExecutionMode(): void {
+    const context = this.lastGuardianExecutionContext;
+    if (!context) return;
+
+    this.logger.log(`Guardian execution mode: ${context.mode}`, {
+      delegateAddress: context.delegateAddress,
+      dsmAddress: context.dsmAddress,
+      dsmVersion: context.dsmVersion,
+      guardianAddress: context.guardianAddress,
+    });
   }
 
   private async collectData(
@@ -358,21 +376,8 @@ export class GuardianService implements OnModuleInit {
     stakingModulesData: StakingModuleData[],
     blockData: BlockData,
   ) {
-    const modulesWithAllocationState = await Promise.all(
-      stakingModulesData.map(async (stakingModuleData) => ({
-        stakingModuleData,
-        isDepositBlockedByAllocation:
-          await this.depositAllocationAdapter.isDepositBlockedByAllocation(
-            stakingModuleData,
-            blockData.blockHash,
-          ),
-      })),
-    );
-
     await Promise.all(
-      modulesWithAllocationState.map(async (moduleWithAllocationState) => {
-        const { stakingModuleData, isDepositBlockedByAllocation } =
-          moduleWithAllocationState;
+      stakingModulesData.map(async (stakingModuleData) => {
         this.guardianMetricsService.collectMetrics(
           stakingModuleData,
           blockData,
@@ -385,7 +390,6 @@ export class GuardianService implements OnModuleInit {
             blockData.hasWrongWCType,
             blockData.alreadyPausedDeposits,
             stakingModuleData.stakingModuleId,
-            isDepositBlockedByAllocation,
           )
         ) {
           return;
@@ -405,7 +409,6 @@ export class GuardianService implements OnModuleInit {
     hasWrongWCType: boolean,
     alreadyPausedDeposits: boolean,
     stakingModuleId: number,
-    isDepositBlockedByAllocation: boolean,
   ): boolean {
     const keysForUnvetting = stakingModuleData.invalidKeys.concat(
       stakingModuleData.frontRunKeys,
@@ -420,8 +423,7 @@ export class GuardianService implements OnModuleInit {
       alreadyPausedDeposits ||
       hasFrontRunning ||
       hasWrongWCType ||
-      stakingModuleData.isModuleDepositsPaused ||
-      isDepositBlockedByAllocation;
+      stakingModuleData.isModuleDepositsPaused;
 
     if (ignoreDeposits) {
       this.logger.warn('Deposits are not available', {
@@ -431,7 +433,6 @@ export class GuardianService implements OnModuleInit {
         hasFrontRunning,
         hasWrongWCType,
         isModuleDepositsPaused: stakingModuleData.isModuleDepositsPaused,
-        isDepositBlockedByAllocation,
         stakingModuleId,
       });
     }

@@ -10,6 +10,11 @@ import {
   ValidateIf,
   IsArray,
   ArrayMinSize,
+  IsEthereumAddress,
+  Validate,
+  ValidationArguments,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
 } from 'class-validator';
 import { Injectable } from '@nestjs/common';
 import { Configuration, PubsubService, NonEmptyArray } from './configuration';
@@ -21,6 +26,24 @@ import { TransformToWei } from 'common/decorators/transform-to-wei';
 const RABBITMQ = 'rabbitmq';
 const KAFKA = 'kafka';
 const EVM_CHAIN = 'evm-chain';
+
+@ValidatorConstraint({ name: 'isEthereumPrivateKey', async: false })
+class IsEthereumPrivateKey implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    if (typeof value !== 'string') return false;
+
+    try {
+      new ethers.Wallet(value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  defaultMessage(args?: ValidationArguments): string {
+    return `${args?.property ?? 'value'} must be a valid Ethereum private key`;
+  }
+}
 
 @Injectable()
 @implementationOf(Configuration)
@@ -63,11 +86,27 @@ export class InMemoryConfiguration implements Configuration {
   })
   CHAIN_ID!: number;
 
+  /**
+   * Pool of two equal wallet keys. The daemon decides on every block which
+   * one to sign with: on DSM v4 it takes the first key (legacy guardian
+   * EOA); on DSM v5 it reads the effective delegate from the delegation
+   * contract and takes whichever key matches it. So a migration or a delegate
+   * rotation needs no restart, and after it completes the retired key is
+   * simply removed from the pool. Each key is a plain env value or a `_FILE`
+   * path to a secret.
+   */
   @IsString()
   WALLET_PRIVATE_KEY = '';
 
   @IsString()
   WALLET_PRIVATE_KEY_FILE = '';
+
+  @ValidateIf((conf) => conf.WALLET_PRIVATE_KEY_2 !== '')
+  @Validate(IsEthereumPrivateKey)
+  WALLET_PRIVATE_KEY_2 = '';
+
+  @IsString()
+  WALLET_PRIVATE_KEY_2_FILE = '';
 
   @IsString()
   KAFKA_CLIENT_ID = '';
@@ -169,6 +208,10 @@ export class InMemoryConfiguration implements Configuration {
   @IsOptional()
   @IsString()
   LOCATOR_DEVNET_ADDRESS = '';
+
+  @ValidateIf((conf) => conf.DELEGATION_CONTRACT_ADDRESS !== '')
+  @IsEthereumAddress()
+  DELEGATION_CONTRACT_ADDRESS = '';
 
   @IsOptional()
   @TransformToWei()

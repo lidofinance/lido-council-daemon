@@ -1,6 +1,4 @@
-import { defaultAbiCoder } from '@ethersproject/abi';
 import { Signature } from '@ethersproject/bytes';
-import { keccak256 } from '@ethersproject/keccak256';
 import { formatEther } from '@ethersproject/units';
 import { Wallet } from '@ethersproject/wallet';
 import { BigNumber } from '@ethersproject/bignumber';
@@ -19,20 +17,20 @@ import {
   METRIC_NONCE_GAP,
 } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { Gauge, register } from 'prom-client';
+import { Gauge } from 'prom-client';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import {
   WALLET_BALANCE_UPDATE_BLOCK_RATE,
-  WALLET_PRIVATE_KEY,
+  WALLET_PRIVATE_KEYS,
 } from './wallet.constants';
 import {
   SignDepositDataParams,
-  SignModulePauseDataParams,
   SignPauseDataParams,
   SignUnvetDataParams,
 } from './wallet.interfaces';
-import { utils } from 'ethers';
 import { Configuration } from 'common/config';
+import { utils } from 'ethers';
+import { getDsmStrategy } from 'contracts/security/dsm-version.strategy';
 
 @Injectable()
 export class WalletService implements OnModuleInit {
@@ -42,21 +40,13 @@ export class WalletService implements OnModuleInit {
     @InjectMetric(METRIC_NONCE_PENDING) private noncePending: Gauge<string>,
     @InjectMetric(METRIC_NONCE_GAP) private nonceGap: Gauge<string>,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-    @Inject(WALLET_PRIVATE_KEY) private privateKey: string,
+    @Inject(WALLET_PRIVATE_KEYS) private privateKeys: string[],
     private provider: SimpleFallbackJsonRpcBatchProvider,
     protected readonly config: Configuration,
   ) {}
 
-  async onModuleInit() {
-    const guardianAddress = this.address;
-    register.setDefaultLabels({ guardianAddress });
-
-    try {
-      await this.monitorGuardianBalance();
-      this.subscribeToEthereumUpdates();
-    } catch (error) {
-      this.logger.error(error);
-    }
+  onModuleInit() {
+    this.subscribeToEthereumUpdates();
   }
 
   /**
@@ -79,28 +69,32 @@ export class WalletService implements OnModuleInit {
    */
   @OneAtTime()
   public async monitorGuardianBalance() {
+    const delegateAddress = this.address;
     const [balanceWei, latestNonce, pendingNonce] = await Promise.all([
-      this.getAccountBalance(),
-      this.provider.getTransactionCount(this.address, 'latest'),
-      this.provider.getTransactionCount(this.address, 'pending'),
+      this.getAccountBalance(delegateAddress),
+      this.provider.getTransactionCount(delegateAddress, 'latest'),
+      this.provider.getTransactionCount(delegateAddress, 'pending'),
     ]);
 
     const balanceETH = formatEther(balanceWei);
-    this.accountBalance.set(Number(balanceETH));
+    this.accountBalance.set({ delegateAddress }, Number(balanceETH));
     this.isBalanceSufficient(balanceWei);
 
     const gap = pendingNonce - latestNonce;
-    this.nonceLatest.labels({ network: 'ethereum' }).set(latestNonce);
-    this.noncePending.labels({ network: 'ethereum' }).set(pendingNonce);
-    this.nonceGap.labels({ network: 'ethereum' }).set(gap);
+    const labels = { network: 'ethereum', delegateAddress };
+    this.nonceLatest.labels(labels).set(latestNonce);
+    this.noncePending.labels(labels).set(pendingNonce);
+    this.nonceGap.labels(labels).set(gap);
   }
 
   /**
    * Retrieves the account balance in Wei.
    * @returns The account balance in Wei.
    */
-  public async getAccountBalance(): Promise<BigNumber> {
-    return await this.provider.getBalance(this.address);
+  public async getAccountBalance(
+    walletAddress = this.address,
+  ): Promise<BigNumber> {
+    return await this.provider.getBalance(walletAddress);
   }
 
   /**
@@ -146,21 +140,48 @@ export class WalletService implements OnModuleInit {
    * using a private key as a standard Externally Owned Account (EOA)
    */
   public get wallet(): Wallet {
-    if (this.cachedWallet) return this.cachedWallet;
+    if (this.activeWallet) return this.activeWallet;
+    return this.wallets[0];
+  }
 
-    if (!this.privateKey) {
+  private activeWallet: Wallet | null = null;
+  private cachedWallets: Wallet[] | null = null;
+
+  public selectLegacyWallet(): void {
+    this.activeWallet = this.wallets[0];
+  }
+
+  public selectDelegateWallet(delegateAddress: string): void {
+    const normalizedAddress = utils.getAddress(delegateAddress);
+    const wallet = this.wallets.find(
+      (candidate) => candidate.address === normalizedAddress,
+    );
+
+    if (!wallet) {
+      throw new Error(
+        `No configured wallet private key matches active delegate ${normalizedAddress}`,
+      );
+    }
+
+    this.activeWallet = wallet;
+  }
+
+  private get wallets(): Wallet[] {
+    if (this.cachedWallets) return this.cachedWallets;
+
+    const privateKeys = (this.privateKeys ?? []).filter(Boolean);
+    if (privateKeys.length === 0) {
       this.logger.warn(
         'Private key is not provided, a random address will be generated for the test run',
       );
-
-      this.privateKey = Wallet.createRandom().privateKey;
+      privateKeys.push(Wallet.createRandom().privateKey);
     }
 
-    this.cachedWallet = new Wallet(this.privateKey);
-    return this.cachedWallet;
+    this.cachedWallets = privateKeys.map(
+      (privateKey) => new Wallet(privateKey),
+    );
+    return this.cachedWallets;
   }
-
-  private cachedWallet: Wallet | null = null;
 
   /**
    * Guardian wallet address
@@ -179,133 +200,46 @@ export class WalletService implements OnModuleInit {
   }
 
   /**
-   * Signs a message to deposit buffered ethers
-   * @param signDepositDataParams - parameters for signing deposit message
-   * @param signDepositDataParams.prefix - unique prefix from the contract for this type of message
-   * @param signDepositDataParams.depositRoot - current deposit root from the deposit contract
-   * @param signDepositDataParams.nonce - current index of keys operations from the registry contract
-   * @param signDepositDataParams.blockNumber - current block number
-   * @param signDepositDataParams.blockHash - current block hash
-   * @param signDepositDataParams.stakingModuleId - target module id
+   * Signs a message to deposit buffered ethers. The digest layout is owned by
+   * the DSM version strategy.
+   * @param params - parameters for signing deposit message
    * @returns signature
    */
-  public async signDepositData({
-    prefix,
-    blockNumber,
-    blockHash,
-    depositRoot,
-    nonce,
-    stakingModuleId,
-  }: SignDepositDataParams): Promise<Signature> {
-    const encodedData = defaultAbiCoder.encode(
-      ['bytes32', 'uint256', 'bytes32', 'bytes32', 'uint256', 'uint256'],
-      [prefix, blockNumber, blockHash, depositRoot, stakingModuleId, nonce],
+  public async signDepositData(
+    params: SignDepositDataParams,
+  ): Promise<Signature> {
+    return this.signMessage(
+      getDsmStrategy(params.dsmVersion).depositDigest(params),
     );
-
-    const messageHash = keccak256(encodedData);
-    return await this.signMessage(messageHash);
   }
 
   /**
-   * Signs a message to pause deposits
-   * @param signPauseDataParams - parameters for signing pause message
-   * @param signPauseDataParams.prefix - unique prefix from the contract for this type of message
-   * @param signPauseDataParams.blockNumber - block number that is signed
+   * Signs a message to pause deposits. The digest layout is owned by the DSM
+   * version strategy.
+   * @param params - parameters for signing pause message
    * @returns signature
    */
-  public async signPauseDataV3({
-    prefix,
-    blockNumber,
-  }: SignPauseDataParams): Promise<Signature> {
-    const encodedData = defaultAbiCoder.encode(
-      ['bytes32', 'uint256'],
-      [prefix, blockNumber],
+  public async signPauseData(params: SignPauseDataParams): Promise<Signature> {
+    return this.signMessage(
+      getDsmStrategy(params.dsmVersion).pauseDigest(params),
     );
-
-    const messageHash = keccak256(encodedData);
-    return this.signMessage(messageHash);
   }
 
   /**
-   * Signs a message to pause deposits
-   * @param signPauseDataParams - parameters for signing pause message
-   * @param signPauseDataParams.prefix - unique prefix from the contract for this type of message
-   * @param signPauseDataParams.blockNumber - block number that is signed
-   * @param signPauseDataParams.stakingModuleId - target staking module id
+   * Sign a message to unvet signing keys. The digest layout is owned by the DSM
+   * version strategy.
+   * @param params - parameters for signing unvet message
    * @returns signature
    */
-  public async signPauseDataV2({
-    prefix,
-    blockNumber,
-    stakingModuleId,
-  }: SignModulePauseDataParams): Promise<Signature> {
-    const encodedData = defaultAbiCoder.encode(
-      ['bytes32', 'uint256', 'uint256'],
-      [prefix, blockNumber, stakingModuleId],
-    );
+  public async signUnvetData(params: SignUnvetDataParams): Promise<Signature> {
+    this.logger.debug?.('Sign data:', { ...params });
 
-    const messageHash = keccak256(encodedData);
-    return this.signMessage(messageHash);
-  }
-
-  /**
-   * Sign a message to unvet signing keys
-   * @param signUnvetDataParams - parameters for signing unvet message
-   * @param signUnvetDataParams.prefix - unique prefix from the contract for this type of message
-   * @param signUnvetDataParams.blockNumber - block number that is signed
-   * @param signUnvetDataParams.blockHash - current block hash
-   * @param signUnvetDataParams.nonce - current index of keys operations from the registry contract
-   * @param signUnvetDataParams.stakingModuleId - target staking module id
-   * @param signDepositDataParams.operatorIds - list of operators ids for unvetting
-   * @param signDepositDataParams.vettedKeysByOperator - list of new values for vetted validators amount for operator
-   * @returns
-   */
-  public async signUnvetData({
-    prefix,
-    blockNumber,
-    blockHash,
-    nonce,
-    stakingModuleId,
-    operatorIds,
-    vettedKeysByOperator,
-  }: SignUnvetDataParams): Promise<Signature> {
-    const encodedData = utils.solidityPack(
-      [
-        'bytes32',
-        'uint256',
-        'bytes32',
-        'uint256',
-        'uint256',
-        'bytes',
-        'bytes',
-      ],
-      [
-        prefix,
-        blockNumber,
-        blockHash,
-        stakingModuleId,
-        nonce,
-        operatorIds,
-        vettedKeysByOperator,
-      ],
-    );
-
-    this.logger.debug?.('Sign data:', {
-      prefix,
-      blockNumber,
-      blockHash,
-      stakingModuleId,
-      nonce,
-      operatorIds,
-      vettedKeysByOperator,
-    });
-
-    const messageHash = keccak256(encodedData);
+    const messageHash = getDsmStrategy(params.dsmVersion).unvetDigest(params);
 
     this.logger.debug?.('Message hash:', {
       messageHash,
-      blockHash,
-      blockNumber,
+      blockHash: params.blockHash,
+      blockNumber: params.blockNumber,
     });
 
     return this.signMessage(messageHash);

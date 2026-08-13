@@ -21,19 +21,16 @@ import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/sign
 import { GuardianMessageService } from 'guardian/guardian-message';
 import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 import {
-  addGuardians,
   canDeposit,
   deposit,
   fillLidoBuffer,
-  getGuardians,
   getLidoWC,
   getModuleWC,
-  getSecurityContract,
-  getSecurityOwner,
+  waitForDepositsPaused,
 } from './helpers/dsm';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
 import { BlsService } from 'bls';
-import { getWalletAddress, makeDeposit, signDeposit } from './helpers/deposit';
+import { makeDeposit, signDeposit } from './helpers/deposit';
 import { CuratedOnchainV1 } from './helpers/nor.contract';
 import {
   waitForNewerBlock,
@@ -41,7 +38,7 @@ import {
   waitKAPIUpdateModulesKeys,
 } from './helpers/kapi';
 import { truncateTables } from './helpers/pg';
-import { accountImpersonate, testSetupProvider } from './helpers/provider';
+import { testSetupProvider } from './helpers/provider';
 import { SecretKey } from '@chainsafe/blst';
 import {
   getStakingModulesInfo,
@@ -54,6 +51,7 @@ import {
 } from './helpers/docker-containers/utils';
 import { HardhatServer } from './helpers/hardhat-server';
 import { cutModulesKeys } from './helpers/reduce-keys';
+import { E2EDsmSetup, setupE2EDsm } from './helpers/dsm-version';
 
 // Mock rabbit straight away
 jest.mock('../src/transport/stomp/stomp.client.ts');
@@ -113,7 +111,7 @@ describe('Front-run e2e tests', () => {
       .spyOn(guardianMessageService, 'pingMessageBroker')
       .mockImplementation(() => Promise.resolve());
     sendPauseMessage = jest
-      .spyOn(guardianMessageService, 'sendPauseMessageV3')
+      .spyOn(guardianMessageService, 'sendPauseMessage')
       .mockImplementation(() => Promise.resolve());
     sendUnvetMessage = jest
       .spyOn(guardianMessageService, 'sendUnvetMessage')
@@ -174,6 +172,7 @@ describe('Front-run e2e tests', () => {
     amount: number;
   };
   let securityModuleAddress: string;
+  let dsmSetup: E2EDsmSetup;
 
   let postgresContainer;
   let keysApiContainer;
@@ -188,6 +187,9 @@ describe('Front-run e2e tests', () => {
 
     hardhatServer = new HardhatServer();
     await hardhatServer.start();
+    dsmSetup = await setupE2EDsm();
+    guardianIndex = dsmSetup.guardianIndex;
+    securityModuleAddress = dsmSetup.dsmAddress;
 
     console.log('Hardhat node is ready. Starting key cutting process...');
     await cutModulesKeys(undefined, {
@@ -199,21 +201,6 @@ describe('Front-run e2e tests', () => {
     await startContainerIfNotRunning(keysApiContainer);
 
     await waitKAPIUpdateModulesKeys();
-
-    const securityModule = await getSecurityContract();
-    const securityModuleOwner = await getSecurityOwner();
-    await accountImpersonate(securityModuleOwner);
-    const oldGuardians = await getGuardians();
-    securityModuleAddress = securityModule.address;
-    await addGuardians({
-      securityModuleAddress,
-      securityModuleOwner,
-    });
-
-    const newGuardians = await getGuardians();
-    // TODO: read from contract
-    guardianIndex = newGuardians.length - 1;
-    expect(newGuardians.length).toEqual(oldGuardians.length + 1);
 
     ({ stakingModulesAddresses, curatedModuleAddress } =
       await getStakingModulesInfo());
@@ -254,7 +241,7 @@ describe('Front-run e2e tests', () => {
 
       // top up Lido buffer so module 1 has allocation for deposits
       await fillLidoBuffer(2);
-    }, 50_000);
+    });
 
     afterAll(async () => {
       jest.clearAllMocks();
@@ -360,13 +347,11 @@ describe('Front-run e2e tests', () => {
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      const walletAddress = await getWalletAddress();
-
       expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
-          guardianAddress: walletAddress,
+          guardianAddress: dsmSetup.guardianAddress,
           guardianIndex,
           stakingModuleId: 1,
           operatorIds: packNodeOperatorIds([firstOperator.index]),
@@ -408,7 +393,7 @@ describe('Front-run e2e tests', () => {
 
       // top up Lido buffer so module 1 has allocation for deposits
       await fillLidoBuffer(2);
-    }, 50_000);
+    });
 
     afterAll(async () => {
       jest.clearAllMocks();
@@ -520,7 +505,7 @@ describe('Front-run e2e tests', () => {
 
       // top up Lido buffer so module 1 has allocation for deposits
       await fillLidoBuffer(2);
-    }, 50_000);
+    });
 
     afterAll(async () => {
       jest.clearAllMocks();
@@ -648,7 +633,7 @@ describe('Front-run e2e tests', () => {
       setupMocks();
       canRunTests = await canDeposit();
       console.log('canRunTests', canRunTests);
-    }, 50_000);
+    });
 
     afterAll(async () => {
       jest.clearAllMocks();
@@ -786,7 +771,6 @@ describe('Front-run e2e tests', () => {
 
     runIf('Run council daemon', async () => {
       await guardianService.handleNewBlock();
-      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
     });
 
     runIf('Pause happen', async () => {
@@ -795,6 +779,7 @@ describe('Front-run e2e tests', () => {
         provider,
       );
 
+      await waitForDepositsPaused(securityContract);
       const isOnPause = await securityContract.isDepositsPaused();
       expect(isOnPause).toBe(true);
       expect(sendPauseMessage).toHaveBeenCalledTimes(1);
@@ -808,7 +793,7 @@ describe('Front-run e2e tests', () => {
   // Wrong WC type: a used Lido key whose earliest deposit carries a VALID Lido WC
   // but of the wrong type (e.g. a 0x01-module key deposited with the 0x02 WC of
   // the CMv2 module, id 5). This is distinct from front-running (non-Lido WC) and
-  // must trigger the same global hard pause (pauseDepositsV3).
+  // must trigger the same global hard pause (pauseDeposits).
   describe('Wrong WC type', () => {
     let snapshotId: number;
     let canRunTests = true;
@@ -826,7 +811,7 @@ describe('Front-run e2e tests', () => {
 
       // 0x02-type Lido WC, taken from the CMv2 community module (id 5)
       wrongTypeWC = await getModuleWC(5);
-    }, 50_000);
+    });
 
     afterAll(async () => {
       jest.clearAllMocks();
@@ -955,7 +940,6 @@ describe('Front-run e2e tests', () => {
 
     runIf('Run council daemon', async () => {
       await guardianService.handleNewBlock();
-      await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
     });
 
     runIf('Pause happen', async () => {
@@ -964,6 +948,7 @@ describe('Front-run e2e tests', () => {
         provider,
       );
 
+      await waitForDepositsPaused(securityContract);
       const isOnPause = await securityContract.isDepositsPaused();
       expect(isOnPause).toBe(true);
       expect(sendPauseMessage).toHaveBeenCalledTimes(1);
@@ -996,7 +981,7 @@ describe('Front-run e2e tests', () => {
 
       // 0x02-type Lido WC, taken from the CMv2 community module (id 5)
       wrongTypeWC = await getModuleWC(5);
-    }, 50_000);
+    });
 
     afterAll(async () => {
       jest.clearAllMocks();
@@ -1095,13 +1080,11 @@ describe('Front-run e2e tests', () => {
       await guardianService.handleNewBlock();
       await new Promise((res) => setTimeout(res, SLEEP_FOR_RESULT));
 
-      const walletAddress = await getWalletAddress();
-
       expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
-          guardianAddress: walletAddress,
+          guardianAddress: dsmSetup.guardianAddress,
           guardianIndex,
           stakingModuleId: 1,
           operatorIds: packNodeOperatorIds([firstOperator.index]),

@@ -7,10 +7,11 @@ import {
   METRIC_UNVET_ATTEMPTS,
 } from 'common/prometheus';
 import { OneAtTime, OneAtTimeCallId } from 'common/decorators';
-import { SecurityAbi } from 'generated';
+import { Configuration } from 'common/config';
 import {
-  SecurityDeprecatedPauseAbi,
-  SecurityDeprecatedPauseAbi__factory,
+  DelegationContractAbi,
+  DelegationContractAbi__factory,
+  SecurityAbi,
 } from 'generated';
 import { RepositoryService } from 'contracts/repository';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
@@ -18,7 +19,24 @@ import { Counter } from 'prom-client';
 import { BlockTag } from '@lido-nestjs/execution';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { WalletService } from 'wallet';
-import { DSM_CONTRACT_SUPPORTED_VERSIONS } from './security.constants';
+import {
+  DSM_CONTRACT_SUPPORTED_VERSIONS,
+  DSM_CONTRACT_VERSION_5,
+  ERC1271_INTERFACE_ID,
+} from './security.constants';
+import { DsmTxDeps, getDsmStrategy } from './dsm-version.strategy';
+import { constants, utils } from 'ethers';
+
+export type DsmVersion = 4 | 5;
+
+export interface GuardianExecutionContext {
+  dsmAddress: string;
+  dsmVersion: DsmVersion;
+  delegateAddress: string;
+  guardianAddress: string;
+  guardianIndex: number;
+  mode: 'legacy-eoa' | 'edf';
+}
 
 @Injectable()
 export class SecurityService {
@@ -29,17 +47,110 @@ export class SecurityService {
     private provider: SimpleFallbackJsonRpcBatchProvider,
     private repositoryService: RepositoryService,
     private walletService: WalletService,
+    private config: Configuration,
   ) {}
 
   public async initialize(blockTag: BlockTag): Promise<void> {
-    const guardianIndex = await this.getGuardianIndex(blockTag);
-    const address = this.walletService.address;
+    const context = await this.getGuardianExecutionContext(blockTag);
+    const address = context.guardianAddress;
+    await this.walletService.monitorGuardianBalance();
 
-    if (guardianIndex === -1) {
+    if (context.guardianIndex === -1) {
       this.logger.warn(`Your address is not in the Guardian List`, { address });
     } else {
       this.logger.log(`Your address is in the Guardian List`, { address });
     }
+  }
+
+  public async getGuardianExecutionContext(
+    blockTag: BlockTag,
+  ): Promise<GuardianExecutionContext> {
+    const contract = this.repositoryService.getCachedDSMContract();
+    const dsmAddress = utils.getAddress(contract.address);
+    const dsmVersion = (await this.version(blockTag)) as DsmVersion;
+
+    if (dsmVersion !== DSM_CONTRACT_VERSION_5) {
+      this.walletService.selectLegacyWallet();
+      const delegateAddress = utils.getAddress(this.walletService.address);
+      const guardians = await this.getGuardians(blockTag);
+      return {
+        dsmAddress,
+        dsmVersion,
+        delegateAddress,
+        guardianAddress: delegateAddress,
+        guardianIndex: this.findGuardianIndex(guardians, delegateAddress),
+        mode: 'legacy-eoa',
+      };
+    }
+
+    const configuredAddress = this.config.DELEGATION_CONTRACT_ADDRESS;
+    if (!configuredAddress || !utils.isAddress(configuredAddress)) {
+      throw new Error(
+        'DELEGATION_CONTRACT_ADDRESS is required for DSM version 5',
+      );
+    }
+
+    const guardianAddress = utils.getAddress(configuredAddress);
+    if ((await this.provider.getCode(guardianAddress, blockTag)) === '0x') {
+      throw new Error(
+        `No contract code at DELEGATION_CONTRACT_ADDRESS ${guardianAddress}`,
+      );
+    }
+
+    const delegationContract = DelegationContractAbi__factory.connect(
+      guardianAddress,
+      this.provider,
+    );
+    const overrides = { blockTag: blockTag as any };
+    const [effectiveDelegate, terminated, supportsErc1271, guardians] =
+      await Promise.all([
+        delegationContract.getDelegate(overrides),
+        delegationContract.isTerminated(overrides),
+        delegationContract.supportsInterface(ERC1271_INTERFACE_ID, overrides),
+        this.getGuardians(blockTag),
+      ]);
+
+    if (terminated) {
+      throw new Error(`DelegationContract ${guardianAddress} is terminated`);
+    }
+    if (effectiveDelegate === constants.AddressZero) {
+      throw new Error(
+        `DelegationContract ${guardianAddress} has no active delegate`,
+      );
+    }
+    const delegateAddress = utils.getAddress(effectiveDelegate);
+    if (!supportsErc1271) {
+      throw new Error(
+        `DelegationContract ${guardianAddress} does not support ERC-1271`,
+      );
+    }
+
+    const guardianIndex = this.findGuardianIndex(guardians, guardianAddress);
+    if (guardianIndex === -1) {
+      throw new Error(
+        `DelegationContract ${guardianAddress} is not a DSM guardian`,
+      );
+    }
+
+    this.walletService.selectDelegateWallet(delegateAddress);
+
+    return {
+      dsmAddress,
+      dsmVersion,
+      delegateAddress,
+      guardianAddress,
+      guardianIndex,
+      mode: 'edf',
+    };
+  }
+
+  private findGuardianIndex(
+    guardians: string[],
+    guardianAddress: string,
+  ): number {
+    return guardians.findIndex(
+      (guardian) => guardian.toLowerCase() === guardianAddress.toLowerCase(),
+    );
   }
 
   /**
@@ -54,22 +165,15 @@ export class SecurityService {
     return contractWithSigner;
   }
 
-  /**
-   * Returns an instance of the deprecated v2 security contract with only the `pause` method.
-   */
-  public getContractWithSignerDeprecated(): SecurityDeprecatedPauseAbi {
-    const contract = this.repositoryService.getCachedDSMContract();
-
-    const oldContract = SecurityDeprecatedPauseAbi__factory.connect(
-      contract.address,
-      this.provider,
+  public getDelegationContractWithSigner(
+    context: GuardianExecutionContext,
+  ): DelegationContractAbi {
+    this.selectWallet(context);
+    const walletWithProvider = this.walletService.wallet.connect(this.provider);
+    return DelegationContractAbi__factory.connect(
+      context.guardianAddress,
+      walletWithProvider,
     );
-
-    const wallet = this.walletService.wallet;
-    const walletWithProvider = wallet.connect(this.provider);
-    const contractWithSigner = oldContract.connect(walletWithProvider);
-
-    return contractWithSigner;
   }
 
   /**
@@ -82,23 +186,6 @@ export class SecurityService {
     });
 
     return guardians;
-  }
-
-  /**
-   * Returns the guardian index in the list
-   */
-  public async getGuardianIndex(blockTag?: BlockTag): Promise<number> {
-    const guardians = await this.getGuardians(blockTag);
-    const address = this.walletService.address;
-
-    return guardians.indexOf(address);
-  }
-
-  /**
-   * Returns guardian address
-   */
-  public getGuardianAddress(): string {
-    return this.walletService.address;
   }
 
   /**
@@ -117,8 +204,10 @@ export class SecurityService {
     blockNumber: number,
     blockHash: string,
     stakingModuleId: number,
+    context: GuardianExecutionContext,
   ): Promise<Signature> {
     const prefix = await this.getAttestMessagePrefix(blockHash);
+    this.selectWallet(context);
 
     return await this.walletService.signDepositData({
       prefix,
@@ -127,6 +216,8 @@ export class SecurityService {
       blockNumber,
       blockHash,
       stakingModuleId,
+      dsmVersion: context.dsmVersion,
+      guardianAddress: context.guardianAddress,
     });
   }
 
@@ -137,15 +228,19 @@ export class SecurityService {
    * @param blockHash - The block hash, used to fetch the pause prefix.
    * @returns Signature for pausing deposits.
    */
-  public async signPauseDataV3(
+  public async signPauseData(
     blockNumber: number,
     blockHash: string,
+    context: GuardianExecutionContext,
   ): Promise<Signature> {
     const prefix = await this.getPauseMessagePrefix(blockHash);
+    this.selectWallet(context);
 
-    return await this.walletService.signPauseDataV3({
+    return await this.walletService.signPauseData({
       prefix,
       blockNumber,
+      dsmVersion: context.dsmVersion,
+      guardianAddress: context.guardianAddress,
     });
   }
 
@@ -155,20 +250,19 @@ export class SecurityService {
    * @param signature - message signature
    */
   @OneAtTime()
-  public async pauseDepositsV3(
+  public async pauseDeposits(
     pauseBlockNumber: number,
     signature: Signature,
+    context: GuardianExecutionContext,
   ): Promise<ContractReceipt> {
     this.logger.warn('Try to pause deposits', { pauseBlockNumber });
     this.pauseAttempts.inc();
 
-    const contract = this.getContractWithSigner();
-
-    const { r, _vs: vs } = signature;
-    const tx = await contract.pauseDeposits(pauseBlockNumber, {
-      r,
-      vs,
-    });
+    const tx = await getDsmStrategy(context.dsmVersion).sendPause(
+      this.getTxDeps(context),
+      pauseBlockNumber,
+      signature,
+    );
 
     this.logger.warn('Pause transaction sent', {
       txHash: tx.hash,
@@ -181,71 +275,6 @@ export class SecurityService {
     this.logger.warn('Block confirmation received for the pause tx', {
       pauseBlockNumber,
       txHash: tx.hash,
-    });
-
-    return receipt;
-  }
-
-  /**
-   * Signs a message to pause deposits, including the pause prefix from the contract.
-   *
-   * @param blockNumber - The block number, included as part of the message for signing.
-   * @param blockHash - The block hash, used to fetch the pause prefix.
-   * @param stakingModuleId - The staking module ID, included as part of the message for signing.
-   * @returns Signature for pausing deposits.
-   */
-  public async signPauseDataV2(
-    blockNumber: number,
-    blockHash: string,
-    stakingModuleId: number,
-  ): Promise<Signature> {
-    const prefix = await this.getPauseMessagePrefix(blockHash);
-
-    return await this.walletService.signPauseDataV2({
-      prefix,
-      blockNumber,
-      stakingModuleId,
-    });
-  }
-
-  /**
-   * Sends a transaction to pause deposits
-   * @param blockNumber - the block number for which the message is signed
-   * @param stakingModuleId - target staking module id
-   * @param signature - message signature
-   */
-  @OneAtTime()
-  public async pauseDepositsV2(
-    blockNumber: number,
-    @OneAtTimeCallId stakingModuleId: number,
-    signature: Signature,
-  ): Promise<ContractReceipt> {
-    this.logger.warn('Try to pause deposits', { stakingModuleId, blockNumber });
-    this.pauseAttempts.inc();
-
-    const contract = this.getContractWithSignerDeprecated();
-
-    const { r, _vs: vs } = signature;
-    const tx = await contract.pauseDeposits(blockNumber, stakingModuleId, {
-      r,
-      vs,
-    });
-
-    this.logger.warn('Pause transaction sent', {
-      txHash: tx.hash,
-      blockNumber,
-      stakingModuleId,
-    });
-    this.logger.warn('Waiting for block confirmation', {
-      blockNumber,
-      stakingModuleId,
-    });
-
-    const receipt = await tx.wait();
-
-    this.logger.warn('Block confirmation received', {
-      blockNumber,
-      stakingModuleId,
     });
 
     return receipt;
@@ -270,8 +299,10 @@ export class SecurityService {
     stakingModuleId: number,
     operatorIds: string,
     vettedKeysByOperator: string,
+    context: GuardianExecutionContext,
   ): Promise<Signature> {
     const prefix = await this.getUnvetMessagePrefix(blockHash);
+    this.selectWallet(context);
 
     return await this.walletService.signUnvetData({
       prefix,
@@ -281,6 +312,8 @@ export class SecurityService {
       nonce,
       operatorIds,
       vettedKeysByOperator,
+      dsmVersion: context.dsmVersion,
+      guardianAddress: context.guardianAddress,
     });
   }
 
@@ -306,6 +339,7 @@ export class SecurityService {
     operatorIds: string,
     vettedKeysByOperator: string,
     signature: Signature,
+    context: GuardianExecutionContext,
   ): Promise<ContractReceipt> {
     this.logger.warn('Try to unvet keys for staking module', {
       stakingModuleId,
@@ -313,20 +347,17 @@ export class SecurityService {
     });
     this.unvetAttempts.inc();
 
-    const contract = this.getContractWithSigner();
-
-    const { r, _vs: vs } = signature;
-    const tx = await contract.unvetSigningKeys(
-      blockNumber,
-      blockHash,
-      stakingModuleId,
-      nonce,
-      operatorIds,
-      vettedKeysByOperator,
+    const tx = await getDsmStrategy(context.dsmVersion).sendUnvet(
+      this.getTxDeps(context),
       {
-        r,
-        vs,
+        nonce,
+        blockNumber,
+        blockHash,
+        stakingModuleId,
+        operatorIds,
+        vettedKeysByOperator,
       },
+      signature,
     );
 
     this.logger.warn('Unvet transaction sent', {
@@ -347,6 +378,27 @@ export class SecurityService {
     });
 
     return receipt;
+  }
+
+  /**
+   * Selects the wallet the strategy signs with and hands it every dependency a
+   * direct DSM transaction can need. The strategy decides which one it uses.
+   */
+  private getTxDeps(context: GuardianExecutionContext): DsmTxDeps {
+    this.selectWallet(context);
+    return {
+      dsm: this.getContractWithSigner(),
+      delegation: () => this.getDelegationContractWithSigner(context),
+      dsmAddress: context.dsmAddress,
+    };
+  }
+
+  private selectWallet(context: GuardianExecutionContext): void {
+    if (getDsmStrategy(context.dsmVersion).signer === 'delegate') {
+      this.walletService.selectDelegateWallet(context.delegateAddress);
+      return;
+    }
+    this.walletService.selectLegacyWallet();
   }
 
   /**
