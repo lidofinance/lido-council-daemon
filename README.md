@@ -72,7 +72,8 @@ WALLET_PRIVATE_KEY=<current delegate private key>
 WALLET_PRIVATE_KEY_2=<planned delegate private key>
 ```
 
-`DELEGATION_CONTRACT_ADDRESS` is the DSM guardian identity for DSM v5.
+`DELEGATION_CONTRACT_ADDRESS` is required at startup, including while the daemon
+runs against DSM v4. It becomes the DSM guardian identity on DSM v5.
 `WALLET_PRIVATE_KEY` and `WALLET_PRIVATE_KEY_2` form the wallet pool: the
 current delegate key and the planned next one. Do not add the owner key.
 
