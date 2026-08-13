@@ -26,6 +26,7 @@ import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { CHAINS } from '@lido-nestjs/constants';
 import { getNetwork } from '@ethersproject/networks';
 import { JsonRpcProvider } from '@ethersproject/providers';
+import { WalletService } from 'wallet';
 
 jest.mock('../transport/stomp/stomp.client');
 
@@ -33,6 +34,7 @@ describe('GuardianService', () => {
   let keysApiService: KeysApiService;
   let guardianService: GuardianService;
   let loggerService: LoggerService;
+  let walletService: WalletService;
 
   let repositoryService: RepositoryService;
   let locatorService: LocatorService;
@@ -85,6 +87,7 @@ describe('GuardianService', () => {
     guardianService = moduleRef.get(GuardianService);
 
     loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
+    walletService = moduleRef.get(WalletService);
 
     jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
     jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
@@ -198,9 +201,11 @@ describe('GuardianService', () => {
   it.each([
     ['legacy-eoa', 4],
     ['edf', 5],
-  ] as const)('logs %s guardian mode', (mode, dsmVersion) => {
+  ] as const)('exports and logs %s guardian mode', (mode, dsmVersion) => {
+    const firstWallet = '0x0000000000000000000000000000000000000001';
+    const secondWallet = '0x0000000000000000000000000000000000000004';
     const context = {
-      delegateAddress: '0x0000000000000000000000000000000000000001',
+      delegateAddress: firstWallet,
       dsmAddress: '0x0000000000000000000000000000000000000002',
       dsmVersion,
       guardianAddress: '0x0000000000000000000000000000000000000003',
@@ -208,8 +213,44 @@ describe('GuardianService', () => {
       mode,
     };
 
-    (guardianService as any).lastGuardianExecutionContext = context;
-    (guardianService as any).logGuardianExecutionMode();
+    jest
+      .spyOn(walletService, 'addresses', 'get')
+      .mockReturnValue([firstWallet, secondWallet]);
+    const guardianInfoMetric = (guardianService as any).guardianInfoMetric;
+    const reset = jest.spyOn(guardianInfoMetric, 'reset');
+    const set = jest.spyOn(guardianInfoMetric, 'set');
+    reset.mockClear();
+    set.mockClear();
+
+    (guardianService as any).setGuardianExecutionContext(context);
+
+    expect(reset).toHaveBeenCalledTimes(1);
+    expect(set).toHaveBeenNthCalledWith(
+      1,
+      {
+        mode,
+        dsmVersion: dsmVersion.toString(),
+        dsmAddress: context.dsmAddress,
+        guardianAddress: context.guardianAddress,
+        activeWalletAddress: firstWallet,
+        walletAddress: firstWallet,
+        isActive: 'true',
+      },
+      1,
+    );
+    expect(set).toHaveBeenNthCalledWith(
+      2,
+      {
+        mode,
+        dsmVersion: dsmVersion.toString(),
+        dsmAddress: context.dsmAddress,
+        guardianAddress: context.guardianAddress,
+        activeWalletAddress: firstWallet,
+        walletAddress: secondWallet,
+        isActive: 'false',
+      },
+      1,
+    );
 
     expect(loggerService.log).toHaveBeenCalledWith(
       `Guardian execution mode: ${mode}`,

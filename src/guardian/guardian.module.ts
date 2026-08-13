@@ -13,6 +13,7 @@ import { SigningKeysRegistryModule } from 'contracts/signing-keys-registry';
 import { UnvettingModule } from './unvetting/unvetting.module';
 import { StakingModuleDataCollectorModule } from 'staking-module-data-collector';
 import { StakingRouterModule } from 'contracts/staking-router';
+import { WalletModule } from 'wallet';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { StakingRouterModule } from 'contracts/staking-router';
     KeysApiModule,
     SigningKeysRegistryModule.register(),
     StakingRouterModule,
+    WalletModule,
   ],
   providers: [GuardianService],
   exports: [GuardianService],

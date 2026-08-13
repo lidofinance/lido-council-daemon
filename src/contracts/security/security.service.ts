@@ -50,7 +50,9 @@ export class SecurityService {
     private config: Configuration,
   ) {}
 
-  public async initialize(blockTag: BlockTag): Promise<void> {
+  public async initialize(
+    blockTag: BlockTag,
+  ): Promise<GuardianExecutionContext> {
     const context = await this.getGuardianExecutionContext(blockTag);
     const address = context.guardianAddress;
     await this.walletService.monitorGuardianBalance();
@@ -60,6 +62,8 @@ export class SecurityService {
     } else {
       this.logger.log(`Your address is in the Guardian List`, { address });
     }
+
+    return context;
   }
 
   public async getGuardianExecutionContext(

@@ -159,6 +159,16 @@ describe('WalletService', () => {
     });
   });
 
+  describe('addresses', () => {
+    it('should return all configured wallet addresses', () => {
+      expect(walletService.addresses).toEqual([
+        wallet.address,
+        firstDelegateWallet.address,
+        secondDelegateWallet.address,
+      ]);
+    });
+  });
+
   describe('signDepositData', () => {
     it('should sign deposit data', async () => {
       const prefix = hexZeroPad('0x1', 32);
