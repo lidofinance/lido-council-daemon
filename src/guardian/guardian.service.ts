@@ -37,10 +37,11 @@ import { ELBlockSnapshot } from 'keys-api/interfaces/ELBlockSnapshot';
 import { SRModule } from 'keys-api/interfaces';
 import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
-import { METRIC_JOB_DURATION } from 'common/prometheus';
-import { Histogram } from 'prom-client';
+import { METRIC_GUARDIAN_INFO, METRIC_JOB_DURATION } from 'common/prometheus';
+import { Gauge, Histogram } from 'prom-client';
 import { DeepReadonly } from 'common/ts-utils';
 import { buildModuleWc } from './withdrawal-credentials';
+import { WalletService } from 'wallet';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -70,9 +71,12 @@ export class GuardianService implements OnModuleInit {
     private unvettingService: UnvettingService,
 
     private stakingRouterService: StakingRouterService,
+    private walletService: WalletService,
 
     @InjectMetric(METRIC_JOB_DURATION)
     private jobDurationMetric: Histogram<string>,
+    @InjectMetric(METRIC_GUARDIAN_INFO)
+    private guardianInfoMetric: Gauge<string>,
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -86,13 +90,14 @@ export class GuardianService implements OnModuleInit {
         const stakingRouterModuleAddresses =
           await this.stakingRouterService.getStakingModulesAddresses(blockHash);
 
-        await Promise.all([
+        const [, guardianContext] = await Promise.all([
           this.depositService.initialize(),
           this.securityService.initialize({ blockHash }),
           this.signingKeysRegistryService.initialize(
             stakingRouterModuleAddresses,
           ),
         ]);
+        this.setGuardianExecutionContext(guardianContext);
 
         const network = await this.provider.getNetwork();
         const chainId = network.chainId;
@@ -197,8 +202,7 @@ export class GuardianService implements OnModuleInit {
         lidoKeys,
       );
 
-      this.lastGuardianExecutionContext = blockData.guardianContext;
-      this.logGuardianExecutionMode();
+      this.setGuardianExecutionContext(blockData.guardianContext);
 
       if (
         !blockData.alreadyPausedDeposits &&
@@ -237,6 +241,31 @@ export class GuardianService implements OnModuleInit {
       dsmVersion: context.dsmVersion,
       guardianAddress: context.guardianAddress,
     });
+  }
+
+  private setGuardianExecutionContext(context: GuardianExecutionContext): void {
+    this.lastGuardianExecutionContext = context;
+    this.guardianInfoMetric.reset();
+
+    for (const walletAddress of this.walletService.addresses) {
+      this.guardianInfoMetric.set(
+        {
+          mode: context.mode,
+          dsmVersion: context.dsmVersion.toString(),
+          dsmAddress: context.dsmAddress,
+          guardianAddress: context.guardianAddress,
+          activeWalletAddress: context.delegateAddress,
+          walletAddress,
+          isActive: String(
+            walletAddress.toLowerCase() ===
+              context.delegateAddress.toLowerCase(),
+          ),
+        },
+        1,
+      );
+    }
+
+    this.logGuardianExecutionMode();
   }
 
   private async collectData(

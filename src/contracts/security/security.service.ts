@@ -50,7 +50,13 @@ export class SecurityService {
     private config: Configuration,
   ) {}
 
-  public async initialize(blockTag: BlockTag): Promise<void> {
+  public async initialize(
+    blockTag: BlockTag,
+  ): Promise<GuardianExecutionContext> {
+    void this.logEdfReadiness(blockTag).catch((error) =>
+      this.logger.error(error),
+    );
+
     const context = await this.getGuardianExecutionContext(blockTag);
     const address = context.guardianAddress;
     await this.walletService.monitorGuardianBalance();
@@ -59,6 +65,130 @@ export class SecurityService {
       this.logger.warn(`Your address is not in the Guardian List`, { address });
     } else {
       this.logger.log(`Your address is in the Guardian List`, { address });
+    }
+
+    return context;
+  }
+
+  /**
+   * Reports whether the configured delegation contract passes the checks that
+   * are available before the DSM switches to v5. This diagnostic must never
+   * block legacy DSM startup.
+   */
+  public async logEdfReadiness(blockTag: BlockTag): Promise<void> {
+    const configuredAddress = this.config.DELEGATION_CONTRACT_ADDRESS;
+    let configuredWalletAddresses: string[] = [];
+
+    const notReady = (
+      reason: string,
+      delegationContractAddress = configuredAddress,
+      delegateAddress?: string,
+      error?: unknown,
+    ) => {
+      const errorDetails: {
+        errorName?: string;
+        errorMessage?: string;
+        errorStack?: string;
+      } = {};
+
+      if (error instanceof Error) {
+        errorDetails.errorName = error.name;
+        errorDetails.errorMessage = error.message;
+        errorDetails.errorStack = error.stack;
+      } else if (error !== undefined) {
+        errorDetails.errorMessage = String(error);
+      }
+
+      this.logger.warn('EDF setup is not ready', {
+        reason,
+        delegationContractAddress,
+        delegateAddress,
+        configuredWalletAddresses,
+        ...errorDetails,
+      });
+    };
+
+    try {
+      configuredWalletAddresses = this.walletService.addresses;
+
+      if (!configuredAddress) {
+        notReady('DELEGATION_CONTRACT_ADDRESS is not configured');
+        return;
+      }
+      if (!utils.isAddress(configuredAddress)) {
+        notReady('DELEGATION_CONTRACT_ADDRESS is not a valid address');
+        return;
+      }
+
+      const delegationContractAddress = utils.getAddress(configuredAddress);
+      if (
+        (await this.provider.getCode(delegationContractAddress, blockTag)) ===
+        '0x'
+      ) {
+        notReady(
+          'No contract code at DELEGATION_CONTRACT_ADDRESS',
+          delegationContractAddress,
+        );
+        return;
+      }
+
+      const delegationContract = DelegationContractAbi__factory.connect(
+        delegationContractAddress,
+        this.provider,
+      );
+      const overrides = { blockTag: blockTag as any };
+      const [effectiveDelegate, supportsErc1271] = await Promise.all([
+        delegationContract.getDelegate(overrides),
+        delegationContract.supportsInterface(ERC1271_INTERFACE_ID, overrides),
+      ]);
+      if (
+        !utils.isAddress(effectiveDelegate) ||
+        effectiveDelegate === constants.AddressZero
+      ) {
+        notReady(
+          'DelegationContract has no valid active delegate',
+          delegationContractAddress,
+          effectiveDelegate,
+        );
+        return;
+      }
+      if (!supportsErc1271) {
+        notReady(
+          'DelegationContract does not support ERC-1271',
+          delegationContractAddress,
+          effectiveDelegate,
+        );
+        return;
+      }
+
+      const delegateAddress = utils.getAddress(effectiveDelegate);
+      const hasDelegateWallet = configuredWalletAddresses.some(
+        (walletAddress) =>
+          walletAddress.toLowerCase() === delegateAddress.toLowerCase(),
+      );
+      if (!hasDelegateWallet) {
+        notReady(
+          'No configured wallet matches the active delegate',
+          delegationContractAddress,
+          delegateAddress,
+        );
+        return;
+      }
+
+      this.logger.log('EDF preflight passed', {
+        delegationContractAddress,
+        delegateAddress,
+        configuredWalletAddresses,
+      });
+    } catch (error) {
+      notReady(
+        `EDF preflight check failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        configuredAddress,
+        undefined,
+        error,
+      );
     }
   }
 

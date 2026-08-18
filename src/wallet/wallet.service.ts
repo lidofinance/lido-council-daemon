@@ -190,6 +190,11 @@ export class WalletService implements OnModuleInit {
     return this.wallet.address;
   }
 
+  /** All configured wallet addresses available for delegate selection. */
+  public get addresses(): string[] {
+    return this.wallets.map((wallet) => wallet.address);
+  }
+
   /**
    * Signs a message using a private key
    * @param message - message that is signed

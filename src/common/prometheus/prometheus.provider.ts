@@ -12,6 +12,7 @@ import {
   METRIC_BLOCK_DATA_REQUEST_DURATION,
   METRIC_BLOCK_DATA_REQUEST_ERRORS,
   METRIC_BUILD_INFO,
+  METRIC_GUARDIAN_INFO,
   METRIC_VALIDATED_DEPOSITS_TOTAL,
   METRIC_INTERSECTIONS_TOTAL,
   METRIC_DEPOSITED_KEYS_TOTAL,
@@ -108,6 +109,20 @@ export const PrometheusBuildInfoGaugeProvider = makeCounterProvider({
   name: METRIC_BUILD_INFO,
   help: 'Build information',
   labelNames: ['version', 'name', 'network', 'heapLimit'] as const,
+});
+
+export const PrometheusGuardianInfoGaugeProvider = makeGaugeProvider({
+  name: METRIC_GUARDIAN_INFO,
+  help: 'Current guardian execution context and configured wallets',
+  labelNames: [
+    'mode',
+    'dsmVersion',
+    'dsmAddress',
+    'guardianAddress',
+    'activeWalletAddress',
+    'walletAddress',
+    'isActive',
+  ] as const,
 });
 
 export const PrometheusValidatedDepositsProvider = makeGaugeProvider({
