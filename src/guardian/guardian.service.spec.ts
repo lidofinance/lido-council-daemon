@@ -7,8 +7,15 @@ import { LoggerService } from '@nestjs/common';
 import { ConfigModule } from 'common/config';
 import { PrometheusModule } from 'common/prometheus';
 import { GuardianModule } from 'guardian';
-import { DepositsRegistryModule } from 'contracts/deposits-registry';
-import { SecurityModule } from 'contracts/security';
+import {
+  DepositRegistryService,
+  DepositsRegistryModule,
+} from 'contracts/deposits-registry';
+import {
+  GuardianExecutionContext,
+  SecurityModule,
+  SecurityService,
+} from 'contracts/security';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { MessagesModule } from 'messages';
 import { StakingModuleDataCollectorModule } from 'staking-module-data-collector';
@@ -27,6 +34,8 @@ import { CHAINS } from '@lido-nestjs/constants';
 import { getNetwork } from '@ethersproject/networks';
 import { JsonRpcProvider } from '@ethersproject/providers';
 import { WalletService } from 'wallet';
+import { StakingRouterService } from 'contracts/staking-router';
+import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 
 jest.mock('../transport/stomp/stomp.client');
 
@@ -95,6 +104,90 @@ describe('GuardianService', () => {
 
     mockLocator(locatorService);
     await mockRepository(repositoryService);
+  });
+
+  it('should apply the guardian context returned during startup', async () => {
+    const blockHash = '0x1234';
+    const context: GuardianExecutionContext = {
+      delegateAddress: '0x0000000000000000000000000000000000000001',
+      dsmAddress: '0x0000000000000000000000000000000000000002',
+      dsmVersion: 5,
+      guardianAddress: '0x0000000000000000000000000000000000000003',
+      guardianIndex: 0,
+      mode: 'edf',
+    };
+    const startupRepositoryService = (guardianService as any)
+      .repositoryService as RepositoryService;
+    const startupStakingRouterService = (guardianService as any)
+      .stakingRouterService as StakingRouterService;
+    const startupDepositService = (guardianService as any)
+      .depositService as DepositRegistryService;
+    const startupSecurityService = (guardianService as any)
+      .securityService as SecurityService;
+    const startupSigningKeysRegistryService = (guardianService as any)
+      .signingKeysRegistryService as SigningKeysRegistryService;
+    const startupKeysApiService = (guardianService as any)
+      .keysApiService as KeysApiService;
+    const startupProvider = (guardianService as any)
+      .provider as SimpleFallbackJsonRpcBatchProvider;
+    jest
+      .spyOn(startupRepositoryService, 'initOrWaitCachedContracts')
+      .mockResolvedValue({ hash: blockHash } as any);
+    jest
+      .spyOn(startupStakingRouterService, 'getStakingModulesAddresses')
+      .mockResolvedValue([]);
+    jest
+      .spyOn(startupDepositService, 'initialize')
+      .mockResolvedValue(undefined);
+    jest.spyOn(startupSecurityService, 'initialize').mockResolvedValue(context);
+    jest
+      .spyOn(startupSigningKeysRegistryService, 'initialize')
+      .mockResolvedValue(undefined);
+    jest.spyOn(startupKeysApiService, 'getKeysApiStatus').mockResolvedValue({
+      appVersion: '4.0.2',
+      chainId: CHAINS.Mainnet,
+    });
+    jest.spyOn(startupProvider, 'getNetwork').mockResolvedValue({
+      chainId: CHAINS.Mainnet,
+      name: 'mainnet',
+    });
+    const setGuardianExecutionContext = jest.spyOn(
+      guardianService as any,
+      'setGuardianExecutionContext',
+    );
+    let startupError: unknown;
+    let finishStartup: (
+      result: { status: 'subscribed' } | { status: 'exited'; error: unknown },
+    ) => void = () => undefined;
+    const startup = new Promise<
+      { status: 'subscribed' } | { status: 'exited'; error: unknown }
+    >((resolve) => {
+      finishStartup = resolve;
+    });
+    const logError = jest
+      .spyOn(loggerService, 'error')
+      .mockImplementation((error) => {
+        startupError = error;
+      });
+    const exit = jest.spyOn(process, 'exit').mockImplementation(() => {
+      finishStartup({ status: 'exited', error: startupError });
+      return undefined as never;
+    });
+    jest
+      .spyOn(guardianService, 'subscribeToModulesUpdates')
+      .mockImplementation(() => finishStartup({ status: 'subscribed' }));
+
+    try {
+      await guardianService.onModuleInit();
+      const result = await startup;
+
+      expect(result).toEqual({ status: 'subscribed' });
+      expect(setGuardianExecutionContext).toHaveBeenCalledWith(context);
+      expect(exit).not.toHaveBeenCalled();
+    } finally {
+      exit.mockRestore();
+      logError.mockRestore();
+    }
   });
 
   describe('ignoreDeposits', () => {

@@ -53,7 +53,9 @@ export class SecurityService {
   public async initialize(
     blockTag: BlockTag,
   ): Promise<GuardianExecutionContext> {
-    await this.logEdfReadiness(blockTag);
+    void this.logEdfReadiness(blockTag).catch((error) =>
+      this.logger.error(error),
+    );
 
     const context = await this.getGuardianExecutionContext(blockTag);
     const address = context.guardianAddress;
@@ -69,8 +71,9 @@ export class SecurityService {
   }
 
   /**
-   * Reports whether the configured delegation contract can be used after the
-   * DSM switches to v5. This diagnostic must never block legacy DSM startup.
+   * Reports whether the configured delegation contract passes the checks that
+   * are available before the DSM switches to v5. This diagnostic must never
+   * block legacy DSM startup.
    */
   public async logEdfReadiness(blockTag: BlockTag): Promise<void> {
     const configuredAddress = this.config.DELEGATION_CONTRACT_ADDRESS;
@@ -80,12 +83,28 @@ export class SecurityService {
       reason: string,
       delegationContractAddress = configuredAddress,
       delegateAddress?: string,
+      error?: unknown,
     ) => {
+      const errorDetails: {
+        errorName?: string;
+        errorMessage?: string;
+        errorStack?: string;
+      } = {};
+
+      if (error instanceof Error) {
+        errorDetails.errorName = error.name;
+        errorDetails.errorMessage = error.message;
+        errorDetails.errorStack = error.stack;
+      } else if (error !== undefined) {
+        errorDetails.errorMessage = String(error);
+      }
+
       this.logger.warn('EDF setup is not ready', {
         reason,
         delegationContractAddress,
         delegateAddress,
         configuredWalletAddresses,
+        ...errorDetails,
       });
     };
 
@@ -117,15 +136,25 @@ export class SecurityService {
         delegationContractAddress,
         this.provider,
       );
-      const effectiveDelegate = await delegationContract.getDelegate({
-        blockTag: blockTag as any,
-      });
+      const overrides = { blockTag: blockTag as any };
+      const [effectiveDelegate, supportsErc1271] = await Promise.all([
+        delegationContract.getDelegate(overrides),
+        delegationContract.supportsInterface(ERC1271_INTERFACE_ID, overrides),
+      ]);
       if (
         !utils.isAddress(effectiveDelegate) ||
         effectiveDelegate === constants.AddressZero
       ) {
         notReady(
           'DelegationContract has no valid active delegate',
+          delegationContractAddress,
+          effectiveDelegate,
+        );
+        return;
+      }
+      if (!supportsErc1271) {
+        notReady(
+          'DelegationContract does not support ERC-1271',
           delegationContractAddress,
           effectiveDelegate,
         );
@@ -146,16 +175,19 @@ export class SecurityService {
         return;
       }
 
-      this.logger.log('EDF setup is ready', {
+      this.logger.log('EDF preflight passed', {
         delegationContractAddress,
         delegateAddress,
         configuredWalletAddresses,
       });
     } catch (error) {
       notReady(
-        `EDF readiness check failed: ${
+        `EDF preflight check failed: ${
           error instanceof Error ? error.message : String(error)
         }`,
+        configuredAddress,
+        undefined,
+        error,
       );
     }
   }
