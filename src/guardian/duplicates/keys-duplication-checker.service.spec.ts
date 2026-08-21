@@ -255,6 +255,114 @@ describe('KeysDuplicationCheckerService', () => {
           expect(result.duplicates).toEqual([unusedKey2, unusedKey3]);
           expect(result.unresolved).toEqual([]);
         });
+
+        it('Marks all current holders as duplicates when the earliest event belongs to an operator that no longer holds the key', async () => {
+          const unusedKey1 = {
+            ...keyMock1,
+            index: 10,
+            used: false,
+            operatorIndex: 1,
+          };
+          const unusedKey2 = {
+            ...keyMock1,
+            index: 20,
+            used: false,
+            operatorIndex: 2,
+          };
+
+          const staleOperatorEvent = {
+            ...eventMock1,
+            operatorIndex: 99,
+            logIndex: 0,
+            blockNumber: 1,
+          };
+          const operator1Event = {
+            ...eventMock1,
+            operatorIndex: 1,
+            logIndex: 0,
+            blockNumber: 2,
+          };
+          const operator2Event = {
+            ...eventMock1,
+            operatorIndex: 2,
+            logIndex: 0,
+            blockNumber: 3,
+          };
+
+          mockSigningKeysRegistryService.getUpdatedSigningKeyEvents.mockImplementationOnce(
+            async () => {
+              return {
+                events: [staleOperatorEvent, operator1Event, operator2Event],
+                isValid: true,
+              };
+            },
+          );
+
+          const result = await service.getDuplicatedKeys(
+            [unusedKey1, unusedKey2],
+            emptyBlockData,
+          );
+
+          expect(result.duplicates).toEqual([unusedKey1, unusedKey2]);
+          expect(result.unresolved).toEqual([]);
+        });
+
+        it('Keeps the earliest owner as the original when it re-added the key after removal', async () => {
+          const unusedKey1 = {
+            ...keyMock1,
+            index: 10,
+            used: false,
+            operatorIndex: 1,
+          };
+          const unusedKey2 = {
+            ...keyMock1,
+            index: 20,
+            used: false,
+            operatorIndex: 2,
+          };
+
+          // operator 1 added the key earliest, then re-added it later; it is
+          // still a current holder, so it stays the original.
+          const operator1EarliestEvent = {
+            ...eventMock1,
+            operatorIndex: 1,
+            logIndex: 0,
+            blockNumber: 1,
+          };
+          const operator2Event = {
+            ...eventMock1,
+            operatorIndex: 2,
+            logIndex: 0,
+            blockNumber: 2,
+          };
+          const operator1ReAddedEvent = {
+            ...eventMock1,
+            operatorIndex: 1,
+            logIndex: 0,
+            blockNumber: 3,
+          };
+
+          mockSigningKeysRegistryService.getUpdatedSigningKeyEvents.mockImplementationOnce(
+            async () => {
+              return {
+                events: [
+                  operator1EarliestEvent,
+                  operator2Event,
+                  operator1ReAddedEvent,
+                ],
+                isValid: true,
+              };
+            },
+          );
+
+          const result = await service.getDuplicatedKeys(
+            [unusedKey1, unusedKey2],
+            emptyBlockData,
+          );
+
+          expect(result.duplicates).toEqual([unusedKey2]);
+          expect(result.unresolved).toEqual([]);
+        });
       });
     });
 
