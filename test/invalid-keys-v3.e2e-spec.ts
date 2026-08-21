@@ -16,19 +16,12 @@ import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store'
 import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
 import { KeyValidatorInterface } from '@lido-nestjs/key-validation';
 
-import { getWalletAddress, signDeposit } from './helpers/deposit';
+import { signDeposit } from './helpers/deposit';
 import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
-import {
-  addGuardians,
-  fillLidoBuffer,
-  getGuardians,
-  getLidoWC,
-  getSecurityContract,
-  getSecurityOwner,
-} from './helpers/dsm';
+import { fillLidoBuffer, getLidoWC } from './helpers/dsm';
 import { BlsService } from 'bls';
 import { DepositIntegrityCheckerService } from 'contracts/deposits-registry/sanity-checker';
-import { accountImpersonate, testSetupProvider } from './helpers/provider';
+import { testSetupProvider } from './helpers/provider';
 import { waitForNewerBlock, waitKAPIUpdateModulesKeys } from './helpers/kapi';
 import { CuratedOnchainV1 } from './helpers/nor.contract';
 import { truncateTables } from './helpers/pg';
@@ -40,6 +33,7 @@ import {
   startContainerIfNotRunning,
 } from './helpers/docker-containers/utils';
 import { cutModulesKeys } from './helpers/reduce-keys';
+import { E2EDsmSetup, setupE2EDsm } from './helpers/dsm-version';
 
 jest.setTimeout(300_000);
 
@@ -169,6 +163,7 @@ describe('Signature validation e2e test', () => {
   let lidoWC: string;
   let validDepositSignature: Uint8Array;
   let guardianIndex: number;
+  let dsmSetup: E2EDsmSetup;
   let postgresContainer;
   let keysApiContainer;
   let hardhatServer: HardhatServer;
@@ -183,6 +178,8 @@ describe('Signature validation e2e test', () => {
     await startContainerIfNotRunning(postgresContainer);
     hardhatServer = new HardhatServer();
     await hardhatServer.start();
+    dsmSetup = await setupE2EDsm();
+    guardianIndex = dsmSetup.guardianIndex;
 
     console.log('Hardhat node is ready. Starting key cutting process...');
     await cutModulesKeys(undefined, {
@@ -194,23 +191,6 @@ describe('Signature validation e2e test', () => {
     await startContainerIfNotRunning(keysApiContainer);
 
     await waitKAPIUpdateModulesKeys();
-
-    const securityModule = await getSecurityContract();
-    const securityModuleOwner = await getSecurityOwner();
-
-    // can remove
-    await accountImpersonate(securityModuleOwner);
-    const oldGuardians = await getGuardians();
-    const securityModuleAddress = securityModule.address;
-    await addGuardians({
-      securityModuleAddress,
-      securityModuleOwner,
-    });
-
-    const newGuardians = await getGuardians();
-    // TODO: read from contract
-    guardianIndex = newGuardians.length - 1;
-    expect(newGuardians.length).toEqual(oldGuardians.length + 1);
 
     ({ stakingModulesAddresses, curatedModuleAddress } =
       await getStakingModulesInfo());
@@ -342,15 +322,13 @@ describe('Signature validation e2e test', () => {
       await guardianService.handleNewBlock();
       await waitForGuardianCycle(currentBlock.number, currentBlock.hash);
 
-      const walletAddress = await getWalletAddress();
-
       // 4 - number of modules
       expect(validateKeys).toHaveBeenCalledTimes(2 * stakingModulesCount);
       expect(sendUnvetMessage).toHaveBeenCalledTimes(1);
       expect(sendUnvetMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           blockNumber: currentBlock.number,
-          guardianAddress: walletAddress,
+          guardianAddress: dsmSetup.guardianAddress,
           guardianIndex,
           stakingModuleId: 1,
           operatorIds: packNodeOperatorIds([firstOperator.index]),
@@ -367,6 +345,7 @@ describe('Signature validation e2e test', () => {
         packNodeOperatorIds([firstOperator.index]),
         '0x00000000000000000000000000000004',
         expect.any(Object),
+        dsmSetup.context,
       );
     });
 

@@ -19,6 +19,7 @@ import {
 import { cutModulesKeys } from './helpers/reduce-keys';
 import { waitKAPIUpdateModulesKeys } from './helpers/kapi';
 import { getLocator } from './helpers/sr.contract';
+import { setupE2EDsm } from './helpers/dsm-version';
 
 jest.mock('../src/transport/stomp/stomp.client.ts');
 jest.setTimeout(500_000);
@@ -55,6 +56,7 @@ describe('Integration Tests', () => {
     console.log('Step 3: Starting Hardhat node...');
     hardhatServer = new HardhatServer();
     await hardhatServer.start();
+    await setupE2EDsm();
     console.log('Step 3 completed: Hardhat node is ready');
 
     console.log('Step 4: Starting key cutting process...');

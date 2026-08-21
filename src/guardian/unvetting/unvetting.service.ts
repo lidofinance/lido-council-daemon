@@ -89,6 +89,7 @@ export class UnvettingService {
       stakingModuleId,
       operatorIds,
       vettedKeysByOperator,
+      blockData.guardianContext,
     );
 
     if (!blockData.walletBalanceCritical) {
@@ -103,6 +104,7 @@ export class UnvettingService {
           operatorIds,
           vettedKeysByOperator,
           signature,
+          blockData.guardianContext,
         )
         .catch((error) =>
           this.logger.error('Failed to send unvet transaction', {
@@ -125,6 +127,7 @@ export class UnvettingService {
       operatorIds,
       vettedKeysByOperator,
       signature,
+      dsmVersion: blockData.guardianContext.dsmVersion,
     });
   }
 

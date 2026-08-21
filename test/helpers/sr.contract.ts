@@ -6,7 +6,8 @@ import {
   LocatorAbi__factory,
   StakingRouterAbi__factory,
 } from 'generated';
-import { AGENT } from './config';
+import { AGENT, CHAIN_ID } from './config';
+import { LIDO_LOCATOR_BY_NETWORK } from 'contracts/repository/locator/locator.constants';
 
 export const CURATED_ONCHAIN_V1_TYPE = 'curated-onchain-v1';
 export const COMMUNITY_ONCHAIN_V1_TYPE = 'community-onchain-v1';
@@ -14,7 +15,8 @@ export const COMMUNITY_ONCHAIN_V1_TYPE = 'community-onchain-v1';
 dotenv.config();
 
 export function getLocator() {
-  const locatorAddress = process.env.LOCATOR_DEVNET_ADDRESS;
+  const locatorAddress =
+    process.env.LOCATOR_DEVNET_ADDRESS ?? LIDO_LOCATOR_BY_NETWORK[CHAIN_ID];
   if (!locatorAddress) {
     throw new Error('Locator address was not set');
   }

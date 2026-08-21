@@ -1,12 +1,12 @@
 import { CHAINS } from '@lido-nestjs/constants';
+import { LOCAL_DEVNET_CHAIN_ID } from 'common/chains';
 
-export const MESSAGE_TOPIC_PREFIX_BY_NETWORK: {
-  [key in CHAINS]?: string;
-} = {
+export const MESSAGE_TOPIC_PREFIX_BY_NETWORK = {
   [CHAINS.Mainnet]: 'mainnet',
   [CHAINS.Goerli]: 'goerli',
   [CHAINS.Holesky]: 'holesky',
   [CHAINS.Hoodi]: 'hoodi',
+  [LOCAL_DEVNET_CHAIN_ID]: 'testnet',
 };
 
 export const getMessageTopicPrefix = (chainId: CHAINS): string => {
