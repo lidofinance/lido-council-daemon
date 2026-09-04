@@ -223,9 +223,18 @@ export class KeysDuplicationCheckerService {
   ) {
     const earliestEvents = this.findEarliestEvents(events);
 
-    // have only one event
     if (earliestEvents.length === 1) {
       const earliestEvent = earliestEvents[0];
+
+      const earliestOwnerKeys = this.findOperatorKeys(
+        suspectedDuplicateKeys,
+        earliestEvent.moduleAddress,
+        earliestEvent.operatorIndex,
+      );
+
+      if (earliestOwnerKeys.length === 0) {
+        return { duplicateKeys: suspectedDuplicateKeys, unresolvedKeys: [] };
+      }
 
       const duplicateKeys = this.filterNonEarliestKeys(
         earliestEvent,

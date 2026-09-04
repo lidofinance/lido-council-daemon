@@ -7,12 +7,23 @@ import {
 import { BlockchainCheckerService } from './blockchain-checker/blockchain-checker.service';
 import { DepositIntegrityCheckerService } from './integrity-checker';
 import { toHexString } from '../crypto';
+import { InjectMetric } from '@willsoto/nestjs-prometheus';
+import {
+  METRIC_CONSECUTIVE_FRESH_DEPOSIT_ROOT_MISMATCHES,
+  METRIC_FRESH_DEPOSIT_ROOT_MISMATCHES,
+} from './sanity-checker.metrics';
+import { Counter, Gauge } from 'prom-client';
+
 @Injectable()
 export class DepositRegistrySanityCheckerService {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
     private blockchainSanityChecker: BlockchainCheckerService,
     private depositsIntegrityChecker: DepositIntegrityCheckerService,
+    @InjectMetric(METRIC_FRESH_DEPOSIT_ROOT_MISMATCHES)
+    private freshDepositRootMismatches: Counter<string>,
+    @InjectMetric(METRIC_CONSECUTIVE_FRESH_DEPOSIT_ROOT_MISMATCHES)
+    private consecutiveFreshDepositRootMismatches: Gauge<string>,
   ) {}
 
   public async initialize(initialEventsCache: VerifiedDepositEventsCache) {
@@ -31,6 +42,16 @@ export class DepositRegistrySanityCheckerService {
       blockHash,
       events,
     );
+  }
+
+  private recordFreshEventsRootCheck(isDepositRootMatches: boolean) {
+    if (isDepositRootMatches) {
+      this.consecutiveFreshDepositRootMismatches.set(0);
+      return;
+    }
+
+    this.freshDepositRootMismatches.inc();
+    this.consecutiveFreshDepositRootMismatches.inc();
   }
 
   private findReorganization(
@@ -117,7 +138,12 @@ export class DepositRegistrySanityCheckerService {
 
     // If events list is empty, there is no last event, so validate the finalized root for the current block hash.
     if (!lastEvent) {
-      return this.depositsIntegrityChecker.checkFinalizedRoot(currentBlockHash);
+      const isDepositRootMatches =
+        await this.depositsIntegrityChecker.checkFinalizedRoot(
+          currentBlockHash,
+        );
+      this.recordFreshEventsRootCheck(isDepositRootMatches);
+      return isDepositRootMatches;
     }
 
     const { blockHash, blockNumber } = lastEvent;
@@ -130,13 +156,18 @@ export class DepositRegistrySanityCheckerService {
     );
 
     // If a reorganization is found, return false as the events might not be in the correct state.
-    if (isReorgFound) return false;
+    if (isReorgFound) {
+      this.consecutiveFreshDepositRootMismatches.set(0);
+      return false;
+    }
 
     // Check if the deposit root of the events matches the expected values.
     const isDepositRootMatches = await this.checkFreshEvents(
-      blockHash,
+      currentBlockHash,
       freshEvents,
     );
+
+    this.recordFreshEventsRootCheck(isDepositRootMatches);
 
     return isDepositRootMatches;
   }
