@@ -59,6 +59,22 @@ export async function isDepositsPaused() {
   return await contract.isDepositsPaused();
 }
 
+export async function waitForDepositsPaused(
+  contract: { isDepositsPaused(): Promise<boolean> },
+  timeoutMs = 30_000,
+  pollIntervalMs = 250,
+) {
+  const deadline = Date.now() + timeoutMs;
+
+  while (!(await contract.isDepositsPaused())) {
+    if (Date.now() >= deadline) {
+      throw new Error(`Deposits were not paused within ${timeoutMs} ms`);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+  }
+}
+
 export async function addGuardians(params: {
   securityModuleOwner: string;
   securityModuleAddress: string;

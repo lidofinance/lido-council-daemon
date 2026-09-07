@@ -13,11 +13,10 @@ import {
   METRIC_NONCE_GAP,
 } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { Counter, Gauge, Histogram, register } from 'prom-client';
+import { Counter, Gauge, Histogram } from 'prom-client';
 import {
   DATA_BUS_ADDRESS,
   DATA_BUS_BALANCE_UPDATE_BLOCK_RATE,
-  DATA_BUS_PRIVATE_KEY,
 } from './data-bus.constants';
 
 import { Configuration } from 'common/config';
@@ -26,10 +25,11 @@ import { MessageRequiredFields } from 'messages';
 import { DSMMessageSender } from './dsm-message-sender.client';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { DATA_BUS_PROVIDER_TOKEN } from 'provider/data-bus-provider.module';
+import { WalletService } from 'wallet';
 
 @Injectable()
 export class DataBusService {
-  private dsmMessageSender!: DSMMessageSender;
+  private readonly dsmMessageSenders = new Map<string, DSMMessageSender>();
   private provider!: SimpleFallbackJsonRpcBatchProvider;
   constructor(
     @InjectMetric(METRIC_DATA_BUS_ACCOUNT_BALANCE)
@@ -38,8 +38,8 @@ export class DataBusService {
     @InjectMetric(METRIC_NONCE_PENDING) private noncePending: Gauge<string>,
     @InjectMetric(METRIC_NONCE_GAP) private nonceGap: Gauge<string>,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
-    @Inject(DATA_BUS_PRIVATE_KEY) private privateKey: string,
     @Inject(DATA_BUS_ADDRESS) private dataBusAddress: string,
+    private walletService: WalletService,
     protected readonly config: Configuration,
     @Inject(getToken(METRIC_DATA_BUS_RPC_REQUEST_DURATION))
     private rpcReqDurationMetric: Histogram<string>,
@@ -52,11 +52,6 @@ export class DataBusService {
   async initialize() {
     this.provider = this.dataBusProvider;
 
-    const guardianAddress = this.address;
-    register.setDefaultLabels({ guardianAddress });
-
-    const dataBusClient = new DataBusClient(this.dataBusAddress, this.wallet);
-    this.dsmMessageSender = new DSMMessageSender(dataBusClient);
     await this.monitorGuardianDataBusBalance();
     this.subscribeToEVMChainUpdates();
   }
@@ -82,31 +77,35 @@ export class DataBusService {
    */
   @OneAtTime()
   public async monitorGuardianDataBusBalance() {
+    const delegateAddress = this.address;
     const [balanceWei, latestNonce, pendingNonce, network] = await Promise.all([
-      this.getAccountBalance(),
-      this.provider.getTransactionCount(this.address, 'latest'),
-      this.provider.getTransactionCount(this.address, 'pending'),
+      this.getAccountBalance(delegateAddress),
+      this.provider.getTransactionCount(delegateAddress, 'latest'),
+      this.provider.getTransactionCount(delegateAddress, 'pending'),
       this.provider.getNetwork(),
     ]);
 
     const balanceETH = formatEther(balanceWei);
     const { chainId } = network;
-    this.accountBalance.set({ chainId }, Number(balanceETH));
+    this.accountBalance.set({ chainId, delegateAddress }, Number(balanceETH));
     this.isBalanceSufficient(balanceWei, chainId);
 
     const gap = pendingNonce - latestNonce;
-    this.nonceLatest.labels({ network: 'data-bus' }).set(latestNonce);
-    this.noncePending.labels({ network: 'data-bus' }).set(pendingNonce);
-    this.nonceGap.labels({ network: 'data-bus' }).set(gap);
+    const labels = { network: 'data-bus', delegateAddress };
+    this.nonceLatest.labels(labels).set(latestNonce);
+    this.noncePending.labels(labels).set(pendingNonce);
+    this.nonceGap.labels(labels).set(gap);
   }
 
   /**
    * Retrieves the account balance in Wei.
    * @returns The account balance in Wei.
    */
-  public async getAccountBalance(): Promise<BigNumber> {
+  public async getAccountBalance(
+    walletAddress = this.address,
+  ): Promise<BigNumber> {
     const provider = this.provider;
-    return await provider.getBalance(this.address);
+    return await provider.getBalance(walletAddress);
   }
 
   /**
@@ -140,21 +139,20 @@ export class DataBusService {
    * using a private key as a standard Externally Owned Account (EOA)
    */
   private get wallet(): Wallet {
-    if (this.cachedWallet) return this.cachedWallet;
-
-    if (!this.privateKey) {
-      this.logger.warn(
-        'Private key is not provided, a random address will be generated for the test run',
-      );
-
-      this.privateKey = Wallet.createRandom().privateKey;
-    }
-
-    this.cachedWallet = new Wallet(this.privateKey, this.provider);
-    return this.cachedWallet;
+    return this.walletService.wallet.connect(this.provider);
   }
 
-  private cachedWallet: Wallet | null = null;
+  private get dsmMessageSender(): DSMMessageSender {
+    const wallet = this.wallet;
+    const cachedSender = this.dsmMessageSenders.get(wallet.address);
+    if (cachedSender) return cachedSender;
+
+    const dataBusClient = new DataBusClient(this.dataBusAddress, wallet);
+    const sender = new DSMMessageSender(dataBusClient);
+    this.dsmMessageSenders.set(wallet.address, sender);
+
+    return sender;
+  }
 
   /**
    * Guardian wallet address
@@ -163,11 +161,11 @@ export class DataBusService {
     return this.wallet.address;
   }
 
-  public publish(
+  public async publish(
     message: MessageRequiredFields & { app: { version: string } },
   ) {
     try {
-      return this.dsmMessageSender.sendMessage(message);
+      return await this.dsmMessageSender.sendMessage(message);
     } catch (error: any) {
       this.logger.error(
         `An error occurred when sending a message using Data Bus`,

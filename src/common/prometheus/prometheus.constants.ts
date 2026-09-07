@@ -19,6 +19,7 @@ export const METRIC_BLOCK_DATA_REQUEST_DURATION = `${METRICS_PREFIX}block_data_r
 export const METRIC_BLOCK_DATA_REQUEST_ERRORS = `${METRICS_PREFIX}block_data_requests_errors`;
 
 export const METRIC_BUILD_INFO = `${METRICS_PREFIX}build_info`;
+export const METRIC_GUARDIAN_INFO = `${METRICS_PREFIX}guardian_info`;
 
 export const METRIC_VALIDATED_DEPOSITS_TOTAL = `${METRICS_PREFIX}validated_deposits_total`;
 export const METRIC_INTERSECTIONS_TOTAL = `${METRICS_PREFIX}intersections_total`;

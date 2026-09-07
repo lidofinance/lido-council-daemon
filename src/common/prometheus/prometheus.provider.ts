@@ -12,6 +12,7 @@ import {
   METRIC_BLOCK_DATA_REQUEST_DURATION,
   METRIC_BLOCK_DATA_REQUEST_ERRORS,
   METRIC_BUILD_INFO,
+  METRIC_GUARDIAN_INFO,
   METRIC_VALIDATED_DEPOSITS_TOTAL,
   METRIC_INTERSECTIONS_TOTAL,
   METRIC_DEPOSITED_KEYS_TOTAL,
@@ -70,8 +71,8 @@ export const PrometheusRPCErrorsCounterProvider = makeCounterProvider({
 
 export const PrometheusDataBusAccountBalanceProvider = makeGaugeProvider({
   name: METRIC_DATA_BUS_ACCOUNT_BALANCE,
-  help: 'DataBus guardian account balance',
-  labelNames: ['chainId'] as const,
+  help: 'DataBus publisher account balance',
+  labelNames: ['chainId', 'delegateAddress'] as const,
 });
 
 export const PrometheusDataBusRPCRequestsHistogramProvider =
@@ -89,7 +90,8 @@ export const PrometheusDataBusRPCErrorsCounterProvider = makeCounterProvider({
 
 export const PrometheusAccountBalanceProvider = makeGaugeProvider({
   name: METRIC_ACCOUNT_BALANCE,
-  help: 'Guardian account balance',
+  help: 'Delegate account balance',
+  labelNames: ['delegateAddress'] as const,
 });
 
 export const PrometheusBlockDataRequestsProvider = makeHistogramProvider({
@@ -107,6 +109,20 @@ export const PrometheusBuildInfoGaugeProvider = makeCounterProvider({
   name: METRIC_BUILD_INFO,
   help: 'Build information',
   labelNames: ['version', 'name', 'network', 'heapLimit'] as const,
+});
+
+export const PrometheusGuardianInfoGaugeProvider = makeGaugeProvider({
+  name: METRIC_GUARDIAN_INFO,
+  help: 'Current guardian execution context and configured wallets',
+  labelNames: [
+    'mode',
+    'dsmVersion',
+    'dsmAddress',
+    'guardianAddress',
+    'activeWalletAddress',
+    'walletAddress',
+    'isActive',
+  ] as const,
 });
 
 export const PrometheusValidatedDepositsProvider = makeGaugeProvider({
@@ -227,20 +243,20 @@ export const PrometheusRpcRequestTotalProvider = makeCounterProvider({
 // Nonce Metrics providers
 export const PrometheusNonceLatestProvider = makeGaugeProvider({
   name: METRIC_NONCE_LATEST,
-  help: 'Latest confirmed nonce for guardian address',
-  labelNames: ['network'] as const,
+  help: 'Latest confirmed nonce for delegate address',
+  labelNames: ['network', 'delegateAddress'] as const,
 });
 
 export const PrometheusNoncePendingProvider = makeGaugeProvider({
   name: METRIC_NONCE_PENDING,
-  help: 'Pending nonce for guardian address',
-  labelNames: ['network'] as const,
+  help: 'Pending nonce for delegate address',
+  labelNames: ['network', 'delegateAddress'] as const,
 });
 
 export const PrometheusNonceGapProvider = makeGaugeProvider({
   name: METRIC_NONCE_GAP,
   help: 'Difference between pending and latest nonce',
-  labelNames: ['network'] as const,
+  labelNames: ['network', 'delegateAddress'] as const,
 });
 
 // Events Cache Metrics providers

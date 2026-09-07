@@ -1,19 +1,22 @@
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
-import { exec } from 'child_process';
+
+const HARDHAT_CLI_PATH = require.resolve('hardhat/internal/cli/bootstrap');
+const DEFAULT_START_TIMEOUT_MS = 60_000;
 
 export class HardhatServer {
   private hardhatProcess: ChildProcessWithoutNullStreams | null = null;
   private ready = false;
 
   // Method to start Hardhat and wait until it's ready
-  public async start() {
+  public async start(timeoutMs = DEFAULT_START_TIMEOUT_MS) {
     return new Promise<void>((resolve, reject) => {
-      this.hardhatProcess = spawn('npx', [
-        'hardhat',
-        'node',
-        '--hostname',
-        '0.0.0.0',
-      ]);
+      this.hardhatProcess = spawn(
+        process.execPath,
+        [HARDHAT_CLI_PATH, 'node', '--hostname', '0.0.0.0'],
+        {
+          env: { ...process.env },
+        },
+      );
 
       if (!this.hardhatProcess) {
         return reject(new Error('Failed to start Hardhat process'));
@@ -24,11 +27,24 @@ export class HardhatServer {
         `Hardhat process started with PID: ${this.hardhatProcess.pid}`,
       );
 
+      const timeout = setTimeout(() => {
+        const processId = this.hardhatProcess?.pid;
+        this.hardhatProcess?.kill('SIGTERM');
+        reject(
+          new Error(
+            `Hardhat process ${
+              processId ?? 'unknown'
+            } stayed alive but did not become ready within ${timeoutMs} ms; startup or fork initialization is stuck`,
+          ),
+        );
+      }, timeoutMs);
+
       // Listen for stdout to detect when Hardhat is ready
       this.hardhatProcess.stdout.on('data', (data) => {
         const output = data.toString();
         // Check for the Hardhat ready message
         if (output.includes('Started HTTP and WebSocket JSON-RPC server')) {
+          clearTimeout(timeout);
           this.ready = true;
           resolve();
         }
@@ -40,14 +56,18 @@ export class HardhatServer {
       });
 
       this.hardhatProcess.on('error', (error) => {
+        clearTimeout(timeout);
         console.error(`Failed to start Hardhat: ${error}`);
         reject(error);
       });
 
       this.hardhatProcess.on('close', (code) => {
-        if (code !== 0 && !this.ready) {
+        if (!this.ready) {
+          clearTimeout(timeout);
           reject(
-            new Error(`Hardhat process exited unexpectedly with code ${code}`),
+            new Error(
+              `Hardhat process exited before readiness with code ${code}`,
+            ),
           );
         }
       });
@@ -55,45 +75,33 @@ export class HardhatServer {
   }
 
   public async stop() {
-    if (this.hardhatProcess) {
-      try {
-        await this.forceKillPort(this.hardhatProcess, 8545);
-      } catch (error) {
-        console.error(
-          'Error occurred while stopping the Hardhat process:',
-          error,
-        );
-      }
-    } else {
+    if (!this.hardhatProcess) {
       console.log('No Hardhat process to stop.');
+      return;
     }
-  }
 
-  // Additional method to force-kill any process on a specific port (Linux-only)
-  private async forceKillPort(hardhatProcess, port: number): Promise<void> {
-    // Attempt to kill the process
-    hardhatProcess.kill('SIGTERM');
+    const hardhatProcess = this.hardhatProcess;
+    await new Promise<void>((resolve) => {
+      if (
+        hardhatProcess.exitCode !== null ||
+        hardhatProcess.signalCode !== null
+      ) {
+        resolve();
+        return;
+      }
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+      const timeout = setTimeout(() => {
+        hardhatProcess.kill('SIGKILL');
+      }, 2_000);
 
-    if (process.platform !== 'linux') return;
-
-    return new Promise((resolve) => {
-      exec(
-        `lsof -i :${port} | awk 'NR!=1 {print $2}' | xargs kill -9`,
-        (error, stdout, stderr) => {
-          if (error) {
-            console.warn(
-              `Failed to force-kill processes on port ${port}: ${error}`,
-            );
-          } else if (stderr) {
-            console.warn(`Standard error from force-kill command: ${stderr}`);
-          } else {
-            console.log(`Successfully force-killed processes on port ${port}`);
-          }
-          resolve();
-        },
-      );
+      hardhatProcess.once('close', () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+      hardhatProcess.kill('SIGTERM');
     });
+
+    this.hardhatProcess = null;
+    this.ready = false;
   }
 }

@@ -193,7 +193,10 @@ describe('StakingModuleGuardService', () => {
       depositRoot: '0x1',
       blockNumber: 1,
     };
-    const blockData = { ...currentContractState } as any;
+    const blockData = {
+      ...currentContractState,
+      guardianContext: { dsmVersion: 4 },
+    } as any;
 
     it('should check contracts state', async () => {
       const mockSendMessageFromGuardian = jest
@@ -550,27 +553,16 @@ describe('StakingModuleGuardService', () => {
       const LEGACY_WC =
         '0x009690e5d4472c7c0dbdf490425d89862535d2a52fb686333f3a0a9ff5d2125e';
       const LEGACY_VALID_UNTIL_BLOCK =
-        LEGACY_WITHDRAWAL_CREDENTIALS[1][
-          LEGACY_MODULE_ADDR.toLowerCase()
-        ][0].validUntilBlock;
+        LEGACY_WITHDRAWAL_CREDENTIALS[1][LEGACY_MODULE_ADDR.toLowerCase()][0]
+          .validUntilBlock;
 
       it('should return false when earliest deposit uses the module legacy WC on mainnet', () => {
         configuration.CHAIN_ID = 1;
         const result = stakingModuleGuardService.checkHistoricalFrontRun(
           {
             events: [
-              makeEvent(
-                '0xkeyLegacy',
-                LEGACY_WC,
-                LEGACY_VALID_UNTIL_BLOCK,
-                0,
-              ),
-              makeEvent(
-                '0xkeyLegacy',
-                WC_01,
-                LEGACY_VALID_UNTIL_BLOCK + 1,
-                0,
-              ),
+              makeEvent('0xkeyLegacy', LEGACY_WC, LEGACY_VALID_UNTIL_BLOCK, 0),
+              makeEvent('0xkeyLegacy', WC_01, LEGACY_VALID_UNTIL_BLOCK + 1, 0),
             ],
           } as any,
           [makeLidoKey('0xkeyLegacy', LEGACY_MODULE_ADDR, true)],

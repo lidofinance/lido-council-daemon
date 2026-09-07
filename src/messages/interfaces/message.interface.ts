@@ -4,6 +4,13 @@ export interface MessageRequiredFields {
   type: MessageType;
   guardianAddress: string;
   guardianIndex: number;
+  /**
+   * Version of the DSM this message is signed for. It selects the event, because
+   * v4 takes the compact `(r, vs)` pair while v5 takes the 65-byte blob its
+   * guardian's ERC-1271 check accepts. Consumers read the same fact from
+   * `DepositSecurityModule.VERSION()`.
+   */
+  dsmVersion?: number;
 }
 
 export enum MessageType {
@@ -31,16 +38,7 @@ export interface MessageApp {
   name?: string;
 }
 
-export interface MessagePauseV2 extends MessageRequiredFields {
-  depositRoot: string;
-  nonce: number;
-  blockNumber: number;
-  blockHash: string;
-  signature: Signature;
-  stakingModuleId: number;
-}
-
-export interface MessagePauseV3 extends MessageRequiredFields {
+export interface MessagePause extends MessageRequiredFields {
   blockNumber: number;
   blockHash: string;
   signature: Signature;

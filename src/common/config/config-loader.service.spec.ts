@@ -13,6 +13,7 @@ const FAKE_FS = {
 const DEFAULTS = {
   RPC_URL: 'some-rpc-url',
   CHAIN_ID: '1',
+  DELEGATION_CONTRACT_ADDRESS: '0x1111111111111111111111111111111111111111',
   RABBITMQ_URL: 'some-rabbit-url',
   RABBITMQ_LOGIN: 'some-rabbit-login',
   KEYS_API_URL: 'keys-api',
@@ -281,6 +282,133 @@ describe('ConfigLoaderService base spec', () => {
 
       const config = await configLoaderService.loadSecrets(prepConfig);
       expect(config).toHaveProperty('WALLET_PRIVATE_KEY', 'wallet');
+    });
+  });
+
+  describe('delegation contract address', () => {
+    const DEFAULTS_WITH_RABBIT = {
+      ...DEFAULTS,
+      RABBITMQ_PASSCODE: 'some-rabbit-passcode',
+    };
+
+    test('should accept an empty delegation contract address', async () => {
+      const config = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+        DELEGATION_CONTRACT_ADDRESS: '',
+      });
+
+      await expect(
+        validateOrReject(config, {
+          validationError: { target: false, value: false },
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    test('should accept a valid delegation contract address', async () => {
+      const config = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+        DELEGATION_CONTRACT_ADDRESS:
+          '0x1111111111111111111111111111111111111111',
+      });
+
+      await expect(
+        validateOrReject(config, {
+          validationError: { target: false, value: false },
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    test('should reject an invalid delegation contract address', async () => {
+      const config = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+        DELEGATION_CONTRACT_ADDRESS: 'not-an-address',
+      });
+
+      await expect(
+        validateOrReject(config, {
+          validationError: { target: false, value: false },
+        }),
+      ).rejects.toEqual([
+        expect.objectContaining({
+          property: 'DELEGATION_CONTRACT_ADDRESS',
+        }),
+      ]);
+    });
+  });
+
+  describe('wallet private keys', () => {
+    const DEFAULTS_WITH_RABBIT = {
+      ...DEFAULTS,
+      RABBITMQ_PASSCODE: 'some-rabbit-passcode',
+    };
+    const privateKeys = [
+      '0x0000000000000000000000000000000000000000000000000000000000000001',
+      '0x0000000000000000000000000000000000000000000000000000000000000002',
+    ];
+
+    test('should accept the two named keys', async () => {
+      const config = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+        WALLET_PRIVATE_KEY: privateKeys[0],
+        WALLET_PRIVATE_KEY_2: privateKeys[1],
+      });
+
+      await expect(configLoaderService.loadSecrets(config)).resolves.toEqual(
+        expect.objectContaining({
+          WALLET_PRIVATE_KEY: privateKeys[0],
+          WALLET_PRIVATE_KEY_2: privateKeys[1],
+        }),
+      );
+    });
+
+    test('should accept only the first key', async () => {
+      const config = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+        WALLET_PRIVATE_KEY: privateKeys[0],
+      });
+
+      await expect(configLoaderService.loadSecrets(config)).resolves.toEqual(
+        expect.objectContaining({
+          WALLET_PRIVATE_KEY: privateKeys[0],
+          WALLET_PRIVATE_KEY_2: '',
+        }),
+      );
+    });
+
+    test('should read a key from the file specified by the _FILE variant', async () => {
+      const config = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+        WALLET_PRIVATE_KEY_2_FILE: 'some-path',
+      });
+      jest
+        .spyOn(configLoaderService, 'readFile')
+        .mockImplementation(async () => privateKeys[1]);
+
+      await expect(configLoaderService.loadSecrets(config)).resolves.toEqual(
+        expect.objectContaining({ WALLET_PRIVATE_KEY_2: privateKeys[1] }),
+      );
+    });
+
+    test('should reject an invalid private key', async () => {
+      const config = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+        WALLET_PRIVATE_KEY_2: 'invalid',
+      });
+
+      await expect(configLoaderService.loadSecrets(config)).rejects.toEqual([
+        expect.objectContaining({ property: 'WALLET_PRIVATE_KEY_2' }),
+      ]);
+    });
+
+    test('should reject a zero private key', async () => {
+      const config = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+        WALLET_PRIVATE_KEY_2: `0x${'0'.repeat(64)}`,
+      });
+
+      await expect(configLoaderService.loadSecrets(config)).rejects.toEqual([
+        expect.objectContaining({ property: 'WALLET_PRIVATE_KEY_2' }),
+      ]);
     });
   });
 

@@ -10,6 +10,7 @@
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "src",
+    "types": ["node", "jest"],
     "incremental": true,
     "strict": true,
     "skipLibCheck": true,

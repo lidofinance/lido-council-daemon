@@ -13,7 +13,7 @@ import { SigningKeysRegistryModule } from 'contracts/signing-keys-registry';
 import { UnvettingModule } from './unvetting/unvetting.module';
 import { StakingModuleDataCollectorModule } from 'staking-module-data-collector';
 import { StakingRouterModule } from 'contracts/staking-router';
-import { DsmDepositAllocationAdapterService } from './deposit-allocation';
+import { WalletModule } from 'wallet';
 
 @Module({
   imports: [
@@ -30,8 +30,9 @@ import { DsmDepositAllocationAdapterService } from './deposit-allocation';
     KeysApiModule,
     SigningKeysRegistryModule.register(),
     StakingRouterModule,
+    WalletModule,
   ],
-  providers: [GuardianService, DsmDepositAllocationAdapterService],
+  providers: [GuardianService],
   exports: [GuardianService],
 })
 export class GuardianModule {}

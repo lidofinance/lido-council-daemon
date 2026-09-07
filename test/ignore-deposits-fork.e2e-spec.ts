@@ -3,6 +3,7 @@ import { StakingRouterAbi__factory, LidoAbi__factory } from 'generated';
 import { HardhatServer } from './helpers/hardhat-server';
 import { getLocator } from './helpers/sr.contract';
 import { testSetupProvider } from './helpers/provider';
+import { setupE2EDsm } from './helpers/dsm-version';
 
 jest.setTimeout(60_000);
 
@@ -12,6 +13,7 @@ describe.skip('ignoreDeposits fork test', () => {
   beforeAll(async () => {
     hardhatServer = new HardhatServer();
     await hardhatServer.start();
+    await setupE2EDsm();
   });
 
   afterAll(async () => {

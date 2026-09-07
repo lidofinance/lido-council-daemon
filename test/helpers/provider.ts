@@ -12,7 +12,7 @@ export const accountImpersonate = async (account: string): Promise<void> => {
     );
   }
 
-  testSetupProvider.send('hardhat_impersonateAccount', [account]);
+  await testSetupProvider.send('hardhat_impersonateAccount', [account]);
 };
 
 export const setBalance = async (account: string, eth: number) => {
