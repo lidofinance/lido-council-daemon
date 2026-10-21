@@ -6,7 +6,7 @@ import {
 import { Configuration } from '../common/config';
 import { getToken } from '@willsoto/nestjs-prometheus';
 import { METRIC_DATA_BUS_RPC_REQUEST_DURATION } from 'common/prometheus';
-import { Histogram } from 'prom-client';
+import { Histogram } from '@prometheus-io/client';
 import { DATA_BUS_REQUEST_TIMEOUT } from 'contracts/data-bus/data-bus.constants';
 import { PROVIDER_RESET_INTERVAL } from './provider.constants';
 

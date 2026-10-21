@@ -10,7 +10,7 @@ import {
   METRIC_DUPLICATED_KEYS_TOTAL,
   METRIC_HISTORICAL_FRONT_RUN_TOTAL,
 } from 'common/prometheus';
-import { Gauge } from 'prom-client';
+import { Gauge } from '@prometheus-io/client';
 
 @Injectable()
 export class GuardianMetricsService {

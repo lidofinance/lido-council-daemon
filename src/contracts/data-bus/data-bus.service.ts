@@ -1,6 +1,4 @@
-import { formatEther } from '@ethersproject/units';
-import { Wallet } from '@ethersproject/wallet';
-import { BigNumber } from '@ethersproject/bignumber';
+import { utils, Wallet, BigNumber } from 'ethers';
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { getToken, InjectMetric } from '@willsoto/nestjs-prometheus';
 import { OneAtTime } from 'common/decorators';
@@ -13,12 +11,11 @@ import {
   METRIC_NONCE_GAP,
 } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { Counter, Gauge, Histogram } from 'prom-client';
+import { Counter, Gauge, Histogram } from '@prometheus-io/client';
 import {
   DATA_BUS_ADDRESS,
   DATA_BUS_BALANCE_UPDATE_BLOCK_RATE,
 } from './data-bus.constants';
-
 import { Configuration } from 'common/config';
 import { DataBusClient } from './data-bus.client';
 import { MessageRequiredFields } from 'messages';
@@ -85,7 +82,7 @@ export class DataBusService {
       this.provider.getNetwork(),
     ]);
 
-    const balanceETH = formatEther(balanceWei);
+    const balanceETH = utils.formatEther(balanceWei);
     const { chainId } = network;
     this.accountBalance.set({ chainId, delegateAddress }, Number(balanceETH));
     this.isBalanceSufficient(balanceWei, chainId);
@@ -114,7 +111,7 @@ export class DataBusService {
    * @returns True if the balance is sufficient, otherwise false.
    */
   public isBalanceSufficient(balanceWei: BigNumber, chainId: number): boolean {
-    const balance = formatEther(balanceWei);
+    const balance = utils.formatEther(balanceWei);
     const isSufficient = balanceWei.gte(
       this.config.EVM_CHAIN_DATA_BUS_WALLET_MIN_BALANCE,
     );

@@ -20,6 +20,8 @@ import { cutModulesKeys } from './helpers/reduce-keys';
 import { waitKAPIUpdateModulesKeys } from './helpers/kapi';
 import { getLocator } from './helpers/sr.contract';
 import { setupE2EDsm } from './helpers/dsm-version';
+import { truncateTables } from './helpers/pg';
+import { DATA_BUS_PROVIDER_TOKEN } from 'provider/data-bus-provider.module';
 
 jest.mock('../src/transport/stomp/stomp.client.ts');
 jest.setTimeout(500_000);
@@ -160,11 +162,43 @@ describe('Integration Tests', () => {
   }, 300_000);
 
   afterAll(async () => {
-    await hardhatServer?.stop();
-    await postgresContainer?.stop();
-    await keysApiContainer?.stop();
-    await moduleRef?.close();
-  });
+    const cleanupFailures: { step: string; error: unknown }[] = [];
+    const cleanupSteps: [string, () => unknown | Promise<unknown>][] = [
+      ['stop Keys API', () => keysApiContainer?.stop()],
+      [
+        'clear Keys API database',
+        async () => {
+          if (postgresContainer) await truncateTables();
+        },
+      ],
+      [
+        'remove provider listeners',
+        () => {
+          provider?.removeAllListeners();
+          moduleRef
+            ?.get<SimpleFallbackJsonRpcBatchProvider>(DATA_BUS_PROVIDER_TOKEN)
+            .removeAllListeners();
+        },
+      ],
+      ['clear deposits cache', () => levelDBService?.deleteCache()],
+      ['close deposits database', () => levelDBService?.close()],
+      ['clear signing keys cache', () => signKeyLevelDBService?.deleteCache()],
+      ['close signing keys database', () => signKeyLevelDBService?.close()],
+      ['close test module', () => moduleRef?.close()],
+      ['stop Hardhat', () => hardhatServer?.stop()],
+      ['stop PostgreSQL', () => postgresContainer?.stop()],
+    ];
+
+    for (const [step, cleanup] of cleanupSteps) {
+      try {
+        await cleanup();
+      } catch (error) {
+        cleanupFailures.push({ step, error });
+      }
+    }
+
+    expect(cleanupFailures).toEqual([]);
+  }, 60_000);
 
   describe('Infrastructure connectivity', () => {
     it('should connect to Hardhat node', async () => {

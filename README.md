@@ -291,6 +291,21 @@ info: New staking router state cycle end
 
 ## Development
 
+Use Node.js **24.22.1** and Yarn **1.22.22**:
+
+```bash
+nvm install
+nvm use
+yarn install --frozen-lockfile --non-interactive
+yarn build
+yarn typecheck
+yarn lint
+```
+
+Dependencies use exact versions. See [dependency maintenance](docs/dependencies.md)
+for security overrides and compatibility checks. The Docker runtime contains
+production dependencies only. HTTP and HTTPS RPC requests use fresh connections.
+
 ### Copy env file for development and print your RPC_URL
 
 ```bash
@@ -347,7 +362,32 @@ $ yarn test:e2e
 $ yarn test:cov
 ```
 
-To run e2e tests, ensure the RPC_URL environment variable is set to the Goerli provider's endpoint, and generate private keys, which should be subsequently set in the WALLET_PRIVATE_KEY variable.
+Fork e2e tests need an archive-capable Hoodi `RPC_URL` (chain ID 560048),
+Docker, and a new test-only `WALLET_PRIVATE_KEY`. Set
+`PROVIDERS_URLS=http://127.0.0.1:8545` and
+`EVM_CHAIN_DATA_BUS_PROVIDER_URL=http://127.0.0.1:8545` so daemon calls use
+the local Hardhat fork. The upstream RPC supplies read-only fork state.
+Do not use a production wallet. `yarn test:e2e` runs the preflight first.
+Missing historical state blocks the fork tests even when ordinary RPC reads work.
+The EDF transition suite uses Hoodi block `3250000` and checks that the starting
+DSM version is v4. The other suites fork the current head.
+
+Start the test brokers before the suite:
+
+```bash
+docker compose -f docker-compose.test.yml up -d --build
+yarn test:e2e
+docker compose -f docker-compose.test.yml down --volumes
+```
+
+To run fork and Keys API tests without Kafka or RabbitMQ, use
+`yarn test:e2e --testPathIgnorePatterns=src/transport/`. These tests mock
+the broker client. They do not verify Kafka or STOMP delivery.
+
+The suite pulls pinned Keys API and PostgreSQL images. It creates
+`council-e2e-keys-api`, `council-e2e-pgdb` and `council-e2e-network`.
+The database uses the Docker volume `council-e2e-pgdata-560048`. Tests stop these containers;
+remove the stopped test containers when no longer needed. Keys API uses AMD64 emulation on ARM64 hosts.
 
 ## Release flow
 

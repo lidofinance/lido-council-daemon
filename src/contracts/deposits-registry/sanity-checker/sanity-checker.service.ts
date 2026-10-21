@@ -12,7 +12,7 @@ import {
   METRIC_CONSECUTIVE_FRESH_DEPOSIT_ROOT_MISMATCHES,
   METRIC_FRESH_DEPOSIT_ROOT_MISMATCHES,
 } from './sanity-checker.metrics';
-import { Counter, Gauge } from 'prom-client';
+import { Counter, Gauge } from '@prometheus-io/client';
 
 @Injectable()
 export class DepositRegistrySanityCheckerService {

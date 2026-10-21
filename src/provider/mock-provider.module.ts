@@ -1,6 +1,6 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
-import { getNetwork } from '@ethersproject/networks';
+import { providers } from 'ethers';
 import { CHAINS } from '@lido-nestjs/constants';
 import { Configuration } from 'common/config';
 import { DATA_BUS_PROVIDER_TOKEN } from './data-bus-provider.module';
@@ -33,15 +33,15 @@ const getMockProviderFactory = () => {
       // In production, the real chain ID comes from configuration, not from this mock.
       // There's no need to change to Hoodi/other networks unless testing network-specific logic.
       async detectNetwork() {
-        return getNetwork(CHAINS.Goerli);
+        return providers.getNetwork(CHAINS.Goerli);
       }
 
       async _detectNetwork() {
-        return getNetwork(CHAINS.Goerli);
+        return providers.getNetwork(CHAINS.Goerli);
       }
 
       async getNetwork() {
-        return getNetwork(CHAINS.Goerli);
+        return providers.getNetwork(CHAINS.Goerli);
       }
     }
 

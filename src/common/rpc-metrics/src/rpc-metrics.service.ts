@@ -80,7 +80,7 @@ export class RpcMetricsService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn(
         `Provider eventEmitter not available for ${config.network}/${config.layer}, RPC metrics will not be tracked`,
       );
-      // eslint-disable-next-line @typescript-eslint/no-empty-function
+
       return () => {};
     }
 

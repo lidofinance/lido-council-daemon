@@ -17,7 +17,7 @@ import { WalletModule } from 'wallet';
 
 @Module({
   imports: [
-    DepositsRegistryModule.register(),
+    DepositsRegistryModule,
     SecurityModule,
     MessagesModule,
     StakingModuleDataCollectorModule,
@@ -28,7 +28,7 @@ import { WalletModule } from 'wallet';
     GuardianMessageModule,
     GuardianMetricsModule,
     KeysApiModule,
-    SigningKeysRegistryModule.register(),
+    SigningKeysRegistryModule,
     StakingRouterModule,
     WalletModule,
   ],

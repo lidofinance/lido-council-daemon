@@ -1,6 +1,6 @@
 import { CHAINS } from '@lido-nestjs/constants';
 import { Test } from '@nestjs/testing';
-import { getNetwork } from '@ethersproject/networks';
+import { providers } from 'ethers';
 import { MockProviderModule } from 'provider';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { MessagesService } from './messages.service';
@@ -46,7 +46,7 @@ describe('MessagesService', () => {
     it('should return topic for mainnet', async () => {
       jest
         .spyOn(provider, 'getNetwork')
-        .mockImplementation(async () => getNetwork(CHAINS.Mainnet));
+        .mockImplementation(async () => providers.getNetwork(CHAINS.Mainnet));
 
       const topic = await messagesService.getMessageTopic();
       expect(typeof topic).toBe('string');
@@ -56,7 +56,7 @@ describe('MessagesService', () => {
     it('should return topic for goerli', async () => {
       jest
         .spyOn(provider, 'getNetwork')
-        .mockImplementation(async () => getNetwork(CHAINS.Goerli));
+        .mockImplementation(async () => providers.getNetwork(CHAINS.Goerli));
 
       const topic = await messagesService.getMessageTopic();
       expect(typeof topic).toBe('string');
@@ -107,7 +107,7 @@ describe('MessagesService', () => {
 
       expect(mockGetTopic).toHaveBeenCalledTimes(1);
       expect(mockPublish).toHaveBeenCalledTimes(1);
-      expect(mockPublish).toBeCalledWith(
+      expect(mockPublish).toHaveBeenCalledWith(
         expectedTopic,
         expectedMessage,
         undefined,

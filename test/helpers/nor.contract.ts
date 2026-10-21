@@ -1,4 +1,4 @@
-import { Contract } from '@ethersproject/contracts';
+import { Contract } from 'ethers';
 import { curatedAbi } from './curated.abi';
 import { EVM_SCRIPT_EXECUTOR } from './config';
 import { accountImpersonate, setBalance, testSetupProvider } from './provider';
@@ -33,9 +33,8 @@ export class CuratedOnchainV1 {
     await accountImpersonate(signer_account);
     await setBalance(signer_account, 100);
 
-    const impersonatedSigner = await testSetupProvider.getSigner(
-      signer_account,
-    );
+    const impersonatedSigner =
+      await testSetupProvider.getSigner(signer_account);
 
     this.contract = new Contract(this.address, curatedAbi, impersonatedSigner);
 
@@ -64,9 +63,8 @@ export class CuratedOnchainV1 {
     await accountImpersonate(signer_account);
     await setBalance(signer_account, 5);
 
-    const impersonatedSigner = await testSetupProvider.getSigner(
-      signer_account,
-    );
+    const impersonatedSigner =
+      await testSetupProvider.getSigner(signer_account);
 
     this.contract = new Contract(this.address, curatedAbi, impersonatedSigner);
 

@@ -5,7 +5,7 @@ import { getMessageTopicPrefix } from './messages.constants';
 import { Configuration } from 'common/config';
 import { METRIC_SENT_MESSAGES } from 'common/prometheus';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
-import { Counter } from 'prom-client';
+import { Counter } from '@prometheus-io/client';
 import { MessageRequiredFields } from './interfaces';
 
 @Injectable()

@@ -11,9 +11,7 @@ import {
 } from 'generated';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
-import { Interface } from '@ethersproject/abi';
-import { BigNumber } from '@ethersproject/bignumber';
-import { hexZeroPad } from '@ethersproject/bytes';
+import { utils, BigNumber } from 'ethers';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
 import { PrometheusModule } from 'common/prometheus';
@@ -28,9 +26,9 @@ jest.mock('../../transport/stomp/stomp.client');
 const TEST_MODULE_ID = 1;
 
 describe('SecurityService', () => {
-  const address1 = hexZeroPad('0x1', 20);
-  const address2 = hexZeroPad('0x2', 20);
-  const blockTag = { blockHash: hexZeroPad('0x4', 32) };
+  const address1 = utils.hexZeroPad('0x1', 20);
+  const address2 = utils.hexZeroPad('0x2', 20);
+  const blockTag = { blockHash: utils.hexZeroPad('0x4', 32) };
   const legacyContext: GuardianExecutionContext = {
     dsmAddress: address1,
     dsmVersion: 4,
@@ -87,7 +85,7 @@ describe('SecurityService', () => {
       const mockProviderCall = jest
         .spyOn(provider, 'call')
         .mockImplementation(async () => {
-          const iface = new Interface(SecurityAbi__factory.abi);
+          const iface = new utils.Interface(SecurityAbi__factory.abi);
           const result = [expected];
           return iface.encodeFunctionResult('getGuardians', result);
         });
@@ -178,7 +176,7 @@ describe('SecurityService', () => {
   });
 
   describe('logEdfReadiness', () => {
-    const delegationAddress = hexZeroPad('0x5', 20);
+    const delegationAddress = utils.hexZeroPad('0x5', 20);
 
     beforeEach(() => {
       jest
@@ -236,7 +234,7 @@ describe('SecurityService', () => {
         delegationAddress;
       jest.spyOn(provider, 'getCode').mockResolvedValue('0x1234');
       jest.spyOn(DelegationContractAbi__factory, 'connect').mockReturnValue({
-        getDelegate: jest.fn().mockResolvedValue(hexZeroPad('0x0', 20)),
+        getDelegate: jest.fn().mockResolvedValue(utils.hexZeroPad('0x0', 20)),
         supportsInterface: jest.fn().mockResolvedValue(true),
       } as any);
 
@@ -329,11 +327,11 @@ describe('SecurityService', () => {
 
   describe('signDepositData', () => {
     it('should add prefix', async () => {
-      const prefix = hexZeroPad('0x1', 32);
-      const depositRoot = hexZeroPad('0x2', 32);
+      const prefix = utils.hexZeroPad('0x1', 32);
+      const depositRoot = utils.hexZeroPad('0x2', 32);
       const nonce = 1;
       const blockNumber = 1;
-      const blockHash = hexZeroPad('0x3', 32);
+      const blockHash = utils.hexZeroPad('0x3', 32);
       const args = [
         depositRoot,
         nonce,
@@ -344,7 +342,7 @@ describe('SecurityService', () => {
 
       const mockGetAttestMessagePrefix = jest
         .spyOn(securityService, 'getAttestMessagePrefix')
-        .mockImplementation(async () => hexZeroPad('0x1', 32));
+        .mockImplementation(async () => utils.hexZeroPad('0x1', 32));
       const mockVersion = jest
         .spyOn(securityService, 'version')
         .mockImplementation(async () => 3);
@@ -358,7 +356,7 @@ describe('SecurityService', () => {
 
       expect(mockGetAttestMessagePrefix).toHaveBeenCalledTimes(1);
       expect(mockVersion).not.toHaveBeenCalled();
-      expect(signDepositData).toBeCalledWith({
+      expect(signDepositData).toHaveBeenCalledWith({
         prefix,
         depositRoot,
         nonce,
@@ -386,7 +384,7 @@ describe('SecurityService', () => {
 
       const mockGetPauseMessagePrefix = jest
         .spyOn(securityService, 'getPauseMessagePrefix')
-        .mockImplementation(async () => hexZeroPad('0x2', 32));
+        .mockImplementation(async () => utils.hexZeroPad('0x2', 32));
       const mockVersion = jest
         .spyOn(securityService, 'version')
         .mockImplementation(async () => 3);
@@ -400,7 +398,7 @@ describe('SecurityService', () => {
       );
       expect(mockGetPauseMessagePrefix).toHaveBeenCalledTimes(1);
       expect(mockVersion).not.toHaveBeenCalled();
-      expect(signPauseData).toBeCalledWith({
+      expect(signPauseData).toHaveBeenCalledWith({
         blockNumber: 1,
         prefix:
           '0x0000000000000000000000000000000000000000000000000000000000000002',
@@ -419,7 +417,7 @@ describe('SecurityService', () => {
   });
 
   describe('pauseDeposits', () => {
-    const hash = hexZeroPad('0x1', 32);
+    const hash = utils.hexZeroPad('0x1', 32);
     const blockNumber = 10;
     const blockHash = '0x';
 
@@ -434,7 +432,7 @@ describe('SecurityService', () => {
       await mockRepository(repositoryService);
       mockGetPauseMessagePrefix = jest
         .spyOn(securityService, 'getPauseMessagePrefix')
-        .mockImplementation(async () => hexZeroPad('0x2', 32));
+        .mockImplementation(async () => utils.hexZeroPad('0x2', 32));
       jest.spyOn(securityService, 'version').mockImplementation(async () => 3);
 
       mockPauseDeposits = jest
@@ -444,7 +442,7 @@ describe('SecurityService', () => {
       mockGetContractWithSigner = jest
         .spyOn(securityService, 'getContractWithSigner')
         .mockImplementation(
-          () => ({ pauseDeposits: mockPauseDeposits } as any),
+          () => ({ pauseDeposits: mockPauseDeposits }) as any,
         );
 
       signature = await securityService.signPauseData(
@@ -481,7 +479,7 @@ describe('SecurityService', () => {
   });
 
   describe('getGuardianExecutionContext fail-closed (v5)', () => {
-    const delegationAddress = hexZeroPad('0x5', 20);
+    const delegationAddress = utils.hexZeroPad('0x5', 20);
 
     afterEach(() => {
       jest.restoreAllMocks();
@@ -550,8 +548,8 @@ describe('SecurityService', () => {
   });
 
   describe('EDF execution routing', () => {
-    const hash = hexZeroPad('0x1', 32);
-    const blockHash = hexZeroPad('0x3', 32);
+    const hash = utils.hexZeroPad('0x1', 32);
+    const blockHash = utils.hexZeroPad('0x3', 32);
 
     beforeEach(() => {
       jest
@@ -580,7 +578,7 @@ describe('SecurityService', () => {
           [
             10,
             {
-              guardian: hexZeroPad('0x0', 20),
+              guardian: utils.hexZeroPad('0x0', 20),
               signature: '0x',
             },
           ],
@@ -624,7 +622,7 @@ describe('SecurityService', () => {
             operatorIds,
             vettedKeysByOperator,
             {
-              guardian: hexZeroPad('0x0', 20),
+              guardian: utils.hexZeroPad('0x0', 20),
               signature: '0x',
             },
           ],
@@ -640,7 +638,7 @@ describe('SecurityService', () => {
     it('should add prefix', async () => {
       const nonce = 1;
       const blockNumber = 10;
-      const blockHash = hexZeroPad('0x3', 32);
+      const blockHash = utils.hexZeroPad('0x3', 32);
       const stakingModuleId = 1;
       const operatorIds = '0x00000000000000010000000000000002';
       const vettedKeysByOperator =
@@ -648,7 +646,7 @@ describe('SecurityService', () => {
 
       const mockGetUnvetMessagePrefix = jest
         .spyOn(securityService, 'getUnvetMessagePrefix')
-        .mockImplementation(async () => hexZeroPad('0x2', 32));
+        .mockImplementation(async () => utils.hexZeroPad('0x2', 32));
       const mockVersion = jest
         .spyOn(securityService, 'version')
         .mockImplementation(async () => 3);
@@ -666,7 +664,7 @@ describe('SecurityService', () => {
       );
       expect(mockGetUnvetMessagePrefix).toHaveBeenCalledTimes(1);
       expect(mockVersion).not.toHaveBeenCalled();
-      expect(signUnvetData).toBeCalledWith({
+      expect(signUnvetData).toHaveBeenCalledWith({
         blockNumber,
         blockHash,
         stakingModuleId,
@@ -690,11 +688,11 @@ describe('SecurityService', () => {
   });
 
   describe('unvetSigningKeys', () => {
-    const hash = hexZeroPad('0x1', 32);
+    const hash = utils.hexZeroPad('0x1', 32);
 
     const nonce = 1;
     const blockNumber = 10;
-    const blockHash = hexZeroPad('0x3', 32);
+    const blockHash = utils.hexZeroPad('0x3', 32);
     const stakingModuleId = 1;
     const operatorIds = '0x00000000000000010000000000000002';
     const vettedKeysByOperator =
@@ -711,7 +709,7 @@ describe('SecurityService', () => {
       await mockRepository(repositoryService);
       mockGetUnvetMessagePrefix = jest
         .spyOn(securityService, 'getUnvetMessagePrefix')
-        .mockImplementation(async () => hexZeroPad('0x2', 32));
+        .mockImplementation(async () => utils.hexZeroPad('0x2', 32));
 
       mockUnvetSigningKeys = jest
         .fn()
@@ -720,7 +718,7 @@ describe('SecurityService', () => {
       mockGetContractWithSigner = jest
         .spyOn(securityService, 'getContractWithSigner')
         .mockImplementation(
-          () => ({ unvetSigningKeys: mockUnvetSigningKeys } as any),
+          () => ({ unvetSigningKeys: mockUnvetSigningKeys }) as any,
         );
 
       signature = await securityService.signUnvetData(
@@ -798,7 +796,7 @@ describe('SecurityService', () => {
       const mockProviderCall = jest
         .spyOn(provider, 'call')
         .mockImplementation(async () => {
-          const iface = new Interface(SecurityAbi__factory.abi);
+          const iface = new utils.Interface(SecurityAbi__factory.abi);
           const result = [expected];
           return iface.encodeFunctionResult('ATTEST_MESSAGE_PREFIX', result);
         });
@@ -814,7 +812,7 @@ describe('SecurityService', () => {
       const mockProviderCall = jest
         .spyOn(provider, 'call')
         .mockImplementation(async () => {
-          const iface = new Interface(SecurityAbi__factory.abi);
+          const iface = new utils.Interface(SecurityAbi__factory.abi);
           const result = [expected];
           return iface.encodeFunctionResult('PAUSE_MESSAGE_PREFIX', result);
         });
@@ -830,7 +828,7 @@ describe('SecurityService', () => {
       const mockProviderCall = jest
         .spyOn(provider, 'call')
         .mockImplementation(async () => {
-          const iface = new Interface(SecurityAbi__factory.abi);
+          const iface = new utils.Interface(SecurityAbi__factory.abi);
           const result = [expected];
           return iface.encodeFunctionResult('UNVET_MESSAGE_PREFIX', result);
         });

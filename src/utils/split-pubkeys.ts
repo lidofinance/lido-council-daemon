@@ -1,12 +1,12 @@
-import { arrayify, hexlify } from '@ethersproject/bytes';
+import { utils } from 'ethers';
 
 export const splitPubKeys = (
   hexString: string,
   pubkeyLength: number,
 ): string[] => {
-  const byteArray = arrayify(hexString);
+  const byteArray = utils.arrayify(hexString);
   const splittedKeys = splitPubKeysArray(byteArray, pubkeyLength).map((array) =>
-    hexlify(array),
+    utils.hexlify(array),
   );
 
   return splittedKeys;

@@ -3,6 +3,8 @@ import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
 import { DepositsRegistryModule } from 'contracts/deposits-registry';
+import { DEPOSIT_REGISTRY_FINALIZED_TAG } from 'contracts/deposits-registry/deposits-registry.constants';
+import { SIGNING_KEYS_REGISTRY_FINALIZED_TAG } from 'contracts/signing-keys-registry/signing-keys-registry.constants';
 import { RepositoryModule } from 'contracts/repository';
 import { SecurityModule } from 'contracts/security';
 import { GuardianModule } from 'guardian';
@@ -28,17 +30,24 @@ export const setupTestingModule = async () => {
       RepositoryModule,
       WalletModule,
       KeysApiModule,
-      DepositsRegistryModule.register('latest'),
+      DepositsRegistryModule,
       SecurityModule,
     ],
-  }).compile();
+  })
+    .overrideProvider(DEPOSIT_REGISTRY_FINALIZED_TAG)
+    .useValue('latest')
+    .overrideProvider(SIGNING_KEYS_REGISTRY_FINALIZED_TAG)
+    .useValue('latest')
+    .compile();
 
-  const loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
+  if (process.env.E2E_SILENT_LOGS !== 'false') {
+    const loggerService = moduleRef.get(WINSTON_MODULE_NEST_PROVIDER);
 
-  jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
-  jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
-  jest.spyOn(loggerService, 'debug').mockImplementation(() => undefined);
-  jest.spyOn(loggerService, 'error').mockImplementation(() => undefined);
+    jest.spyOn(loggerService, 'log').mockImplementation(() => undefined);
+    jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
+    jest.spyOn(loggerService, 'debug').mockImplementation(() => undefined);
+    jest.spyOn(loggerService, 'error').mockImplementation(() => undefined);
+  }
 
   return moduleRef;
 };

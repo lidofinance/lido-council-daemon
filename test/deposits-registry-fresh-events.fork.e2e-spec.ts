@@ -14,7 +14,7 @@ import {
   METRIC_FRESH_DEPOSIT_ROOT_MISMATCHES,
 } from 'contracts/deposits-registry/sanity-checker/sanity-checker.metrics';
 import { RepositoryService } from 'contracts/repository';
-import { Counter, Gauge } from 'prom-client';
+import { Counter, Gauge } from '@prometheus-io/client';
 import { CHAIN_ID } from './helpers/config';
 import { signDeposit } from './helpers/deposit';
 import { HardhatServer } from './helpers/hardhat-server';

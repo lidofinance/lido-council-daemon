@@ -19,7 +19,7 @@ import {
   METRIC_DEPOSITS_CACHE_BYTES,
   METRIC_DEPOSITS_CACHE_COUNT,
 } from 'common/prometheus';
-import { Gauge, Histogram } from 'prom-client';
+import { Gauge, Histogram } from '@prometheus-io/client';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 @Injectable()
@@ -144,7 +144,7 @@ export class DepositsRegistryStoreService {
   /**
    * Asynchronously retrieves deposit events and headers from the database.
    * Iterates through entries starting with 'deposit:' to collect data and fetches headers stored under 'header'.
-   * Handles errors by logging and returning default cache values.
+   * Returns the default cache when no header is stored.
    *
    * @returns {Promise<{data: VerifiedDepositEvent[], headers: VerifiedDepositEventsCacheHeaders}>} Cache data and headers.
    * @public
@@ -178,16 +178,14 @@ export class DepositsRegistryStoreService {
 
       this.updateCacheMetrics();
 
-      const headers: VerifiedDepositEventsCacheHeaders = JSON.parse(
-        await this.db.get('headers'),
-      );
+      const storedHeaders = await this.db.get('headers');
+      if (storedHeaders === undefined) return this.getDefaultCachedValue();
+      const headers: VerifiedDepositEventsCacheHeaders =
+        JSON.parse(storedHeaders);
 
       const lastValidEvent = await this.getLastValidEvent();
 
       return { data, headers, lastValidEvent };
-    } catch (error: any) {
-      if (error.code === 'LEVEL_NOT_FOUND') return this.getDefaultCachedValue();
-      throw error;
     } finally {
       endTimer();
     }
@@ -208,18 +206,15 @@ export class DepositsRegistryStoreService {
    * valid event and parses it into a `VerifiedDepositEvent` object.
    *
    * @returns {Promise<VerifiedDepositEvent | undefined>} A promise that resolves to the last valid `VerifiedDepositEvent` object
-   * or `undefined` if no event is found or if the event could not be retrieved (e.g., key does not exist).
+   * or `undefined` if no event is stored.
    *
-   * @throws {Error} Throws an error if there is a database access issue other than a 'LEVEL_NOT_FOUND' error code.
+   * @throws {Error} Throws on database access or invalid stored data.
    */
   public async getLastValidEvent(): Promise<VerifiedDepositEvent | undefined> {
-    try {
-      const lastValidEvent = await this.db.get('last-valid-event');
-      return this.parseDepositEvent(lastValidEvent);
-    } catch (error: any) {
-      if (error.code === 'LEVEL_NOT_FOUND') return undefined;
-      throw error;
-    }
+    const lastValidEvent = await this.db.get('last-valid-event');
+    return lastValidEvent === undefined
+      ? undefined
+      : this.parseDepositEvent(lastValidEvent);
   }
 
   private formDepositEventHeaderForDeletion(
@@ -326,8 +321,7 @@ export class DepositsRegistryStoreService {
 
     // Initialize an array to hold batch operations
     const ops: (
-      | { type: 'del'; key: string }
-      | { type: 'put'; key: string; value: string }
+      { type: 'del'; key: string } | { type: 'put'; key: string; value: string }
     )[] = [];
 
     // Populate the batch operations array with delete operations

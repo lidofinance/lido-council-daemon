@@ -11,6 +11,7 @@ import {
   DepositRegistryService,
   DepositsRegistryModule,
 } from 'contracts/deposits-registry';
+import { DEPOSIT_REGISTRY_FINALIZED_TAG } from 'contracts/deposits-registry/deposits-registry.constants';
 import {
   GuardianExecutionContext,
   SecurityModule,
@@ -31,8 +32,7 @@ import { KeysApiService } from 'keys-api/keys-api.service';
 import { UnvettingModule } from './unvetting/unvetting.module';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { CHAINS } from '@lido-nestjs/constants';
-import { getNetwork } from '@ethersproject/networks';
-import { JsonRpcProvider } from '@ethersproject/providers';
+import { providers } from 'ethers';
 import { WalletService } from 'wallet';
 import { StakingRouterService } from 'contracts/staking-router';
 import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
@@ -57,7 +57,7 @@ describe('GuardianService', () => {
         PrometheusModule,
         GuardianModule,
         RepositoryModule,
-        DepositsRegistryModule.register('latest'),
+        DepositsRegistryModule,
         SecurityModule,
         MessagesModule,
         StakingModuleDataCollectorModule,
@@ -69,19 +69,21 @@ describe('GuardianService', () => {
         UnvettingModule,
       ],
     })
+      .overrideProvider(DEPOSIT_REGISTRY_FINALIZED_TAG)
+      .useValue('latest')
       .overrideProvider(DATA_BUS_PROVIDER_TOKEN)
       .useValue({
         getNetwork: jest.fn(),
       })
       .overrideProvider(SimpleFallbackJsonRpcBatchProvider)
-      .useValue(new JsonRpcProvider('http://localhost:8545'))
+      .useValue(new providers.JsonRpcProvider('http://localhost:8545'))
       .compile();
 
     const provider = moduleRef.get(SimpleFallbackJsonRpcBatchProvider);
 
     jest
       .spyOn(provider, 'detectNetwork')
-      .mockImplementation(async () => getNetwork(CHAINS.Mainnet));
+      .mockImplementation(async () => providers.getNetwork(CHAINS.Mainnet));
 
     jest.spyOn(provider, 'getNetwork').mockImplementation(async () => ({
       chainId: CHAINS.Mainnet,

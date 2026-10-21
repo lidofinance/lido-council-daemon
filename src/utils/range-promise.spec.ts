@@ -45,12 +45,12 @@ describe('rangePromise', () => {
   });
 
   it('should throw if from > to', async () => {
-    await expect(() => rangePromise(call, 5, 1)).rejects.toThrowError();
-    await expect(() => rangePromise(call, 5, 1, 2)).rejects.toThrowError();
+    await expect(() => rangePromise(call, 5, 1)).rejects.toThrow();
+    await expect(() => rangePromise(call, 5, 1, 2)).rejects.toThrow();
   });
 
   it('should throw if batchSize <= 0', async () => {
-    await expect(() => rangePromise(call, 1, 5, 0)).rejects.toThrowError();
-    await expect(() => rangePromise(call, 1, 5, -1)).rejects.toThrowError();
+    await expect(() => rangePromise(call, 1, 5, 0)).rejects.toThrow();
+    await expect(() => rangePromise(call, 1, 5, -1)).rejects.toThrow();
   });
 });

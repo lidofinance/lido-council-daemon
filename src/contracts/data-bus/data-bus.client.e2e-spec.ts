@@ -1,5 +1,4 @@
-import { Block } from '@ethersproject/providers';
-import { ethers } from 'ethers';
+import { providers, ethers } from 'ethers';
 import { formatBytes32String } from 'ethers/lib/utils';
 import { TEST_SERVER_PORT } from './utils/constants';
 import { DataBusClient } from './data-bus.client';
@@ -32,7 +31,7 @@ const COMPACT_SIGNATURE = {
 /** 65 bytes, the layout DSM v5 forwards to the guardian's ERC-1271 check. */
 const SIGNATURE_BLOB = '0x' + '0'.repeat(130);
 
-const getVariants = (block: Block) => {
+const getVariants = (block: providers.Block) => {
   const messages = [
     {
       name: 'MessagePingV1' as const,
@@ -154,7 +153,7 @@ describe('DataBus', () => {
     await accountImpersonate(dsmOwnerAddress);
     await setBalance(dsmOwnerAddress, 100);
 
-    // Set up Ganache provider (ensure Ganache is running on port 8545)
+    // Connect to the local Hardhat fork.
     provider = new ethers.providers.JsonRpcProvider(
       'http://127.0.0.1:' + TEST_SERVER_PORT,
     );

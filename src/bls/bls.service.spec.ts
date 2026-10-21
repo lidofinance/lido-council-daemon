@@ -2,7 +2,7 @@ import { CHAINS } from '@lido-nestjs/constants';
 import { Test } from '@nestjs/testing';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
-import { getNetwork } from '@ethersproject/networks';
+import { providers } from 'ethers';
 import { MockProviderModule } from 'provider';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { RepositoryModule } from 'contracts/repository';
@@ -39,7 +39,7 @@ describe('BlsService', () => {
 
     jest
       .spyOn(provider, 'detectNetwork')
-      .mockImplementation(async () => getNetwork(CHAINS.Mainnet));
+      .mockImplementation(async () => providers.getNetwork(CHAINS.Mainnet));
 
     jest.spyOn(provider, 'getNetwork').mockImplementation(async () => ({
       chainId: CHAINS.Mainnet,

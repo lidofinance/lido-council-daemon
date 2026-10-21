@@ -52,6 +52,30 @@ describe('dbService', () => {
   it('should return default cache', async () => {
     const result = dbService.getEventsCache();
     expect(result).toEqual(defaultCacheValue);
+    await expect(dbService.getEventsFromDB()).resolves.toEqual(
+      defaultCacheValue,
+    );
+    await expect(dbService.getLastValidEvent()).resolves.toBeUndefined();
+  });
+
+  it('should reject corrupt stored headers', async () => {
+    await (dbService as any).db.put('headers', '{');
+
+    await expect(dbService.getEventsFromDB()).rejects.toThrow(SyntaxError);
+  });
+
+  it('should reject a corrupt last valid event', async () => {
+    await (dbService as any).db.put('last-valid-event', '{');
+
+    await expect(dbService.getLastValidEvent()).rejects.toThrow(SyntaxError);
+    await expect(dbService.getEventsFromDB()).rejects.toThrow(SyntaxError);
+  });
+
+  it('should reject reads from a closed database', async () => {
+    await dbService.close();
+
+    await expect(dbService.getEventsFromDB()).rejects.toThrow();
+    await expect(dbService.getLastValidEvent()).rejects.toThrow();
   });
 
   it('should return saved cache', async () => {

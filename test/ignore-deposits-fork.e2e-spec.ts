@@ -1,4 +1,4 @@
-import { BigNumber } from '@ethersproject/bignumber';
+import { BigNumber } from 'ethers';
 import { StakingRouterAbi__factory, LidoAbi__factory } from 'generated';
 import { HardhatServer } from './helpers/hardhat-server';
 import { getLocator } from './helpers/sr.contract';

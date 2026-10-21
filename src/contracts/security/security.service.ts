@@ -1,5 +1,4 @@
-import { Signature } from '@ethersproject/bytes';
-import { ContractReceipt } from '@ethersproject/contracts';
+import { Signature, ContractReceipt, constants, utils } from 'ethers';
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import {
@@ -15,7 +14,7 @@ import {
 } from 'generated';
 import { RepositoryService } from 'contracts/repository';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { Counter } from 'prom-client';
+import { Counter } from '@prometheus-io/client';
 import { BlockTag } from '@lido-nestjs/execution';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { WalletService } from 'wallet';
@@ -25,7 +24,6 @@ import {
   ERC1271_INTERFACE_ID,
 } from './security.constants';
 import { DsmTxDeps, getDsmStrategy } from './dsm-version.strategy';
-import { constants, utils } from 'ethers';
 
 export type DsmVersion = 4 | 5;
 
