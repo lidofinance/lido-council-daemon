@@ -4,8 +4,7 @@ import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { ConfigModule, Configuration } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
-import { Signature } from '@ethersproject/bytes';
-import { ContractFactory, Wallet, utils } from 'ethers';
+import { Signature, ContractFactory, Wallet, utils } from 'ethers';
 import {
   DelegationContractAbi__factory,
   LocatorAbi__factory,
@@ -47,6 +46,10 @@ import { TEST_SERVER_URL } from './constants';
 
 jest.setTimeout(180_000);
 
+// The transition needs DSM v4; the current Hoodi head already uses DSM v5.
+const HOODI_PRE_EDF_BLOCK = 3_250_000;
+const HOODI_PRE_EDF_BLOCK_HASH =
+  '0x80e519982fb0ab2535f7bcc9a371e1027c18f1d365181856b166477db77e5a91';
 const DEPOSIT_ROOT = utils.hexZeroPad('0x11', 32);
 const STAKING_MODULE_ID = 1;
 const NONCE = 7;
@@ -218,7 +221,9 @@ async function publishAllMessagesAndExpectSender(
   messages: SignedMessages,
   expectedSender: string,
 ): Promise<PublishedSignatures> {
-  const fromBlock = (await testSetupProvider.getBlockNumber()) + 1;
+  // getBlockNumber() retains ethers' highest observed height after evm_revert.
+  // Read the current header so the range starts before the first new message.
+  const fromBlock = (await testSetupProvider.getBlock('latest')).number + 1;
 
   await guardianMessageService.sendDepositMessage({
     depositRoot: DEPOSIT_ROOT,
@@ -270,7 +275,8 @@ async function publishAllMessagesAndExpectSender(
     'MessagePingV1',
   ];
 
-  const events = await dataBusClient.getAll(fromBlock);
+  const toBlock = (await testSetupProvider.getBlock('latest')).number;
+  const events = await dataBusClient.getAll(fromBlock, toBlock);
   expect(events.map(({ name }) => name)).toEqual(expectedNames);
   expect(
     events.map(({ guardianAddress }) => utils.getAddress(guardianAddress)),
@@ -362,7 +368,16 @@ describe('EDF Locator transition on a Hoodi fork', () => {
     }
 
     hardhatServer = new HardhatServer();
-    await hardhatServer.start();
+    await hardhatServer.start({ forkBlockNumber: HOODI_PRE_EDF_BLOCK });
+
+    const block = await testSetupProvider.getBlock('latest');
+    expect(block.number).toBe(HOODI_PRE_EDF_BLOCK);
+    expect(block.hash).toBe(HOODI_PRE_EDF_BLOCK_HASH);
+    const dsm = SecurityAbi__factory.connect(
+      await getLocator().depositSecurityModule(),
+      testSetupProvider,
+    );
+    expect((await dsm.VERSION()).toNumber()).toBe(4);
   });
 
   beforeEach(async () => {

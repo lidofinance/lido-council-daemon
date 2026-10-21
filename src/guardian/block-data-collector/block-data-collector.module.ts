@@ -8,7 +8,7 @@ import { BlockDataCollectorService } from './block-data-collector.service';
 
 @Module({
   imports: [
-    DepositsRegistryModule.register(),
+    DepositsRegistryModule,
     SecurityModule,
     StakingModuleGuardModule,
     WalletModule,

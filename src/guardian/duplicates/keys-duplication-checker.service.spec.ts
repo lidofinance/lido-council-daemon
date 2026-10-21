@@ -5,6 +5,7 @@ import {
   SigningKeysRegistryModule,
   SigningKeysRegistryService,
 } from 'contracts/signing-keys-registry';
+import { SIGNING_KEYS_REGISTRY_FINALIZED_TAG } from 'contracts/signing-keys-registry/signing-keys-registry.constants';
 import { KeysDuplicationCheckerModule } from './keys-duplication-checker.module';
 import { KeysDuplicationCheckerService } from './keys-duplication-checker.service';
 import { eventMock1, keyMock1, keyMock2 } from './keys.fixtures';
@@ -32,9 +33,11 @@ describe('KeysDuplicationCheckerService', () => {
         MockProviderModule.forRoot(),
         LoggerModule,
         KeysDuplicationCheckerModule,
-        SigningKeysRegistryModule.register('latest'),
+        SigningKeysRegistryModule,
       ],
     })
+      .overrideProvider(SIGNING_KEYS_REGISTRY_FINALIZED_TAG)
+      .useValue('latest')
       .overrideProvider(SigningKeysRegistryService)
       .useValue(mockSigningKeysRegistryService)
       .compile();

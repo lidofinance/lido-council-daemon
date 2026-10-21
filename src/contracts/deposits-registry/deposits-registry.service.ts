@@ -170,9 +170,8 @@ export class DepositRegistryService {
     const fetchTimeEnd = performance.now();
     const fetchTime = Math.ceil(fetchTimeEnd - fetchTimeStart) / 1000;
 
-    const isRootValid = await this.sanityChecker.verifyUpdatedEvents(
-      finalizedBlockHash,
-    );
+    const isRootValid =
+      await this.sanityChecker.verifyUpdatedEvents(finalizedBlockHash);
 
     // Store the last event from the list of updated events separately
     // Unfortunately, we cannot validate each event individually upon insertion

@@ -3,7 +3,7 @@ import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { APP_NAME, APP_VERSION } from 'app.constants';
 import { METRIC_BUILD_INFO } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { Gauge } from 'prom-client';
+import { Gauge } from '@prometheus-io/client';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { CHAINS } from '@lido-nestjs/constants';
 import { getHeapStatistics } from 'v8';

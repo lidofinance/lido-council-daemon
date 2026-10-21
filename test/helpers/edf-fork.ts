@@ -41,7 +41,7 @@ export const LOCATOR_CONFIG_KEYS = [
   'topUpGateway',
 ] as const;
 
-export type LocatorConfigKey = typeof LOCATOR_CONFIG_KEYS[number];
+export type LocatorConfigKey = (typeof LOCATOR_CONFIG_KEYS)[number];
 export type LocatorConfig = Record<LocatorConfigKey, string>;
 
 export interface EdfForkDeployment {

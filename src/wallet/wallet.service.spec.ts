@@ -1,5 +1,4 @@
-import { hexZeroPad } from '@ethersproject/bytes';
-import { Wallet } from '@ethersproject/wallet';
+import { utils, Wallet } from 'ethers';
 import { LoggerService } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
@@ -62,7 +61,7 @@ describe('WalletService', () => {
 
       walletService.subscribeToEthereumUpdates();
       expect(mockOn).toHaveBeenCalledTimes(1);
-      expect(mockOn).toBeCalledWith('block', expect.any(Function));
+      expect(mockOn).toHaveBeenCalledWith('block', expect.any(Function));
     });
   });
 
@@ -127,7 +126,7 @@ describe('WalletService', () => {
 
     it('should select a configured delegate wallet', () => {
       walletService.selectDelegateWallet(secondDelegateWallet.address);
-      const messageHash = hexZeroPad('0x1', 32);
+      const messageHash = utils.hexZeroPad('0x1', 32);
 
       expect(walletService.wallet.address).toBe(secondDelegateWallet.address);
       expect(
@@ -169,13 +168,35 @@ describe('WalletService', () => {
     });
   });
 
+  describe('signMessage', () => {
+    it.each([
+      { name: 'empty', digest: '0x' },
+      { name: '31-byte', digest: `0x${'00'.repeat(31)}` },
+      { name: '33-byte', digest: `0x${'00'.repeat(33)}` },
+      { name: 'non-hexadecimal', digest: 'not-hex' },
+    ])('rejects a $name digest', ({ digest }) => {
+      expect(() => walletService.signMessage(digest)).toThrow(
+        expect.objectContaining({ code: 'INVALID_ARGUMENT' }),
+      );
+    });
+
+    it('signs a leading-zero digest deterministically with secp256k1', () => {
+      const digest = utils.hexZeroPad('0x1', 32);
+      const signature = walletService.signMessage(digest);
+
+      expect(walletService.wallet._signingKey().curve).toBe('secp256k1');
+      expect(walletService.signMessage(digest)).toEqual(signature);
+      expect(recoverAddress(digest, signature)).toBe(wallet.address);
+    });
+  });
+
   describe('signDepositData', () => {
     it('should sign deposit data', async () => {
-      const prefix = hexZeroPad('0x1', 32);
-      const depositRoot = hexZeroPad('0x2', 32);
+      const prefix = utils.hexZeroPad('0x1', 32);
+      const depositRoot = utils.hexZeroPad('0x2', 32);
       const nonce = 1;
       const blockNumber = 1;
-      const blockHash = hexZeroPad('0x3', 32);
+      const blockHash = utils.hexZeroPad('0x3', 32);
       const signature = await walletService.signDepositData({
         prefix,
         depositRoot,
@@ -196,11 +217,11 @@ describe('WalletService', () => {
     });
 
     it('should sign deposit data for DSM v4 without contract version', async () => {
-      const prefix = hexZeroPad('0x1', 32);
-      const depositRoot = hexZeroPad('0x2', 32);
+      const prefix = utils.hexZeroPad('0x1', 32);
+      const depositRoot = utils.hexZeroPad('0x2', 32);
       const nonce = 1;
       const blockNumber = 1;
-      const blockHash = hexZeroPad('0x3', 32);
+      const blockHash = utils.hexZeroPad('0x3', 32);
       const signature = await walletService.signDepositData({
         prefix,
         depositRoot,
@@ -221,9 +242,9 @@ describe('WalletService', () => {
     });
 
     it('should sign the guardian-bound DSM v5 deposit digest', async () => {
-      const prefix = hexZeroPad('0x1', 32);
-      const depositRoot = hexZeroPad('0x2', 32);
-      const blockHash = hexZeroPad('0x3', 32);
+      const prefix = utils.hexZeroPad('0x1', 32);
+      const depositRoot = utils.hexZeroPad('0x2', 32);
+      const blockHash = utils.hexZeroPad('0x3', 32);
       const guardianAddress = Wallet.createRandom().address;
       const signature = await walletService.signDepositData({
         prefix,
@@ -264,7 +285,7 @@ describe('WalletService', () => {
 
   describe('signPauseData', () => {
     it('should sign pause data for DSM v4 without contract version', async () => {
-      const prefix = hexZeroPad('0x1', 32);
+      const prefix = utils.hexZeroPad('0x1', 32);
       const blockNumber = 1;
       const signature = await walletService.signPauseData({
         prefix,
@@ -282,7 +303,7 @@ describe('WalletService', () => {
     });
 
     it('should sign the guardian-bound DSM v5 pause digest', async () => {
-      const prefix = hexZeroPad('0x1', 32);
+      const prefix = utils.hexZeroPad('0x1', 32);
       const guardianAddress = Wallet.createRandom().address;
       const signature = await walletService.signPauseData({
         prefix,
@@ -443,9 +464,9 @@ describe('WalletService', () => {
     it('should reject DSM v5 signing without a guardian address', async () => {
       await expect(
         walletService.signUnvetData({
-          prefix: hexZeroPad('0x1', 32),
+          prefix: utils.hexZeroPad('0x1', 32),
           blockNumber: 1,
-          blockHash: hexZeroPad('0x2', 32),
+          blockHash: utils.hexZeroPad('0x2', 32),
           nonce: 1,
           stakingModuleId: 1,
           operatorIds: '0x0000000000000000',

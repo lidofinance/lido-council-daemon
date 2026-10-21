@@ -1,6 +1,6 @@
-import { Formatter } from '@ethersproject/providers';
+import { providers } from 'ethers';
 
-export class FormatterWithEIP1898 extends Formatter {
+export class FormatterWithEIP1898 extends providers.Formatter {
   /**
    * blockTag formatter with EIP-1898 support
    * https://eips.ethereum.org/EIPS/eip-1898

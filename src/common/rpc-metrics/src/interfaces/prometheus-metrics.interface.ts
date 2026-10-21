@@ -54,7 +54,7 @@ export interface MetricHistogram<T extends Record<string, string>> {
  * Example implementation with prom-client:
  *
  * ```typescript
- * import { Counter, Histogram } from 'prom-client';
+ * import { Counter, Histogram } from '@prometheus-io/client';
  *
  * export class PrometheusService implements RpcMetricsRegistry {
  *   httpRpcRequestsTotal = new Counter({

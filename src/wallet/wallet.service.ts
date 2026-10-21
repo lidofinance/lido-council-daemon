@@ -1,7 +1,4 @@
-import { Signature } from '@ethersproject/bytes';
-import { formatEther } from '@ethersproject/units';
-import { Wallet } from '@ethersproject/wallet';
-import { BigNumber } from '@ethersproject/bignumber';
+import { Signature, utils, Wallet, BigNumber } from 'ethers';
 import {
   Inject,
   Injectable,
@@ -17,7 +14,7 @@ import {
   METRIC_NONCE_GAP,
 } from 'common/prometheus';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { Gauge } from 'prom-client';
+import { Gauge } from '@prometheus-io/client';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import {
   WALLET_BALANCE_UPDATE_BLOCK_RATE,
@@ -29,7 +26,6 @@ import {
   SignUnvetDataParams,
 } from './wallet.interfaces';
 import { Configuration } from 'common/config';
-import { utils } from 'ethers';
 import { getDsmStrategy } from 'contracts/security/dsm-version.strategy';
 
 @Injectable()
@@ -76,7 +72,7 @@ export class WalletService implements OnModuleInit {
       this.provider.getTransactionCount(delegateAddress, 'pending'),
     ]);
 
-    const balanceETH = formatEther(balanceWei);
+    const balanceETH = utils.formatEther(balanceWei);
     this.accountBalance.set({ delegateAddress }, Number(balanceETH));
     this.isBalanceSufficient(balanceWei);
 
@@ -105,7 +101,7 @@ export class WalletService implements OnModuleInit {
    */
   public async isBalanceCritical(): Promise<boolean> {
     const balanceWei = await this.getAccountBalance();
-    const balanceETH = formatEther(balanceWei);
+    const balanceETH = utils.formatEther(balanceWei);
     const formatted = `${balanceETH} ETH`;
     const isCritical = balanceWei.lte(this.config.WALLET_CRITICAL_BALANCE);
 
@@ -122,7 +118,7 @@ export class WalletService implements OnModuleInit {
    * @returns True if the balance is sufficient, otherwise false.
    */
   public isBalanceSufficient(balanceWei): boolean {
-    const balanceETH = formatEther(balanceWei);
+    const balanceETH = utils.formatEther(balanceWei);
     const formatted = `${balanceETH} ETH`;
     const isSufficient = balanceWei.gte(this.config.WALLET_MIN_BALANCE);
 

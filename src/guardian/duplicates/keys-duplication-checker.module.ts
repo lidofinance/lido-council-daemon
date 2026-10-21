@@ -3,7 +3,7 @@ import { SigningKeysRegistryModule } from 'contracts/signing-keys-registry';
 import { KeysDuplicationCheckerService } from './keys-duplication-checker.service';
 
 @Module({
-  imports: [SigningKeysRegistryModule.register()],
+  imports: [SigningKeysRegistryModule],
   providers: [KeysDuplicationCheckerService],
   exports: [KeysDuplicationCheckerService],
 })

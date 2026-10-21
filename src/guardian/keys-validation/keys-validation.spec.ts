@@ -2,7 +2,6 @@ import { Test } from '@nestjs/testing';
 import { KeysValidationModule } from './keys-validation.module';
 import {
   KeyValidatorInterface,
-  KeyValidatorModule,
   bufferFromHexString,
 } from '@lido-nestjs/key-validation';
 import { KeysValidationService } from './keys-validation.service';
@@ -41,7 +40,6 @@ describe('KeysValidationService', () => {
         ConfigModule.forRoot(),
         MockProviderModule.forRoot(),
         LoggerModule,
-        KeyValidatorModule.forFeature({ multithreaded: true }),
         KeysValidationModule,
       ],
     }).compile();
@@ -103,7 +101,7 @@ describe('KeysValidationService', () => {
       );
 
       expect(validateKeysFun).toHaveBeenCalledTimes(1);
-      expect(validateKeysFun).toBeCalledWith([]);
+      expect(validateKeysFun).toHaveBeenCalledWith([]);
       expect(newResult).toEqual([invalidKey1, duplicate, invalidKey2]);
     });
 
@@ -131,7 +129,7 @@ describe('KeysValidationService', () => {
       }));
 
       expect(validateKeysFun).toHaveBeenCalledTimes(1);
-      expect(validateKeysFun).toBeCalledWith(depositKeyList);
+      expect(validateKeysFun).toHaveBeenCalledWith(depositKeyList);
       expect(newResult).toEqual([invalidKey1, duplicate]);
     });
   });

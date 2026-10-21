@@ -3,7 +3,7 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-const POSTGRES_PORT = process.env.POSTGRES_PORT || 5432;
+const POSTGRES_PORT = Number(process.env.POSTGRES_PORT || 5432);
 
 export async function truncateTables() {
   const client = new Client({
@@ -22,6 +22,7 @@ export async function truncateTables() {
     console.log('All tables truncated successfully');
   } catch (error) {
     console.error('Error truncating tables:', error);
+    throw error;
   } finally {
     await client.end();
     console.log('Database connection closed');

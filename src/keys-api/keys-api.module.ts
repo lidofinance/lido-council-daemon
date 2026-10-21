@@ -1,5 +1,5 @@
 import { Module, HttpException } from '@nestjs/common';
-import { Histogram } from 'prom-client';
+import { Histogram } from '@prometheus-io/client';
 import { getToken } from '@willsoto/nestjs-prometheus';
 import { FetchModule } from '@lido-nestjs/fetch';
 import { MiddlewareModule } from '@lido-nestjs/middleware';

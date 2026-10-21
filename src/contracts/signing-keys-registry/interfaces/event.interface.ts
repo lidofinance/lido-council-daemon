@@ -12,7 +12,6 @@ export interface SigningKeyEventsGroup {
   startBlock: number;
   endBlock: number;
 }
-export interface SigningKeyEventsGroupWithStakingModules
-  extends SigningKeyEventsGroup {
+export interface SigningKeyEventsGroupWithStakingModules extends SigningKeyEventsGroup {
   stakingModulesAddresses: string[];
 }

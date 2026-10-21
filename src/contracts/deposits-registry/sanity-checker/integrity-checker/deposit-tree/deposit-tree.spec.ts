@@ -143,7 +143,7 @@ describe('DepositTree', () => {
       signature: '123',
       amount: 'not a number',
     };
-    expect(() => DepositTree.formDepositNode(invalidNodeData)).toThrowError();
+    expect(() => DepositTree.formDepositNode(invalidNodeData)).toThrow();
   });
 
   test.each(dataTransformFixtures)(
