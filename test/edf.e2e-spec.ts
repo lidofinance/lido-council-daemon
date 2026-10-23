@@ -1,6 +1,4 @@
-import { LoggerService } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { ConfigModule, Configuration } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
@@ -8,14 +6,9 @@ import { Signature } from '@ethersproject/bytes';
 import { ContractFactory, Wallet, utils } from 'ethers';
 import {
   DelegationContractAbi__factory,
-  LocatorAbi__factory,
-  OssifiableProxyAbi__factory,
-  SecurityAbi__factory,
   SecurityV5Abi__factory,
-  StakingRouterAbi__factory,
 } from 'generated';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
-import { LocatorService } from 'contracts/repository/locator/locator.service';
 import {
   GuardianExecutionContext,
   SecurityModule,
@@ -31,11 +24,7 @@ import { MessageType } from 'messages';
 import { DataBusClient } from 'contracts/data-bus/data-bus.client';
 import * as dataBusFixture from './fixtures/contracts/data-bus.bytecode.json';
 import { HardhatServer } from './helpers/hardhat-server';
-import {
-  deployEdfUpgradeOnFork,
-  LOCATOR_CONFIG_KEYS,
-  readLocatorConfig,
-} from './helpers/edf-fork';
+import { deployEdfUpgradeOnFork } from './helpers/edf-fork';
 import { CHAIN_ID } from './helpers/config';
 import {
   accountImpersonate,
@@ -60,66 +49,21 @@ interface SignedMessages {
   unvet: { digest: string; signature: Signature };
 }
 
-/**
- * The signature layout is part of the event signature, so each layout hashes to
- * its own topic and the two event sets coexist on the bus. v4 publishes the
- * EIP-2098 compact pair, which is what `Signature { r, vs }` in those contracts
- * takes; v5 publishes the 65-byte blob its guardian's ERC-1271 check accepts.
- */
-const BUS_EVENTS_BY_DSM_VERSION: Record<
-  number,
-  Record<keyof SignedMessages, string>
-> = {
-  4: {
-    deposit: 'MessageDepositV1',
-    pause: 'MessagePauseV3',
-    unvet: 'MessageUnvetV1',
-  },
-  5: {
-    deposit: 'MessageDepositV2',
-    pause: 'MessagePauseV4',
-    unvet: 'MessageUnvetV2',
-  },
+// DSM v5 messages carry the 65-byte signatures accepted by ERC-1271.
+const BUS_EVENTS: Record<keyof SignedMessages, string> = {
+  deposit: 'MessageDepositV2',
+  pause: 'MessagePauseV4',
+  unvet: 'MessageUnvetV2',
 };
 
-/**
- * The signature bytes each message carries once it has been through the bus:
- * the compact pair on v4, the blob on v5. These assertions therefore run
- * against what a relayer really reads, not against the in-memory signature the
- * daemon still holds.
- */
+// The bus decoder supports both layouts; the assertions below require v5 bytes.
 type PublishedSignatures = Record<
   keyof SignedMessages,
   string | { r: string; vs: string }
 >;
 
-async function ensureLegacyGuardian(
-  dsmAddress: string,
-  guardianAddress: string,
-): Promise<void> {
-  const dsm = SecurityAbi__factory.connect(dsmAddress, testSetupProvider);
-  const guardians = await dsm.getGuardians();
-  if (
-    guardians.some(
-      (guardian) =>
-        utils.getAddress(guardian) === utils.getAddress(guardianAddress),
-    )
-  ) {
-    return;
-  }
-
-  const owner = await dsm.getOwner();
-  await accountImpersonate(owner);
-  await setBalance(owner, 10);
-  await (
-    await dsm
-      .connect(testSetupProvider.getSigner(owner))
-      .addGuardian(guardianAddress, 1)
-  ).wait();
-}
-
 async function ensureDepositsUnpaused(dsmAddress: string): Promise<void> {
-  const dsm = SecurityAbi__factory.connect(dsmAddress, testSetupProvider);
+  const dsm = SecurityV5Abi__factory.connect(dsmAddress, testSetupProvider);
   if (!(await dsm.isDepositsPaused())) {
     return;
   }
@@ -192,7 +136,7 @@ async function pauseDepositsAndExpectOnChain(
   signature: Signature,
   expectedSender: string,
 ): Promise<void> {
-  const dsm = SecurityAbi__factory.connect(
+  const dsm = SecurityV5Abi__factory.connect(
     context.dsmAddress,
     testSetupProvider,
   );
@@ -259,14 +203,11 @@ async function publishAllMessagesAndExpectSender(
     stakingModuleIds: [STAKING_MODULE_ID],
   });
 
-  const busEvents = BUS_EVENTS_BY_DSM_VERSION[context.dsmVersion];
-  if (!busEvents) {
-    throw new Error(`No bus events mapped for DSM v${context.dsmVersion}`);
-  }
+  expect(context.dsmVersion).toBe(5);
   const expectedNames = [
-    busEvents.deposit,
-    busEvents.pause,
-    busEvents.unvet,
+    BUS_EVENTS.deposit,
+    BUS_EVENTS.pause,
+    BUS_EVENTS.unvet,
     'MessagePingV1',
   ];
 
@@ -277,8 +218,8 @@ async function publishAllMessagesAndExpectSender(
   ).toEqual(expectedNames.map(() => expectedSender));
 
   const published = Object.fromEntries(
-    (Object.keys(busEvents) as Array<keyof SignedMessages>).map((key) => {
-      const event = events.find(({ name }) => name === busEvents[key]);
+    (Object.keys(BUS_EVENTS) as Array<keyof SignedMessages>).map((key) => {
+      const event = events.find(({ name }) => name === BUS_EVENTS[key]);
       if (!event || !('signature' in event.data)) {
         throw new Error(`No bus signature for the ${key} message`);
       }
@@ -352,17 +293,23 @@ async function expectErc1271Verdicts(
   }
 }
 
-describe('EDF Locator transition on a Hoodi fork', () => {
+describe('EDF on a current Hoodi fork', () => {
   let hardhatServer: HardhatServer;
   let snapshotId: string;
 
   beforeAll(async () => {
     if (!process.env.RPC_URL) {
-      throw new Error('RPC_URL is required to run the EDF fork transition');
+      throw new Error('RPC_URL is required to run the EDF fork tests');
     }
 
     hardhatServer = new HardhatServer();
     await hardhatServer.start();
+
+    const dsm = SecurityV5Abi__factory.connect(
+      await getLocator().depositSecurityModule(),
+      testSetupProvider,
+    );
+    expect((await dsm.VERSION()).toNumber()).toBe(5);
   });
 
   beforeEach(async () => {
@@ -377,141 +324,6 @@ describe('EDF Locator transition on a Hoodi fork', () => {
     await hardhatServer?.stop();
   });
 
-  it('updates the Locator and daemon DSM cache after the EDF contracts are deployed', async () => {
-    const locatorAddress = getLocator().address;
-    const logger = {
-      log: jest.fn(),
-      warn: jest.fn(),
-      debug: jest.fn(),
-      error: jest.fn(),
-    } as unknown as LoggerService;
-    const provider = new SimpleFallbackJsonRpcBatchProvider(
-      {
-        urls: [TEST_SERVER_URL],
-        network: CHAIN_ID,
-        maxRetries: 1,
-        logRetries: false,
-        logSuccessfulAttempts: false,
-      },
-      logger,
-    );
-    const locatorService = new LocatorService(provider, {
-      LOCATOR_DEVNET_ADDRESS: locatorAddress,
-    } as Configuration);
-    const repository = new RepositoryService(logger, provider, locatorService);
-
-    const blockBefore = await testSetupProvider.getBlock('latest');
-    await repository.initCachedContracts({ blockHash: blockBefore.hash });
-    const cachedDsmBefore = repository.getCachedDSMContract().address;
-
-    const deployment = await deployEdfUpgradeOnFork(locatorAddress);
-    const stakingRouter = StakingRouterAbi__factory.connect(
-      deployment.locatorConfigBefore.stakingRouter,
-      testSetupProvider,
-    );
-    const unvettingRole = await stakingRouter.STAKING_MODULE_UNVETTING_ROLE();
-    const securityService = new SecurityService(
-      { inc: jest.fn() } as any,
-      { inc: jest.fn() } as any,
-      logger,
-      provider,
-      repository,
-      {
-        address: deployment.delegateAddress,
-        wallet: { connect: () => provider },
-        selectLegacyWallet: jest.fn(),
-        selectDelegateWallet: jest.fn(),
-      } as any,
-      {
-        DELEGATION_CONTRACT_ADDRESS: deployment.delegationContractAddress,
-      } as Configuration,
-    );
-    const contextBefore = await securityService.getGuardianExecutionContext({
-      blockHash: blockBefore.hash,
-    });
-
-    expect(cachedDsmBefore).toBe(deployment.previousDsmAddress);
-    expect(deployment.dsmAddress).not.toBe(deployment.previousDsmAddress);
-    expect(deployment.locatorImplementationAddress).not.toBe(
-      deployment.previousLocatorImplementation,
-    );
-    expect(
-      await stakingRouter.hasRole(unvettingRole, deployment.previousDsmAddress),
-    ).toBe(true);
-    expect(
-      await stakingRouter.hasRole(unvettingRole, deployment.dsmAddress),
-    ).toBe(false);
-    expect(contextBefore).toEqual(
-      expect.objectContaining({
-        dsmAddress: deployment.previousDsmAddress,
-        mode: 'legacy-eoa',
-        guardianAddress: deployment.delegateAddress,
-        delegateAddress: deployment.delegateAddress,
-      }),
-    );
-
-    const receipt = await deployment.activate();
-    const blockAfter = await testSetupProvider.getBlock(receipt.blockNumber);
-    await repository.initCachedContracts({ blockHash: blockAfter.hash });
-
-    const locator = LocatorAbi__factory.connect(
-      locatorAddress,
-      testSetupProvider,
-    );
-    const proxy = OssifiableProxyAbi__factory.connect(
-      locatorAddress,
-      testSetupProvider,
-    );
-    const dsm = SecurityV5Abi__factory.connect(
-      deployment.dsmAddress,
-      testSetupProvider,
-    );
-    const delegationContract = DelegationContractAbi__factory.connect(
-      deployment.delegationContractAddress,
-      testSetupProvider,
-    );
-    const locatorConfigAfter = await readLocatorConfig(locator);
-    const contextAfter = await securityService.getGuardianExecutionContext({
-      blockHash: blockAfter.hash,
-    });
-
-    expect(await proxy.proxy__getImplementation()).toBe(
-      deployment.locatorImplementationAddress,
-    );
-    expect((await dsm.VERSION()).toNumber()).toBe(5);
-    expect(await dsm.isGuardian(deployment.delegationContractAddress)).toBe(
-      true,
-    );
-    expect(await delegationContract.getDelegate()).toBe(
-      deployment.delegateAddress,
-    );
-    expect(
-      await stakingRouter.hasRole(unvettingRole, deployment.previousDsmAddress),
-    ).toBe(false);
-    expect(
-      await stakingRouter.hasRole(unvettingRole, deployment.dsmAddress),
-    ).toBe(true);
-    expect(repository.getCachedDSMContract().address).toBe(
-      deployment.dsmAddress,
-    );
-    expect(contextAfter).toEqual({
-      dsmAddress: deployment.dsmAddress,
-      dsmVersion: 5,
-      delegateAddress: deployment.delegateAddress,
-      guardianAddress: deployment.delegationContractAddress,
-      guardianIndex: 0,
-      mode: 'edf',
-    });
-
-    for (const key of LOCATOR_CONFIG_KEYS) {
-      const expectedAddress =
-        key === 'depositSecurityModule'
-          ? deployment.dsmAddress
-          : deployment.locatorConfigBefore[key];
-      expect(locatorConfigAfter[key]).toBe(expectedAddress);
-    }
-  });
-
   it('fails closed for an unconfigured or terminated active delegate', async () => {
     const locatorAddress = getLocator().address;
     const activeDelegate = Wallet.createRandom();
@@ -522,9 +334,9 @@ describe('EDF Locator transition on a Hoodi fork', () => {
       locatorAddress,
       activeDelegate.connect(testSetupProvider),
     );
-    const enactReceipt = await deployment.activate();
-    const blockAfterEnact = await testSetupProvider.getBlock(
-      enactReceipt.blockNumber,
+    const setupReceipt = await deployment.activate();
+    const blockWithDelegate = await testSetupProvider.getBlock(
+      setupReceipt.blockNumber,
     );
 
     let moduleRef: TestingModule | undefined;
@@ -550,12 +362,12 @@ describe('EDF Locator transition on a Hoodi fork', () => {
       const repository = moduleRef.get(RepositoryService);
       const securityService = moduleRef.get(SecurityService);
       await repository.initCachedContracts({
-        blockHash: blockAfterEnact.hash,
+        blockHash: blockWithDelegate.hash,
       });
 
       await expect(
         securityService.getGuardianExecutionContext({
-          blockHash: blockAfterEnact.hash,
+          blockHash: blockWithDelegate.hash,
         }),
       ).rejects.toThrow(
         `No configured wallet private key matches active delegate ${activeDelegate.address}`,
@@ -587,12 +399,10 @@ describe('EDF Locator transition on a Hoodi fork', () => {
     }
   });
 
-  it('publishes every message type with the active wallet across v4 enact and delegate rotation', async () => {
+  it('publishes every message type with the active wallet across delegate rotation', async () => {
     const locatorAddress = getLocator().address;
-    const legacyWallet = new Wallet(process.env.WALLET_PRIVATE_KEY as string);
     const firstDelegate = Wallet.createRandom();
     const secondDelegate = Wallet.createRandom();
-    await setBalance(legacyWallet.address, 100);
     await setBalance(firstDelegate.address, 100);
     await setBalance(secondDelegate.address, 100);
 
@@ -600,11 +410,10 @@ describe('EDF Locator transition on a Hoodi fork', () => {
       locatorAddress,
       firstDelegate.connect(testSetupProvider),
     );
-    await ensureLegacyGuardian(
-      deployment.previousDsmAddress,
-      legacyWallet.address,
+    const setupReceipt = await deployment.activate();
+    const blockWithDelegate = await testSetupProvider.getBlock(
+      setupReceipt.blockNumber,
     );
-    await ensureDepositsUnpaused(deployment.previousDsmAddress);
 
     const dataBus = await new ContractFactory(
       ['function sendMessage(bytes32 _eventId, bytes _data)'],
@@ -632,11 +441,7 @@ describe('EDF Locator transition on a Hoodi fork', () => {
         ],
       })
         .overrideProvider(WALLET_PRIVATE_KEYS)
-        .useValue([
-          legacyWallet.privateKey,
-          firstDelegate.privateKey,
-          secondDelegate.privateKey,
-        ])
+        .useValue([firstDelegate.privateKey, secondDelegate.privateKey])
         .compile();
 
       const config = moduleRef.get(Configuration);
@@ -649,59 +454,15 @@ describe('EDF Locator transition on a Hoodi fork', () => {
       const guardianMessageService = moduleRef.get(GuardianMessageService);
       const dataBusClient = new DataBusClient(
         dataBus.address,
-        legacyWallet.connect(testSetupProvider),
+        firstDelegate.connect(testSetupProvider),
       );
 
-      const blockBefore = await testSetupProvider.getBlock('latest');
-      await repository.initCachedContracts({ blockHash: blockBefore.hash });
-      const contextBefore = await securityService.getGuardianExecutionContext({
-        blockHash: blockBefore.hash,
-      });
-
-      expect(contextBefore).toEqual(
-        expect.objectContaining({
-          dsmVersion: 4,
-          mode: 'legacy-eoa',
-          delegateAddress: legacyWallet.address,
-          guardianAddress: legacyWallet.address,
-        }),
-      );
-
-      const legacyMessages = await signAllMessages(
-        securityService,
-        walletService,
-        contextBefore,
-        blockBefore.number,
-        blockBefore.hash,
-      );
-      expectRecoveredSigner(legacyMessages, legacyWallet.address);
-      await publishAllMessagesAndExpectSender(
-        guardianMessageService,
-        dataBusClient,
-        contextBefore,
-        blockBefore.number,
-        blockBefore.hash,
-        legacyMessages,
-        legacyWallet.address,
-      );
-      await pauseDepositsAndExpectOnChain(
-        securityService,
-        contextBefore,
-        blockBefore.number,
-        legacyMessages.pause.signature,
-        legacyWallet.address,
-      );
-
-      const enactReceipt = await deployment.activate();
-      const blockAfterEnact = await testSetupProvider.getBlock(
-        enactReceipt.blockNumber,
-      );
       await repository.initCachedContracts({
-        blockHash: blockAfterEnact.hash,
+        blockHash: blockWithDelegate.hash,
       });
       const firstDelegateContext =
         await securityService.getGuardianExecutionContext({
-          blockHash: blockAfterEnact.hash,
+          blockHash: blockWithDelegate.hash,
         });
       const delegationContract = DelegationContractAbi__factory.connect(
         deployment.delegationContractAddress,
@@ -721,16 +482,16 @@ describe('EDF Locator transition on a Hoodi fork', () => {
         securityService,
         walletService,
         firstDelegateContext,
-        blockAfterEnact.number,
-        blockAfterEnact.hash,
+        blockWithDelegate.number,
+        blockWithDelegate.hash,
       );
       expectRecoveredSigner(firstDelegateMessages, firstDelegate.address);
       const firstDelegatePublished = await publishAllMessagesAndExpectSender(
         guardianMessageService,
         dataBusClient,
         firstDelegateContext,
-        blockAfterEnact.number,
-        blockAfterEnact.hash,
+        blockWithDelegate.number,
+        blockWithDelegate.hash,
         firstDelegateMessages,
         firstDelegate.address,
       );
@@ -743,7 +504,7 @@ describe('EDF Locator transition on a Hoodi fork', () => {
       await pauseDepositsAndExpectOnChain(
         securityService,
         firstDelegateContext,
-        blockAfterEnact.number,
+        blockWithDelegate.number,
         firstDelegateMessages.pause.signature,
         firstDelegate.address,
       );
@@ -768,7 +529,7 @@ describe('EDF Locator transition on a Hoodi fork', () => {
       // ABI; a sent transaction reverts the same way but reports only the raw
       // selector `0x8baa579f` from the gas estimate.
       await expect(
-        relayedDsm.callStatic.pauseDeposits(blockAfterEnact.number, {
+        relayedDsm.callStatic.pauseDeposits(blockWithDelegate.number, {
           guardian: deployment.delegationContractAddress,
           signature: compactSignatureBytes(
             firstDelegateMessages.pause.signature,
@@ -783,7 +544,7 @@ describe('EDF Locator transition on a Hoodi fork', () => {
         throw new Error('Expected a v5 signature blob for the pause message');
       }
       const relayedReceipt = await (
-        await relayedDsm.pauseDeposits(blockAfterEnact.number, {
+        await relayedDsm.pauseDeposits(blockWithDelegate.number, {
           guardian: deployment.delegationContractAddress,
           signature: relayedPauseSignature,
         })
