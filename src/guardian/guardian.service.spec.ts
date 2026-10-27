@@ -144,7 +144,7 @@ describe('GuardianService', () => {
       .spyOn(startupSigningKeysRegistryService, 'initialize')
       .mockResolvedValue(undefined);
     jest.spyOn(startupKeysApiService, 'getKeysApiStatus').mockResolvedValue({
-      appVersion: '4.0.2',
+      appVersion: '5.0.0',
       chainId: CHAINS.Mainnet,
     });
     jest.spyOn(startupProvider, 'getNetwork').mockResolvedValue({
