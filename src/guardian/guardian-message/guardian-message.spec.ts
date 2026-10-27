@@ -85,5 +85,21 @@ describe('GuardianService', () => {
 
       expect(mockSendMessage).not.toBeCalled();
     });
+
+    it('should not send message in a dry run', async () => {
+      (guardianMessageService as any).config.DRY_RUN = true;
+      const message = { guardianIndex: 1 } as any;
+      const mockSendMessage = jest
+        .spyOn(messagesService, 'sendMessage')
+        .mockImplementation(async () => undefined);
+
+      await guardianMessageService.sendMessageFromGuardian(message);
+
+      expect(mockSendMessage).not.toBeCalled();
+      expect(loggerService.log).toHaveBeenCalledWith(
+        'Dry run: the message is not sent',
+        message,
+      );
+    });
   });
 });
