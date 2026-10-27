@@ -95,7 +95,9 @@ export class GuardianMessageService {
     messageData: T,
   ): Promise<void> {
     if (this.config.DRY_RUN) {
-      this.logger.log('Dry run: the message is not sent', messageData);
+      this.logger.log('Dry run: the message is not sent', {
+        type: messageData.type,
+      });
       return;
     }
 
