@@ -231,7 +231,11 @@ export class DepositsRegistryStoreService {
     if (lastValidEventBlockNumber !== undefined) {
       headers.endBlock = lastValidEventBlockNumber;
     } else {
-      headers.endBlock = this.getDefaultCachedValue().headers.endBlock;
+      // Without a valid event no cached range is trusted, including the empty
+      // chunks before the first deposit, so both bounds return to default.
+      const defaultHeaders = this.getDefaultCachedValue().headers;
+      headers.startBlock = defaultHeaders.startBlock;
+      headers.endBlock = defaultHeaders.endBlock;
     }
 
     if (headers.endBlock < headers.startBlock) {

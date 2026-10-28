@@ -157,13 +157,23 @@ export class WalletService implements OnModuleInit {
       (candidate) => candidate.address === normalizedAddress,
     );
 
-    if (!wallet) {
+    if (wallet) {
+      this.activeWallet = wallet;
+      return;
+    }
+
+    if (!this.config.DRY_RUN) {
       throw new Error(
         `No configured wallet private key matches active delegate ${normalizedAddress}`,
       );
     }
 
-    this.activeWallet = wallet;
+    // Dry run signs locally and sends nothing, so any configured key will do.
+    this.logger.warn(
+      'Dry run: no configured wallet private key matches active delegate, signing with the first wallet',
+      { delegateAddress: normalizedAddress, address: this.wallets[0].address },
+    );
+    this.activeWallet = this.wallets[0];
   }
 
   private get wallets(): Wallet[] {
