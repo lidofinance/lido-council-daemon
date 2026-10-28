@@ -151,6 +151,20 @@ describe('WalletService', () => {
         `No configured wallet private key matches active delegate ${unknownDelegate.address}`,
       );
     });
+
+    it('should sign with the first wallet in a dry run without the delegate key', () => {
+      (walletService as any).config.DRY_RUN = true;
+      jest.spyOn(loggerService, 'warn').mockImplementation(() => undefined);
+      walletService.selectDelegateWallet(secondDelegateWallet.address);
+
+      walletService.selectDelegateWallet(Wallet.createRandom().address);
+
+      expect(walletService.wallet.address).toBe(wallet.address);
+      expect(loggerService.warn).toHaveBeenCalledWith(
+        'Dry run: no configured wallet private key matches active delegate, signing with the first wallet',
+        expect.objectContaining({ address: wallet.address }),
+      );
+    });
   });
 
   describe('address', () => {

@@ -5,7 +5,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { LoggerService } from '@nestjs/common';
 import { ConfigModule } from 'common/config';
 import { PrometheusModule } from 'common/prometheus';
-import { MessagesService } from 'messages';
+import { MessagesService, MessageType } from 'messages';
 
 import { GuardianMessageService } from '../guardian-message';
 import { TransportInterface } from 'transport';
@@ -84,6 +84,26 @@ describe('GuardianService', () => {
       await guardianMessageService.sendMessageFromGuardian(message);
 
       expect(mockSendMessage).not.toBeCalled();
+    });
+
+    it('should not send message in a dry run', async () => {
+      (guardianMessageService as any).config.DRY_RUN = true;
+      const message = {
+        guardianIndex: 1,
+        type: MessageType.PAUSE,
+        signature: 'must-not-be-logged',
+      } as any;
+      const mockSendMessage = jest
+        .spyOn(messagesService, 'sendMessage')
+        .mockImplementation(async () => undefined);
+
+      await guardianMessageService.sendMessageFromGuardian(message);
+
+      expect(mockSendMessage).not.toBeCalled();
+      expect(loggerService.log).toHaveBeenCalledWith(
+        'Dry run: the message is not sent',
+        { type: message.type },
+      );
     });
   });
 });

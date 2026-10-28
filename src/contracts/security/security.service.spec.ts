@@ -478,6 +478,17 @@ describe('SecurityService', () => {
       expect(mockGetPauseMessagePrefix).toHaveBeenCalledTimes(1);
       expect(mockGetContractWithSigner).toHaveBeenCalledTimes(1);
     });
+
+    it('should not send the transaction in a dry run', async () => {
+      (securityService as any).config.DRY_RUN = true;
+
+      await expect(
+        securityService.pauseDeposits(blockNumber, signature, edfContext),
+      ).resolves.toBeUndefined();
+
+      expect(mockPauseDeposits).not.toHaveBeenCalled();
+      expect(mockGetContractWithSigner).not.toHaveBeenCalled();
+    });
   });
 
   describe('getGuardianExecutionContext fail-closed (v5)', () => {
@@ -542,6 +553,32 @@ describe('SecurityService', () => {
 
     it('should throw if the delegation contract is not a DSM guardian', async () => {
       mockV5({ guardians: [address1] });
+
+      await expect(
+        securityService.getGuardianExecutionContext(blockTag),
+      ).rejects.toThrow('is not a DSM guardian');
+    });
+
+    it('should return the EDF context in a dry run without the delegate key', async () => {
+      mockV5();
+      jest.mocked(walletService.selectDelegateWallet).mockRestore();
+      (securityService as any).config.DRY_RUN = true;
+
+      await expect(
+        securityService.getGuardianExecutionContext(blockTag),
+      ).resolves.toMatchObject({
+        delegateAddress: address1,
+        guardianAddress: delegationAddress,
+        guardianIndex: 0,
+        mode: 'edf',
+      });
+      expect(walletService.addresses).not.toContain(address1);
+      expect(walletService.wallet.address).toBe(walletService.addresses[0]);
+    });
+
+    it('should still throw for a delegation contract that is not a DSM guardian in a dry run', async () => {
+      mockV5({ guardians: [address1] });
+      (securityService as any).config.DRY_RUN = true;
 
       await expect(
         securityService.getGuardianExecutionContext(blockTag),
@@ -780,6 +817,26 @@ describe('SecurityService', () => {
       expect(mockWait).toHaveBeenCalledTimes(1);
       expect(mockGetUnvetMessagePrefix).toHaveBeenCalledTimes(1);
       expect(mockGetContractWithSigner).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not send the transaction in a dry run', async () => {
+      (securityService as any).config.DRY_RUN = true;
+
+      await expect(
+        securityService.unvetSigningKeys(
+          nonce,
+          blockNumber,
+          blockHash,
+          stakingModuleId,
+          operatorIds,
+          vettedKeysByOperator,
+          signature,
+          edfContext,
+        ),
+      ).resolves.toBeUndefined();
+
+      expect(mockUnvetSigningKeys).not.toHaveBeenCalled();
+      expect(mockGetContractWithSigner).not.toHaveBeenCalled();
     });
   });
 

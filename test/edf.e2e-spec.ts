@@ -148,8 +148,8 @@ async function pauseDepositsAndExpectOnChain(
     context,
   );
 
-  expect(receipt.status).toBe(1);
-  expect(receipt.from).toBe(expectedSender);
+  expect(receipt?.status).toBe(1);
+  expect(receipt?.from).toBe(expectedSender);
   expect(await dsm.isDepositsPaused()).toBe(true);
 }
 
