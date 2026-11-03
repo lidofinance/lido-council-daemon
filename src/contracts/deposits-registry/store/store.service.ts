@@ -175,11 +175,7 @@ export class DepositsRegistryStoreService {
 
       for await (const [, value] of stream) {
         const event = this.parseDepositEvent(value);
-        // Track size from DB value
-        this.cacheSizeBytes += Buffer.byteLength(value, 'utf8');
-        this.cacheEventCount++;
-        if (!event.valid) this.cacheInvalidEventCount++;
-        this.cachePubkeys.add(event.pubkey);
+        this.countCachedEvent(event, value);
         data.push(event);
       }
 
@@ -446,30 +442,28 @@ export class DepositsRegistryStoreService {
    * `depositDataRoot` from Uint8Array to an array.
    *
    * @param {VerifiedDepositEvent} depositEvent - The deposit event to serialize.
-   * @param {boolean} trackCacheMetrics - Whether to count this record in deposit cache metrics.
    * @returns {string} The serialized JSON string of the deposit event.
    * @public
    */
-  public serializeDepositEvent(
-    depositEvent: VerifiedDepositEvent,
-    trackCacheMetrics = true,
-  ) {
+  public serializeDepositEvent(depositEvent: VerifiedDepositEvent) {
     const { depositDataRoot, ...rest } = depositEvent;
     const value = {
       ...rest,
       depositDataRoot: Array.from(depositDataRoot),
     };
-    const serialized = JSON.stringify(value);
+    return JSON.stringify(value);
+  }
 
-    if (trackCacheMetrics) {
-      this.cacheSizeBytes += Buffer.byteLength(serialized, 'utf8');
-      this.cacheEventCount++;
-      if (!depositEvent.valid) this.cacheInvalidEventCount++;
-      this.cachePubkeys.add(depositEvent.pubkey);
-      this.updateCacheMetrics();
-    }
-
-    return serialized;
+  /**
+   * Adds a cached deposit event to the cache counters
+   * @param {VerifiedDepositEvent} event - The cached deposit event.
+   * @param {string} value - The event as it is stored in the database.
+   */
+  private countCachedEvent(event: VerifiedDepositEvent, value: string): void {
+    this.cacheSizeBytes += Buffer.byteLength(value, 'utf8');
+    this.cacheEventCount++;
+    if (!event.valid) this.cacheInvalidEventCount++;
+    this.cachePubkeys.add(event.pubkey);
   }
 
   /**
@@ -506,6 +500,10 @@ export class DepositsRegistryStoreService {
 
     this.cache.data = this.cache.data.concat(records.data);
     this.cache.headers = { ...records.headers };
+    records.data.forEach((event, i) =>
+      this.countCachedEvent(event, ops[i].value),
+    );
+    this.updateCacheMetrics();
   }
 
   /**
@@ -516,10 +514,7 @@ export class DepositsRegistryStoreService {
    * @public
    */
   public async insertLastValidEvent(event: VerifiedDepositEvent) {
-    await this.db.put(
-      'last-valid-event',
-      this.serializeDepositEvent(event, false),
-    );
+    await this.db.put('last-valid-event', this.serializeDepositEvent(event));
     this.cache.lastValidEvent = event;
   }
 
