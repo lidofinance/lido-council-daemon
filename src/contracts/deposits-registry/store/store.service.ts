@@ -29,6 +29,7 @@ export class DepositsRegistryStoreService {
   private cacheSizeBytes = 0;
   private cacheEventCount = 0;
   private cacheInvalidEventCount = 0;
+  private cachePubkeys = new Set<string>();
 
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
@@ -170,6 +171,7 @@ export class DepositsRegistryStoreService {
       this.cacheSizeBytes = 0;
       this.cacheEventCount = 0;
       this.cacheInvalidEventCount = 0;
+      this.cachePubkeys.clear();
 
       for await (const [, value] of stream) {
         const event = this.parseDepositEvent(value);
@@ -177,6 +179,7 @@ export class DepositsRegistryStoreService {
         this.cacheSizeBytes += Buffer.byteLength(value, 'utf8');
         this.cacheEventCount++;
         if (!event.valid) this.cacheInvalidEventCount++;
+        this.cachePubkeys.add(event.pubkey);
         data.push(event);
       }
 
@@ -212,6 +215,23 @@ export class DepositsRegistryStoreService {
    */
   public getInvalidEventsCount(): number {
     return this.cacheInvalidEventCount;
+  }
+
+  /**
+   * Returns the number of unique pubkeys in the deposit events cache.
+   * @returns {number} Unique pubkeys count in the current event cache.
+   */
+  public getUniquePubkeysCount(): number {
+    return this.cachePubkeys.size;
+  }
+
+  /**
+   * Checks whether the deposit events cache has a deposit for the pubkey.
+   * @param {string} pubkey - Validator pubkey.
+   * @returns {boolean} True if the pubkey is in the current event cache.
+   */
+  public hasPubkey(pubkey: string): boolean {
+    return this.cachePubkeys.has(pubkey);
   }
 
   /**
@@ -445,6 +465,7 @@ export class DepositsRegistryStoreService {
       this.cacheSizeBytes += Buffer.byteLength(serialized, 'utf8');
       this.cacheEventCount++;
       if (!depositEvent.valid) this.cacheInvalidEventCount++;
+      this.cachePubkeys.add(depositEvent.pubkey);
       this.updateCacheMetrics();
     }
 
@@ -516,6 +537,7 @@ export class DepositsRegistryStoreService {
     this.cacheSizeBytes = 0;
     this.cacheEventCount = 0;
     this.cacheInvalidEventCount = 0;
+    this.cachePubkeys.clear();
     this.updateCacheMetrics();
   }
 

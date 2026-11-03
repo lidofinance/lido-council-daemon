@@ -28,4 +28,5 @@ export interface VerifiedDepositEventGroup extends DepositEventGroup {
 
 export interface VerifiedDepositedEventGroup extends VerifiedDepositEventGroup {
   invalidEventsCount: number;
+  uniquePubkeysCount: number;
 }
