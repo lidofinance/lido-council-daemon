@@ -265,9 +265,13 @@ export class DepositRegistryService {
     });
 
     const mergedEvents = cachedEvents.data.concat(freshEvents);
+    const invalidEventsCount =
+      this.store.getInvalidEventsCount() +
+      freshEvents.filter(({ valid }) => !valid).length;
 
     return {
       events: mergedEvents,
+      invalidEventsCount,
       startBlock: cachedEvents.headers.startBlock,
       endBlock,
     };

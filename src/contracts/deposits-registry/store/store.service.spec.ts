@@ -123,6 +123,27 @@ describe('dbService', () => {
       expect((dbService as any).cacheEventCount).toBe(expectedCount);
       expect((dbService as any).cacheSizeBytes).toBe(expectedBytes);
     });
+
+    it('should track invalid deposit entries across insert, reload and delete', async () => {
+      const [firstEvent, ...restEvents] = cacheMock.data;
+
+      await dbService.insertEventsCacheBatch({
+        ...cacheMock,
+        data: [{ ...firstEvent, valid: false }, ...restEvents],
+      });
+
+      expect((dbService as any).cacheInvalidEventCount).toBe(1);
+
+      await dbService.getEventsFromDB();
+
+      expect((dbService as any).cacheEventCount).toBe(cacheMock.data.length);
+      expect((dbService as any).cacheInvalidEventCount).toBe(1);
+
+      await dbService.deleteCache();
+
+      expect((dbService as any).cacheEventCount).toBe(0);
+      expect((dbService as any).cacheInvalidEventCount).toBe(0);
+    });
   });
 
   describe('validateAndCleanInconsistentCache', () => {

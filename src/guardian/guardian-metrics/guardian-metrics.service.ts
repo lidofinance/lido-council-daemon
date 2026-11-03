@@ -58,19 +58,15 @@ export class GuardianMetricsService {
     { stakingModuleId }: StakingModuleData,
     blockData: BlockData,
   ): void {
-    const { depositedEvents } = blockData;
-    const { events } = depositedEvents;
-
-    const valid = events.reduce((sum, { valid }) => sum + (valid ? 1 : 0), 0);
-    const invalid = events.reduce((sum, { valid }) => sum + (valid ? 0 : 1), 0);
+    const { events, invalidEventsCount } = blockData.depositedEvents;
 
     this.validatedDepositsCounter.set(
       { type: 'valid', stakingModuleId },
-      valid,
+      events.length - invalidEventsCount,
     );
     this.validatedDepositsCounter.set(
       { type: 'invalid', stakingModuleId },
-      invalid,
+      invalidEventsCount,
     );
   }
 
@@ -82,19 +78,11 @@ export class GuardianMetricsService {
     { stakingModuleId }: StakingModuleData,
     blockData: BlockData,
   ): void {
-    const { depositedEvents } = blockData;
-    const { events } = depositedEvents;
-
-    const depositedKeys = events.map(({ pubkey }) => pubkey);
-    const depositedKeysSet = new Set(depositedKeys);
+    const { events } = blockData.depositedEvents;
 
     this.depositedKeysCounter.set(
       { type: 'total', stakingModuleId },
-      depositedKeys.length,
-    );
-    this.depositedKeysCounter.set(
-      { type: 'unique', stakingModuleId },
-      depositedKeysSet.size,
+      events.length,
     );
   }
 

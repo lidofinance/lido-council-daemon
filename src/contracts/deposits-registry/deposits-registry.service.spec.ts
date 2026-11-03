@@ -75,6 +75,7 @@ describe('DepositRegistryService cache recovery', () => {
       verifyCacheBlock: () => true,
       addEventGroupToIndex: jest.fn(),
       verifyUpdatedEvents: async () => true,
+      verifyFreshEvents: async () => true,
     };
     const registry = new DepositRegistryService(
       logger,
@@ -129,5 +130,38 @@ describe('DepositRegistryService cache recovery', () => {
     expect(
       restart.store.getEventsCache().data.map((event) => event.depositCount),
     ).toEqual([0]);
+  });
+
+  it('should count invalid events in the cache and in fresh events', async () => {
+    const events = [
+      { ...firstDeposit, valid: false },
+      {
+        ...firstDeposit,
+        depositCount: 1,
+        blockNumber: finalizedBlock + 5,
+        valid: false,
+      },
+      { ...firstDeposit, depositCount: 2, blockNumber: finalizedBlock + 6 },
+    ];
+    const { fetcher, registry } = startProcess();
+    fetcher.fetchEventsFallOver.mockImplementation(
+      async (startBlock: number, endBlock: number) => ({
+        startBlock,
+        endBlock,
+        events: events.filter(
+          (event) =>
+            event.blockNumber >= startBlock && event.blockNumber <= endBlock,
+        ),
+      }),
+    );
+    await registry.initialize();
+
+    const result = await registry.getAllDepositedEvents(
+      finalizedBlock + 10,
+      '0x02',
+    );
+
+    expect(result.events.map((event) => event.depositCount)).toEqual([0, 1, 2]);
+    expect(result.invalidEventsCount).toBe(2);
   });
 });

@@ -28,6 +28,7 @@ export class DepositsRegistryStoreService {
   private cache!: VerifiedDepositEventsCache;
   private cacheSizeBytes = 0;
   private cacheEventCount = 0;
+  private cacheInvalidEventCount = 0;
 
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
@@ -168,12 +169,15 @@ export class DepositsRegistryStoreService {
       // Reset counters before loading
       this.cacheSizeBytes = 0;
       this.cacheEventCount = 0;
+      this.cacheInvalidEventCount = 0;
 
       for await (const [, value] of stream) {
+        const event = this.parseDepositEvent(value);
         // Track size from DB value
         this.cacheSizeBytes += Buffer.byteLength(value, 'utf8');
         this.cacheEventCount++;
-        data.push(this.parseDepositEvent(value));
+        if (!event.valid) this.cacheInvalidEventCount++;
+        data.push(event);
       }
 
       this.updateCacheMetrics();
@@ -200,6 +204,14 @@ export class DepositsRegistryStoreService {
    */
   public getEventsCache(): VerifiedDepositEventsCache {
     return this.cache;
+  }
+
+  /**
+   * Returns the number of cached deposit events with an invalid signature.
+   * @returns {number} Invalid events count in the current event cache.
+   */
+  public getInvalidEventsCount(): number {
+    return this.cacheInvalidEventCount;
   }
 
   /**
@@ -432,6 +444,7 @@ export class DepositsRegistryStoreService {
     if (trackCacheMetrics) {
       this.cacheSizeBytes += Buffer.byteLength(serialized, 'utf8');
       this.cacheEventCount++;
+      if (!depositEvent.valid) this.cacheInvalidEventCount++;
       this.updateCacheMetrics();
     }
 
@@ -502,6 +515,7 @@ export class DepositsRegistryStoreService {
     // Reset cache metrics
     this.cacheSizeBytes = 0;
     this.cacheEventCount = 0;
+    this.cacheInvalidEventCount = 0;
     this.updateCacheMetrics();
   }
 
