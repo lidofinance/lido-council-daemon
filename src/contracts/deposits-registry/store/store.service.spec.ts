@@ -118,30 +118,23 @@ describe('dbService', () => {
       expect((dbService as any).cacheSizeBytes).toBe(expectedBytes);
     });
 
-    it('should track invalid deposits and unique pubkeys across insert, reload and delete', async () => {
+    it('should track invalid deposits across insert, reload and delete', async () => {
       const [firstEvent, ...restEvents] = cacheMock.data;
-      const data = [
-        { ...firstEvent, valid: false },
-        ...restEvents,
-        { ...firstEvent, depositCount: 3 },
-      ];
+      const data = [{ ...firstEvent, valid: false }, ...restEvents];
 
       await dbService.insertEventsCacheBatch({ ...cacheMock, data });
 
       expect(dbService.getInvalidEventsCount()).toBe(1);
-      expect(dbService.getUniquePubkeysCount()).toBe(2);
 
       await dbService.getEventsFromDB();
 
       expect((dbService as any).cacheEventCount).toBe(data.length);
       expect(dbService.getInvalidEventsCount()).toBe(1);
-      expect(dbService.getUniquePubkeysCount()).toBe(2);
 
       await dbService.deleteCache();
 
       expect((dbService as any).cacheEventCount).toBe(0);
       expect(dbService.getInvalidEventsCount()).toBe(0);
-      expect(dbService.getUniquePubkeysCount()).toBe(0);
     });
 
     it('should count a batch once when the first write fails and the retry succeeds', async () => {
@@ -161,13 +154,11 @@ describe('dbService', () => {
       expect((dbService as any).cacheEventCount).toBe(0);
       expect((dbService as any).cacheSizeBytes).toBe(0);
       expect(dbService.getInvalidEventsCount()).toBe(0);
-      expect(dbService.getUniquePubkeysCount()).toBe(0);
 
       await dbService.insertEventsCacheBatch(records);
 
       expect((dbService as any).cacheEventCount).toBe(records.data.length);
       expect(dbService.getInvalidEventsCount()).toBe(1);
-      expect(dbService.getUniquePubkeysCount()).toBe(2);
     });
   });
 

@@ -268,18 +268,10 @@ export class DepositRegistryService {
     const invalidEventsCount =
       this.store.getInvalidEventsCount() +
       freshEvents.filter(({ valid }) => !valid).length;
-    const freshPubkeys = new Set(
-      freshEvents
-        .map(({ pubkey }) => pubkey)
-        .filter((pubkey) => !this.store.hasPubkey(pubkey)),
-    );
-    const uniquePubkeysCount =
-      this.store.getUniquePubkeysCount() + freshPubkeys.size;
 
     return {
       events: mergedEvents,
       invalidEventsCount,
-      uniquePubkeysCount,
       startBlock: cachedEvents.headers.startBlock,
       endBlock,
     };

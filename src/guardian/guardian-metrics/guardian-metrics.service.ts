@@ -78,15 +78,11 @@ export class GuardianMetricsService {
     { stakingModuleId }: StakingModuleData,
     blockData: BlockData,
   ): void {
-    const { events, uniquePubkeysCount } = blockData.depositedEvents;
+    const { events } = blockData.depositedEvents;
 
     this.depositedKeysCounter.set(
       { type: 'total', stakingModuleId },
       events.length,
-    );
-    this.depositedKeysCounter.set(
-      { type: 'unique', stakingModuleId },
-      uniquePubkeysCount,
     );
   }
 

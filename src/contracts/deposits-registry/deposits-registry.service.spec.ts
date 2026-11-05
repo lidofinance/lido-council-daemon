@@ -132,7 +132,7 @@ describe('DepositRegistryService cache recovery', () => {
     ).toEqual([0]);
   });
 
-  it('should count invalid events and unique pubkeys in the cache and in fresh events', async () => {
+  it('should count invalid events in the cache and in fresh events', async () => {
     const events = [
       { ...firstDeposit, valid: false },
       {
@@ -141,18 +141,7 @@ describe('DepositRegistryService cache recovery', () => {
         blockNumber: finalizedBlock + 5,
         valid: false,
       },
-      {
-        ...firstDeposit,
-        pubkey: 'def789',
-        depositCount: 2,
-        blockNumber: finalizedBlock + 6,
-      },
-      {
-        ...firstDeposit,
-        pubkey: 'def789',
-        depositCount: 3,
-        blockNumber: finalizedBlock + 7,
-      },
+      { ...firstDeposit, depositCount: 2, blockNumber: finalizedBlock + 6 },
     ];
     const { fetcher, registry } = startProcess();
     fetcher.fetchEventsFallOver.mockImplementation(
@@ -172,10 +161,7 @@ describe('DepositRegistryService cache recovery', () => {
       '0x02',
     );
 
-    expect(result.events.map((event) => event.depositCount)).toEqual([
-      0, 1, 2, 3,
-    ]);
+    expect(result.events.map((event) => event.depositCount)).toEqual([0, 1, 2]);
     expect(result.invalidEventsCount).toBe(2);
-    expect(result.uniquePubkeysCount).toBe(2);
   });
 });
