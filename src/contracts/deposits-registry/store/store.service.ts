@@ -28,6 +28,7 @@ export class DepositsRegistryStoreService {
   private cache!: VerifiedDepositEventsCache;
   private cacheSizeBytes = 0;
   private cacheEventCount = 0;
+  private cacheInvalidEventCount = 0;
 
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private logger: LoggerService,
@@ -168,12 +169,12 @@ export class DepositsRegistryStoreService {
       // Reset counters before loading
       this.cacheSizeBytes = 0;
       this.cacheEventCount = 0;
+      this.cacheInvalidEventCount = 0;
 
       for await (const [, value] of stream) {
-        // Track size from DB value
-        this.cacheSizeBytes += Buffer.byteLength(value, 'utf8');
-        this.cacheEventCount++;
-        data.push(this.parseDepositEvent(value));
+        const event = this.parseDepositEvent(value);
+        this.countCachedEvent(event, value);
+        data.push(event);
       }
 
       this.updateCacheMetrics();
@@ -200,6 +201,14 @@ export class DepositsRegistryStoreService {
    */
   public getEventsCache(): VerifiedDepositEventsCache {
     return this.cache;
+  }
+
+  /**
+   * Returns the number of cached deposit events with an invalid signature.
+   * @returns {number} Invalid events count in the current event cache.
+   */
+  public getInvalidEventsCount(): number {
+    return this.cacheInvalidEventCount;
   }
 
   /**
@@ -414,28 +423,27 @@ export class DepositsRegistryStoreService {
    * `depositDataRoot` from Uint8Array to an array.
    *
    * @param {VerifiedDepositEvent} depositEvent - The deposit event to serialize.
-   * @param {boolean} trackCacheMetrics - Whether to count this record in deposit cache metrics.
    * @returns {string} The serialized JSON string of the deposit event.
    * @public
    */
-  public serializeDepositEvent(
-    depositEvent: VerifiedDepositEvent,
-    trackCacheMetrics = true,
-  ) {
+  public serializeDepositEvent(depositEvent: VerifiedDepositEvent) {
     const { depositDataRoot, ...rest } = depositEvent;
     const value = {
       ...rest,
       depositDataRoot: Array.from(depositDataRoot),
     };
-    const serialized = JSON.stringify(value);
+    return JSON.stringify(value);
+  }
 
-    if (trackCacheMetrics) {
-      this.cacheSizeBytes += Buffer.byteLength(serialized, 'utf8');
-      this.cacheEventCount++;
-      this.updateCacheMetrics();
-    }
-
-    return serialized;
+  /**
+   * Adds a cached deposit event to the cache counters
+   * @param {VerifiedDepositEvent} event - The cached deposit event.
+   * @param {string} value - The event as it is stored in the database.
+   */
+  private countCachedEvent(event: VerifiedDepositEvent, value: string): void {
+    this.cacheSizeBytes += Buffer.byteLength(value, 'utf8');
+    this.cacheEventCount++;
+    if (!event.valid) this.cacheInvalidEventCount++;
   }
 
   /**
@@ -472,6 +480,10 @@ export class DepositsRegistryStoreService {
 
     this.cache.data = this.cache.data.concat(records.data);
     this.cache.headers = { ...records.headers };
+    records.data.forEach((event, i) =>
+      this.countCachedEvent(event, ops[i].value),
+    );
+    this.updateCacheMetrics();
   }
 
   /**
@@ -482,10 +494,7 @@ export class DepositsRegistryStoreService {
    * @public
    */
   public async insertLastValidEvent(event: VerifiedDepositEvent) {
-    await this.db.put(
-      'last-valid-event',
-      this.serializeDepositEvent(event, false),
-    );
+    await this.db.put('last-valid-event', this.serializeDepositEvent(event));
     this.cache.lastValidEvent = event;
   }
 
@@ -502,6 +511,7 @@ export class DepositsRegistryStoreService {
     // Reset cache metrics
     this.cacheSizeBytes = 0;
     this.cacheEventCount = 0;
+    this.cacheInvalidEventCount = 0;
     this.updateCacheMetrics();
   }
 

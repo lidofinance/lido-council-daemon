@@ -89,10 +89,7 @@ describe('dbService', () => {
       const expectedBytes = cacheMock.data.reduce(
         (sum, event) =>
           sum +
-          Buffer.byteLength(
-            dbService.serializeDepositEvent(event, false),
-            'utf8',
-          ),
+          Buffer.byteLength(dbService.serializeDepositEvent(event), 'utf8'),
         0,
       );
 
@@ -107,10 +104,7 @@ describe('dbService', () => {
       const expectedBytes = cacheMock.data.reduce(
         (sum, event) =>
           sum +
-          Buffer.byteLength(
-            dbService.serializeDepositEvent(event, false),
-            'utf8',
-          ),
+          Buffer.byteLength(dbService.serializeDepositEvent(event), 'utf8'),
         0,
       );
 
@@ -122,6 +116,49 @@ describe('dbService', () => {
 
       expect((dbService as any).cacheEventCount).toBe(expectedCount);
       expect((dbService as any).cacheSizeBytes).toBe(expectedBytes);
+    });
+
+    it('should track invalid deposits across insert, reload and delete', async () => {
+      const [firstEvent, ...restEvents] = cacheMock.data;
+      const data = [{ ...firstEvent, valid: false }, ...restEvents];
+
+      await dbService.insertEventsCacheBatch({ ...cacheMock, data });
+
+      expect(dbService.getInvalidEventsCount()).toBe(1);
+
+      await dbService.getEventsFromDB();
+
+      expect((dbService as any).cacheEventCount).toBe(data.length);
+      expect(dbService.getInvalidEventsCount()).toBe(1);
+
+      await dbService.deleteCache();
+
+      expect((dbService as any).cacheEventCount).toBe(0);
+      expect(dbService.getInvalidEventsCount()).toBe(0);
+    });
+
+    it('should count a batch once when the first write fails and the retry succeeds', async () => {
+      const [firstEvent, ...restEvents] = cacheMock.data;
+      const records = {
+        ...cacheMock,
+        data: [{ ...firstEvent, valid: false }, ...restEvents],
+      };
+      jest
+        .spyOn((dbService as any).db, 'batch')
+        .mockRejectedValueOnce(new Error('write failed'));
+
+      await expect(dbService.insertEventsCacheBatch(records)).rejects.toThrow(
+        'write failed',
+      );
+
+      expect((dbService as any).cacheEventCount).toBe(0);
+      expect((dbService as any).cacheSizeBytes).toBe(0);
+      expect(dbService.getInvalidEventsCount()).toBe(0);
+
+      await dbService.insertEventsCacheBatch(records);
+
+      expect((dbService as any).cacheEventCount).toBe(records.data.length);
+      expect(dbService.getInvalidEventsCount()).toBe(1);
     });
   });
 
