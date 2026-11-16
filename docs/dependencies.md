@@ -14,11 +14,13 @@ Hardhat 3 also changes its config and CLI APIs. Ethers stays on 5.8 because the
 Lido execution modules and generated contracts use its API. SSZ 0.18 matches
 the key-validation worker. BLST 2.2 is the published version for these workers.
 
-The latest `@lido-nestjs/*` packages still declare Nest 8 and reflect-metadata
-0.1 peers. Yarn reports these mismatches. The packages use public Nest APIs.
-Keep the real Nest HTTP/health/metrics/scheduler/provider probe and the BLS
-worker tests when changing these versions. These checks cover this application's
-usage; they do not change the packages' published support policy.
+The `@lido-nestjs/*` packages declare Nest `^11.2.8` peers, so Nest stays at
+11.2.8 or later. They still declare a reflect-metadata 0.1 peer and no Node
+version; Yarn reports the reflect-metadata mismatch. Key-validation pins Piscina
+4.9.3, hence the override below. Keep the real Nest
+HTTP/health/metrics/scheduler/provider probe and the BLS worker tests when
+changing these versions. These checks cover this application's usage; they do
+not change the packages' published support policy.
 
 At startup, the existing HTTP and HTTPS agents have `keepAlive` disabled.
 This avoids ethers v5 stale socket failures while preserving Node's proxy
@@ -46,6 +48,11 @@ still request older versions. Keep overrides scoped to those parents.
 | Sentry | cookie | 0.7.2 | Validate cookie fields |
 | Istanbul load-nyc-config | js-yaml | 4.3.2 | Remove unpatched sprintf-js through argparse 2 |
 
+On 2026-11-16 the lockfile moved body-parser to 2.4.0 and follow-redirects to
+1.16.3 inside their parents' ranges, without an override. Both fix high-severity
+advisories published after 2026-10-21. Nest 11.2.9 pins multer 2.5.0, which
+fixes the third one, so multer needs no override.
+
 Istanbul calls `load`, which is present in js-yaml 4. Hardhat uses the retained
 Undici client APIs and UUID `v4`. These overrides cross some parent version
 ranges. Run the build, typecheck, lint, unit tests and fork tests after changes.
@@ -64,6 +71,10 @@ truncation branch does not apply. DSM messages and transactions are hashed
 before signing. The wallet tests check malformed digest rejection, deterministic
 signatures for a digest with leading zeroes, and signer recovery. This bounds
 the reported issue in this application; it does not fix elliptic generally.
+
+The audit on 2026-11-16 also reports development-only packages: glob and
+minimatch (moderate), serialize-javascript and deepmerge (low). They come from
+Hardhat, the Nest CLI, Jest and ESLint and are absent from the production image.
 
 Run `yarn audit` to see all current findings. Do not hide this advisory or lower
 the audit threshold to describe the dependency tree as vulnerability-free.
