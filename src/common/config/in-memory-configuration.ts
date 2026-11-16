@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import {
+  IsBoolean,
   IsIn,
   IsInstance,
   IsNotEmpty,
@@ -212,6 +213,21 @@ export class InMemoryConfiguration implements Configuration {
   @ValidateIf((conf) => conf.DELEGATION_CONTRACT_ADDRESS !== '')
   @IsEthereumAddress()
   DELEGATION_CONTRACT_ADDRESS = '';
+
+  // Only 'true', 'false' and an empty value are accepted: a typo must fail
+  // validation instead of silently turning the dry run off.
+  @IsOptional()
+  @Transform(
+    ({ value }) => {
+      const normalized = String(value).toLowerCase();
+      if (normalized === 'true') return true;
+      if (normalized === 'false' || normalized === '') return false;
+      return value;
+    },
+    { toClassOnly: true },
+  )
+  @IsBoolean()
+  DRY_RUN = false;
 
   @IsOptional()
   @TransformToWei()

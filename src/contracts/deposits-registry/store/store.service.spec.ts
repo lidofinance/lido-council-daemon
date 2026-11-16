@@ -6,6 +6,7 @@ import { DepositsRegistryStoreModule } from './store.module';
 import { DepositsRegistryStoreService } from './store.service';
 import { cacheMock, eventMock1 } from './store.fixtures';
 import { PrometheusModule } from 'common/prometheus';
+import { DEPOSIT_CACHE_DEFAULT } from '../deposits-registry.constants';
 
 const getEventsDepositCount = async (
   dbService: DepositsRegistryStoreService,
@@ -112,10 +113,7 @@ describe('dbService', () => {
       const expectedBytes = cacheMock.data.reduce(
         (sum, event) =>
           sum +
-          Buffer.byteLength(
-            dbService.serializeDepositEvent(event, false),
-            'utf8',
-          ),
+          Buffer.byteLength(dbService.serializeDepositEvent(event), 'utf8'),
         0,
       );
 
@@ -130,10 +128,7 @@ describe('dbService', () => {
       const expectedBytes = cacheMock.data.reduce(
         (sum, event) =>
           sum +
-          Buffer.byteLength(
-            dbService.serializeDepositEvent(event, false),
-            'utf8',
-          ),
+          Buffer.byteLength(dbService.serializeDepositEvent(event), 'utf8'),
         0,
       );
 
@@ -145,6 +140,49 @@ describe('dbService', () => {
 
       expect((dbService as any).cacheEventCount).toBe(expectedCount);
       expect((dbService as any).cacheSizeBytes).toBe(expectedBytes);
+    });
+
+    it('should track invalid deposits across insert, reload and delete', async () => {
+      const [firstEvent, ...restEvents] = cacheMock.data;
+      const data = [{ ...firstEvent, valid: false }, ...restEvents];
+
+      await dbService.insertEventsCacheBatch({ ...cacheMock, data });
+
+      expect(dbService.getInvalidEventsCount()).toBe(1);
+
+      await dbService.getEventsFromDB();
+
+      expect((dbService as any).cacheEventCount).toBe(data.length);
+      expect(dbService.getInvalidEventsCount()).toBe(1);
+
+      await dbService.deleteCache();
+
+      expect((dbService as any).cacheEventCount).toBe(0);
+      expect(dbService.getInvalidEventsCount()).toBe(0);
+    });
+
+    it('should count a batch once when the first write fails and the retry succeeds', async () => {
+      const [firstEvent, ...restEvents] = cacheMock.data;
+      const records = {
+        ...cacheMock,
+        data: [{ ...firstEvent, valid: false }, ...restEvents],
+      };
+      jest
+        .spyOn((dbService as any).db, 'batch')
+        .mockRejectedValueOnce(new Error('write failed'));
+
+      await expect(dbService.insertEventsCacheBatch(records)).rejects.toThrow(
+        'write failed',
+      );
+
+      expect((dbService as any).cacheEventCount).toBe(0);
+      expect((dbService as any).cacheSizeBytes).toBe(0);
+      expect(dbService.getInvalidEventsCount()).toBe(0);
+
+      await dbService.insertEventsCacheBatch(records);
+
+      expect((dbService as any).cacheEventCount).toBe(records.data.length);
+      expect(dbService.getInvalidEventsCount()).toBe(1);
     });
   });
 
@@ -270,6 +308,99 @@ describe('dbService', () => {
         );
         expect(expectedDeposits.length).toBe(expectedRemaining.length);
       },
+    );
+  });
+});
+
+// The suite above registers a default without endBlock, so the header check
+// compares undefined with startBlock and never fails. Production uses
+// DEPOSIT_CACHE_DEFAULT with both bounds at 0.
+describe('dbService with the production default headers', () => {
+  const deploymentBlock = 11052984;
+  // State found in a stuck mainnet cache: two empty 1000-block chunks after
+  // the deposit contract deployment and no events.
+  const emptyChunksHeaders = {
+    startBlock: deploymentBlock,
+    endBlock: deploymentBlock + 2000,
+  };
+
+  let dbService: DepositsRegistryStoreService;
+
+  beforeEach(async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [
+        PrometheusModule,
+        ConfigModule.forRoot(),
+        MockProviderModule.forRoot(),
+        DepositsRegistryStoreModule.register(
+          DEPOSIT_CACHE_DEFAULT,
+          'leveldb-spec',
+          'deposit-cache-default',
+        ),
+        LoggerModule,
+      ],
+    }).compile();
+
+    dbService = moduleRef.get(DepositsRegistryStoreService);
+
+    await dbService.initialize();
+  });
+
+  afterEach(async () => {
+    try {
+      await dbService.deleteCache();
+      await dbService.close();
+    } catch (error) {}
+  });
+
+  it.each([{ deposits: [] as number[] }, { deposits: [1, 2] }])(
+    'should reset both header bounds on restart without a valid event, %s',
+    async ({ deposits }) => {
+      await dbService.insertEventsCacheBatch({
+        headers: emptyChunksHeaders,
+        data: deposits.map((depositCount) => ({ ...eventMock1, depositCount })),
+      });
+      await dbService.close();
+
+      await dbService.initialize();
+
+      expect(await getEventsDepositCount(dbService)).toEqual([]);
+      expect(dbService.getEventsCache().headers).toEqual(
+        DEPOSIT_CACHE_DEFAULT.headers,
+      );
+    },
+  );
+
+  it('should keep the end block at the last valid event on restart', async () => {
+    await dbService.insertEventsCacheBatch({
+      headers: emptyChunksHeaders,
+      data: [0, 1, 3].map((depositCount) => ({
+        ...eventMock1,
+        depositCount,
+        blockNumber: deploymentBlock + 100 + depositCount,
+      })),
+    });
+    await dbService.close();
+
+    await dbService.initialize();
+
+    expect(await getEventsDepositCount(dbService)).toEqual([0, 1]);
+    expect(dbService.getEventsCache().headers).toEqual({
+      startBlock: deploymentBlock,
+      endBlock: deploymentBlock + 101,
+    });
+  });
+
+  it('should reset both header bounds when clearing without a last valid event', async () => {
+    await dbService.insertEventsCacheBatch({
+      headers: emptyChunksHeaders,
+      data: [],
+    });
+
+    await dbService.clearFromLastValidEvent();
+
+    expect(dbService.getEventsCache().headers).toEqual(
+      DEPOSIT_CACHE_DEFAULT.headers,
     );
   });
 });

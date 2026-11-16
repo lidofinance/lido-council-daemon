@@ -26,4 +26,6 @@ export interface VerifiedDepositEventGroup extends DepositEventGroup {
   events: VerifiedDepositEvent[];
 }
 
-export interface VerifiedDepositedEventGroup extends VerifiedDepositEventGroup {}
+export interface VerifiedDepositedEventGroup extends VerifiedDepositEventGroup {
+  invalidEventsCount: number;
+}

@@ -51,6 +51,12 @@ export class SecurityService {
   public async initialize(
     blockTag: BlockTag,
   ): Promise<GuardianExecutionContext> {
+    if (this.config.DRY_RUN) {
+      this.logger.warn(
+        'Dry run is enabled: guardian messages and DSM transactions are not sent',
+      );
+    }
+
     void this.logEdfReadiness(blockTag).catch((error) =>
       this.logger.error(error),
     );
@@ -382,7 +388,14 @@ export class SecurityService {
     pauseBlockNumber: number,
     signature: Signature,
     context: GuardianExecutionContext,
-  ): Promise<ContractReceipt> {
+  ): Promise<ContractReceipt | undefined> {
+    if (this.config.DRY_RUN) {
+      this.logger.warn('Dry run: pause transaction is not sent', {
+        pauseBlockNumber,
+      });
+      return;
+    }
+
     this.logger.warn('Try to pause deposits', { pauseBlockNumber });
     this.pauseAttempts.inc();
 
@@ -468,7 +481,15 @@ export class SecurityService {
     vettedKeysByOperator: string,
     signature: Signature,
     context: GuardianExecutionContext,
-  ): Promise<ContractReceipt> {
+  ): Promise<ContractReceipt | undefined> {
+    if (this.config.DRY_RUN) {
+      this.logger.warn('Dry run: unvet transaction is not sent', {
+        stakingModuleId,
+        blockNumber,
+      });
+      return;
+    }
+
     this.logger.warn('Try to unvet keys for staking module', {
       stakingModuleId,
       blockNumber,

@@ -62,7 +62,8 @@ WALLET_PRIVATE_KEY=<wallet private key>
 
 `WALLET_PRIVATE_KEY` is the guardian key for DSM v4 and the current
 delegate key for DSM v5. Keep it configured during the migration. If it is
-omitted, the daemon generates a random key for test use.
+omitted, the daemon generates a random key, which works only with
+`DRY_RUN=true`.
 
 ### DSM v5 Delegation
 
@@ -81,10 +82,29 @@ the delegation contract. It selects the matching key from the wallet pool.
 After a rotation becomes active, the daemon switches to the new key without a
 restart or config reload.
 
-The daemon stops the cycle if no configured key matches. It also stops if the
-delegate is revoked or the delegation contract is terminated. Each delegate
-account needs enough ETH on the execution layer. If the EVM Chain transport is
-enabled, it also needs funds on the Data Bus chain.
+The daemon stops the cycle if no configured key matches, unless `DRY_RUN` is
+enabled. It also stops if the delegate is revoked or the delegation contract
+is terminated. Each delegate account needs enough ETH on the execution layer.
+If the EVM Chain transport is enabled, it also needs funds on the Data Bus
+chain.
+
+### Dry Run
+
+```env
+DRY_RUN=true
+```
+
+In a dry run, the daemon syncs its caches, reads the guardian context and runs
+every check. It signs messages locally, but it never publishes guardian
+messages and never sends pause or unvet transactions. It does not need the
+delegate key: if no configured key matches the active delegate, it signs with
+the first wallet. All other checks of `DELEGATION_CONTRACT_ADDRESS` still
+apply.
+
+Only `true` and `false` are accepted; an empty value means `false`, the
+default. Any other value fails config validation. Never enable it
+on an active guardian: in a dry run the guardian does not pause, unvet or
+attest deposits.
 
 ### Keys-API Configuration
 

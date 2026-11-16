@@ -11,6 +11,7 @@ import {
 } from 'messages';
 import { BlockData } from '../interfaces';
 import { APP_NAME, APP_VERSION } from 'app.constants';
+import { Configuration } from 'common/config';
 
 @Injectable()
 export class GuardianMessageService {
@@ -18,6 +19,7 @@ export class GuardianMessageService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER)
     private logger: LoggerService,
     private messagesService: MessagesService,
+    private config: Configuration,
   ) {}
 
   /**
@@ -92,6 +94,13 @@ export class GuardianMessageService {
   public async sendMessageFromGuardian<T extends MessageRequiredFields>(
     messageData: T,
   ): Promise<void> {
+    if (this.config.DRY_RUN) {
+      this.logger.log('Dry run: the message is not sent', {
+        type: messageData.type,
+      });
+      return;
+    }
+
     if (messageData.guardianIndex == -1) {
       this.logger.warn(
         'Your address is not in the Guardian List. The message will not be sent',

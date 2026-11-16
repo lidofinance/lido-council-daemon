@@ -336,6 +336,48 @@ describe('ConfigLoaderService base spec', () => {
     });
   });
 
+  describe('dry run', () => {
+    const DEFAULTS_WITH_RABBIT = {
+      ...DEFAULTS,
+      RABBITMQ_PASSCODE: 'some-rabbit-passcode',
+    };
+
+    test('should be disabled by default', async () => {
+      const config = plainToClass(InMemoryConfiguration, DEFAULTS_WITH_RABBIT);
+
+      await validateOrReject(config);
+      expect(config.DRY_RUN).toBe(false);
+    });
+
+    test.each([
+      ['true', true],
+      ['TRUE', true],
+      ['false', false],
+      ['', false],
+    ])('should accept %p', async (value, expected) => {
+      const config = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+        DRY_RUN: value,
+      });
+
+      await validateOrReject(config);
+      expect(config.DRY_RUN).toBe(expected);
+    });
+
+    test.each(['1', 'yes'])('should reject %p', async (value) => {
+      const config = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS_WITH_RABBIT,
+        DRY_RUN: value,
+      });
+
+      await expect(
+        validateOrReject(config, {
+          validationError: { target: false, value: false },
+        }),
+      ).rejects.toEqual([expect.objectContaining({ property: 'DRY_RUN' })]);
+    });
+  });
+
   describe('wallet private keys', () => {
     const DEFAULTS_WITH_RABBIT = {
       ...DEFAULTS,
