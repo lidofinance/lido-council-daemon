@@ -1,8 +1,7 @@
-import { JsonRpcProvider } from '@ethersproject/providers';
-import { ethers } from 'ethers';
+import { providers, ethers } from 'ethers';
 import { TEST_SERVER_URL } from '../constants';
 
-export const testSetupProvider = new JsonRpcProvider(TEST_SERVER_URL);
+export const testSetupProvider = new providers.JsonRpcProvider(TEST_SERVER_URL);
 
 export const accountImpersonate = async (account: string): Promise<void> => {
   if (!account || account === 'undefined' || account === 'null') {

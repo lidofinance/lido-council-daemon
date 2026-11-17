@@ -72,7 +72,9 @@ describe('GuardianService', () => {
       await guardianMessageService.sendMessageFromGuardian(message);
 
       expect(mockSendMessage).toHaveBeenCalledTimes(1);
-      expect(mockSendMessage).toBeCalledWith(expect.objectContaining(message));
+      expect(mockSendMessage).toHaveBeenCalledWith(
+        expect.objectContaining(message),
+      );
     });
 
     it('should not send message if guardian is not in the list', async () => {
@@ -83,7 +85,7 @@ describe('GuardianService', () => {
 
       await guardianMessageService.sendMessageFromGuardian(message);
 
-      expect(mockSendMessage).not.toBeCalled();
+      expect(mockSendMessage).not.toHaveBeenCalled();
     });
 
     it('should not send message in a dry run', async () => {
@@ -99,7 +101,7 @@ describe('GuardianService', () => {
 
       await guardianMessageService.sendMessageFromGuardian(message);
 
-      expect(mockSendMessage).not.toBeCalled();
+      expect(mockSendMessage).not.toHaveBeenCalled();
       expect(loggerService.log).toHaveBeenCalledWith(
         'Dry run: the message is not sent',
         { type: message.type },

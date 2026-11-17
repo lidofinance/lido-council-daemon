@@ -44,6 +44,28 @@ describe('dbService', () => {
   it('should return default cache', async () => {
     const result = await dbService.getEventsCache();
     expect(result).toEqual(defaultCacheValue);
+    await expect(dbService.getCachedEvents([keyMock1])).resolves.toEqual(
+      defaultCacheValue,
+    );
+    await expect(dbService.getHeader()).resolves.toEqual(defaultCacheValue);
+  });
+
+  it('should reject corrupt stored headers', async () => {
+    await (dbService as any).db.put('headers', '{');
+
+    await expect(dbService.getEventsCache()).rejects.toThrow(SyntaxError);
+    await expect(dbService.getCachedEvents([keyMock1])).rejects.toThrow(
+      SyntaxError,
+    );
+    await expect(dbService.getHeader()).rejects.toThrow(SyntaxError);
+  });
+
+  it('should reject reads from a closed database', async () => {
+    await dbService.close();
+
+    await expect(dbService.getEventsCache()).rejects.toThrow();
+    await expect(dbService.getCachedEvents([keyMock1])).rejects.toThrow();
+    await expect(dbService.getHeader()).rejects.toThrow();
   });
 
   it('should return saved cache', async () => {

@@ -11,7 +11,7 @@ import {
   METRIC_BLOCK_DATA_REQUEST_DURATION,
   METRIC_BLOCK_DATA_REQUEST_ERRORS,
 } from 'common/prometheus';
-import { Counter, Histogram } from 'prom-client';
+import { Counter, Histogram } from '@prometheus-io/client';
 import { StakingModuleGuardService } from 'guardian/staking-module-guard';
 import { WalletService } from 'wallet';
 import { RegistryKey } from 'keys-api/interfaces/RegistryKey';

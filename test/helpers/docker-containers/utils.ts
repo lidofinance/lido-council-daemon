@@ -1,4 +1,3 @@
-import * as path from 'path';
 import * as Docker from 'dockerode';
 import * as dotenv from 'dotenv';
 import { CHAIN_ID } from '../config';
@@ -6,25 +5,21 @@ import { CHAIN_ID } from '../config';
 dotenv.config();
 
 const POSTGRES_PORT = process.env.POSTGRES_PORT || '5432';
-const KAPI_IMAGE = 'lidofinance/lido-keys-api:dev';
-const PSQL_IMAGE = 'postgres:14-alpine';
-const PSQL_CONTAINER = 'e2e_pgdb';
-const KAPI_CONTAINER = 'e2e_keys_api';
-const NETWORK_NAME = 'e2e_network';
+// Keys API dev image published on 2026-10-15 (linux/amd64).
+const KAPI_IMAGE =
+  'lidofinance/lido-keys-api@sha256:51213022c196cd05bdd176cff5cb8ec227928f88c1b5f0c14c8c9ff0a6f946a6';
+// PostgreSQL 14.24 on Alpine.
+const PSQL_IMAGE =
+  'postgres@sha256:4ea9e5ed06591da7ea23eb65465e8d3187fe79f4d5ec3ae976d29a33b013e77a';
+const PSQL_CONTAINER = 'council-e2e-pgdb';
+const PSQL_VOLUME = `council-e2e-pgdata-${CHAIN_ID}`;
+const KAPI_CONTAINER = 'council-e2e-keys-api';
+const NETWORK_NAME = 'council-e2e-network';
 
 /**
  * Pull image if didn't find locally
  */
 async function pullImage(docker: Docker, imageName: string, platform?: string) {
-  // Parse name to find image name and tag
-  const [fromImage, tag = 'latest'] = imageName.split(':');
-  const options: any = { fromImage, tag };
-
-  // Add platform if specified
-  if (platform) {
-    options.platform = platform;
-  }
-
   // Initialize docker instance and check if image already exists
   const image = docker.getImage(imageName);
 
@@ -34,7 +29,7 @@ async function pullImage(docker: Docker, imageName: string, platform?: string) {
   } catch (error: any) {
     if (error.statusCode === 404) {
       console.log(`Image ${imageName} does not exist.`);
-      await createImage(docker, options);
+      await createImage(docker, imageName, platform);
     } else {
       throw error; // Re-throw other errors for debugging
     }
@@ -43,11 +38,11 @@ async function pullImage(docker: Docker, imageName: string, platform?: string) {
 
 async function createImage(
   docker: Docker,
-  options: { platform?: string; tag: string; fromImage: string },
+  imageRef: string,
+  platform?: string,
 ) {
-  const imageRef = `${options.fromImage}:${options.tag}`;
   try {
-    const opts = options.platform ? { platform: options.platform } : {};
+    const opts = platform ? { platform } : {};
     const stream = await docker.pull(imageRef, opts);
 
     return await new Promise((resolve, reject) => {
@@ -70,11 +65,20 @@ async function createImage(
 /**
  * Check if container exist
  */
-export async function getContainer(docker: Docker, name: string) {
+export async function getContainer(
+  docker: Docker,
+  name: string,
+  expectedImage: string,
+) {
   const container = await docker.getContainer(name);
 
   try {
-    await container.inspect();
+    const info = await container.inspect();
+    if (info.Config.Image !== expectedImage) {
+      throw new Error(
+        `Container ${name} uses another image; remove it before rerunning E2E tests`,
+      );
+    }
     console.log(`Container ${name} already exists`);
     return container;
   } catch (error: any) {
@@ -92,29 +96,26 @@ export async function getContainer(docker: Docker, name: string) {
  */
 async function pullAndCreatePsqlContainer(docker: Docker) {
   const platform = process.env.DOCKER_PLATFORM;
-  const pgdataPath = path.resolve(`./.volumes/pgdata-${CHAIN_ID}/`);
-
   await pullImage(docker, PSQL_IMAGE, platform);
 
-  const alreadyCreatedContainer = await getContainer(docker, PSQL_CONTAINER);
+  const alreadyCreatedContainer = await getContainer(
+    docker,
+    PSQL_CONTAINER,
+    PSQL_IMAGE,
+  );
 
   if (alreadyCreatedContainer) {
+    const info = await alreadyCreatedContainer.inspect();
+    const dataMount = info.Mounts.find(
+      (mount) => mount.Destination === '/var/lib/postgresql/data',
+    );
+    if (dataMount?.Type !== 'volume' || dataMount.Name !== PSQL_VOLUME) {
+      throw new Error(
+        `Container ${PSQL_CONTAINER} must use volume ${PSQL_VOLUME}; remove it before rerunning E2E tests`,
+      );
+    }
     return alreadyCreatedContainer;
   }
-
-  const hostConfig =
-    process.platform === 'linux'
-      ? {
-          Binds: [`${pgdataPath}:/var/lib/postgresql/data:rw`],
-          NetworkMode: 'host',
-        }
-      : {
-          Binds: [`${pgdataPath}:/var/lib/postgresql/data:rw`],
-          PortBindings: {
-            '5432/tcp': [{ HostPort: POSTGRES_PORT }],
-          },
-          NetworkMode: NETWORK_NAME,
-        };
 
   // Create and configure the PostgreSQL container
   const container = await docker.createContainer({
@@ -125,10 +126,32 @@ async function pullAndCreatePsqlContainer(docker: Docker) {
       'POSTGRES_USER=postgres',
       'POSTGRES_PASSWORD=postgres',
     ],
-    HostConfig: hostConfig,
+    ExposedPorts: { '5432/tcp': {} },
+    HostConfig: {
+      Mounts: [
+        {
+          Type: 'volume',
+          Source: PSQL_VOLUME,
+          Target: '/var/lib/postgresql/data',
+        },
+      ],
+      PortBindings: {
+        '5432/tcp': [{ HostIp: '127.0.0.1', HostPort: POSTGRES_PORT }],
+      },
+      NetworkMode: NETWORK_NAME,
+    },
+    Healthcheck: {
+      Test: [
+        'CMD-SHELL',
+        'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -c "SELECT 1" >/dev/null',
+      ],
+      Interval: 5_000_000_000,
+      Timeout: 3_000_000_000,
+      Retries: 12,
+    },
   });
 
-  console.log('Container e2e_pgdb created');
+  console.log(`Container ${PSQL_CONTAINER} created`);
 
   return container;
 }
@@ -137,45 +160,32 @@ async function pullAndCreatePsqlContainer(docker: Docker) {
  * Pull and create keys api container
  */
 async function pullAndCreateKapiContainer(docker: Docker) {
-  const platform = process.env.DOCKER_PLATFORM;
+  const platform = process.env.DOCKER_PLATFORM || 'linux/amd64';
 
   await pullImage(docker, KAPI_IMAGE, platform);
 
-  const alreadyCreatedContainer = await getContainer(docker, KAPI_CONTAINER);
+  const alreadyCreatedContainer = await getContainer(
+    docker,
+    KAPI_CONTAINER,
+    KAPI_IMAGE,
+  );
 
   if (alreadyCreatedContainer) {
     return alreadyCreatedContainer;
   }
 
-  const hostConfig =
-    process.platform === 'linux'
-      ? {
-          NetworkMode: 'host',
-        }
-      : {
-          PortBindings: { '3000/tcp': [{ HostPort: '3000' }] },
-          NetworkMode: NETWORK_NAME,
-        };
+  const HARDHAT_URL = 'http://host.docker.internal:8545';
 
-  const HARDHAT_URL =
-    process.platform === 'linux'
-      ? 'http://127.0.0.1:8545'
-      : 'http://host.docker.internal:8545';
-
-  const DB_HOST = process.platform === 'linux' ? '127.0.0.1' : PSQL_CONTAINER;
-
-  const exposedHosts =
-    process.platform === 'linux' ? {} : { ExposedPorts: { '3000/tcp': {} } };
-
-  // Create and configure the PostgreSQL container
   const container = await docker.createContainer({
     Image: KAPI_IMAGE,
+    platform,
     name: KAPI_CONTAINER,
     Env: [
       'NODE_ENV=production',
+      'PORT=3000',
       'DB_NAME=node_operator_keys_service_db',
       'DB_PORT=5432',
-      `DB_HOST=${DB_HOST}`,
+      `DB_HOST=${PSQL_CONTAINER}`,
       'DB_USER=postgres',
       'DB_PASSWORD=postgres',
       `PROVIDERS_URLS=${HARDHAT_URL}`,
@@ -183,11 +193,25 @@ async function pullAndCreateKapiContainer(docker: Docker) {
       `CHAIN_ID=${CHAIN_ID}`,
       'CL_API_URLS=',
     ],
-    ...exposedHosts,
-    HostConfig: hostConfig,
+    Healthcheck: {
+      Test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1:3000/health'],
+      Interval: 5_000_000_000,
+      Timeout: 3_000_000_000,
+      Retries: 12,
+    },
+    ExposedPorts: { '3000/tcp': {} },
+    HostConfig: {
+      PortBindings: {
+        '3000/tcp': [{ HostIp: '127.0.0.1', HostPort: '3000' }],
+      },
+      NetworkMode: NETWORK_NAME,
+      ...(process.platform === 'linux'
+        ? { ExtraHosts: ['host.docker.internal:host-gateway'] }
+        : {}),
+    },
   });
 
-  console.log('Container e2e_keys_api created');
+  console.log(`Container ${KAPI_CONTAINER} created`);
 
   return container;
 }
@@ -224,9 +248,7 @@ async function createNetwork(docker: Docker, name) {
  */
 export async function setupContainers() {
   const docker = new Docker();
-  if (process.platform !== 'linux') {
-    await createNetwork(docker, NETWORK_NAME);
-  }
+  await createNetwork(docker, NETWORK_NAME);
 
   // Create PostgreSQL and KAPI containers on the same network
   const psqlContainer = await pullAndCreatePsqlContainer(docker);
@@ -244,6 +266,7 @@ export async function startContainerIfNotRunning(container: Docker.Container) {
 
   if (status === 'running') {
     console.log(`Container ${container.id} is running`);
+    await waitForContainerRunning(container);
     return;
   }
 
@@ -254,16 +277,22 @@ export async function startContainerIfNotRunning(container: Docker.Container) {
 
 async function waitForContainerRunning(
   container: Docker.Container,
-  retries = 5,
-  interval = 5000,
+  retries = 72,
+  interval = 2500,
 ) {
   for (let i = 0; i < retries; i++) {
     const containerInfo = await container.inspect();
     const status = containerInfo.State.Status;
 
-    if (status === 'running') {
+    const health = containerInfo.State.Health?.Status;
+    if (status === 'running' && (!health || health === 'healthy')) {
       console.log(`Container ${container.id} is running`);
       return;
+    }
+    if (status === 'exited' || status === 'dead' || health === 'unhealthy') {
+      throw new Error(
+        `Container ${container.id} failed to start: status=${status}, health=${health}`,
+      );
     }
 
     console.log(

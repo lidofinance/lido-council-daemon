@@ -1,5 +1,5 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { Counter, Histogram } from 'prom-client';
+import { Counter, Histogram } from '@prometheus-io/client';
 import { getToken } from '@willsoto/nestjs-prometheus';
 import {
   METRIC_HTTP_RPC_REQUESTS_TOTAL,

@@ -1,4 +1,4 @@
-export interface EventGroup<E extends unknown> {
+export interface EventGroup<E> {
   events: E[];
   startBlock: number;
   endBlock: number;

@@ -1,6 +1,5 @@
 import { Injectable, LoggerService, Inject } from '@nestjs/common';
 import { FetchService, RequestInit } from '@lido-nestjs/fetch';
-import { AbortController } from 'node-abort-controller';
 import { FETCH_REQUEST_TIMEOUT } from './keys-api.constants';
 import { KeyListResponse, Status } from './interfaces';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
@@ -75,9 +74,8 @@ export class KeysApiService {
   }
 
   public async getOperatorListWithModule() {
-    const result = await this.fetch<GroupedByModuleOperatorListResponse>(
-      `/v1/operators`,
-    );
+    const result =
+      await this.fetch<GroupedByModuleOperatorListResponse>(`/v1/operators`);
     return result;
   }
 

@@ -1,7 +1,7 @@
 import { DynamicModule, Global, Module } from '@nestjs/common';
 import { FallbackProviderModule } from '@lido-nestjs/execution';
 import { Configuration } from '../common/config';
-import { Histogram } from 'prom-client';
+import { Histogram } from '@prometheus-io/client';
 import { getToken } from '@willsoto/nestjs-prometheus';
 import { METRIC_RPC_REQUEST_DURATION } from 'common/prometheus';
 import {

@@ -38,7 +38,7 @@ import { SRModule } from 'keys-api/interfaces';
 import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { METRIC_GUARDIAN_INFO, METRIC_JOB_DURATION } from 'common/prometheus';
-import { Gauge, Histogram } from 'prom-client';
+import { Gauge, Histogram } from '@prometheus-io/client';
 import { DeepReadonly } from 'common/ts-utils';
 import { buildModuleWc } from './withdrawal-credentials';
 import { WalletService } from 'wallet';
@@ -185,9 +185,8 @@ export class GuardianService implements OnModuleInit {
         .startTimer();
 
       // fetch all lido keys
-      const { data: lidoKeys } = await this.keysApiService.getKeys(
-        firstRequestMeta,
-      );
+      const { data: lidoKeys } =
+        await this.keysApiService.getKeys(firstRequestMeta);
 
       endTimerKeysReq();
 

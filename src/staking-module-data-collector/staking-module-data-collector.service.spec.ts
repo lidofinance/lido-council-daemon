@@ -12,8 +12,7 @@ import { mockLocator } from 'contracts/repository/locator/locator.mock';
 import { mockRepository } from 'contracts/repository/repository.mock';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { CHAINS } from '@lido-nestjs/constants';
-import { getNetwork } from '@ethersproject/networks';
-import { JsonRpcProvider } from '@ethersproject/providers';
+import { providers } from 'ethers';
 
 jest.mock('../transport/stomp/stomp.client');
 
@@ -48,13 +47,13 @@ describe('StakingModuleDataCollectorService', () => {
       ],
     })
       .overrideProvider(SimpleFallbackJsonRpcBatchProvider)
-      .useValue(new JsonRpcProvider('http://localhost:8545'))
+      .useValue(new providers.JsonRpcProvider('http://localhost:8545'))
       .compile();
 
     const provider = moduleRef.get(SimpleFallbackJsonRpcBatchProvider);
     jest
       .spyOn(provider, 'detectNetwork')
-      .mockImplementation(async () => getNetwork(CHAINS.Mainnet));
+      .mockImplementation(async () => providers.getNetwork(CHAINS.Mainnet));
     jest.spyOn(provider, 'getNetwork').mockImplementation(async () => ({
       chainId: CHAINS.Mainnet,
       name: 'mainnet',

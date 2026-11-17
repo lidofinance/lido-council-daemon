@@ -11,7 +11,7 @@ import {
   METRIC_SIGNING_KEYS_CACHE_BYTES,
   METRIC_SIGNING_KEYS_CACHE_COUNT,
 } from 'common/prometheus';
-import { Gauge } from 'prom-client';
+import { Gauge } from '@prometheus-io/client';
 
 @Injectable()
 export class SigningKeysStoreService {
@@ -89,7 +89,7 @@ export class SigningKeysStoreService {
   /**
    * Asynchronously retrieves signing key events and headers from the database.
    * Iterates through entries starting with 'signingKey:' to collect data and fetches headers stored under 'header'.
-   * Handles errors by logging and returning default cache values.
+   * Returns the default cache when no header is stored.
    *
    * @returns {Promise<{data: SigningKeyEvent[], headers: SigningKeyEventsCacheHeaders}>} Cache data and headers.
    * @public
@@ -98,36 +98,31 @@ export class SigningKeysStoreService {
     data: SigningKeyEvent[];
     headers: SigningKeyEventsCacheHeaders;
   }> {
-    try {
-      const stream = this.db.iterator({
-        gte: 'signingKey:',
-        lte: 'signingKey:\xFF',
-      });
+    const stream = this.db.iterator({
+      gte: 'signingKey:',
+      lte: 'signingKey:\xFF',
+    });
 
-      const data: SigningKeyEvent[] = [];
+    const data: SigningKeyEvent[] = [];
 
-      // Reset counters before loading
-      this.cacheSizeBytes = 0;
-      this.cacheEventCount = 0;
+    // Reset counters before loading
+    this.cacheSizeBytes = 0;
+    this.cacheEventCount = 0;
 
-      for await (const [, value] of stream) {
-        // Track size from DB value
-        this.cacheSizeBytes += Buffer.byteLength(value, 'utf8');
-        this.cacheEventCount++;
-        data.push(this.parseSigningKeyEvent(value));
-      }
-
-      this.updateCacheMetrics();
-
-      const headers: SigningKeyEventsCacheHeaders = JSON.parse(
-        await this.db.get('headers'),
-      );
-
-      return { data, headers };
-    } catch (error: any) {
-      if (error.code === 'LEVEL_NOT_FOUND') return this.cacheDefaultValue;
-      throw error;
+    for await (const [, value] of stream) {
+      // Track size from DB value
+      this.cacheSizeBytes += Buffer.byteLength(value, 'utf8');
+      this.cacheEventCount++;
+      data.push(this.parseSigningKeyEvent(value));
     }
+
+    this.updateCacheMetrics();
+
+    const storedHeaders = await this.db.get('headers');
+    if (storedHeaders === undefined) return this.cacheDefaultValue;
+    const headers: SigningKeyEventsCacheHeaders = JSON.parse(storedHeaders);
+
+    return { data, headers };
   }
 
   /**
@@ -139,31 +134,26 @@ export class SigningKeysStoreService {
     data: SigningKeyEvent[];
     headers: SigningKeyEventsCacheHeaders;
   }> {
-    try {
-      const data: SigningKeyEvent[] = [];
-      for (const key of keys) {
-        const stream = this.db.iterator({
-          gte: `signingKey:${key}`,
-          lte: `signingKey:${key}\xFF`,
-        });
+    const data: SigningKeyEvent[] = [];
+    for (const key of keys) {
+      const stream = this.db.iterator({
+        gte: `signingKey:${key}`,
+        lte: `signingKey:${key}\xFF`,
+      });
 
-        for await (const [, value] of stream) {
-          data.push(this.parseSigningKeyEvent(value));
-        }
+      for await (const [, value] of stream) {
+        data.push(this.parseSigningKeyEvent(value));
       }
-
-      const headers: SigningKeyEventsCacheHeaders = JSON.parse(
-        await this.db.get('headers'),
-      );
-
-      return {
-        data,
-        headers,
-      };
-    } catch (error: any) {
-      if (error.code === 'LEVEL_NOT_FOUND') return this.cacheDefaultValue;
-      throw error;
     }
+
+    const storedHeaders = await this.db.get('headers');
+    if (storedHeaders === undefined) return this.cacheDefaultValue;
+    const headers: SigningKeyEventsCacheHeaders = JSON.parse(storedHeaders);
+
+    return {
+      data,
+      headers,
+    };
   }
 
   /** Get header
@@ -173,18 +163,13 @@ export class SigningKeysStoreService {
   public async getHeader(): Promise<{
     headers: SigningKeyEventsCacheHeaders;
   }> {
-    try {
-      const headers: SigningKeyEventsCacheHeaders = JSON.parse(
-        await this.db.get('headers'),
-      );
+    const storedHeaders = await this.db.get('headers');
+    if (storedHeaders === undefined) return this.cacheDefaultValue;
+    const headers: SigningKeyEventsCacheHeaders = JSON.parse(storedHeaders);
 
-      return {
-        headers,
-      };
-    } catch (error: any) {
-      if (error.code === 'LEVEL_NOT_FOUND') return this.cacheDefaultValue;
-      throw error;
-    }
+    return {
+      headers,
+    };
   }
 
   /**

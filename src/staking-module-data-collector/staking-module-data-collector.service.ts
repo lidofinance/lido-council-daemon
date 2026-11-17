@@ -10,7 +10,7 @@ import { SRModule } from 'keys-api/interfaces';
 import { ELBlockSnapshot } from 'keys-api/interfaces/ELBlockSnapshot';
 import { METRIC_JOB_DURATION } from 'common/prometheus';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
-import { Histogram } from 'prom-client';
+import { Histogram } from '@prometheus-io/client';
 import { DeepReadonly } from 'common/ts-utils';
 
 type State = {

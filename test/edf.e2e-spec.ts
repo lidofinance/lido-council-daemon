@@ -2,8 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigModule, Configuration } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
-import { Signature } from '@ethersproject/bytes';
-import { ContractFactory, Wallet, utils } from 'ethers';
+import { Signature, ContractFactory, Wallet, utils } from 'ethers';
 import {
   DelegationContractAbi__factory,
   SecurityV5Abi__factory,
@@ -162,7 +161,9 @@ async function publishAllMessagesAndExpectSender(
   messages: SignedMessages,
   expectedSender: string,
 ): Promise<PublishedSignatures> {
-  const fromBlock = (await testSetupProvider.getBlockNumber()) + 1;
+  // getBlockNumber() retains ethers' highest observed height after evm_revert.
+  // Read the current header so the range starts before the first new message.
+  const fromBlock = (await testSetupProvider.getBlock('latest')).number + 1;
 
   await guardianMessageService.sendDepositMessage({
     depositRoot: DEPOSIT_ROOT,
@@ -211,7 +212,8 @@ async function publishAllMessagesAndExpectSender(
     'MessagePingV1',
   ];
 
-  const events = await dataBusClient.getAll(fromBlock);
+  const toBlock = (await testSetupProvider.getBlock('latest')).number;
+  const events = await dataBusClient.getAll(fromBlock, toBlock);
   expect(events.map(({ name }) => name)).toEqual(expectedNames);
   expect(
     events.map(({ guardianAddress }) => utils.getAddress(guardianAddress)),

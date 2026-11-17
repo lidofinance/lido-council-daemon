@@ -1,4 +1,4 @@
-import { BigNumber } from '@ethersproject/bignumber';
+import { BigNumber } from 'ethers';
 import { Test } from '@nestjs/testing';
 import { plainToClass } from 'class-transformer';
 import { validateOrReject, ValidationError } from 'class-validator';
@@ -45,7 +45,7 @@ describe('ConfigLoaderService base spec', () => {
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [ConfigLoaderService],
+      providers: [ConfigLoaderService],
     }).compile();
 
     configLoaderService = moduleRef.get(ConfigLoaderService);
@@ -66,7 +66,7 @@ describe('ConfigLoaderService base spec', () => {
 
     await expect(() =>
       configLoaderService.loadSecrets(prepConfig),
-    ).not.toThrowError();
+    ).not.toThrow();
   });
 
   describe('rabbit mq', () => {
@@ -74,7 +74,7 @@ describe('ConfigLoaderService base spec', () => {
 
     beforeEach(async () => {
       const moduleRef = await Test.createTestingModule({
-        imports: [ConfigLoaderService],
+        providers: [ConfigLoaderService],
       }).compile();
 
       configLoaderService = moduleRef.get(ConfigLoaderService);
@@ -229,7 +229,7 @@ describe('ConfigLoaderService base spec', () => {
 
     beforeEach(async () => {
       const moduleRef = await Test.createTestingModule({
-        imports: [ConfigLoaderService],
+        providers: [ConfigLoaderService],
       }).compile();
 
       configLoaderService = moduleRef.get(ConfigLoaderService);

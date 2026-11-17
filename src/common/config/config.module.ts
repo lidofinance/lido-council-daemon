@@ -38,7 +38,7 @@ export class ConfigModule {
                 Array.isArray(error) &&
                 error.every((e) => e instanceof ValidationError)
               ) {
-                error.forEach((error: Record<string, unknown>) => {
+                error.forEach((error: ValidationError) => {
                   const jsonError = JSON.stringify({
                     context: 'ConfigModule',
                     message: 'Bad environment variable(s): %o`',

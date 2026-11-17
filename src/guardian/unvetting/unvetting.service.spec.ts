@@ -136,7 +136,7 @@ describe('UnvettingService', () => {
         blockHash: '0x1',
       });
       expect(unvetSigningKeysMock).toHaveBeenCalledTimes(1);
-      expect(unvetSigningKeysMock).toBeCalledWith(
+      expect(unvetSigningKeysMock).toHaveBeenCalledWith(
         1,
         1,
         '0x1',
@@ -149,7 +149,7 @@ describe('UnvettingService', () => {
 
       expect(sendUnvetMessageMock).toHaveBeenCalledTimes(1);
 
-      expect(sendUnvetMessageMock).toBeCalledWith({
+      expect(sendUnvetMessageMock).toHaveBeenCalledWith({
         nonce: 1,
         blockNumber: 1,
         blockHash: '0x1',
@@ -204,7 +204,7 @@ describe('UnvettingService', () => {
         blockHash: '0x1',
       });
       expect(unvetSigningKeysMock).toHaveBeenCalledTimes(1);
-      expect(unvetSigningKeysMock).toBeCalledWith(
+      expect(unvetSigningKeysMock).toHaveBeenCalledWith(
         1,
         1,
         '0x1',
@@ -216,7 +216,7 @@ describe('UnvettingService', () => {
       );
 
       expect(sendUnvetMessageMock).toHaveBeenCalledTimes(1);
-      expect(sendUnvetMessageMock).toBeCalledWith({
+      expect(sendUnvetMessageMock).toHaveBeenCalledWith({
         nonce: 1,
         blockNumber: 1,
         blockHash: '0x1',

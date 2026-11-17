@@ -1,4 +1,4 @@
-import { Block } from '@ethersproject/abstract-provider';
+import { providers } from 'ethers';
 import { Inject, Injectable, LoggerService } from '@nestjs/common';
 import { LidoAbi, LidoAbi__factory, LocatorAbi } from 'generated';
 import { SecurityAbi, SecurityAbi__factory } from 'generated';
@@ -44,7 +44,7 @@ export class RepositoryService {
   /**
    * Init cache for each contract or wait if it makes some error
    */
-  public async initOrWaitCachedContracts(): Promise<Block> {
+  public async initOrWaitCachedContracts(): Promise<providers.Block> {
     const block = await this.provider.getBlock('latest');
     try {
       await this.initCachedContracts({ blockHash: block.hash });

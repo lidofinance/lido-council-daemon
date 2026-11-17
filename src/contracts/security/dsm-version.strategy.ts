@@ -1,8 +1,4 @@
-import { defaultAbiCoder } from '@ethersproject/abi';
-import { Signature } from '@ethersproject/bytes';
-import { ContractTransaction } from '@ethersproject/contracts';
-import { keccak256 } from '@ethersproject/keccak256';
-import { constants, utils } from 'ethers';
+import { utils, Signature, ContractTransaction, constants } from 'ethers';
 import {
   DelegationContractAbi,
   SecurityAbi,
@@ -114,8 +110,8 @@ const v4Strategy: DsmVersionStrategy = {
     stakingModuleId,
     nonce,
   }) {
-    return keccak256(
-      defaultAbiCoder.encode(
+    return utils.keccak256(
+      utils.defaultAbiCoder.encode(
         ['bytes32', 'uint256', 'bytes32', 'bytes32', 'uint256', 'uint256'],
         [prefix, blockNumber, blockHash, depositRoot, stakingModuleId, nonce],
       ),
@@ -123,8 +119,11 @@ const v4Strategy: DsmVersionStrategy = {
   },
 
   pauseDigest({ prefix, blockNumber }) {
-    return keccak256(
-      defaultAbiCoder.encode(['bytes32', 'uint256'], [prefix, blockNumber]),
+    return utils.keccak256(
+      utils.defaultAbiCoder.encode(
+        ['bytes32', 'uint256'],
+        [prefix, blockNumber],
+      ),
     );
   },
 
@@ -137,7 +136,7 @@ const v4Strategy: DsmVersionStrategy = {
     operatorIds,
     vettedKeysByOperator,
   }) {
-    return keccak256(
+    return utils.keccak256(
       utils.solidityPack(
         [
           'bytes32',
@@ -200,7 +199,7 @@ const v5Strategy: DsmVersionStrategy = {
     stakingModuleId,
     nonce,
   }) {
-    return keccak256(
+    return utils.keccak256(
       utils.solidityPack(
         [
           'bytes32',
@@ -225,7 +224,7 @@ const v5Strategy: DsmVersionStrategy = {
   },
 
   pauseDigest({ prefix, guardianAddress, blockNumber }) {
-    return keccak256(
+    return utils.keccak256(
       utils.solidityPack(
         ['bytes32', 'address', 'uint256'],
         [prefix, requireGuardianAddress(guardianAddress), blockNumber],
@@ -243,7 +242,7 @@ const v5Strategy: DsmVersionStrategy = {
     operatorIds,
     vettedKeysByOperator,
   }) {
-    return keccak256(
+    return utils.keccak256(
       utils.solidityPack(
         [
           'bytes32',

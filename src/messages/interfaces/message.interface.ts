@@ -1,4 +1,4 @@
-import { Signature } from '@ethersproject/bytes';
+import { Signature } from 'ethers';
 
 export interface MessageRequiredFields {
   type: MessageType;

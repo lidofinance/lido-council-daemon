@@ -28,3 +28,12 @@ fixture and does not come from either external contracts repository.
 and `lido-locator.bytecode.json` are sufficient to prepare the EDF side of a
 Hoodi fork transition. The existing Locator proxy is reused and upgraded
 through its real `proxy__upgradeTo` entrypoint.
+
+The EDF transition suite forks Hoodi at block `3250000`
+(`2026-07-20T06:02:00Z`, hash
+`0x80e519982fb0ab2535f7bcc9a371e1027c18f1d365181856b166477db77e5a91`).
+At this block, Locator `0xe2EF9536DAAAEBFf5b1c130957AB3E80056b06D8` points
+to DSM v4 at `0xf738f86009ec704880c9aa175fc5869f020fee4e` and exposes all
+fields needed by the Locator fixture. The suite checks this baseline before
+deploying and enacting DSM v5. Its `RPC_URL` must support archive reads at this
+block. Other fork suites continue to use their configured baseline.

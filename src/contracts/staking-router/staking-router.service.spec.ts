@@ -4,14 +4,13 @@ import { LoggerModule } from 'common/logger';
 import { MockProviderModule } from 'provider';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
-import { Interface } from '@ethersproject/abi';
+import { utils, BigNumber } from 'ethers';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { mockLocator } from 'contracts/repository/locator/locator.mock';
 import { mockRepository } from 'contracts/repository/repository.mock';
 import { StakingRouterAbi__factory, LidoAbi__factory } from 'generated';
 import { StakingRouterModule, StakingRouterService } from '.';
-import { BigNumber } from '@ethersproject/bignumber';
 
 const TEST_MODULE_ID = 1;
 
@@ -53,15 +52,14 @@ describe('SecurityService', () => {
       const mockProviderCalla = jest
         .spyOn(provider, 'call')
         .mockImplementation(async () => {
-          const iface = new Interface(StakingRouterAbi__factory.abi);
+          const iface = new utils.Interface(StakingRouterAbi__factory.abi);
           return iface.encodeFunctionResult('getStakingModuleIsActive', [
             expected,
           ]);
         });
 
-      const isPaused = await stakingRouterService.isModuleDepositsPaused(
-        TEST_MODULE_ID,
-      );
+      const isPaused =
+        await stakingRouterService.isModuleDepositsPaused(TEST_MODULE_ID);
       expect(isPaused).toBe(!expected);
       expect(mockProviderCalla).toHaveBeenCalledTimes(1);
     });
@@ -74,7 +72,7 @@ describe('SecurityService', () => {
       const mockProviderCall = jest
         .spyOn(provider, 'call')
         .mockImplementation(async () => {
-          const iface = new Interface(StakingRouterAbi__factory.abi);
+          const iface = new utils.Interface(StakingRouterAbi__factory.abi);
           const result = [expected];
           return iface.encodeFunctionResult('getWithdrawalCredentials', result);
         });
@@ -92,7 +90,7 @@ describe('SecurityService', () => {
       const mockProviderCall = jest
         .spyOn(provider, 'call')
         .mockImplementation(async () => {
-          const iface = new Interface(StakingRouterAbi__factory.abi);
+          const iface = new utils.Interface(StakingRouterAbi__factory.abi);
           return iface.encodeFunctionResult(
             'getStakingModuleMaxDepositsCount',
             [expected],
@@ -110,10 +108,11 @@ describe('SecurityService', () => {
 
     it('should return 0 when module has no allocation', async () => {
       jest.spyOn(provider, 'call').mockImplementation(async () => {
-        const iface = new Interface(StakingRouterAbi__factory.abi);
-        return iface.encodeFunctionResult('getStakingModuleMaxDepositsCount', [
-          0,
-        ]);
+        const iface = new utils.Interface(StakingRouterAbi__factory.abi);
+        return iface.encodeFunctionResult(
+          'getStakingModuleMaxDepositsCount',
+          [0],
+        );
       });
 
       const result =
@@ -176,7 +175,7 @@ describe('SecurityService', () => {
       const mockProviderCall = jest
         .spyOn(provider, 'call')
         .mockImplementation(async () => {
-          const iface = new Interface(LidoAbi__factory.abi);
+          const iface = new utils.Interface(LidoAbi__factory.abi);
           return iface.encodeFunctionResult('getDepositableEther', [expected]);
         });
 

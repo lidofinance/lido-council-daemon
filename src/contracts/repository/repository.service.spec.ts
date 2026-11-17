@@ -1,4 +1,4 @@
-import { Contract } from '@ethersproject/contracts';
+import { Contract } from 'ethers';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';

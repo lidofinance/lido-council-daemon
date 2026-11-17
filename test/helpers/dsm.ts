@@ -1,4 +1,4 @@
-import { ethers } from 'ethers';
+import { ethers, Contract } from 'ethers';
 import { NO_PRIVKEY_MESSAGE } from '../constants';
 import {
   LidoAbi__factory,
@@ -7,7 +7,6 @@ import {
 } from 'generated';
 import { accountImpersonate, setBalance, testSetupProvider } from './provider';
 import { getLocator } from './sr.contract';
-import { Contract } from '@ethersproject/contracts';
 import { wqAbi } from './wq.abi';
 import { AGENT, CHAIN_ID, DAO } from './config';
 

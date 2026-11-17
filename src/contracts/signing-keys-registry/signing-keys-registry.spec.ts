@@ -1,12 +1,14 @@
 import { Test } from '@nestjs/testing';
-import { Block } from '@ethersproject/abstract-provider';
+import { providers } from 'ethers';
 import { MockProviderModule } from 'provider';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { PrometheusModule } from 'common/prometheus';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
-import { SigningKeysStoreService, SigningKeysStoreModule } from './store';
+import { SigningKeysStoreService } from './store';
+import { DB_DIR, DB_LAYER_DIR } from './store/store.constants';
+import { SIGNING_KEYS_REGISTRY_FINALIZED_TAG } from './signing-keys-registry.constants';
 import { mockRepository } from 'contracts/repository/repository.mock';
 import { LocatorService } from 'contracts/repository/locator/locator.service';
 import { mockLocator } from 'contracts/repository/locator/locator.mock';
@@ -17,11 +19,6 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { SigningKeysRegistryFetcherService } from './fetcher';
 
 describe('SigningKeysRegistryService', () => {
-  const defaultCacheValue = {
-    headers: {},
-    data: [] as any[],
-  };
-
   let dbService: SigningKeysStoreService;
   let repositoryService: RepositoryService;
   let locatorService: LocatorService;
@@ -36,15 +33,17 @@ describe('SigningKeysRegistryService', () => {
         ConfigModule.forRoot(),
         MockProviderModule.forRoot(),
         RepositoryModule,
-        SigningKeysStoreModule.register(
-          defaultCacheValue,
-          'leveldb-spec',
-          'signing-keys-spec',
-        ),
         LoggerModule,
-        SigningKeysRegistryModule.register('latest'),
+        SigningKeysRegistryModule,
       ],
-    }).compile();
+    })
+      .overrideProvider(SIGNING_KEYS_REGISTRY_FINALIZED_TAG)
+      .useValue('latest')
+      .overrideProvider(DB_DIR)
+      .useValue('leveldb-spec')
+      .overrideProvider(DB_LAYER_DIR)
+      .useValue('signing-keys-spec')
+      .compile();
 
     dbService = moduleRef.get(SigningKeysStoreService);
     repositoryService = moduleRef.get(RepositoryService);
@@ -95,7 +94,7 @@ describe('SigningKeysRegistryService', () => {
       });
 
     jest.spyOn(provider, 'getBlock').mockImplementation(async () => {
-      return { number: endBlock } as Block;
+      return { number: endBlock } as providers.Block;
     });
 
     jest

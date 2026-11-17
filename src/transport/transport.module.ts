@@ -1,5 +1,5 @@
 import { LoggerService, Module } from '@nestjs/common';
-import { Kafka, logLevel } from 'kafkajs';
+import { Kafka, logLevel, SASLOptions } from 'kafkajs';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Configuration } from 'common/config';
 import { TransportInterface } from './transport.interface';
@@ -39,7 +39,7 @@ export type SASLMechanism = 'plain' | 'scram-sha-256' | 'scram-sha-512';
               mechanism: config.KAFKA_SASL_MECHANISM,
               username: config.KAFKA_USERNAME,
               password: config.KAFKA_PASSWORD,
-            },
+            } as SASLOptions,
             logCreator: () => {
               return ({ log, level }) => {
                 const prefix = KAFKA_LOG_PREFIX;

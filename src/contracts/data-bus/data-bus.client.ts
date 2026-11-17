@@ -2,7 +2,6 @@ import { Contract, providers, Signer, utils } from 'ethers';
 import { EventDataMap, eventMappers } from './data-bus.serializer';
 import { MessagesDataMap, MessagesNames } from './data-bus.serializer';
 import * as eventsAbi from '../../abi/data-bus.abi.json';
-import { TransactionResponse } from '@ethersproject/abstract-provider';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 
 export class DataBusClient {
@@ -41,7 +40,7 @@ export class DataBusClient {
       'latest',
     );
 
-    const tx: TransactionResponse = await this.dataBus.sendMessage(
+    const tx: providers.TransactionResponse = await this.dataBus.sendMessage(
       eventId,
       dataBytes,
       {
@@ -57,7 +56,7 @@ export class DataBusClient {
   async sendMessage<EventName extends MessagesNames>(
     eventName: EventName,
     data: MessagesDataMap[EventName],
-  ): Promise<TransactionResponse> {
+  ): Promise<providers.TransactionResponse> {
     const event = this.eventsFragments.find((ev) => ev.name === eventName);
     if (!event) {
       throw new Error(`Event with name "${eventName}" not found`);
@@ -68,7 +67,7 @@ export class DataBusClient {
       [data],
     );
 
-    const tx: TransactionResponse = await this.sendTransaction(
+    const tx: providers.TransactionResponse = await this.sendTransaction(
       eventId,
       dataBytes,
     );

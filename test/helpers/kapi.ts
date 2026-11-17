@@ -1,55 +1,66 @@
-import axios from 'axios';
+const KAPI_URL = 'http://127.0.0.1:3000';
+const READY_TIMEOUT_MS = 180_000;
+const REQUEST_TIMEOUT_MS = 10_000;
 
-export async function waitForNewerBlock(block: number) {
-  let isServiceReady = false;
-  while (!isServiceReady) {
-    try {
-      const response = await axios.get('http://127.0.0.1:3000/v1/status');
-      if (response.data['elBlockSnapshot']['blockNumber'] > block) {
-        console.log(
-          `KAPI is ready! Got Block newer than ${block}, got ${response.data['elBlockSnapshot']['blockNumber']} `,
-        );
-        isServiceReady = true;
-      }
-    } catch (err) {
-      // console.log('Service not ready yet, waiting...');
-      await new Promise((resolve) => setTimeout(resolve, 10_000));
-    }
+async function fetchKapiJson(path: string): Promise<any> {
+  const response = await fetch(`${KAPI_URL}${path}`, {
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new Error(`Keys API returned HTTP ${response.status}`);
   }
+  return response.json();
 }
 
-// TODO: get rid of one of modules waitForNewerOrEqBlock or waitForNewerBlock
-export async function waitForNewerOrEqBlock(block: number) {
-  let isServiceReady = false;
-  while (!isServiceReady) {
+async function waitForKapi(
+  description: string,
+  ready: () => Promise<boolean>,
+): Promise<void> {
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  let lastError: unknown;
+
+  while (Date.now() < deadline) {
     try {
-      // TODO: write url in the constant
-      const response = await axios.get('http://127.0.0.1:3000/v1/status');
-      if (response.data['elBlockSnapshot']['blockNumber'] >= block) {
-        console.log(
-          `KAPI is ready! Got Block newer than ${block}, got ${response.data['elBlockSnapshot']['blockNumber']} `,
-        );
-        isServiceReady = true;
+      if (await ready()) {
+        console.log(`Keys API is ready: ${description}`);
+        return;
       }
-    } catch (err) {
-      // console.log('Service not ready yet, waiting...');
-      await new Promise((resolve) => setTimeout(resolve, 10_000));
+    } catch (error) {
+      lastError = error;
     }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
   }
+
+  const detail = lastError instanceof Error ? `: ${lastError.message}` : '';
+  throw new Error(
+    `Keys API did not become ready within ${READY_TIMEOUT_MS} ms: ${description}${detail}`,
+  );
+}
+
+export async function waitForNewerBlock(block: number): Promise<void> {
+  await waitForKapi(`block newer than ${block}`, async () => {
+    const status = await fetchKapiJson('/v1/status');
+    return status.elBlockSnapshot.blockNumber > block;
+  });
+}
+
+export async function waitForNewerOrEqBlock(block: number): Promise<void> {
+  await waitForKapi(`block at least ${block}`, async () => {
+    const status = await fetchKapiJson('/v1/status');
+    return status.elBlockSnapshot.blockNumber >= block;
+  });
 }
 
 export async function waitKAPIUpdateModulesKeys(): Promise<void> {
-  let isServiceReady = false;
-  while (!isServiceReady) {
-    try {
-      const response = await axios.get('http://127.0.0.1:3000/v1/modules');
-      if (response.status === 200) {
-        console.log('Kapi is ready');
-        isServiceReady = true;
-      }
-    } catch (err: any) {
-      console.log('Service not ready yet, waiting...', err.message);
-      await new Promise((resolve) => setTimeout(resolve, 10_000));
+  await waitForKapi('modules endpoint', async () => {
+    const response = await fetch(`${KAPI_URL}/v1/modules`, {
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    await response.body?.cancel();
+    if (!response.ok) {
+      throw new Error(`Keys API returned HTTP ${response.status}`);
     }
-  }
+    return response.status === 200;
+  });
 }

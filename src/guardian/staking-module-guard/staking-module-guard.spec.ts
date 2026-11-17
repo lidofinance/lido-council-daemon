@@ -109,7 +109,7 @@ describe('StakingModuleGuardService', () => {
     it('should find the keys when they match', () => {
       const depositedKeys = vettedKeys.map((key) => key.key);
       const depositedEvents = {
-        events: depositedKeys.map((pubkey) => ({ pubkey } as any)),
+        events: depositedKeys.map((pubkey) => ({ pubkey }) as any),
       };
       const blockData = { depositedEvents } as any;
       const matched = stakingModuleGuardService.getKeysIntersections(
@@ -137,7 +137,7 @@ describe('StakingModuleGuardService', () => {
         '0x9948d2becf42e9f76922bc6f664545e6f50401050af95785a984802d32a95c4c61f8e3de312b78167f86e047f83a7796',
       ];
       const depositedEvents = {
-        events: depositedKeys.map((pubkey) => ({ pubkey } as any)),
+        events: depositedKeys.map((pubkey) => ({ pubkey }) as any),
       };
       const blockData = { depositedEvents } as any;
       const matched = stakingModuleGuardService.getKeysIntersections(
@@ -163,7 +163,7 @@ describe('StakingModuleGuardService', () => {
       const unusedKeys = [];
       const depositedKeys = ['0x1'];
       const depositedEvents = {
-        events: depositedKeys.map((pubkey) => ({ pubkey } as any)),
+        events: depositedKeys.map((pubkey) => ({ pubkey }) as any),
       };
       const blockData = { unusedKeys, depositedEvents } as any;
       const matched = stakingModuleGuardService.getKeysIntersections(
@@ -298,10 +298,10 @@ describe('StakingModuleGuardService', () => {
         crossTypeKeys: [],
         frontRunKeys: [],
         unresolvedDuplicatedKeys: [],
-      } as any);
+      }) as any;
 
     const makeBlockData = (events: any[]) =>
-      ({ depositedEvents: { events } } as any);
+      ({ depositedEvents: { events } }) as any;
 
     it('should skip invalid deposit events', () => {
       const blockData = makeBlockData([
