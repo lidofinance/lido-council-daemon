@@ -4,6 +4,7 @@ import {
   RpcMetricsModuleOptions,
   RpcProviderConfig,
   RpcRequestBatchedEvent,
+  RpcResponseBatchedErrorEvent,
   RpcResponseBatchedEvent,
 } from './interfaces/rpc-metrics.interface';
 import { RpcMetricsRegistry } from './interfaces/prometheus-metrics.interface';
@@ -102,6 +103,7 @@ describe('RpcMetricsService', () => {
     (service as any).trackResponseTime(
       [{ jsonrpc: '2.0', id: 'fresh-response', method: 'eth_blockNumber' }],
       baseLabels,
+      'success',
       config,
     );
 
@@ -174,6 +176,79 @@ describe('RpcMetricsService', () => {
       2,
     );
     expect((service as any).pendingRequests.size).toBe(0);
+  });
+
+  describe('result label on the histograms', () => {
+    const domain = 'https://eth-mainnet.g.alchemy.com/v2/test';
+    const request = [
+      { jsonrpc: '2.0' as const, id: 'labelled', method: 'eth_call' },
+    ];
+    const now = 4_000_000;
+
+    const startRequest = (service: RpcMetricsService) => {
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+      (service as any).pendingRequests = new Map([
+        ['ethereum:el:labelled', { startTime: now - 1_000, config }],
+      ]);
+    };
+
+    it('labels every histogram with result=success on a response', () => {
+      const metricsRegistry = createMetricsRegistry();
+      const service = new RpcMetricsService(options, metricsRegistry);
+      const responseEvent: RpcResponseBatchedEvent = {
+        action: 'provider:response-batched',
+        domain,
+        request,
+        response: [{ jsonrpc: '2.0', id: 'labelled', result: '0x1' }],
+      };
+      const labels = { ...baseLabels, result: 'success' };
+
+      startRequest(service);
+      (service as any).handleRpcEvent(responseEvent, config);
+
+      expect(
+        metricsRegistry.httpRpcResponseSeconds.observe,
+      ).toHaveBeenCalledWith(labels, 1);
+      expect(metricsRegistry.httpRpcBatchSize.observe).toHaveBeenCalledWith(
+        labels,
+        1,
+      );
+      expect(
+        metricsRegistry.httpRpcRequestPayloadBytes.observe,
+      ).toHaveBeenCalledWith(labels, expect.any(Number));
+      expect(
+        metricsRegistry.httpRpcResponsePayloadBytes.observe,
+      ).toHaveBeenCalledWith(labels, expect.any(Number));
+    });
+
+    it('labels every histogram with result=fail on an error', () => {
+      const metricsRegistry = createMetricsRegistry();
+      const service = new RpcMetricsService(options, metricsRegistry);
+      const errorEvent: RpcResponseBatchedErrorEvent = {
+        action: 'provider:response-batched:error',
+        domain,
+        request,
+        error: Object.assign(new Error('bad gateway'), { status: 502 }),
+      };
+      const labels = { ...baseLabels, result: 'fail' };
+
+      startRequest(service);
+      (service as any).handleRpcEvent(errorEvent, config);
+
+      expect(
+        metricsRegistry.httpRpcResponseSeconds.observe,
+      ).toHaveBeenCalledWith(labels, 1);
+      expect(metricsRegistry.httpRpcBatchSize.observe).toHaveBeenCalledWith(
+        labels,
+        1,
+      );
+      expect(
+        metricsRegistry.httpRpcRequestPayloadBytes.observe,
+      ).toHaveBeenCalledWith(labels, expect.any(Number));
+      expect(
+        metricsRegistry.httpRpcResponsePayloadBytes.observe,
+      ).not.toHaveBeenCalled();
+    });
   });
 
   describe('provider normalization', () => {

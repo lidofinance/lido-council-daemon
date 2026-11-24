@@ -20,6 +20,7 @@ import {
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { MessagesModule } from 'messages';
 import { TransportInterface } from 'transport';
+import { isReady } from 'health/readiness';
 import { StakingModuleDataCollectorModule } from 'staking-module-data-collector';
 import { GuardianMetricsModule } from './guardian-metrics';
 import { GuardianMessageModule } from './guardian-message';
@@ -113,6 +114,75 @@ describe('GuardianService', () => {
     await mockRepository(repositoryService);
   });
 
+  // Runs before the successful start below: the readiness latch never resets.
+  it('should stay not ready when the start fails', async () => {
+    const startupService = guardianService as any;
+    jest
+      .spyOn(
+        startupService.repositoryService as RepositoryService,
+        'initOrWaitCachedContracts',
+      )
+      .mockResolvedValue({ hash: '0x1234' } as any);
+    jest
+      .spyOn(
+        startupService.stakingRouterService as StakingRouterService,
+        'getStakingModulesAddresses',
+      )
+      .mockResolvedValue([]);
+    jest
+      .spyOn(
+        startupService.depositService as DepositRegistryService,
+        'initialize',
+      )
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(startupService.securityService as SecurityService, 'initialize')
+      .mockResolvedValue({} as GuardianExecutionContext);
+    jest
+      .spyOn(
+        startupService.signingKeysRegistryService as SigningKeysRegistryService,
+        'initialize',
+      )
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(startupService, 'setGuardianExecutionContext')
+      .mockImplementation(() => undefined);
+    jest
+      .spyOn(
+        startupService.provider as SimpleFallbackJsonRpcBatchProvider,
+        'getNetwork',
+      )
+      .mockResolvedValue({ chainId: CHAINS.Mainnet, name: 'mainnet' });
+    // The Keys API reports another chain, so the start stops.
+    jest
+      .spyOn(
+        startupService.keysApiService as KeysApiService,
+        'getKeysApiStatus',
+      )
+      .mockResolvedValue({ appVersion: '5.0.0', chainId: CHAINS.Holesky });
+    const subscribe = jest.spyOn(guardianService, 'subscribeToModulesUpdates');
+    const logError = jest
+      .spyOn(loggerService, 'error')
+      .mockImplementation(() => undefined);
+    let exited: () => void = () => undefined;
+    const exit = new Promise<void>((resolve) => (exited = resolve));
+    const processExit = jest.spyOn(process, 'exit').mockImplementation(() => {
+      exited();
+      return undefined as never;
+    });
+
+    try {
+      await guardianService.onModuleInit();
+      await exit;
+
+      expect(subscribe).not.toHaveBeenCalled();
+      expect(isReady()).toBe(false);
+    } finally {
+      processExit.mockRestore();
+      logError.mockRestore();
+    }
+  });
+
   it('should apply the guardian context returned during startup', async () => {
     const blockHash = '0x1234';
     const context: GuardianExecutionContext = {
@@ -191,6 +261,7 @@ describe('GuardianService', () => {
       expect(result).toEqual({ status: 'subscribed' });
       expect(setGuardianExecutionContext).toHaveBeenCalledWith(context);
       expect(exit).not.toHaveBeenCalled();
+      expect(isReady()).toBe(true);
     } finally {
       exit.mockRestore();
       logError.mockRestore();

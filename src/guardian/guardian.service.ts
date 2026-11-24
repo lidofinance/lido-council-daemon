@@ -42,6 +42,7 @@ import { Gauge, Histogram } from '@prometheus-io/client';
 import { DeepReadonly } from 'common/ts-utils';
 import { buildModuleWc } from './withdrawal-credentials';
 import { WalletService } from 'wallet';
+import { markReady } from 'health/readiness';
 
 @Injectable()
 export class GuardianService implements OnModuleInit {
@@ -124,6 +125,7 @@ export class GuardianService implements OnModuleInit {
         }
 
         this.subscribeToModulesUpdates();
+        markReady();
       } catch (error) {
         this.logger.error(error);
         process.exit(1);

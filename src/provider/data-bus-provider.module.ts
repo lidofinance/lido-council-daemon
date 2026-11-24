@@ -9,6 +9,7 @@ import { METRIC_DATA_BUS_RPC_REQUEST_DURATION } from 'common/prometheus';
 import { Histogram } from '@prometheus-io/client';
 import { DATA_BUS_REQUEST_TIMEOUT } from 'contracts/data-bus/data-bus.constants';
 import { PROVIDER_RESET_INTERVAL } from './provider.constants';
+import { withUserAgent } from './user-agent';
 
 export const DATA_BUS_PROVIDER_TOKEN = 'DATA_BUS_PROVIDER';
 
@@ -26,9 +27,11 @@ export class DataBusProviderModule {
             requestMetric: Histogram<string>,
           ) => ({
             // Use new array-based config with fallback to old single URL
-            urls: config.EVM_CHAIN_DATA_BUS_PROVIDERS_URLS ?? [
-              config.EVM_CHAIN_DATA_BUS_PROVIDER_URL,
-            ],
+            urls: withUserAgent(
+              config.EVM_CHAIN_DATA_BUS_PROVIDERS_URLS ?? [
+                config.EVM_CHAIN_DATA_BUS_PROVIDER_URL,
+              ],
+            ),
             // Use required chain ID config
             network: config.EVM_CHAIN_DATA_BUS_CHAIN_ID,
             instanceLabel: 'DataBus',

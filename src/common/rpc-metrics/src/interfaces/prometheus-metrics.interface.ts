@@ -67,28 +67,28 @@ export interface MetricHistogram<T extends Record<string, string>> {
  *     name: 'http_rpc_batch_size',
  *     help: 'Distribution of JSON-RPC calls bundled in each HTTP request',
  *     buckets: [1, 2, 5, 10, 20, 50, 100],
- *     labelNames: ['network', 'layer', 'chain_id', 'provider'],
+ *     labelNames: ['network', 'layer', 'chain_id', 'provider', 'result'],
  *   });
  *
  *   httpRpcResponseSeconds = new Histogram({
  *     name: 'http_rpc_response_seconds',
  *     help: 'Distribution of RPC response times in seconds',
  *     buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
- *     labelNames: ['network', 'layer', 'chain_id', 'provider'],
+ *     labelNames: ['network', 'layer', 'chain_id', 'provider', 'result'],
  *   });
  *
  *   httpRpcRequestPayloadBytes = new Histogram({
  *     name: 'http_rpc_request_payload_bytes',
  *     help: 'Distribution of request payload sizes in bytes',
  *     buckets: [128, 256, 512, 1024, 2048, 4096, 8192, 16384],
- *     labelNames: ['network', 'layer', 'chain_id', 'provider'],
+ *     labelNames: ['network', 'layer', 'chain_id', 'provider', 'result'],
  *   });
  *
  *   httpRpcResponsePayloadBytes = new Histogram({
  *     name: 'http_rpc_response_payload_bytes',
  *     help: 'Distribution of response payload sizes in bytes',
  *     buckets: [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536],
- *     labelNames: ['network', 'layer', 'chain_id', 'provider'],
+ *     labelNames: ['network', 'layer', 'chain_id', 'provider', 'result'],
  *   });
  *
  *   rpcRequestTotal = new Counter({

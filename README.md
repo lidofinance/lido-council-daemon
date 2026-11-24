@@ -7,6 +7,7 @@ The Lido Council Daemon monitors deposit contract keys and compares them to Lido
 - [Environment Variables](#environment-variables)
   - [Data Bus Transports](#data-bus-transports)
   - [Wallet Private Key](#wallet-private-key)
+  - [Secrets from Files](#secrets-from-files)
   - [DSM v5 Delegation](#dsm-v5-delegation)
   - [Keys-API Configuration](#keys-api-configuration)
 - [Example ENV Config File](#example-env-config-file)
@@ -48,6 +49,22 @@ WALLET_PRIVATE_KEY=<wallet private key>
 
 `WALLET_PRIVATE_KEY` is the current delegate key. Without it, the daemon
 generates a random key. A random key works only with `DRY_RUN=true`.
+
+### Secrets from Files
+
+These values can come from a file: `WALLET_PRIVATE_KEY`,
+`WALLET_PRIVATE_KEY_2`, `RPC_URL`, `PROVIDERS_URLS`,
+`EVM_CHAIN_DATA_BUS_PROVIDER_URL`, `EVM_CHAIN_DATA_BUS_PROVIDERS_URLS`,
+`KEYS_API_URL` and `KEYS_API_HOST`. Set `<NAME>_FILE` to the file path. The
+file wins over the env value. The daemon trims white space around the value.
+It fails at startup if the file is empty or a list file holds no URLs. A list
+file holds URLs separated by commas or new lines. The daemon masks these values
+in its logs.
+
+```env
+RPC_URL_FILE=/run/secrets/rpc-url
+PROVIDERS_URLS_FILE=/run/secrets/providers-urls
+```
 
 ### DSM v5 Delegation
 
@@ -123,7 +140,7 @@ The Keys-API is publicly available, and more information can be found at https:/
 # App
 PORT=3000
 
-# Log level: debug, info, notice, warning or error
+# Log level: debug, info, warn or error
 LOG_LEVEL=info
 
 # Log format: simple or json

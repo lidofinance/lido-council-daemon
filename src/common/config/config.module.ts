@@ -2,13 +2,29 @@ import * as appRoot from 'app-root-path';
 import * as dotenv from 'dotenv';
 import { resolve } from 'path';
 import { DynamicModule, Module } from '@nestjs/common';
+import { cleanSecrets } from '@lido-nestjs/logger';
+import * as winston from 'winston';
 import { InMemoryConfiguration } from './in-memory-configuration';
 import { Configuration } from './configuration';
-import { validateOrReject, ValidationError } from 'class-validator';
+import { ValidationError } from 'class-validator';
 import { plainToClass } from 'class-transformer';
 import { ConfigLoaderService } from './config-loader.service';
+import { logMaskOptions } from './secrets';
 
 dotenv.config({ path: resolve(appRoot.path, '.env') });
+
+/**
+ * The app logger depends on the config, so config errors go through this
+ * separate logger. It writes JSON to stderr and masks the secrets.
+ */
+export const createConfigErrorLogger = (config: object): winston.Logger =>
+  winston.createLogger({
+    format: winston.format.combine(
+      cleanSecrets(logMaskOptions(config)),
+      winston.format.json(),
+    ),
+    transports: [new winston.transports.Console({ stderrLevels: ['error'] })],
+  });
 
 @Module({})
 export class ConfigModule {
@@ -27,30 +43,27 @@ export class ConfigModule {
                 return prepConfig;
               }
 
-              await validateOrReject(prepConfig, {
-                validationError: { target: false, value: false },
-              });
-
               return await configLoaderService.loadSecrets(prepConfig);
             } catch (error) {
-              // handling the validation error of the configs
+              const logger = createConfigErrorLogger(prepConfig);
               if (
                 Array.isArray(error) &&
                 error.every((e) => e instanceof ValidationError)
               ) {
                 error.forEach((error: ValidationError) => {
-                  const jsonError = JSON.stringify({
+                  logger.error('Bad environment variable', {
                     context: 'ConfigModule',
-                    message: 'Bad environment variable(s): %o`',
-                    level: 'error',
                     error,
                   });
-                  console.error(jsonError);
                 });
-                process.exit(1);
+              } else {
+                // A secret file that is missing, empty or unreadable
+                logger.error('Cannot load the config', {
+                  context: 'ConfigModule',
+                  error,
+                });
               }
-              // discard the exception if the error is not a validator error
-              throw error;
+              process.exit(1);
             }
           },
           inject: [ConfigLoaderService],

@@ -1,9 +1,10 @@
-import { BigNumber } from 'ethers';
+import { BigNumber, Wallet } from 'ethers';
 import { Test } from '@nestjs/testing';
 import { plainToClass } from 'class-transformer';
 import { validateOrReject, ValidationError } from 'class-validator';
 import { ConfigLoaderService } from './config-loader.service';
 import { InMemoryConfiguration } from './in-memory-configuration';
+import { parseUrlList, SECRET_ENVS, URL_LIST_ENVS } from './secrets';
 
 const FAKE_FS = {
   wallet: 'wallet',
@@ -254,6 +255,215 @@ describe('ConfigLoaderService base spec', () => {
           property: 'DELEGATION_CONTRACT_ADDRESS',
         }),
       ]);
+    });
+  });
+
+  describe('secrets from files', () => {
+    const walletKey2 = Wallet.createRandom().privateKey;
+    const files: Record<string, string> = {};
+
+    const valueFor = (name: string, origin: 'env' | 'file') => {
+      if (name === 'WALLET_PRIVATE_KEY_2') {
+        return origin === 'file'
+          ? walletKey2
+          : Wallet.createRandom().privateKey;
+      }
+      if (URL_LIST_ENVS.includes(name)) {
+        return `https://${origin}-1.example.com,https://${origin}-2.example.com`;
+      }
+      return `${origin}-${name}`;
+    };
+
+    const expectedFor = (name: string, origin: 'env' | 'file') =>
+      URL_LIST_ENVS.includes(name)
+        ? [`https://${origin}-1.example.com`, `https://${origin}-2.example.com`]
+        : valueFor(name, origin);
+
+    beforeEach(() => {
+      for (const name of SECRET_ENVS) {
+        files[name] = `${valueFor(name, 'file')}\n`;
+      }
+      files.empty = ' \n';
+      files.separators = ',\n, ';
+      files['list-commas'] = 'https://a.example.com/, https://b.example.com';
+      files['list-lines'] = 'https://a.example.com\nhttps://b.example.com/\n';
+
+      jest
+        .spyOn(configLoaderService, 'readFile')
+        .mockImplementation(async (path: string) => {
+          if (path in files) return files[path];
+          throw new Error('unknown path');
+        });
+    });
+
+    test.each(SECRET_ENVS)('%s from env only', async (name) => {
+      const env = valueFor(name, 'env');
+      const config = await configLoaderService.loadSecrets(
+        plainToClass(InMemoryConfiguration, { ...DEFAULTS, [name]: env }),
+      );
+
+      expect(config[name]).toEqual(
+        URL_LIST_ENVS.includes(name) ? parseUrlList(env) : env,
+      );
+    });
+
+    test.each(SECRET_ENVS)('%s from file only', async (name) => {
+      const withoutEnv: Record<string, string> = { ...DEFAULTS };
+      delete withoutEnv[name];
+      const config = await configLoaderService.loadSecrets(
+        plainToClass(InMemoryConfiguration, {
+          ...withoutEnv,
+          [`${name}_FILE`]: name,
+        }),
+      );
+
+      expect(config[name]).toEqual(expectedFor(name, 'file'));
+    });
+
+    test.each(URL_LIST_ENVS)(
+      '%s from a file without URLs fails',
+      async (name) => {
+        await expect(
+          configLoaderService.loadSecrets(
+            plainToClass(InMemoryConfiguration, {
+              ...DEFAULTS,
+              [`${name}_FILE`]: 'separators',
+            }),
+          ),
+        ).rejects.toThrow(`${name}_FILE holds no URLs`);
+      },
+    );
+
+    test.each(SECRET_ENVS)('%s from file wins over env', async (name) => {
+      const config = await configLoaderService.loadSecrets(
+        plainToClass(InMemoryConfiguration, {
+          ...DEFAULTS,
+          [name]: valueFor(name, 'env'),
+          [`${name}_FILE`]: name,
+        }),
+      );
+
+      expect(config[name]).toEqual(expectedFor(name, 'file'));
+    });
+
+    test.each(SECRET_ENVS)('%s from an empty file fails', async (name) => {
+      await expect(
+        configLoaderService.loadSecrets(
+          plainToClass(InMemoryConfiguration, {
+            ...DEFAULTS,
+            [`${name}_FILE`]: 'empty',
+          }),
+        ),
+      ).rejects.toThrow(`${name}_FILE points to an empty file`);
+    });
+
+    test.each(
+      URL_LIST_ENVS.flatMap((name) => [
+        [name, 'list-commas'],
+        [name, 'list-lines'],
+      ]),
+    )('%s from a %s file', async (name, file) => {
+      const config = await configLoaderService.loadSecrets(
+        plainToClass(InMemoryConfiguration, {
+          ...DEFAULTS,
+          [`${name}_FILE`]: file,
+        }),
+      );
+
+      expect(config[name]).toEqual([
+        'https://a.example.com',
+        'https://b.example.com',
+      ]);
+    });
+
+    test('accepts PROVIDERS_URLS_FILE without RPC_URL', async () => {
+      const { RPC_URL, ...withoutRpcUrl } = DEFAULTS;
+      void RPC_URL;
+      const config = await configLoaderService.loadSecrets(
+        plainToClass(InMemoryConfiguration, {
+          ...withoutRpcUrl,
+          PROVIDERS_URLS_FILE: 'list-lines',
+        }),
+      );
+
+      expect(config.PROVIDERS_URLS).toEqual([
+        'https://a.example.com',
+        'https://b.example.com',
+      ]);
+    });
+
+    test('accepts EVM_CHAIN_DATA_BUS_PROVIDERS_URLS without EVM_CHAIN_DATA_BUS_PROVIDER_URL', async () => {
+      const { EVM_CHAIN_DATA_BUS_PROVIDER_URL, ...withoutUrl } = DEFAULTS;
+      void EVM_CHAIN_DATA_BUS_PROVIDER_URL;
+
+      await expect(
+        configLoaderService.loadSecrets(
+          plainToClass(InMemoryConfiguration, {
+            ...withoutUrl,
+            EVM_CHAIN_DATA_BUS_PROVIDERS_URLS: 'https://a.example.com',
+          }),
+        ),
+      ).resolves.toBeDefined();
+    });
+
+    test('rejects a config without RPC_URL and PROVIDERS_URLS', async () => {
+      const { RPC_URL, ...withoutRpcUrl } = DEFAULTS;
+      void RPC_URL;
+
+      await expect(
+        configLoaderService.loadSecrets(
+          plainToClass(InMemoryConfiguration, withoutRpcUrl),
+        ),
+      ).rejects.toEqual([expect.objectContaining({ property: 'RPC_URL' })]);
+    });
+  });
+
+  describe('parseUrlList', () => {
+    test.each([
+      ['https://a.example.com,https://b.example.com/', 2],
+      ['https://a.example.com, https://b.example.com', 2],
+      ['https://a.example.com\nhttps://b.example.com\n', 2],
+      ['https://a.example.com/', 1],
+    ])('parses %j', (value, count) => {
+      const urls = parseUrlList(value);
+
+      expect(urls).toHaveLength(count);
+      urls?.forEach((url) => expect(url).not.toMatch(/[\s,]|\/$/));
+    });
+
+    test.each([undefined, null, '', ' , \n'])(
+      'gives undefined for %j',
+      (value) => {
+        expect(parseUrlList(value)).toBeUndefined();
+      },
+    );
+  });
+
+  describe('log level', () => {
+    test.each(['error', 'warn', 'info', 'debug'])(
+      'accepts %s',
+      async (level) => {
+        await expect(
+          validateOrReject(
+            plainToClass(InMemoryConfiguration, {
+              ...DEFAULTS,
+              LOG_LEVEL: level,
+            }),
+          ),
+        ).resolves.toBeUndefined();
+      },
+    );
+
+    test.each(['warning', 'notice'])('rejects %s', async (level) => {
+      await expect(
+        validateOrReject(
+          plainToClass(InMemoryConfiguration, {
+            ...DEFAULTS,
+            LOG_LEVEL: level,
+          }),
+          { validationError: { target: false, value: false } },
+        ),
+      ).rejects.toEqual([expect.objectContaining({ property: 'LOG_LEVEL' })]);
     });
   });
 

@@ -7,12 +7,19 @@ import { MessagesService } from './messages.service';
 import { ConfigModule } from 'common/config';
 import { LoggerModule } from 'common/logger';
 import { TransportInterface } from 'transport';
-import { PrometheusModule } from 'common/prometheus';
+import {
+  METRIC_PUBLISH_MESSAGE_DURATION,
+  PrometheusModule,
+} from 'common/prometheus';
+import { getToken } from '@willsoto/nestjs-prometheus';
+import { Histogram } from '@prometheus-io/client';
+import { MessageType } from './interfaces';
 
 describe('MessagesService', () => {
   let provider: SimpleFallbackJsonRpcBatchProvider;
   let messagesService: MessagesService;
   let transportService: TransportInterface;
+  let publishDuration: Histogram<string>;
 
   beforeEach(async () => {
     const mockTransportService = {
@@ -38,6 +45,7 @@ describe('MessagesService', () => {
     provider = moduleRef.get(SimpleFallbackJsonRpcBatchProvider);
     messagesService = moduleRef.get(MessagesService);
     transportService = moduleRef.get(TransportInterface);
+    publishDuration = moduleRef.get(getToken(METRIC_PUBLISH_MESSAGE_DURATION));
   });
 
   describe('getMessageTopic', () => {
@@ -110,6 +118,39 @@ describe('MessagesService', () => {
         expectedMessage,
         undefined,
       );
+    });
+
+    it('should record the publish time with result=success', async () => {
+      const endTimer = jest.fn();
+      const startTimer = jest
+        .spyOn(publishDuration, 'startTimer')
+        .mockReturnValue(endTimer);
+      jest.spyOn(messagesService, 'getMessageTopic').mockResolvedValue('topic');
+      jest.spyOn(transportService, 'publish').mockResolvedValue(undefined);
+
+      await messagesService.sendMessage({ type: MessageType.PAUSE } as any);
+
+      expect(startTimer).toHaveBeenCalledWith({ messageType: 'pause' });
+      expect(endTimer).toHaveBeenCalledTimes(1);
+      expect(endTimer).toHaveBeenCalledWith({ result: 'success' });
+    });
+
+    it('should record the publish time with result=fail and rethrow', async () => {
+      const endTimer = jest.fn();
+      jest.spyOn(publishDuration, 'startTimer').mockReturnValue(endTimer);
+      jest.spyOn(messagesService, 'getMessageTopic').mockResolvedValue('topic');
+      jest
+        .spyOn(transportService, 'publish')
+        .mockRejectedValue(new Error('no receipt'));
+      const inc = jest.spyOn(messagesService.messageCounter, 'labels');
+
+      await expect(
+        messagesService.sendMessage({ type: MessageType.DEPOSIT } as any),
+      ).rejects.toThrow('no receipt');
+
+      expect(endTimer).toHaveBeenCalledTimes(1);
+      expect(endTimer).toHaveBeenCalledWith({ result: 'fail' });
+      expect(inc).not.toHaveBeenCalled();
     });
   });
 });

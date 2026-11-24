@@ -25,6 +25,14 @@ async function bootstrap() {
     process.exit(1);
   });
 
+  process.on('uncaughtException', async (error) => {
+    logger.error('Uncaught exception');
+    logger.error(error);
+
+    await app.close();
+    process.exit(1);
+  });
+
   await app.listen(appPort, '0.0.0.0');
 }
 bootstrap();

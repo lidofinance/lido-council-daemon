@@ -3,6 +3,7 @@ import { readFile } from 'fs/promises';
 
 import { InMemoryConfiguration } from './in-memory-configuration';
 import { validateOrReject } from 'class-validator';
+import { parseUrlList, SECRET_ENVS, URL_LIST_ENVS } from './secrets';
 
 @Injectable()
 export class ConfigLoaderService {
@@ -11,11 +12,9 @@ export class ConfigLoaderService {
   }
 
   public async loadFile(filePath: string, envVarFile: string) {
+    let fileContent: string;
     try {
-      const fileContent = (await this.readFile(filePath))
-        .toString()
-        .replace(/(\r\n|\n|\r)/gm, '');
-      return fileContent;
+      fileContent = (await this.readFile(filePath)).toString().trim();
     } catch (error) {
       const errorCode = (error as any).code;
 
@@ -34,6 +33,12 @@ export class ConfigLoaderService {
           throw error;
       }
     }
+
+    if (fileContent === '') {
+      throw new Error(`${envVarFile} points to an empty file`);
+    }
+
+    return fileContent;
   }
 
   public async loadEnvOrFile(
@@ -53,14 +58,20 @@ export class ConfigLoaderService {
   public async loadSecrets(
     config: InMemoryConfiguration,
   ): Promise<InMemoryConfiguration> {
-    config.WALLET_PRIVATE_KEY = await this.loadEnvOrFile(
-      config,
-      'WALLET_PRIVATE_KEY',
-    );
-    config.WALLET_PRIVATE_KEY_2 = await this.loadEnvOrFile(
-      config,
-      'WALLET_PRIVATE_KEY_2',
-    );
+    for (const name of SECRET_ENVS) {
+      const value = await this.loadEnvOrFile(config, name);
+      const fromFile = Boolean(config[`${name}_FILE`]);
+      if (!fromFile || !URL_LIST_ENVS.includes(name)) {
+        config[name as string] = value;
+        continue;
+      }
+
+      const urls = parseUrlList(value);
+      if (!urls) {
+        throw new Error(`${name}_FILE holds no URLs`);
+      }
+      config[name as string] = urls;
+    }
 
     await validateOrReject(config, {
       validationError: { target: false, value: false },

@@ -63,6 +63,9 @@ All metrics include these labels:
 
 Additional labels per metric:
 - `http_rpc_requests_total`: `batched`, `response_code`, `result`
+- `http_rpc_batch_size`, `http_rpc_response_seconds`,
+  `http_rpc_request_payload_bytes`, `http_rpc_response_payload_bytes`:
+  `result`
 - `rpc_request_total`: `method`, `result`, `rpc_error_code`
 
 ## PromQL Queries

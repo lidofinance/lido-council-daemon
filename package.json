@@ -40,6 +40,7 @@
     "@lido-nestjs/execution": "3.0.0",
     "@lido-nestjs/fetch": "2.0.0",
     "@lido-nestjs/key-validation": "9.0.0",
+    "@lido-nestjs/logger": "3.0.0",
     "@lido-nestjs/middleware": "2.0.0",
     "@nestjs/common": "11.2.9",
     "@nestjs/core": "11.2.9",

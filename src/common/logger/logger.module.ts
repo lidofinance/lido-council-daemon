@@ -1,6 +1,8 @@
 import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
+import { cleanSecrets } from '@lido-nestjs/logger';
 import { Configuration } from 'common/config';
+import { logMaskOptions } from 'common/config/secrets';
 import { ModuleRef } from '@nestjs/core';
 
 export const LoggerModule = WinstonModule.forRootAsync({
@@ -8,6 +10,8 @@ export const LoggerModule = WinstonModule.forRootAsync({
   inject: [Configuration, ModuleRef],
   useFactory: async (config: Configuration) => ({
     level: config.LOG_LEVEL,
+    // Runs before every transport format, so it is the one masking point.
+    format: cleanSecrets(logMaskOptions(config)),
     transports: [
       new winston.transports.Console({
         silent: process.env.E2E_SILENT_LOGS === 'true',

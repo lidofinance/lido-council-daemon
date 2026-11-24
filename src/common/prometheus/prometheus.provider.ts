@@ -6,6 +6,7 @@ import {
 import {
   METRIC_PAUSE_ATTEMPTS,
   METRIC_SENT_MESSAGES,
+  METRIC_PUBLISH_MESSAGE_DURATION,
   METRIC_RPC_REQUEST_ERRORS,
   METRIC_RPC_REQUEST_DURATION,
   METRIC_ACCOUNT_BALANCE,
@@ -45,6 +46,13 @@ export const PrometheusTransportMessageCounterProvider = makeCounterProvider({
   name: METRIC_SENT_MESSAGES,
   help: 'Number of messages sent to the broker',
   labelNames: ['messageType'] as const,
+});
+
+export const PrometheusPublishMessageDurationProvider = makeHistogramProvider({
+  name: METRIC_PUBLISH_MESSAGE_DURATION,
+  help: 'Time to publish a guardian message, including the send queue and the transaction receipt',
+  labelNames: ['messageType', 'result'] as const,
+  buckets: [0.5, 1, 2, 5, 10, 30, 60, 120, 300],
 });
 
 export const PrometheusPauseDepositsCounterProvider = makeCounterProvider({
@@ -108,7 +116,14 @@ export const PrometheusBlockDataErrorsCounterProvider = makeCounterProvider({
 export const PrometheusBuildInfoGaugeProvider = makeCounterProvider({
   name: METRIC_BUILD_INFO,
   help: 'Build information',
-  labelNames: ['version', 'name', 'network', 'heapLimit'] as const,
+  labelNames: [
+    'version',
+    'name',
+    'network',
+    'heapLimit',
+    'commit',
+    'branch',
+  ] as const,
 });
 
 export const PrometheusGuardianInfoGaugeProvider = makeGaugeProvider({
@@ -200,14 +215,14 @@ export const PrometheusHttpRpcBatchSizeProvider = makeHistogramProvider({
   name: METRIC_HTTP_RPC_BATCH_SIZE,
   help: 'Distribution of JSON-RPC calls bundled in each HTTP request',
   buckets: [1, 2, 5, 10, 20, 50, 100],
-  labelNames: ['network', 'layer', 'chain_id', 'provider'] as const,
+  labelNames: ['network', 'layer', 'chain_id', 'provider', 'result'] as const,
 });
 
 export const PrometheusHttpRpcResponseSecondsProvider = makeHistogramProvider({
   name: METRIC_HTTP_RPC_RESPONSE_SECONDS,
   help: 'Distribution of RPC response times in seconds',
   buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
-  labelNames: ['network', 'layer', 'chain_id', 'provider'] as const,
+  labelNames: ['network', 'layer', 'chain_id', 'provider', 'result'] as const,
 });
 
 export const PrometheusHttpRpcRequestPayloadBytesProvider =
@@ -215,7 +230,7 @@ export const PrometheusHttpRpcRequestPayloadBytesProvider =
     name: METRIC_HTTP_RPC_REQUEST_PAYLOAD_BYTES,
     help: 'Distribution of request payload sizes in bytes',
     buckets: [128, 256, 512, 1024, 2048, 4096, 8192, 16384],
-    labelNames: ['network', 'layer', 'chain_id', 'provider'] as const,
+    labelNames: ['network', 'layer', 'chain_id', 'provider', 'result'] as const,
   });
 
 export const PrometheusHttpRpcResponsePayloadBytesProvider =
@@ -223,7 +238,7 @@ export const PrometheusHttpRpcResponsePayloadBytesProvider =
     name: METRIC_HTTP_RPC_RESPONSE_PAYLOAD_BYTES,
     help: 'Distribution of response payload sizes in bytes',
     buckets: [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536],
-    labelNames: ['network', 'layer', 'chain_id', 'provider'] as const,
+    labelNames: ['network', 'layer', 'chain_id', 'provider', 'result'] as const,
   });
 
 export const PrometheusRpcRequestTotalProvider = makeCounterProvider({
