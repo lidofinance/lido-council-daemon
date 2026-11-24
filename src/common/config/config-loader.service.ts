@@ -53,10 +53,6 @@ export class ConfigLoaderService {
   public async loadSecrets(
     config: InMemoryConfiguration,
   ): Promise<InMemoryConfiguration> {
-    config.RABBITMQ_PASSCODE = await this.loadEnvOrFile(
-      config,
-      'RABBITMQ_PASSCODE',
-    );
     config.WALLET_PRIVATE_KEY = await this.loadEnvOrFile(
       config,
       'WALLET_PRIVATE_KEY',

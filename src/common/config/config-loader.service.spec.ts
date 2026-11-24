@@ -6,7 +6,6 @@ import { ConfigLoaderService } from './config-loader.service';
 import { InMemoryConfiguration } from './in-memory-configuration';
 
 const FAKE_FS = {
-  rabbit: 'rabbit',
   wallet: 'wallet',
 };
 
@@ -14,8 +13,6 @@ const DEFAULTS = {
   RPC_URL: 'some-rpc-url',
   CHAIN_ID: '1',
   DELEGATION_CONTRACT_ADDRESS: '0x1111111111111111111111111111111111111111',
-  RABBITMQ_URL: 'some-rabbit-url',
-  RABBITMQ_LOGIN: 'some-rabbit-login',
   KEYS_API_URL: 'keys-api',
   EVM_CHAIN_DATA_BUS_ADDRESS: 'DATA_BUS_ADDRESS',
   EVM_CHAIN_DATA_BUS_PROVIDER_URL: 'DATA_BUS_PROVIDER_URL',
@@ -60,7 +57,6 @@ describe('ConfigLoaderService base spec', () => {
 
   test('default behavior', async () => {
     const prepConfig = plainToClass(InMemoryConfiguration, {
-      RABBITMQ_PASSCODE: 'some-rabbit-passcode',
       ...DEFAULTS,
     });
 
@@ -69,71 +65,9 @@ describe('ConfigLoaderService base spec', () => {
     ).not.toThrow();
   });
 
-  describe('rabbit mq', () => {
-    let configLoaderService: ConfigLoaderService;
-
-    beforeEach(async () => {
-      const moduleRef = await Test.createTestingModule({
-        providers: [ConfigLoaderService],
-      }).compile();
-
-      configLoaderService = moduleRef.get(ConfigLoaderService);
-
-      const cb = (path: string) => {
-        if (FAKE_FS[path]) return FAKE_FS[path];
-
-        throw new Error('unknown path');
-      };
-      jest.spyOn(configLoaderService, 'readFile').mockImplementation(cb);
-    });
-
-    test('passcode in file negative', async () => {
-      const prepConfig = plainToClass(InMemoryConfiguration, {
-        RABBITMQ_PASSCODE_FILE: 'unreal path',
-        ...DEFAULTS,
-      });
-
-      await expect(() =>
-        configLoaderService.loadSecrets(prepConfig),
-      ).rejects.toThrow('unknown path');
-    });
-
-    test('passcode in env positive', async () => {
-      const prepConfig = plainToClass(InMemoryConfiguration, {
-        RABBITMQ_PASSCODE: 'env-rabbit',
-        ...DEFAULTS,
-      });
-      const config = await configLoaderService.loadSecrets(prepConfig);
-
-      expect(config).toHaveProperty('RABBITMQ_PASSCODE', 'env-rabbit');
-    });
-
-    test('passcode in file positive', async () => {
-      const prepConfig = plainToClass(InMemoryConfiguration, {
-        RABBITMQ_PASSCODE_FILE: 'rabbit',
-        ...DEFAULTS,
-      });
-      const config = await configLoaderService.loadSecrets(prepConfig);
-
-      expect(config).toHaveProperty('RABBITMQ_PASSCODE', 'rabbit');
-    });
-
-    test('passcode in file order _FILE', async () => {
-      const prepConfig = plainToClass(InMemoryConfiguration, {
-        RABBITMQ_PASSCODE_FILE: 'rabbit',
-        RABBITMQ_PASSCODE: 'some-rabbit-passcode',
-        ...DEFAULTS,
-      });
-
-      const config = await configLoaderService.loadSecrets(prepConfig);
-      expect(config).toHaveProperty('RABBITMQ_PASSCODE', 'rabbit');
-    });
-  });
-
   describe('kapi url config', () => {
     test('all invariants are empty', async () => {
       const prepConfig = plainToClass(InMemoryConfiguration, {
-        RABBITMQ_PASSCODE: 'some-rabbit-passcode',
         ...DEFAULTS,
         KEYS_API_URL: undefined,
       });
@@ -152,7 +86,6 @@ describe('ConfigLoaderService base spec', () => {
       const KEYS_API_HOST = '';
       const KEYS_API_PORT = 0;
       const prepConfig = plainToClass(InMemoryConfiguration, {
-        RABBITMQ_PASSCODE: 'some-rabbit-passcode',
         ...DEFAULTS,
         KEYS_API_URL,
       });
@@ -170,7 +103,6 @@ describe('ConfigLoaderService base spec', () => {
       const KEYS_API_HOST = 'kapi-host';
       const KEYS_API_PORT = 2222;
       const prepConfig = plainToClass(InMemoryConfiguration, {
-        RABBITMQ_PASSCODE: 'some-rabbit-passcode',
         ...DEFAULTS,
         KEYS_API_URL,
         KEYS_API_HOST,
@@ -190,7 +122,6 @@ describe('ConfigLoaderService base spec', () => {
       const KEYS_API_HOST = 'kapi-host';
       const KEYS_API_PORT = 0;
       const prepConfig = plainToClass(InMemoryConfiguration, {
-        RABBITMQ_PASSCODE: 'some-rabbit-passcode',
         ...DEFAULTS,
         KEYS_API_URL,
         KEYS_API_HOST,
@@ -207,7 +138,6 @@ describe('ConfigLoaderService base spec', () => {
       const KEYS_API_HOST = '';
       const KEYS_API_PORT = 2222;
       const prepConfig = plainToClass(InMemoryConfiguration, {
-        RABBITMQ_PASSCODE: 'some-rabbit-passcode',
         ...DEFAULTS,
         KEYS_API_URL,
         KEYS_API_HOST,
@@ -222,10 +152,6 @@ describe('ConfigLoaderService base spec', () => {
 
   describe('wallet', () => {
     let configLoaderService: ConfigLoaderService;
-    const DEFAULTS_WITH_RABBIT = {
-      ...DEFAULTS,
-      RABBITMQ_PASSCODE: 'some-rabbit-passcode',
-    };
 
     beforeEach(async () => {
       const moduleRef = await Test.createTestingModule({
@@ -245,7 +171,7 @@ describe('ConfigLoaderService base spec', () => {
     test('passcode in file negative', async () => {
       const prepConfig = plainToClass(InMemoryConfiguration, {
         WALLET_PRIVATE_KEY_FILE: 'unreal path',
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
       });
 
       await expect(() =>
@@ -256,7 +182,7 @@ describe('ConfigLoaderService base spec', () => {
     test('passcode in env positive', async () => {
       const prepConfig = plainToClass(InMemoryConfiguration, {
         WALLET_PRIVATE_KEY: 'env-wallet',
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
       });
       const config = await configLoaderService.loadSecrets(prepConfig);
 
@@ -266,7 +192,7 @@ describe('ConfigLoaderService base spec', () => {
     test('passcode in file positive', async () => {
       const prepConfig = plainToClass(InMemoryConfiguration, {
         WALLET_PRIVATE_KEY_FILE: 'wallet',
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
       });
       const config = await configLoaderService.loadSecrets(prepConfig);
 
@@ -277,7 +203,7 @@ describe('ConfigLoaderService base spec', () => {
       const prepConfig = plainToClass(InMemoryConfiguration, {
         WALLET_PRIVATE_KEY_FILE: 'wallet',
         WALLET_PRIVATE_KEY: 'some-wallet-passcode',
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
       });
 
       const config = await configLoaderService.loadSecrets(prepConfig);
@@ -286,14 +212,9 @@ describe('ConfigLoaderService base spec', () => {
   });
 
   describe('delegation contract address', () => {
-    const DEFAULTS_WITH_RABBIT = {
-      ...DEFAULTS,
-      RABBITMQ_PASSCODE: 'some-rabbit-passcode',
-    };
-
     test('should accept an empty delegation contract address', async () => {
       const config = plainToClass(InMemoryConfiguration, {
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
         DELEGATION_CONTRACT_ADDRESS: '',
       });
 
@@ -306,7 +227,7 @@ describe('ConfigLoaderService base spec', () => {
 
     test('should accept a valid delegation contract address', async () => {
       const config = plainToClass(InMemoryConfiguration, {
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
         DELEGATION_CONTRACT_ADDRESS:
           '0x1111111111111111111111111111111111111111',
       });
@@ -320,7 +241,7 @@ describe('ConfigLoaderService base spec', () => {
 
     test('should reject an invalid delegation contract address', async () => {
       const config = plainToClass(InMemoryConfiguration, {
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
         DELEGATION_CONTRACT_ADDRESS: 'not-an-address',
       });
 
@@ -336,14 +257,34 @@ describe('ConfigLoaderService base spec', () => {
     });
   });
 
-  describe('dry run', () => {
-    const DEFAULTS_WITH_RABBIT = {
-      ...DEFAULTS,
-      RABBITMQ_PASSCODE: 'some-rabbit-passcode',
-    };
+  describe('pubsub service', () => {
+    test('should default to evm-chain', () => {
+      const config = plainToClass(InMemoryConfiguration, DEFAULTS);
 
+      expect(config.PUBSUB_SERVICE).toBe('evm-chain');
+    });
+
+    test.each(['rabbitmq', 'kafka'])('should reject %s', async (service) => {
+      const config = plainToClass(InMemoryConfiguration, {
+        ...DEFAULTS,
+        PUBSUB_SERVICE: service,
+      });
+
+      await expect(
+        validateOrReject(config, {
+          validationError: { target: false, value: false },
+        }),
+      ).rejects.toEqual([
+        expect.objectContaining({
+          property: 'PUBSUB_SERVICE',
+        }),
+      ]);
+    });
+  });
+
+  describe('dry run', () => {
     test('should be disabled by default', async () => {
-      const config = plainToClass(InMemoryConfiguration, DEFAULTS_WITH_RABBIT);
+      const config = plainToClass(InMemoryConfiguration, DEFAULTS);
 
       await validateOrReject(config);
       expect(config.DRY_RUN).toBe(false);
@@ -356,7 +297,7 @@ describe('ConfigLoaderService base spec', () => {
       ['', false],
     ])('should accept %p', async (value, expected) => {
       const config = plainToClass(InMemoryConfiguration, {
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
         DRY_RUN: value,
       });
 
@@ -366,7 +307,7 @@ describe('ConfigLoaderService base spec', () => {
 
     test.each(['1', 'yes'])('should reject %p', async (value) => {
       const config = plainToClass(InMemoryConfiguration, {
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
         DRY_RUN: value,
       });
 
@@ -379,10 +320,6 @@ describe('ConfigLoaderService base spec', () => {
   });
 
   describe('wallet private keys', () => {
-    const DEFAULTS_WITH_RABBIT = {
-      ...DEFAULTS,
-      RABBITMQ_PASSCODE: 'some-rabbit-passcode',
-    };
     const privateKeys = [
       '0x0000000000000000000000000000000000000000000000000000000000000001',
       '0x0000000000000000000000000000000000000000000000000000000000000002',
@@ -390,7 +327,7 @@ describe('ConfigLoaderService base spec', () => {
 
     test('should accept the two named keys', async () => {
       const config = plainToClass(InMemoryConfiguration, {
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
         WALLET_PRIVATE_KEY: privateKeys[0],
         WALLET_PRIVATE_KEY_2: privateKeys[1],
       });
@@ -405,7 +342,7 @@ describe('ConfigLoaderService base spec', () => {
 
     test('should accept only the first key', async () => {
       const config = plainToClass(InMemoryConfiguration, {
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
         WALLET_PRIVATE_KEY: privateKeys[0],
       });
 
@@ -419,7 +356,7 @@ describe('ConfigLoaderService base spec', () => {
 
     test('should read a key from the file specified by the _FILE variant', async () => {
       const config = plainToClass(InMemoryConfiguration, {
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
         WALLET_PRIVATE_KEY_2_FILE: 'some-path',
       });
       jest
@@ -433,7 +370,7 @@ describe('ConfigLoaderService base spec', () => {
 
     test('should reject an invalid private key', async () => {
       const config = plainToClass(InMemoryConfiguration, {
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
         WALLET_PRIVATE_KEY_2: 'invalid',
       });
 
@@ -444,7 +381,7 @@ describe('ConfigLoaderService base spec', () => {
 
     test('should reject a zero private key', async () => {
       const config = plainToClass(InMemoryConfiguration, {
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
         WALLET_PRIVATE_KEY_2: `0x${'0'.repeat(64)}`,
       });
 
@@ -455,16 +392,11 @@ describe('ConfigLoaderService base spec', () => {
   });
 
   describe('balance', () => {
-    const DEFAULTS_WITH_RABBIT = {
-      ...DEFAULTS,
-      RABBITMQ_PASSCODE: 'some-rabbit-passcode',
-    };
-
     test('should throw an error for an excessively small WALLET_CRITICAL_BALANCE', async () => {
       const WALLET_CRITICAL_BALANCE = '0.0000000000000000001';
       const plainConfig = plainToClass(InMemoryConfiguration, {
         WALLET_CRITICAL_BALANCE,
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
       });
 
       expect(plainConfig).toHaveProperty('WALLET_CRITICAL_BALANCE');
@@ -488,7 +420,7 @@ describe('ConfigLoaderService base spec', () => {
       const WALLET_CRITICAL_BALANCE = '';
       const plainConfig = plainToClass(InMemoryConfiguration, {
         WALLET_CRITICAL_BALANCE,
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
       });
 
       expect(plainConfig).toHaveProperty('WALLET_CRITICAL_BALANCE');
@@ -511,7 +443,7 @@ describe('ConfigLoaderService base spec', () => {
     test('should handle normal WALLET_CRITICAL_BALANCE values correctly', async () => {
       const plainConfig = plainToClass(InMemoryConfiguration, {
         WALLET_CRITICAL_BALANCE: '0.2',
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
       });
 
       await validateOrReject(plainConfig, {
@@ -527,7 +459,7 @@ describe('ConfigLoaderService base spec', () => {
 
     test('should use default WALLET_CRITICAL_BALANCE value', async () => {
       const plainConfig = plainToClass(InMemoryConfiguration, {
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
       });
 
       await validateOrReject(plainConfig, {
@@ -545,7 +477,7 @@ describe('ConfigLoaderService base spec', () => {
       const WALLET_MIN_BALANCE = '0.0000000000000000001';
       const plainConfig = plainToClass(InMemoryConfiguration, {
         WALLET_MIN_BALANCE,
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
       });
 
       expect(plainConfig).toHaveProperty('WALLET_MIN_BALANCE');
@@ -569,7 +501,7 @@ describe('ConfigLoaderService base spec', () => {
       const WALLET_MIN_BALANCE = '';
       const plainConfig = plainToClass(InMemoryConfiguration, {
         WALLET_MIN_BALANCE,
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
       });
 
       expect(plainConfig).toHaveProperty('WALLET_MIN_BALANCE');
@@ -592,7 +524,7 @@ describe('ConfigLoaderService base spec', () => {
     test('should handle normal WALLET_MIN_BALANCE values correctly', async () => {
       const plainConfig = plainToClass(InMemoryConfiguration, {
         WALLET_MIN_BALANCE: '0.2',
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
       });
 
       await validateOrReject(plainConfig, {
@@ -608,7 +540,7 @@ describe('ConfigLoaderService base spec', () => {
 
     test('should use default WALLET_MIN_BALANCE value', async () => {
       const plainConfig = plainToClass(InMemoryConfiguration, {
-        ...DEFAULTS_WITH_RABBIT,
+        ...DEFAULTS,
       });
 
       await validateOrReject(plainConfig, {

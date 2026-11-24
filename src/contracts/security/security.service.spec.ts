@@ -21,8 +21,6 @@ import { mockLocator } from 'contracts/repository/locator/locator.mock';
 import { mockRepository } from 'contracts/repository/repository.mock';
 import { GuardianExecutionContext } from './security.service';
 
-jest.mock('../../transport/stomp/stomp.client');
-
 const TEST_MODULE_ID = 1;
 
 describe('SecurityService', () => {

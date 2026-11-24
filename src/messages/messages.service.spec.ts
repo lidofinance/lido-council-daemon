@@ -9,8 +9,6 @@ import { LoggerModule } from 'common/logger';
 import { TransportInterface } from 'transport';
 import { PrometheusModule } from 'common/prometheus';
 
-jest.mock('../transport/stomp/stomp.client');
-
 describe('MessagesService', () => {
   let provider: SimpleFallbackJsonRpcBatchProvider;
   let messagesService: MessagesService;

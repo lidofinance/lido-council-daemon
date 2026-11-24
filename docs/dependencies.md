@@ -96,5 +96,5 @@ docker run --rm --network none --platform linux/amd64 council-node24:amd64 node 
 
 Check BLST signing/verification, BLS workers and Level put/get inside both final
 images. Run fork e2e tests with the prerequisites in the README. Check TLS
-connectivity to the deployment's RPC and message brokers before rollout.
+connectivity to the deployment's RPC and Data Bus RPC before rollout.
 Keep Node's default TLS verification and key-exchange settings enabled.

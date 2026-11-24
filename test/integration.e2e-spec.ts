@@ -9,7 +9,6 @@ import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store'
 import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
 import { BlsService } from 'bls';
 import { DataBusService } from 'contracts/data-bus';
-import { TransportInterface } from 'transport';
 import { HardhatServer } from './helpers/hardhat-server';
 import {
   setupContainers,
@@ -23,7 +22,6 @@ import { setupE2EDsm } from './helpers/dsm-version';
 import { truncateTables } from './helpers/pg';
 import { DATA_BUS_PROVIDER_TOKEN } from 'provider/data-bus-provider.module';
 
-jest.mock('../src/transport/stomp/stomp.client.ts');
 jest.setTimeout(500_000);
 
 describe('Integration Tests', () => {
@@ -33,7 +31,6 @@ describe('Integration Tests', () => {
   let guardianService: GuardianService;
   let securityService: SecurityService;
   let dataBusService: DataBusService;
-  let transportInterface: TransportInterface;
 
   let levelDBService: DepositsRegistryStoreService;
   let signKeyLevelDBService: SignKeyLevelDBService;
@@ -157,7 +154,6 @@ describe('Integration Tests', () => {
     guardianService = moduleRef.get(GuardianService);
     securityService = moduleRef.get(SecurityService);
     dataBusService = moduleRef.get(DataBusService);
-    transportInterface = moduleRef.get(TransportInterface);
     console.log('Step 9 completed: All services obtained successfully');
   }, 300_000);
 
@@ -219,16 +215,10 @@ describe('Integration Tests', () => {
       expect(guardianService).toBeDefined();
       expect(securityService).toBeDefined();
       expect(dataBusService).toBeDefined();
-      expect(transportInterface).toBeDefined();
     });
   });
 
   describe('Data-bus provider connectivity after refactoring', () => {
-    it('should have transport interface working', () => {
-      expect(transportInterface).toBeDefined();
-      expect(typeof transportInterface.publish).toBe('function');
-    });
-
     it('should initialize data-bus service without errors', async () => {
       expect(dataBusService).toBeDefined();
       await expect(dataBusService.initialize()).resolves.not.toThrow();

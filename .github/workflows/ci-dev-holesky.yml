@@ -9,7 +9,6 @@ on:
       - ".github/**"
       - "README.md"
       - "docker-compose.yml"
-      - "docker-compose.test.yml"
 
 permissions: {}
 

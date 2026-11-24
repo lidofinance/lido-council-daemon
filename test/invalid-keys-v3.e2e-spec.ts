@@ -4,9 +4,6 @@ import { toHexString } from '@chainsafe/ssz';
 // Constants
 import { pk, sk } from './constants';
 
-// Mock rabbit straight away
-jest.mock('../src/transport/stomp/stomp.client.ts');
-
 import { setupTestingModule, initLevelDB } from './helpers/test-setup';
 import { SecurityService } from 'contracts/security';
 import { GuardianService } from 'guardian';
@@ -77,7 +74,7 @@ describe('Signature validation e2e test', () => {
     // dsm methods and council sign services
     securityService = moduleRef.get(SecurityService);
 
-    // rabbitmq message sending methods
+    // guardian message sending methods
     guardianMessageService = moduleRef.get(GuardianMessageService);
 
     // main service that check keys and make decision

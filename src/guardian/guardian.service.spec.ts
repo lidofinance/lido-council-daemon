@@ -19,6 +19,7 @@ import {
 } from 'contracts/security';
 import { RepositoryModule, RepositoryService } from 'contracts/repository';
 import { MessagesModule } from 'messages';
+import { TransportInterface } from 'transport';
 import { StakingModuleDataCollectorModule } from 'staking-module-data-collector';
 import { GuardianMetricsModule } from './guardian-metrics';
 import { GuardianMessageModule } from './guardian-message';
@@ -36,8 +37,6 @@ import { providers } from 'ethers';
 import { WalletService } from 'wallet';
 import { StakingRouterService } from 'contracts/staking-router';
 import { SigningKeysRegistryService } from 'contracts/signing-keys-registry';
-
-jest.mock('../transport/stomp/stomp.client');
 
 describe('GuardianService', () => {
   let keysApiService: KeysApiService;
@@ -77,6 +76,12 @@ describe('GuardianService', () => {
       })
       .overrideProvider(SimpleFallbackJsonRpcBatchProvider)
       .useValue(new providers.JsonRpcProvider('http://localhost:8545'))
+      .overrideProvider(TransportInterface)
+      .useValue({
+        publish: jest.fn(),
+        subscribe: jest.fn(),
+        disconnect: jest.fn(),
+      })
       .compile();
 
     const provider = moduleRef.get(SimpleFallbackJsonRpcBatchProvider);

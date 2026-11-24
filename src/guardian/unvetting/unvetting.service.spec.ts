@@ -9,8 +9,6 @@ import { PrometheusModule } from 'common/prometheus';
 import { MockProviderModule } from 'provider';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
-jest.mock('../../transport/stomp/stomp.client');
-
 describe('UnvettingService', () => {
   let service: UnvettingService;
   let securityService: SecurityService;

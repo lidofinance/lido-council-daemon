@@ -21,8 +21,6 @@ import { TransportInterface } from 'transport';
 import { DATA_BUS_PROVIDER_TOKEN } from 'provider/data-bus-provider.module';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 
-jest.mock('../../transport/stomp/stomp.client');
-
 const TEST_MODULE_ID = 1;
 
 const stakingModuleData = {
