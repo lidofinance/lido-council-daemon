@@ -19,13 +19,10 @@ import {
 } from 'class-validator';
 import { Injectable } from '@nestjs/common';
 import { Configuration, PubsubService, NonEmptyArray } from './configuration';
-import { SASLMechanism } from '../../transport';
 import { implementationOf } from '../di/decorators/implementationOf';
 import { ethers, BigNumber } from 'ethers';
 import { TransformToWei } from 'common/decorators/transform-to-wei';
 
-const RABBITMQ = 'rabbitmq';
-const KAFKA = 'kafka';
 const EVM_CHAIN = 'evm-chain';
 
 @ValidatorConstraint({ name: 'isEthereumPrivateKey', async: false })
@@ -108,70 +105,11 @@ export class InMemoryConfiguration implements Configuration {
   WALLET_PRIVATE_KEY_2_FILE = '';
 
   @IsString()
-  KAFKA_CLIENT_ID = '';
-
-  @IsString()
   BROKER_TOPIC = 'defender';
 
   @IsString()
-  @IsIn([KAFKA, RABBITMQ, EVM_CHAIN])
-  PUBSUB_SERVICE: PubsubService = RABBITMQ;
-
-  @ValidateIf((conf) => conf.PUBSUB_SERVICE === KAFKA)
-  @IsNotEmpty()
-  @IsString()
-  KAFKA_BROKER_ADDRESS_1 = '';
-
-  @ValidateIf((conf) => conf.PUBSUB_SERVICE === KAFKA)
-  @IsString()
-  KAFKA_BROKER_ADDRESS_2 = '';
-
-  @ValidateIf((conf) => conf.PUBSUB_SERVICE === KAFKA)
-  @IsNotEmpty()
-  @Transform(({ value }) => (value.toLowerCase() == 'true' ? true : false), {
-    toClassOnly: true,
-  })
-  KAFKA_SSL = false;
-
-  @ValidateIf((conf) => conf.PUBSUB_SERVICE === KAFKA)
-  @IsNotEmpty()
-  @IsString()
-  @IsIn(['plain', 'scram-sha-256', 'scram-sha-512'])
-  KAFKA_SASL_MECHANISM: SASLMechanism = 'scram-sha-256';
-
-  @ValidateIf((conf) => conf.PUBSUB_SERVICE === KAFKA)
-  @IsNotEmpty()
-  @IsString()
-  KAFKA_USERNAME = '';
-
-  @ValidateIf((conf) => conf.PUBSUB_SERVICE === KAFKA)
-  @IsNotEmpty()
-  @IsString()
-  KAFKA_PASSWORD = '';
-
-  @ValidateIf((conf) => conf.PUBSUB_SERVICE === RABBITMQ)
-  @IsNotEmpty()
-  @IsString()
-  RABBITMQ_URL = '';
-
-  @ValidateIf((conf) => conf.PUBSUB_SERVICE === RABBITMQ)
-  @IsNotEmpty()
-  @IsString()
-  RABBITMQ_LOGIN = '';
-
-  @ValidateIf(
-    (conf) => conf.PUBSUB_SERVICE === RABBITMQ && !conf.RABBITMQ_PASSCODE_FILE,
-  )
-  @IsNotEmpty()
-  @IsString()
-  RABBITMQ_PASSCODE = '';
-
-  @ValidateIf(
-    (conf) => conf.PUBSUB_SERVICE === RABBITMQ && !conf.RABBITMQ_PASSCODE,
-  )
-  @IsString()
-  @IsNotEmpty()
-  RABBITMQ_PASSCODE_FILE = '';
+  @IsIn([EVM_CHAIN])
+  PUBSUB_SERVICE: PubsubService = EVM_CHAIN;
 
   @IsOptional()
   @IsNumber()

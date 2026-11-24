@@ -53,8 +53,6 @@ import { HardhatServer } from './helpers/hardhat-server';
 import { cutModulesKeys } from './helpers/reduce-keys';
 import { E2EDsmSetup, setupE2EDsm } from './helpers/dsm-version';
 
-// Mock rabbit straight away
-jest.mock('../src/transport/stomp/stomp.client.ts');
 jest.setTimeout(300_000);
 
 describe('Front-run e2e tests', () => {
@@ -95,7 +93,7 @@ describe('Front-run e2e tests', () => {
     // keys api servies
     keysApiService = moduleRef.get(KeysApiService);
 
-    // rabbitmq message sending methods
+    // guardian message sending methods
     guardianMessageService = moduleRef.get(GuardianMessageService);
 
     // main service that check keys and make decision

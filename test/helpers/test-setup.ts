@@ -14,6 +14,7 @@ import { DepositsRegistryStoreService } from 'contracts/deposits-registry/store'
 import { SigningKeysStoreService as SignKeyLevelDBService } from 'contracts/signing-keys-registry/store';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { TestProviderModule } from 'provider';
+import { TransportInterface } from 'transport';
 import { CHAIN_ID } from './config';
 
 export const setupTestingModule = async () => {
@@ -38,6 +39,12 @@ export const setupTestingModule = async () => {
     .useValue('latest')
     .overrideProvider(SIGNING_KEYS_REGISTRY_FINALIZED_TAG)
     .useValue('latest')
+    .overrideProvider(TransportInterface)
+    .useValue({
+      publish: jest.fn(),
+      subscribe: jest.fn(),
+      disconnect: jest.fn(),
+    })
     .compile();
 
   if (process.env.E2E_SILENT_LOGS !== 'false') {

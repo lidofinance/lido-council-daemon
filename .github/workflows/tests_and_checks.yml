@@ -22,8 +22,6 @@ jobs:
         run: yarn lint
       - name: Run tests
         run: yarn test
-      - name: Run e2e transports
-        run: docker compose -f docker-compose.test.yml up -d
       - name: Run e2e tests
         run: |
           WALLET_PRIVATE_KEY="$(node -e "process.stdout.write(require('ethers').Wallet.createRandom().privateKey)")" yarn test:e2e
@@ -35,8 +33,5 @@ jobs:
           EVM_CHAIN_DATA_BUS_PROVIDER_URL: http://127.0.0.1:8545
           EVM_CHAIN_DATA_BUS_CHAIN_ID: 560048
           KEYS_API_URL: http://127.0.0.1:3000
-      - name: Stop e2e transports
-        if: always()
-        run: docker compose -f docker-compose.test.yml down --volumes
 
 

@@ -55,12 +55,3 @@ services:
       - DB_PASSWORD=${KEYS_API_DB_PASSWORD}
     depends_on:
       - keys_api_service_db
-  rabbitmq:
-    build:
-      context: .
-      dockerfile: Dockerfile.test.yml
-    container_name: 'rabbitmq'
-    ports:
-      - 5672:5672
-      - 15672:15672
-      - 15674:15674

@@ -35,7 +35,6 @@ import { cutModulesKeys } from './helpers/reduce-keys';
 import { StakingModuleData } from 'guardian/interfaces';
 import { E2EDsmSetup, setupE2EDsm } from './helpers/dsm-version';
 
-jest.mock('../src/transport/stomp/stomp.client.ts');
 jest.setTimeout(300_000);
 
 describe('Duplicates e2e tests', () => {
@@ -114,7 +113,7 @@ describe('Duplicates e2e tests', () => {
     // keys api servies
     keysApiService = moduleRef.get(KeysApiService);
 
-    // rabbitmq message sending methods
+    // guardian message sending methods
     guardianMessageService = moduleRef.get(GuardianMessageService);
 
     // main service that check keys and make decision

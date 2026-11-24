@@ -1,12 +1,11 @@
 import { createInterface } from '../di/functions/createInterface';
-import { SASLMechanism } from '../../transport';
 import { ethers } from 'ethers';
 
 export type NonEmptyArray<T> = [T, ...T[]];
 
 export const Configuration = createInterface<Configuration>('Configuration');
 
-export type PubsubService = 'rabbitmq' | 'kafka' | 'evm-chain';
+export type PubsubService = 'evm-chain';
 
 export interface Configuration {
   NODE_ENV: string;
@@ -22,18 +21,7 @@ export interface Configuration {
   WALLET_PRIVATE_KEY_2: string;
   WALLET_PRIVATE_KEY_2_FILE: string;
   PUBSUB_SERVICE: PubsubService;
-  KAFKA_CLIENT_ID: string;
   BROKER_TOPIC: string;
-  KAFKA_BROKER_ADDRESS_1: string;
-  KAFKA_BROKER_ADDRESS_2: string;
-  KAFKA_SSL: boolean;
-  KAFKA_SASL_MECHANISM: SASLMechanism;
-  KAFKA_USERNAME: string;
-  KAFKA_PASSWORD: string;
-  RABBITMQ_URL: string;
-  RABBITMQ_LOGIN: string;
-  RABBITMQ_PASSCODE: string;
-  RABBITMQ_PASSCODE_FILE: string;
   REGISTRY_KEYS_QUERY_BATCH_SIZE: number;
   REGISTRY_KEYS_QUERY_CONCURRENCY: number;
   KEYS_API_PORT: number;

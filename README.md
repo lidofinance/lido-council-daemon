@@ -24,20 +24,6 @@ Several environment variables must be set for the daemon to function properly. T
 
 ### Data Bus Transports
 
-You need to install one of the transports
-
-#### RabbitMQ
-
-```env
-...
-PUBSUB_SERVICE=rabbitmq
-
-RABBITMQ_URL=<rabbitmq url that supports ws>
-RABBITMQ_LOGIN=<rabbitmq login>
-RABBITMQ_PASSCODE=<rabbitmq password>
-...
-```
-
 #### EVM Chain transport
 
 ```env
@@ -46,6 +32,7 @@ PUBSUB_SERVICE=evm-chain
 
 EVM_CHAIN_DATA_BUS_ADDRESS=<evm transport contract address>
 EVM_CHAIN_DATA_BUS_PROVIDER_URL=<evm chain node url>
+EVM_CHAIN_DATA_BUS_CHAIN_ID=<data bus chain id>
 ...
 ```
 
@@ -82,8 +69,7 @@ restart or config reload.
 The daemon stops the cycle if no configured key matches, unless `DRY_RUN` is
 enabled. It also stops if the delegate is revoked or the delegation contract
 is terminated. Each delegate account needs enough ETH on the execution layer.
-If the EVM Chain transport is enabled, it also needs funds on the Data Bus
-chain.
+It also needs funds on the Data Bus chain.
 
 ### Dry Run
 
@@ -143,13 +129,13 @@ LOG_LEVEL=info
 # Log format: simple or json
 LOG_FORMAT=simple
 
-# Pubsub (default: rabbitmq)
-PUBSUB_SERVICE=rabbitmq
+# Pubsub (default: evm-chain)
+PUBSUB_SERVICE=evm-chain
 
-# RabbitMQ
-RABBITMQ_URL=wss://rabbitmq_url
-RABBITMQ_LOGIN=test
-RABBITMQ_PASSCODE=test
+# Data Bus
+EVM_CHAIN_DATA_BUS_ADDRESS=
+EVM_CHAIN_DATA_BUS_PROVIDER_URL=
+EVM_CHAIN_DATA_BUS_CHAIN_ID=100
 
 # Private key
 # Used to sign transactions and stop the protocol.
@@ -239,10 +225,10 @@ services:
       - DELEGATION_CONTRACT_ADDRESS=${DELEGATION_CONTRACT_ADDRESS}
       - KEYS_API_HOST=http://keys_api_service_api
       - KEYS_API_PORT=3001
-      - PUBSUB_SERVICE=rabbitmq
-      - RABBITMQ_URL=${RABBITMQ_URL}
-      - RABBITMQ_LOGIN=${RABBITMQ_LOGIN}
-      - RABBITMQ_PASSCODE=${RABBITMQ_PASSCODE}
+      - PUBSUB_SERVICE=evm-chain
+      - EVM_CHAIN_DATA_BUS_ADDRESS=${EVM_CHAIN_DATA_BUS_ADDRESS}
+      - EVM_CHAIN_DATA_BUS_PROVIDER_URL=${EVM_CHAIN_DATA_BUS_PROVIDER_URL}
+      - EVM_CHAIN_DATA_BUS_CHAIN_ID=${EVM_CHAIN_DATA_BUS_CHAIN_ID}
     depends_on:
       - keys_api_service_api
     volumes:
@@ -334,7 +320,7 @@ cp develop.env ./.env
 + RPC_URL=https://mainnet.infura.io/v3/***
 ```
 
-### Starting the development environment (PostgreSQL, KAPI, Grafana, Prometheus, RabbitMQ)
+### Starting the development environment (PostgreSQL, KAPI, Grafana, Prometheus)
 
 ```bash
 docker-compose -f ./docker-compose.dev.yml up -d
@@ -388,18 +374,6 @@ Do not use a production wallet. `yarn test:e2e` runs the preflight first.
 Missing historical state blocks the fork tests even when ordinary RPC reads work.
 The EDF transition suite uses Hoodi block `3250000` and checks that the starting
 DSM version is v4. The other suites fork the current head.
-
-Start the test brokers before the suite:
-
-```bash
-docker compose -f docker-compose.test.yml up -d --build
-yarn test:e2e
-docker compose -f docker-compose.test.yml down --volumes
-```
-
-To run fork and Keys API tests without Kafka or RabbitMQ, use
-`yarn test:e2e --testPathIgnorePatterns=src/transport/`. These tests mock
-the broker client. They do not verify Kafka or STOMP delivery.
 
 The suite pulls pinned Keys API and PostgreSQL images. It creates
 `council-e2e-keys-api`, `council-e2e-pgdb` and `council-e2e-network`.

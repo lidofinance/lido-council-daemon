@@ -10,8 +10,6 @@ import { MessagesService, MessageType } from 'messages';
 import { GuardianMessageService } from '../guardian-message';
 import { TransportInterface } from 'transport';
 
-jest.mock('../../transport/stomp/stomp.client');
-
 describe('GuardianService', () => {
   let loggerService: LoggerService;
   let guardianMessageService: GuardianMessageService;

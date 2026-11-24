@@ -13,8 +13,7 @@ import { mockRepository } from 'contracts/repository/repository.mock';
 import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { CHAINS } from '@lido-nestjs/constants';
 import { providers } from 'ethers';
-
-jest.mock('../transport/stomp/stomp.client');
+import { TransportInterface } from 'transport';
 
 const mockMeta = {
   blockNumber: 100,
@@ -48,6 +47,12 @@ describe('StakingModuleDataCollectorService', () => {
     })
       .overrideProvider(SimpleFallbackJsonRpcBatchProvider)
       .useValue(new providers.JsonRpcProvider('http://localhost:8545'))
+      .overrideProvider(TransportInterface)
+      .useValue({
+        publish: jest.fn(),
+        subscribe: jest.fn(),
+        disconnect: jest.fn(),
+      })
       .compile();
 
     const provider = moduleRef.get(SimpleFallbackJsonRpcBatchProvider);
