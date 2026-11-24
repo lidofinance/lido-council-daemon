@@ -94,19 +94,11 @@ describe('DSM version E2E adapter', () => {
       delegateAddress: setup.delegateAddress,
       guardianAddress: setup.guardianAddress,
       guardianIndex: setup.guardianIndex,
-      mode: setup.version === 5 ? 'edf' : 'legacy-eoa',
+      mode: 'edf',
     });
   });
 
-  it('connects the daemon delegate through the selected guardian mode', async () => {
-    if (setup.version === 4) {
-      expect(setup.guardianAddress).toBe(setup.delegateAddress);
-      expect(process.env.DELEGATION_CONTRACT_ADDRESS).toBe(
-        '0x0000000000000000000000000000000000000001',
-      );
-      return;
-    }
-
+  it('connects the daemon delegate through the DelegationContract', async () => {
     const delegationContract = DelegationContractAbi__factory.connect(
       setup.guardianAddress,
       testSetupProvider,

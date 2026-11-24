@@ -19,11 +19,7 @@ import { DSM_CONTRACT_VERSION_5 } from './security.constants';
  * pause/unvet transaction reaches the DSM. Every other module asks the strategy
  * instead of branching on the version itself.
  *
- * v4 — the guardian is the signing EOA. Digests bind no guardian address,
- * the DSM takes the EIP-2098 compact pair as `Signature { r, vs }`, and the
- * daemon calls the DSM directly from the legacy wallet.
- *
- * v5 — the guardian is an EDF DelegationContract. Digests bind the guardian
+ * The guardian is an EDF DelegationContract. Digests bind the guardian
  * address, the DSM takes `GuardianSignature { guardian, bytes signature }` and
  * forwards the blob to the guardian's ERC-1271 check byte for byte. That
  * contract is on OpenZeppelin 5.x, whose `ECDSA` accepts the 65-byte
@@ -87,104 +83,12 @@ function requireGuardianAddress(guardianAddress?: string): string {
   return utils.getAddress(guardianAddress);
 }
 
-function compactSignature(signature: Signature): { r: string; vs: string } {
-  return { r: signature.r, vs: signature._vs };
-}
-
 const v5Interface = SecurityV5Abi__factory.createInterface();
 
 /** The push path authorizes `msg.sender`; the signature argument is unread. */
 const EMPTY_GUARDIAN_SIGNATURE = {
   guardian: constants.AddressZero,
   signature: '0x',
-};
-
-const v4Strategy: DsmVersionStrategy = {
-  signer: 'legacy',
-
-  depositDigest({
-    prefix,
-    blockNumber,
-    blockHash,
-    depositRoot,
-    stakingModuleId,
-    nonce,
-  }) {
-    return utils.keccak256(
-      utils.defaultAbiCoder.encode(
-        ['bytes32', 'uint256', 'bytes32', 'bytes32', 'uint256', 'uint256'],
-        [prefix, blockNumber, blockHash, depositRoot, stakingModuleId, nonce],
-      ),
-    );
-  },
-
-  pauseDigest({ prefix, blockNumber }) {
-    return utils.keccak256(
-      utils.defaultAbiCoder.encode(
-        ['bytes32', 'uint256'],
-        [prefix, blockNumber],
-      ),
-    );
-  },
-
-  unvetDigest({
-    prefix,
-    blockNumber,
-    blockHash,
-    stakingModuleId,
-    nonce,
-    operatorIds,
-    vettedKeysByOperator,
-  }) {
-    return utils.keccak256(
-      utils.solidityPack(
-        [
-          'bytes32',
-          'uint256',
-          'bytes32',
-          'uint256',
-          'uint256',
-          'bytes',
-          'bytes',
-        ],
-        [
-          prefix,
-          blockNumber,
-          blockHash,
-          stakingModuleId,
-          nonce,
-          operatorIds,
-          vettedKeysByOperator,
-        ],
-      ),
-    );
-  },
-
-  wireSignature(signature) {
-    return compactSignature(signature);
-  },
-
-  busEvents: {
-    deposit: 'MessageDepositV1',
-    pause: 'MessagePauseV3',
-    unvet: 'MessageUnvetV1',
-  },
-
-  async sendPause(deps, blockNumber, signature) {
-    return deps.dsm.pauseDeposits(blockNumber, compactSignature(signature));
-  },
-
-  async sendUnvet(deps, params, signature) {
-    return deps.dsm.unvetSigningKeys(
-      params.blockNumber,
-      params.blockHash,
-      params.stakingModuleId,
-      params.nonce,
-      params.operatorIds,
-      params.vettedKeysByOperator,
-      compactSignature(signature),
-    );
-  },
 };
 
 const v5Strategy: DsmVersionStrategy = {
@@ -316,7 +220,13 @@ const v5Strategy: DsmVersionStrategy = {
   },
 };
 
-/** The single version switch. Everything else asks the returned strategy. */
+/**
+ * The single version switch. Everything else asks the returned strategy.
+ * Ping messages carry no DSM version. For them, it returns the v5 strategy.
+ */
 export function getDsmStrategy(dsmVersion?: number): DsmVersionStrategy {
-  return dsmVersion === DSM_CONTRACT_VERSION_5 ? v5Strategy : v4Strategy;
+  if (dsmVersion !== undefined && dsmVersion !== DSM_CONTRACT_VERSION_5) {
+    throw new Error(`Unsupported DSM contract version: ${dsmVersion}`);
+  }
+  return v5Strategy;
 }

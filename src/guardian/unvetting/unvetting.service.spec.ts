@@ -27,11 +27,11 @@ describe('UnvettingService', () => {
   };
   const guardianContext = {
     dsmAddress: '0x0000000000000000000000000000000000000001',
-    dsmVersion: 4,
+    dsmVersion: 5,
     delegateAddress: '0x0000000000000000000000000000000000000001',
-    guardianAddress: '0x0000000000000000000000000000000000000001',
+    guardianAddress: '0x0000000000000000000000000000000000000002',
     guardianIndex: 1,
-    mode: 'legacy-eoa',
+    mode: 'edf',
   };
 
   beforeEach(async () => {

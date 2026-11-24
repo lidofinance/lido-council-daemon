@@ -293,10 +293,9 @@ describe('GuardianService', () => {
     });
   });
 
-  it.each([
-    ['legacy-eoa', 4],
-    ['edf', 5],
-  ] as const)('exports and logs %s guardian mode', (mode, dsmVersion) => {
+  it('exports and logs the edf guardian mode', () => {
+    const mode = 'edf';
+    const dsmVersion = 5;
     const firstWallet = '0x0000000000000000000000000000000000000001';
     const secondWallet = '0x0000000000000000000000000000000000000004';
     const context = {

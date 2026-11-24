@@ -134,13 +134,6 @@ describe('WalletService', () => {
       ).toBe(secondDelegateWallet.address);
     });
 
-    it('should switch back to the legacy wallet', () => {
-      walletService.selectDelegateWallet(firstDelegateWallet.address);
-      walletService.selectLegacyWallet();
-
-      expect(walletService.wallet.address).toBe(wallet.address);
-    });
-
     it('should reject an active delegate without a configured key', () => {
       const unknownDelegate = Wallet.createRandom();
 
@@ -205,56 +198,6 @@ describe('WalletService', () => {
   });
 
   describe('signDepositData', () => {
-    it('should sign deposit data', async () => {
-      const prefix = utils.hexZeroPad('0x1', 32);
-      const depositRoot = utils.hexZeroPad('0x2', 32);
-      const nonce = 1;
-      const blockNumber = 1;
-      const blockHash = utils.hexZeroPad('0x3', 32);
-      const signature = await walletService.signDepositData({
-        prefix,
-        depositRoot,
-        nonce,
-        blockNumber,
-        blockHash,
-        stakingModuleId: TEST_MODULE_ID,
-      });
-
-      expect(signature).toEqual(
-        expect.objectContaining({
-          _vs: expect.any(String),
-          r: expect.any(String),
-          s: expect.any(String),
-          v: expect.any(Number),
-        }),
-      );
-    });
-
-    it('should sign deposit data for DSM v4 without contract version', async () => {
-      const prefix = utils.hexZeroPad('0x1', 32);
-      const depositRoot = utils.hexZeroPad('0x2', 32);
-      const nonce = 1;
-      const blockNumber = 1;
-      const blockHash = utils.hexZeroPad('0x3', 32);
-      const signature = await walletService.signDepositData({
-        prefix,
-        depositRoot,
-        nonce,
-        blockNumber,
-        blockHash,
-        stakingModuleId: TEST_MODULE_ID,
-      });
-
-      const messageHash = solidityKeccak256(
-        ['bytes32', 'uint256', 'bytes32', 'bytes32', 'uint256', 'uint256'],
-        [prefix, blockNumber, blockHash, depositRoot, TEST_MODULE_ID, nonce],
-      );
-
-      expect(recoverAddress(messageHash, signature)).toBe(
-        walletService.address,
-      );
-    });
-
     it('should sign the guardian-bound DSM v5 deposit digest', async () => {
       const prefix = utils.hexZeroPad('0x1', 32);
       const depositRoot = utils.hexZeroPad('0x2', 32);
@@ -298,24 +241,6 @@ describe('WalletService', () => {
   });
 
   describe('signPauseData', () => {
-    it('should sign pause data for DSM v4 without contract version', async () => {
-      const prefix = utils.hexZeroPad('0x1', 32);
-      const blockNumber = 1;
-      const signature = await walletService.signPauseData({
-        prefix,
-        blockNumber,
-      });
-
-      const messageHash = solidityKeccak256(
-        ['bytes32', 'uint256'],
-        [prefix, blockNumber],
-      );
-
-      expect(recoverAddress(messageHash, signature)).toBe(
-        walletService.address,
-      );
-    });
-
     it('should sign the guardian-bound DSM v5 pause digest', async () => {
       const prefix = utils.hexZeroPad('0x1', 32);
       const guardianAddress = Wallet.createRandom().address;
@@ -337,96 +262,6 @@ describe('WalletService', () => {
   });
 
   describe('signUnvetData', () => {
-    it('should return valid signature', async () => {
-      const UNVET_MESSAGE_PREFIX = createUnvetMessagePrefix(
-        '0xB8ae82F7BFF2553bAF158B7a911DC10162045C53',
-      );
-
-      // use method underhood that do non-standart data packing
-      const signature = await walletService.signUnvetData({
-        prefix: UNVET_MESSAGE_PREFIX,
-        blockNumber: 1429451,
-        blockHash:
-          '0x528b085cf0951e7c3003deb40db355cd35c77018f4cdc937bd10783e1c15588c',
-        nonce: 11,
-        stakingModuleId: 1,
-        operatorIds: '0x0000000000000000',
-        vettedKeysByOperator: '0x00000000000000000000000000000032',
-      });
-
-      const encodedData = solidityKeccak256(
-        [
-          'bytes32',
-          'uint256',
-          'bytes32',
-          'uint256',
-          'uint256',
-          'bytes',
-          'bytes',
-        ],
-        [
-          UNVET_MESSAGE_PREFIX,
-          1429451,
-          '0x528b085cf0951e7c3003deb40db355cd35c77018f4cdc937bd10783e1c15588c',
-          1,
-          11,
-          '0x0000000000000000',
-          '0x00000000000000000000000000000032',
-        ],
-      );
-
-      const signer = recoverAddress(encodedData, signature);
-
-      expect(signer).toEqual(walletService.address);
-    });
-
-    it('should sign unvet data for DSM v4 without contract version', async () => {
-      const UNVET_MESSAGE_PREFIX = createUnvetMessagePrefix(
-        '0xB8ae82F7BFF2553bAF158B7a911DC10162045C53',
-      );
-      const blockNumber = 1429451;
-      const blockHash =
-        '0x528b085cf0951e7c3003deb40db355cd35c77018f4cdc937bd10783e1c15588c';
-      const nonce = 11;
-      const operatorIds = '0x0000000000000000';
-      const vettedKeysByOperator = '0x00000000000000000000000000000032';
-
-      const signature = await walletService.signUnvetData({
-        prefix: UNVET_MESSAGE_PREFIX,
-        blockNumber,
-        blockHash,
-        nonce,
-        stakingModuleId: 1,
-        operatorIds,
-        vettedKeysByOperator,
-      });
-
-      const messageHash = solidityKeccak256(
-        [
-          'bytes32',
-          'uint256',
-          'bytes32',
-          'uint256',
-          'uint256',
-          'bytes',
-          'bytes',
-        ],
-        [
-          UNVET_MESSAGE_PREFIX,
-          blockNumber,
-          blockHash,
-          1,
-          nonce,
-          operatorIds,
-          vettedKeysByOperator,
-        ],
-      );
-
-      expect(recoverAddress(messageHash, signature)).toBe(
-        walletService.address,
-      );
-    });
-
     it('should sign the guardian-bound DSM v5 unvet digest', async () => {
       const prefix = createUnvetMessagePrefix(
         '0xB8ae82F7BFF2553bAF158B7a911DC10162045C53',

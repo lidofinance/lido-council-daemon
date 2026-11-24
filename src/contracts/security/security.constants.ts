@@ -1,8 +1,6 @@
-export const DSM_CONTRACT_VERSION_4 = 4;
 export const DSM_CONTRACT_VERSION_5 = 5;
 
 export const DSM_CONTRACT_SUPPORTED_VERSIONS = [
-  DSM_CONTRACT_VERSION_4,
   DSM_CONTRACT_VERSION_5,
 ] as const;
 
