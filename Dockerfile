@@ -1,4 +1,4 @@
-FROM node:24.22.1-alpine3.23 AS building
+FROM node:24.22.3-trixie-slim@sha256:4d00acb4bcc42c454c4eb801526f7ad7f772ea3bd4fd168c5cc2e384abcbb9d4 AS building
 
 WORKDIR /council
 
@@ -9,7 +9,7 @@ COPY tsconfig*.json nest-cli.json ./
 COPY src ./src
 RUN yarn build
 
-FROM node:24.22.1-alpine3.23 AS dependencies
+FROM node:24.22.3-trixie-slim@sha256:4d00acb4bcc42c454c4eb801526f7ad7f772ea3bd4fd168c5cc2e384abcbb9d4 AS dependencies
 
 WORKDIR /council
 
@@ -17,7 +17,7 @@ COPY package.json yarn.lock ./
 # Native dependencies ship prebuilt binaries. TypeChain runs in the build stage.
 RUN yarn install --production --frozen-lockfile --non-interactive --ignore-scripts && yarn cache clean
 
-FROM node:24.22.1-alpine3.23
+FROM node:24.22.3-trixie-slim@sha256:4d00acb4bcc42c454c4eb801526f7ad7f772ea3bd4fd168c5cc2e384abcbb9d4
 
 ENV PORT=3000
 ENV NODE_OPTIONS=--max-old-space-size=8192
@@ -29,7 +29,12 @@ COPY --from=dependencies /council/node_modules ./node_modules
 COPY package.json ./
 COPY scripts/check-runtime.cjs ./scripts/check-runtime.cjs
 
-RUN mkdir cache && chown node:node cache
+# The app starts node directly. The package managers of the base image are
+# not needed at runtime, and their bundled packages carry CVEs.
+RUN mkdir cache && chown node:node cache \
+  && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+    /opt/yarn-v1.22.22 /usr/local/bin/yarn /usr/local/bin/yarnpkg
 
 ARG BUILD_VERSION=dev
 ARG BUILD_BRANCH=dev
@@ -45,6 +50,6 @@ RUN node -e " \
 USER 1000:1000
 
 HEALTHCHECK --interval=120s --timeout=10s --retries=2 \
-    CMD sh -c "wget -nv -t1 --spider http://localhost:$PORT/health" || exit 1
+    CMD ["node", "-e", "fetch(`http://127.0.0.1:${process.env.PORT}/health`).then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
 
 CMD ["node", "dist/main"]

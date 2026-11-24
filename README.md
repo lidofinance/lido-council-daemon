@@ -311,7 +311,7 @@ info: New staking router state cycle end
 
 ## Development
 
-Use Node.js **24.22.1** and Yarn **1.22.22**:
+Use Node.js **24.22.3** and Yarn **1.22.22**:
 
 ```bash
 nvm install

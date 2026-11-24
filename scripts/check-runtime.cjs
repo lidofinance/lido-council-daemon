@@ -14,7 +14,7 @@ const {
 const { validKeys } = require('../dist/guardian/keys-validation/keys.fixtures');
 
 async function main() {
-  assert.equal(process.version, 'v24.22.1');
+  assert.equal(process.version, 'v24.22.3');
   if (process.argv.includes('--production')) {
     for (const name of ['jest', 'typescript', 'hardhat', 'dockerode']) {
       assert.throws(() => require.resolve(name), { code: 'MODULE_NOT_FOUND' });
