@@ -88,13 +88,11 @@ export class InMemoryConfiguration implements Configuration {
   CHAIN_ID!: number;
 
   /**
-   * Pool of two equal wallet keys. The daemon decides on every block which
-   * one to sign with: on DSM v4 it takes the first key (legacy guardian
-   * EOA); on DSM v5 it reads the effective delegate from the delegation
-   * contract and takes whichever key matches it. So a migration or a delegate
-   * rotation needs no restart, and after it completes the retired key is
-   * simply removed from the pool. Each key is a plain env value or a `_FILE`
-   * path to a secret.
+   * Pool of two equal wallet keys. On every block, the daemon reads the
+   * effective delegate from the delegation contract and signs with the
+   * matching key. A delegate rotation needs no restart. After the rotation,
+   * remove the retired key from the pool. Each key is a plain env value or a
+   * `_FILE` path to a secret.
    */
   @IsString()
   WALLET_PRIVATE_KEY = '';

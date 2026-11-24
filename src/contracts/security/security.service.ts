@@ -20,7 +20,6 @@ import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { WalletService } from 'wallet';
 import {
   DSM_CONTRACT_SUPPORTED_VERSIONS,
-  DSM_CONTRACT_VERSION_5,
   ERC1271_INTERFACE_ID,
 } from './security.constants';
 import { DsmTxDeps, getDsmStrategy } from './dsm-version.strategy';
@@ -202,20 +201,6 @@ export class SecurityService {
     const contract = this.repositoryService.getCachedDSMContract();
     const dsmAddress = utils.getAddress(contract.address);
     const dsmVersion = (await this.version(blockTag)) as DsmVersion;
-
-    if (dsmVersion !== DSM_CONTRACT_VERSION_5) {
-      this.walletService.selectLegacyWallet();
-      const delegateAddress = utils.getAddress(this.walletService.address);
-      const guardians = await this.getGuardians(blockTag);
-      return {
-        dsmAddress,
-        dsmVersion,
-        delegateAddress,
-        guardianAddress: delegateAddress,
-        guardianIndex: this.findGuardianIndex(guardians, delegateAddress),
-        mode: 'legacy-eoa',
-      };
-    }
 
     const configuredAddress = this.config.DELEGATION_CONTRACT_ADDRESS;
     if (!configuredAddress || !utils.isAddress(configuredAddress)) {
@@ -543,11 +528,7 @@ export class SecurityService {
   }
 
   private selectWallet(context: GuardianExecutionContext): void {
-    if (getDsmStrategy(context.dsmVersion).signer === 'delegate') {
-      this.walletService.selectDelegateWallet(context.delegateAddress);
-      return;
-    }
-    this.walletService.selectLegacyWallet();
+    this.walletService.selectDelegateWallet(context.delegateAddress);
   }
 
   /**

@@ -143,10 +143,6 @@ export class WalletService implements OnModuleInit {
   private activeWallet: Wallet | null = null;
   private cachedWallets: Wallet[] | null = null;
 
-  public selectLegacyWallet(): void {
-    this.activeWallet = this.wallets[0];
-  }
-
   public selectDelegateWallet(delegateAddress: string): void {
     const normalizedAddress = utils.getAddress(delegateAddress);
     const wallet = this.wallets.find(

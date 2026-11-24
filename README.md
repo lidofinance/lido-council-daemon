@@ -49,8 +49,7 @@ EVM_CHAIN_DATA_BUS_PROVIDER_URL=<evm chain node url>
 ...
 ```
 
-The EVM Chain transport sends transactions from the active wallet. It uses the
-legacy wallet with DSM v4 and the active delegate wallet with DSM v5.
+The EVM Chain transport sends transactions from the active delegate wallet.
 
 ### Wallet Private Key
 
@@ -60,10 +59,8 @@ WALLET_PRIVATE_KEY=<wallet private key>
 ...
 ```
 
-`WALLET_PRIVATE_KEY` is the guardian key for DSM v4 and the current
-delegate key for DSM v5. Keep it configured during the migration. If it is
-omitted, the daemon generates a random key, which works only with
-`DRY_RUN=true`.
+`WALLET_PRIVATE_KEY` is the current delegate key. Without it, the daemon
+generates a random key. A random key works only with `DRY_RUN=true`.
 
 ### DSM v5 Delegation
 

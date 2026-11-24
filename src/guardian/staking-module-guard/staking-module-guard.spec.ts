@@ -195,7 +195,7 @@ describe('StakingModuleGuardService', () => {
     };
     const blockData = {
       ...currentContractState,
-      guardianContext: { dsmVersion: 4 },
+      guardianContext: { dsmVersion: 5 },
     } as any;
 
     it('should check contracts state', async () => {
