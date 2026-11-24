@@ -2,6 +2,7 @@ import { PrometheusModule as PrometheusModuleSource } from '@willsoto/nestjs-pro
 import {
   PrometheusPauseDepositsCounterProvider,
   PrometheusTransportMessageCounterProvider,
+  PrometheusPublishMessageDurationProvider,
   PrometheusAccountBalanceProvider,
   PrometheusRPCErrorsCounterProvider,
   PrometheusRPCRequestsHistogramProvider,
@@ -49,6 +50,7 @@ export const PrometheusModule = PrometheusModuleSource.register({
 
 const providers = [
   PrometheusTransportMessageCounterProvider,
+  PrometheusPublishMessageDurationProvider,
   PrometheusPauseDepositsCounterProvider,
   PrometheusRPCRequestsHistogramProvider,
   PrometheusRPCErrorsCounterProvider,

@@ -8,6 +8,7 @@ import {
   MAIN_PROVIDER_REQUEST_TIMEOUT,
   PROVIDER_RESET_INTERVAL,
 } from './provider.constants';
+import { withUserAgent } from './user-agent';
 
 @Global()
 @Module({})
@@ -22,7 +23,7 @@ export class MainProviderModule {
             config: Configuration,
             requestMetric: Histogram<string>,
           ) => ({
-            urls: config.PROVIDERS_URLS ?? [config.RPC_URL],
+            urls: withUserAgent(config.PROVIDERS_URLS ?? [config.RPC_URL]),
             network: config.CHAIN_ID,
             instanceLabel: 'EL1',
             maxRetries: 1,

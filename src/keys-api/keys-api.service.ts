@@ -10,6 +10,7 @@ import { SRModuleListResponse } from './interfaces/SRModuleListResponse';
 import { SRModuleKeyListResponse } from './interfaces/SRModuleKeyListResponse';
 import { ELBlockSnapshot } from './interfaces/ELBlockSnapshot';
 import { DeepReadonly } from 'common/ts-utils';
+import { USER_AGENT } from 'app.constants';
 
 @Injectable()
 export class KeysApiService {
@@ -44,6 +45,10 @@ export class KeysApiService {
         {
           signal,
           ...requestInit,
+          headers: {
+            'User-Agent': USER_AGENT,
+            ...(requestInit?.headers as Record<string, string> | undefined),
+          },
         },
       );
 

@@ -13,8 +13,10 @@ export interface Configuration {
   LOG_LEVEL: string;
   LOG_FORMAT: string;
   RPC_URL: string;
+  RPC_URL_FILE: string;
   // New array-based configuration with backward compatibility
   PROVIDERS_URLS?: NonEmptyArray<string>;
+  PROVIDERS_URLS_FILE: string;
   CHAIN_ID: number;
   WALLET_PRIVATE_KEY: string;
   WALLET_PRIVATE_KEY_FILE: string;
@@ -26,7 +28,9 @@ export interface Configuration {
   REGISTRY_KEYS_QUERY_CONCURRENCY: number;
   KEYS_API_PORT: number;
   KEYS_API_HOST: string;
+  KEYS_API_HOST_FILE: string;
   KEYS_API_URL: string;
+  KEYS_API_URL_FILE: string;
   LOCATOR_DEVNET_ADDRESS: string;
   DELEGATION_CONTRACT_ADDRESS: string;
   DRY_RUN: boolean;
@@ -34,8 +38,10 @@ export interface Configuration {
   WALLET_CRITICAL_BALANCE: ethers.BigNumber;
   EVM_CHAIN_DATA_BUS_ADDRESS: string;
   EVM_CHAIN_DATA_BUS_PROVIDER_URL: string;
+  EVM_CHAIN_DATA_BUS_PROVIDER_URL_FILE: string;
   // New array-based data bus configuration with backward compatibility
   EVM_CHAIN_DATA_BUS_PROVIDERS_URLS?: NonEmptyArray<string>;
+  EVM_CHAIN_DATA_BUS_PROVIDERS_URLS_FILE: string;
   EVM_CHAIN_DATA_BUS_CHAIN_ID: number;
   EVM_CHAIN_DATA_BUS_WALLET_MIN_BALANCE: ethers.BigNumber;
 }

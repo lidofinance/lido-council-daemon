@@ -3,7 +3,13 @@
 /node_modules
 
 # Env
-.env
+.env*
+
+# Generated in the image by the install step
+src/generated
+
+# Local LevelDB cache
+/cache
 
 # Logs
 logs

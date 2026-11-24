@@ -127,6 +127,7 @@ export class RpcMetricsService implements OnModuleInit, OnModuleDestroy {
   private trackResponseTime(
     requests: JsonRpcRequest[],
     baseLabels: BaseMetricLabels,
+    result: string,
     config: RpcProviderConfig,
   ) {
     const requestKey = this.generateRequestKey(requests, config);
@@ -134,7 +135,10 @@ export class RpcMetricsService implements OnModuleInit, OnModuleDestroy {
 
     if (pending) {
       const duration = (Date.now() - pending.startTime) / 1000;
-      this.metricsRegistry.httpRpcResponseSeconds.observe(baseLabels, duration);
+      this.metricsRegistry.httpRpcResponseSeconds.observe(
+        { ...baseLabels, result },
+        duration,
+      );
       this.pendingRequests.delete(requestKey);
     }
 
@@ -147,17 +151,25 @@ export class RpcMetricsService implements OnModuleInit, OnModuleDestroy {
   ) {
     const baseLabels = this.getBaseLabels(event.domain, config);
     const batchSize = event.request.length;
+    const result = RPC_METRICS_CONSTANTS.RESULTS.SUCCESS;
 
     this.metricsRegistry.httpRpcRequestsTotal.inc({
       ...baseLabels,
       batched: batchSize > 1 ? 'true' : 'false',
       response_code: RPC_METRICS_CONSTANTS.RESPONSE_CODES.SUCCESS,
-      result: RPC_METRICS_CONSTANTS.RESULTS.SUCCESS,
+      result,
     });
-    this.trackResponseTime(event.request, baseLabels, config);
+    this.trackResponseTime(event.request, baseLabels, result, config);
 
-    this.metricsRegistry.httpRpcBatchSize.observe(baseLabels, batchSize);
-    this.trackPayloadSizes(baseLabels, event.request, event.response);
+    this.metricsRegistry.httpRpcBatchSize.observe(
+      { ...baseLabels, result },
+      batchSize,
+    );
+    this.trackPayloadSizes(
+      { ...baseLabels, result },
+      event.request,
+      event.response,
+    );
     this.trackRpcCallMetrics(
       event.request,
       event.response,
@@ -179,19 +191,24 @@ export class RpcMetricsService implements OnModuleInit, OnModuleDestroy {
       ? RPC_METRICS_CONSTANTS.RESPONSE_CODES.CLIENT_ERROR
       : RPC_METRICS_CONSTANTS.RESPONSE_CODES.SERVER_ERROR;
 
+    const result = RPC_METRICS_CONSTANTS.RESULTS.FAIL;
+
     this.metricsRegistry.httpRpcRequestsTotal.inc({
       ...baseLabels,
       batched: batchSize > 1 ? 'true' : 'false',
       response_code: errorCode,
-      result: RPC_METRICS_CONSTANTS.RESULTS.FAIL,
+      result,
     });
 
-    this.trackResponseTime(event.request, baseLabels, config);
-    this.metricsRegistry.httpRpcBatchSize.observe(baseLabels, batchSize);
+    this.trackResponseTime(event.request, baseLabels, result, config);
+    this.metricsRegistry.httpRpcBatchSize.observe(
+      { ...baseLabels, result },
+      batchSize,
+    );
 
     const requestSize = this.calculatePayloadSize(event.request);
     this.metricsRegistry.httpRpcRequestPayloadBytes.observe(
-      baseLabels,
+      { ...baseLabels, result },
       requestSize,
     );
 
@@ -211,20 +228,20 @@ export class RpcMetricsService implements OnModuleInit, OnModuleDestroy {
   }
 
   private trackPayloadSizes(
-    baseLabels: BaseMetricLabels,
+    labels: BaseMetricLabels & { result: string },
     request: any,
     response?: any,
   ) {
     const requestSize = this.calculatePayloadSize(request);
     this.metricsRegistry.httpRpcRequestPayloadBytes.observe(
-      baseLabels,
+      labels,
       requestSize,
     );
 
     if (response) {
       const responseSize = this.calculatePayloadSize(response);
       this.metricsRegistry.httpRpcResponsePayloadBytes.observe(
-        baseLabels,
+        labels,
         responseSize,
       );
     }

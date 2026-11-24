@@ -3,15 +3,20 @@ import { SimpleFallbackJsonRpcBatchProvider } from '@lido-nestjs/execution';
 import { TransportInterface } from 'transport';
 import { getMessageTopicPrefix } from './messages.constants';
 import { Configuration } from 'common/config';
-import { METRIC_SENT_MESSAGES } from 'common/prometheus';
+import {
+  METRIC_PUBLISH_MESSAGE_DURATION,
+  METRIC_SENT_MESSAGES,
+} from 'common/prometheus';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
-import { Counter } from '@prometheus-io/client';
+import { Counter, Histogram } from '@prometheus-io/client';
 import { MessageRequiredFields } from './interfaces';
 
 @Injectable()
 export class MessagesService {
   constructor(
     @InjectMetric(METRIC_SENT_MESSAGES) public messageCounter: Counter<string>,
+    @InjectMetric(METRIC_PUBLISH_MESSAGE_DURATION)
+    private publishDuration: Histogram<string>,
     private provider: SimpleFallbackJsonRpcBatchProvider,
     private transportService: TransportInterface,
     private config: Configuration,
@@ -36,10 +41,17 @@ export class MessagesService {
   public async sendMessage<T extends MessageRequiredFields>(
     message: T,
   ): Promise<void> {
-    const topic = await this.getMessageTopic();
     const messageType = message.type;
 
-    await this.transportService.publish(topic, message, messageType);
+    const endTimer = this.publishDuration.startTimer({ messageType });
+    try {
+      const topic = await this.getMessageTopic();
+      await this.transportService.publish(topic, message, messageType);
+    } catch (error) {
+      endTimer({ result: 'fail' });
+      throw error;
+    }
+    endTimer({ result: 'success' });
 
     this.messageCounter.labels({ messageType }).inc();
   }

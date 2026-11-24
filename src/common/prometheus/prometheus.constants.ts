@@ -2,6 +2,7 @@ export const METRICS_URL = 'metrics';
 export const METRICS_PREFIX = 'council_daemon_';
 
 export const METRIC_SENT_MESSAGES = `${METRICS_PREFIX}sent_messages_total`;
+export const METRIC_PUBLISH_MESSAGE_DURATION = `${METRICS_PREFIX}publish_message_duration_seconds`;
 export const METRIC_PAUSE_ATTEMPTS = `${METRICS_PREFIX}pause_deposits_attempts_total`;
 export const METRIC_UNVET_ATTEMPTS = `${METRICS_PREFIX}unvet_attempts_total`;
 

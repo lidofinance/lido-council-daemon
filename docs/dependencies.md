@@ -1,6 +1,6 @@
 # Dependency maintenance
 
-Use Node.js 24.22.1 and Yarn 1.22.22. Keep direct dependencies and security
+Use Node.js 24.22.3 and Yarn 1.22.22. Keep direct dependencies and security
 resolutions at exact versions. Commit the generated `yarn.lock` with each
 dependency change. CI and Docker use `--frozen-lockfile`.
 

@@ -22,6 +22,7 @@ import { Configuration, PubsubService, NonEmptyArray } from './configuration';
 import { implementationOf } from '../di/decorators/implementationOf';
 import { ethers, BigNumber } from 'ethers';
 import { TransformToWei } from 'common/decorators/transform-to-wei';
+import { parseUrlList } from './secrets';
 
 const EVM_CHAIN = 'evm-chain';
 
@@ -57,25 +58,30 @@ export class InMemoryConfiguration implements Configuration {
   PORT = 3000;
 
   @IsNotEmpty()
-  @IsIn(['error', 'warning', 'notice', 'info', 'debug'])
+  @IsIn(['error', 'warn', 'info', 'debug'])
   LOG_LEVEL = 'info';
 
   @IsString()
   @IsIn(['simple', 'json'])
   LOG_FORMAT = 'json';
 
+  @ValidateIf((conf) => !conf.PROVIDERS_URLS)
   @IsNotEmpty()
   @IsString()
   RPC_URL = '';
+
+  @IsString()
+  RPC_URL_FILE = '';
 
   // New array-based provider configuration with backward compatibility
   @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
-  @Transform(({ value }) =>
-    value?.split(',').map((url: string) => url.replace(/\/$/, '').trim()),
-  )
+  @Transform(({ value }) => parseUrlList(value))
   PROVIDERS_URLS?: NonEmptyArray<string>;
+
+  @IsString()
+  PROVIDERS_URLS_FILE = '';
 
   @IsNotEmpty()
   @IsNumber()
@@ -135,12 +141,18 @@ export class InMemoryConfiguration implements Configuration {
   @IsString()
   KEYS_API_HOST = '';
 
+  @IsString()
+  KEYS_API_HOST_FILE = '';
+
   @ValidateIf((conf) => {
     return !conf.KEYS_API_PORT && !conf.KEYS_API_HOST;
   })
   @IsNotEmpty()
   @IsString()
   KEYS_API_URL = '';
+
+  @IsString()
+  KEYS_API_URL_FILE = '';
 
   @IsOptional()
   @IsString()
@@ -180,20 +192,28 @@ export class InMemoryConfiguration implements Configuration {
   @IsString()
   EVM_CHAIN_DATA_BUS_ADDRESS = '';
 
-  @ValidateIf((conf) => conf.PUBSUB_SERVICE === EVM_CHAIN)
+  @ValidateIf(
+    (conf) =>
+      conf.PUBSUB_SERVICE === EVM_CHAIN &&
+      !conf.EVM_CHAIN_DATA_BUS_PROVIDERS_URLS,
+  )
   @IsNotEmpty()
   @IsString()
   EVM_CHAIN_DATA_BUS_PROVIDER_URL = '';
+
+  @IsString()
+  EVM_CHAIN_DATA_BUS_PROVIDER_URL_FILE = '';
 
   // New array-based data bus configuration with backward compatibility
   @ValidateIf((conf) => conf.PUBSUB_SERVICE === EVM_CHAIN)
   @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
-  @Transform(({ value }) =>
-    value?.split(',').map((url: string) => url.replace(/\/$/, '').trim()),
-  )
+  @Transform(({ value }) => parseUrlList(value))
   EVM_CHAIN_DATA_BUS_PROVIDERS_URLS?: NonEmptyArray<string>;
+
+  @IsString()
+  EVM_CHAIN_DATA_BUS_PROVIDERS_URLS_FILE = '';
 
   @ValidateIf((conf) => conf.PUBSUB_SERVICE === EVM_CHAIN)
   @IsNotEmpty()
