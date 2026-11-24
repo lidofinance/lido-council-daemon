@@ -10,11 +10,11 @@ import {
   WINSTON_MODULE_PROVIDER,
 } from 'nest-winston';
 import * as winston from 'winston';
-import { dumpConfig } from 'app.service';
 import {
   ConfigModule,
   Configuration,
   createConfigErrorLogger,
+  dumpConfig,
 } from 'common/config';
 import { InMemoryConfiguration } from 'common/config/in-memory-configuration';
 import { KeysApiService } from 'keys-api/keys-api.service';

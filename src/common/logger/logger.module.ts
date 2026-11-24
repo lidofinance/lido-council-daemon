@@ -1,41 +1,10 @@
 import { WinstonModule } from 'nest-winston';
-import * as winston from 'winston';
-import { cleanSecrets } from '@lido-nestjs/logger';
 import { Configuration } from 'common/config';
-import { logMaskOptions } from 'common/config/secrets';
 import { ModuleRef } from '@nestjs/core';
+import { createLoggerOptions } from './logger-options';
 
 export const LoggerModule = WinstonModule.forRootAsync({
   imports: [],
   inject: [Configuration, ModuleRef],
-  useFactory: async (config: Configuration) => ({
-    level: config.LOG_LEVEL,
-    // Runs before every transport format, so it is the one masking point.
-    format: cleanSecrets(logMaskOptions(config)),
-    transports: [
-      new winston.transports.Console({
-        silent: process.env.E2E_SILENT_LOGS === 'true',
-        format:
-          config.LOG_FORMAT === 'json'
-            ? winston.format.combine(
-                winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-                winston.format((info) => {
-                  info.pid = process.pid;
-                  return info;
-                })(),
-                winston.format.json(),
-              )
-            : winston.format.combine(
-                winston.format.colorize({ all: true }),
-                winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-                winston.format.printf((log) => {
-                  const { timestamp, level, message, context } = log;
-                  const extra = context ? JSON.stringify(context) : '';
-
-                  return `${timestamp} [PID:${process.pid}] ${level}: ${message} ${extra}`;
-                }),
-              ),
-      }),
-    ],
-  }),
+  useFactory: async (config: Configuration) => createLoggerOptions(config),
 });

@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { randomBytes } from 'crypto';
 import { mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -10,8 +11,12 @@ describe('ConfigModule', () => {
   const dir = mkdtempSync(join(tmpdir(), 'council-config-'));
   const rpcUrlFile = join(dir, 'rpc-url');
   const emptyFile = join(dir, 'empty');
+  const keyedRpcUrlFile = join(dir, 'keyed-rpc-url');
+  // A capital letter makes the key look random to the masking rules.
+  const rpcKey = `K${randomBytes(16).toString('hex')}`;
   writeFileSync(rpcUrlFile, 'https://eth.example.com\n');
   writeFileSync(emptyFile, '\n');
+  writeFileSync(keyedRpcUrlFile, `https://eth.example.com/v2/${rpcKey}\n`);
 
   const ENV = {
     PATH: originalEnv.PATH,
@@ -24,6 +29,7 @@ describe('ConfigModule', () => {
   };
 
   let stderr: string[];
+  let stdout: string[];
   let exit: jest.SpyInstance;
 
   const load = () =>
@@ -31,24 +37,37 @@ describe('ConfigModule', () => {
       .compile()
       .then((moduleRef) => moduleRef.get<Configuration>(Configuration));
 
-  beforeEach(() => {
-    stderr = [];
-    // The winston console transport writes to stderr, or to console.error
-    // when the console has no stderr stream, as under jest.
-    jest.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
-      stderr.push(chunk.toString());
+  /** The records with the given message, from both streams. */
+  const records = (message: string) =>
+    [...stdout, ...stderr]
+      .flatMap((chunk) => chunk.split('\n'))
+      .filter((line) => line.startsWith('{'))
+      .map((line) => JSON.parse(line))
+      .filter((record) => record.message === message);
+
+  /**
+   * Collects one output stream. The winston console transport writes to the
+   * stream, or to `console.log` and `console.error` when the console has no
+   * stream of its own, as under jest.
+   */
+  const capture = (stream: 'stdout' | 'stderr', method: 'log' | 'error') => {
+    const lines: string[] = [];
+    const push = (...args: unknown[]) => {
+      lines.push(String(args[0]));
       return true;
-    });
-    jest
-      .spyOn(console, 'error')
-      .mockImplementation((line) => stderr.push(String(line)));
-    const consoleStderr = (console as any)._stderr;
-    if (consoleStderr && consoleStderr !== process.stderr) {
-      jest.spyOn(consoleStderr, 'write').mockImplementation((chunk: any) => {
-        stderr.push(chunk.toString());
-        return true;
-      });
+    };
+    jest.spyOn(process[stream], 'write').mockImplementation(push);
+    jest.spyOn(console, method).mockImplementation(push);
+    const consoleStream = (console as any)[`_${stream}`];
+    if (consoleStream && consoleStream !== process[stream]) {
+      jest.spyOn(consoleStream, 'write').mockImplementation(push);
     }
+    return lines;
+  };
+
+  beforeEach(() => {
+    stdout = capture('stdout', 'log');
+    stderr = capture('stderr', 'error');
     exit = jest.spyOn(process, 'exit').mockImplementation(() => {
       throw new Error('process.exit');
     });
@@ -95,5 +114,46 @@ describe('ConfigModule', () => {
       level: 'error',
       message: 'Cannot load the config',
     });
+  });
+
+  it('writes the masked config dump as soon as the config loads', async () => {
+    process.env = { ...ENV, RPC_URL_FILE: keyedRpcUrlFile };
+
+    await load();
+
+    const [dump] = records('Config');
+    expect(dump).toMatchObject({ level: 'info', context: { CHAIN_ID: 1 } });
+    expect(dump.context).toHaveProperty('RPC_URL');
+    expect(dump.context).not.toHaveProperty('PATH');
+    expect([...stdout, ...stderr].join('')).not.toContain(rpcKey);
+  });
+
+  it('writes the dump before a provider that needs the config fails', async () => {
+    process.env = { ...ENV, RPC_URL_FILE: keyedRpcUrlFile };
+
+    await expect(
+      Test.createTestingModule({
+        imports: [ConfigModule.forRoot()],
+        providers: [
+          {
+            provide: 'RPC_PROVIDER',
+            useFactory: () => {
+              throw new Error('RPC is down');
+            },
+            inject: [Configuration],
+          },
+        ],
+      }).compile(),
+    ).rejects.toThrow('RPC is down');
+
+    expect(records('Config')).toHaveLength(1);
+  });
+
+  it('loads .env without writing to the console', () => {
+    jest.isolateModules(() => {
+      jest.requireActual('./config.module');
+    });
+
+    expect([...stdout, ...stderr].join('')).not.toContain('injected env');
   });
 });

@@ -12,24 +12,11 @@ const createService = (Service: typeof AppService = AppService) => {
   const logger = { log: jest.fn((message: string) => calls.push(message)) };
   const inc = jest.fn();
   const buildInfo = { labels: jest.fn().mockReturnValue({ inc }) };
-  const service = new Service(
-    provider as any,
-    logger as any,
-    buildInfo as any,
-    { CHAIN_ID: 1 } as any,
-  );
+  const service = new Service(provider as any, logger as any, buildInfo as any);
   return { service, calls, provider, buildInfo, inc };
 };
 
 describe('AppService', () => {
-  it('dumps the config before it calls the RPC', async () => {
-    const { service, calls } = createService();
-
-    await service.onModuleInit();
-
-    expect(calls).toEqual(['Config', 'getNetwork', 'Init app']);
-  });
-
   it('sets build_info with the version, commit and branch', async () => {
     const { service, buildInfo, inc } = createService();
 
@@ -64,7 +51,7 @@ describe('AppService', () => {
     await expect(service.onModuleInit()).rejects.toThrow(
       'is longer than 31 bytes',
     );
-    expect(calls).toEqual(['Config']);
+    expect(calls).toEqual([]);
     expect(provider.getNetwork).not.toHaveBeenCalled();
   });
 });
